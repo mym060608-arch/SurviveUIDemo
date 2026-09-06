@@ -1,0 +1,143 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="AppRoot" class="app-root">
+        <ui:VisualElement name="AppBody" class="app-body">
+            <!-- Screen 01: Overview -->
+            <ui:VisualElement name="OverviewScreen" class="screen">
+                <ui:Label name="AppTitle" class="app-title" text="SURVIVE // DRIFT" />
+                <ui:Label class="app-subtitle" text="SHIP STATUS OVERVIEW" />
+                <ui:Label class="section-title" text="SHIP STATUS" />
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="ENERGY" />
+                    <ui:Label name="EnergyValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="FOOD" />
+                    <ui:Label name="FoodValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="MINERALS" />
+                    <ui:Label name="MineralsValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="FUEL" />
+                    <ui:Label name="FuelValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="ALLOY" />
+                    <ui:Label name="AlloyValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:Label class="section-title" text="CURRENT DESTINATION" />
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="PLANET" />
+                    <ui:Label name="DestinationValue" class="stat-value" text="NEREID-04" />
+                </ui:VisualElement>
+                <ui:Button name="OpenPreparationButton" class="button-primary" text="PREPARE EXPEDITION" />
+            </ui:VisualElement>
+
+            <!-- Screen 02: Preparation -->
+            <ui:VisualElement name="PreparationScreen" class="screen">
+                <ui:Label class="app-title" text="PREPARE EXPEDITION" />
+                <ui:Label class="section-title" text="MISSION" />
+                <ui:Label class="app-subtitle" text="NEREID-04" />
+                <ui:Label class="section-title" text="ENVIRONMENT" />
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="Temperature" />
+                    <ui:Label class="stat-value" text="-37 C" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="Gravity" />
+                    <ui:Label class="stat-value" text="0.72 G" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="Radiation" />
+                    <ui:Label class="stat-value" text="MEDIUM" />
+                </ui:VisualElement>
+                <ui:Label class="section-title" text="EQUIPMENT" />
+                <ui:Button name="HarvesterRowButton" class="equipment-button" text="HARVESTER MK-I" />
+                <ui:Button name="BatteryRowButton" class="equipment-button" text="BATTERY PACK" />
+                <ui:Button name="DroneRowButton" class="equipment-button" text="SURVEY DRONE" />
+                <ui:Label class="section-title" text="CARGO" />
+                <ui:Label name="CargoValue" class="big-value" text="0 / 100" />
+                <ui:Label name="LoadoutStateLabel" class="dialog-message" text="STATUS: DRAFT" />
+                <ui:Button name="ConfirmLoadoutButton" class="button-primary" text="CONFIRM LOADOUT" />
+            </ui:VisualElement>
+
+            <!-- Screen 03: Processing -->
+            <ui:VisualElement name="ProcessingScreen" class="screen">
+                <ui:Label class="app-title" text="RESOURCE PROCESSING" />
+                <ui:Label class="section-title" text="RAW MINERALS" />
+                <ui:Label name="ProcessingMineralsValue" class="big-value" text="0" />
+                <ui:Label class="section-title" text="REFINERY FLOW" />
+                <ui:VisualElement class="schematic">
+                    <ui:Label class="schematic-box" text="MINERAL ORE" />
+                    <ui:Label class="schematic-flow" text="|" />
+                    <ui:Label class="schematic-flow" text="v" />
+                    <ui:Label class="schematic-box" text="REFINERY" />
+                    <ui:VisualElement class="schematic-row">
+                        <ui:VisualElement class="schematic-half">
+                            <ui:Label class="schematic-flow" text="v" />
+                            <ui:Label class="schematic-box" text="FUEL" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="schematic-half">
+                            <ui:Label class="schematic-flow" text="v" />
+                            <ui:Label class="schematic-box" text="ALLOY" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label class="section-title" text="CURRENT OUTPUT" />
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="FUEL" />
+                    <ui:Label name="ProcessingFuelValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="ALLOY" />
+                    <ui:Label name="ProcessingAlloyValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:Button name="ProcessButton" class="button-primary" text="PROCESS 5 MINERALS" />
+            </ui:VisualElement>
+
+            <!-- Screen 04: Outpost -->
+            <ui:VisualElement name="OutpostScreen" class="screen">
+                <ui:Label class="app-title" text="OUTPOST" />
+                <ui:Label class="app-subtitle" text="CORE MODULE" />
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="HARVESTER" />
+                    <ui:Label name="HarvesterLevelValue" class="stat-value" text="HARVESTER LV.1" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="REFINERY" />
+                    <ui:Label name="RefineryLevelValue" class="stat-value" text="REFINERY LV.1" />
+                </ui:VisualElement>
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="OUTPOST" />
+                    <ui:Label name="OutpostLevelValue" class="stat-value" text="OUTPOST LV.1" />
+                </ui:VisualElement>
+                <ui:Label class="section-title" text="ALLOY STOCK" />
+                <ui:VisualElement class="stat-row">
+                    <ui:Label class="stat-name" text="ALLOY" />
+                    <ui:Label name="OutpostAlloyValue" class="stat-value" text="0" />
+                </ui:VisualElement>
+                <ui:Button name="UpgradeRefineryButton" class="button-primary" text="UPGRADE REFINERY" />
+                <ui:Label class="dialog-message" text="COST: 3 ALLOY" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <!-- Bottom navigation (always available) -->
+        <ui:VisualElement name="BottomNav" class="bottom-nav">
+            <ui:Button name="NavOverview" class="nav-button" text="OVERVIEW" />
+            <ui:Button name="NavPreparation" class="nav-button" text="PREPARATION" />
+            <ui:Button name="NavProcessing" class="nav-button" text="PROCESSING" />
+            <ui:Button name="NavOutpost" class="nav-button" text="OUTPOST" />
+        </ui:VisualElement>
+
+        <!-- Debug panel (developer-only, deliberately plain) -->
+        <ui:VisualElement name="DebugPanel" class="debug-panel">
+            <ui:Button name="DebugToggleButton" class="debug-toggle" text="DEBUG" />
+            <ui:VisualElement name="DebugContent" style="display: none;">
+                <ui:Button name="DebugAddMineralsButton" class="debug-button" text="+10 MINERALS" />
+                <ui:Button name="DebugAddAlloyButton" class="debug-button" text="+10 ALLOY" />
+                <ui:Button name="DebugResetSessionButton" class="debug-button" text="RESET SESSION" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

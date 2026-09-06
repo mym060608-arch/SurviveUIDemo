@@ -1,0 +1,241 @@
+/* Survive UI Demo - Phase 01 placeholder theme (NOT final visual design). */
+
+/* Layout shell */
+.app-root {
+    flex-grow: 1;
+    background-color: #E7E9EC;
+}
+
+.app-body {
+    flex-grow: 1;
+    min-height: 0;
+    padding-left: 28px;
+    padding-right: 28px;
+    padding-top: 24px;
+    padding-bottom: 16px;
+}
+
+/* Major screens are shown/hidden exclusively by AppController inline display. */
+.screen {
+    flex-grow: 1;
+    flex-direction: column;
+}
+
+/* Typography */
+.app-title {
+    font-size: 30px;
+    color: #1F242B;
+    -unity-font-style: bold;
+    margin-bottom: 4px;
+}
+
+.app-subtitle {
+    font-size: 13px;
+    color: #5A626D;
+    margin-bottom: 10px;
+}
+
+.section-title {
+    font-size: 14px;
+    color: #3A414C;
+    -unity-font-style: bold;
+    margin-top: 14px;
+    margin-bottom: 6px;
+}
+
+/* Stat rows */
+.stat-row {
+    flex-direction: row;
+    justify-content: space-between;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    border-bottom-width: 1px;
+    border-bottom-color: #D3D7DD;
+    min-width: 240px;
+    max-width: 600px;
+}
+
+.stat-name {
+    font-size: 14px;
+    color: #3A414C;
+}
+
+.stat-value {
+    font-size: 14px;
+    color: #1F242B;
+    -unity-font-style: bold;
+    margin-left: 12px;
+}
+
+.big-value {
+    font-size: 26px;
+    -unity-font-style: bold;
+    color: #1F242B;
+    margin-bottom: 10px;
+}
+
+/* Buttons */
+.button-primary {
+    -unity-text-align: middle-center;
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: #FFFFFF;
+    background-color: #19A7CE;
+    border-width: 1px;
+    border-color: #1282A1;
+    min-height: 40px;
+    max-width: 420px;
+    margin-top: 16px;
+    padding-left: 18px;
+    padding-right: 18px;
+}
+
+.button-primary:hover {
+    background-color: #24B7DE;
+}
+
+.button-primary:disabled {
+    background-color: #9FB4BD;
+    border-color: #879AA3;
+    color: #E8ECEF;
+}
+
+/* Bottom navigation */
+.bottom-nav {
+    flex-direction: row;
+    height: 46px;
+    background-color: #D8DBE0;
+    border-top-width: 1px;
+    border-top-color: #B7BDC6;
+}
+
+.nav-button {
+    flex-grow: 1;
+    -unity-text-align: middle-center;
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #4A525D;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0px;
+}
+
+.nav-button:hover {
+    background-color: #C7CCD3;
+}
+
+.nav-button.tab-active {
+    background-color: #19A7CE;
+    color: #FFFFFF;
+}
+
+/* Equipment rows (Preparation) */
+.equipment-button {
+    -unity-text-align: middle-left;
+    font-size: 14px;
+    color: #1F242B;
+    background-color: #F5F6F8;
+    border-width: 1px;
+    border-color: #C3C9D2;
+    min-height: 38px;
+    max-width: 600px;
+    margin-top: 4px;
+    padding-left: 12px;
+    padding-right: 12px;
+}
+
+.equipment-button:hover {
+    border-color: #19A7CE;
+}
+
+.equipment-button.selected {
+    background-color: #19A7CE;
+    border-color: #1282A1;
+    color: #FFFFFF;
+}
+
+.dialog-message {
+    font-size: 13px;
+    color: #4A525D;
+    margin-top: 10px;
+}
+
+/* Processing schematic */
+.schematic {
+    align-items: center;
+    margin-top: 8px;
+    margin-bottom: 8px;
+}
+
+.schematic-box {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #1F242B;
+    background-color: #F5F6F8;
+    border-width: 1px;
+    border-color: #C3C9D2;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 18px;
+    padding-right: 18px;
+    -unity-text-align: middle-center;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.schematic-flow {
+    font-size: 13px;
+    color: #5A626D;
+    -unity-text-align: middle-center;
+}
+
+.schematic-row {
+    flex-direction: row;
+    align-self: stretch;
+    align-items: center;
+    margin-top: 2px;
+    margin-bottom: 2px;
+}
+
+.schematic-half {
+    flex-grow: 1;
+    -unity-text-align: middle-center;
+    align-items: center;
+}
+
+/* Debug panel (deliberately not polished) */
+.debug-panel {
+    position: absolute;
+    left: 10px;
+    bottom: 54px;
+    background-color: #F0F1F3;
+    border-width: 1px;
+    border-color: #9AA1AB;
+    padding: 6px;
+    min-width: 170px;
+}
+
+.debug-toggle {
+    -unity-text-align: middle-center;
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #5A626D;
+    background-color: #DFE2E6;
+    border-width: 1px;
+    border-color: #A7ADB6;
+    min-height: 22px;
+    padding-left: 8px;
+    padding-right: 8px;
+}
+
+.debug-button {
+    -unity-text-align: middle-center;
+    font-size: 12px;
+    color: #3A414C;
+    background-color: #E5E7EA;
+    border-width: 1px;
+    border-color: #B4BAC2;
+    min-height: 24px;
+    margin-top: 3px;
+    padding-left: 6px;
+    padding-right: 6px;
+}
