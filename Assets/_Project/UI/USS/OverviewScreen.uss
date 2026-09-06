@@ -1,0 +1,628 @@
+/*
+ * Survive UI Demo - Overview screen layout (Phase 02).
+ * Loaded after AppTheme.uss. Coordinates target the 1920x1080 reference.
+ */
+
+/* ---------- Screen / top system bar ---------- */
+
+.overview-screen {
+    flex-direction: column;
+}
+
+.overview-topbar {
+    flex-shrink: 0;
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.topbar-left {
+    flex-direction: row;
+    align-items: center;
+}
+
+.topbar-brand {
+    font-size: 24px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    color: #161B20;
+}
+
+.topbar-divider-v {
+    width: 1px;
+    height: 18px;
+    background-color: #C9CFD4;
+    margin-left: 24px;
+    margin-right: 24px;
+}
+
+.topbar-role {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #7B858F;
+}
+
+.topbar-right {
+    flex-direction: row;
+    align-items: center;
+    margin-left: auto;
+}
+
+.topbar-cell {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #4A525C;
+}
+
+.topbar-cellsep {
+    width: 1px;
+    height: 16px;
+    background-color: #C9CFD4;
+    margin-left: 24px;
+    margin-right: 24px;
+}
+
+.topbar-system {
+    flex-direction: row;
+    align-items: center;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #0E7F8C;
+    margin-right: 10px;
+}
+
+/* ---------- Main three-column body ---------- */
+
+.overview-body {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+    padding-top: 40px;
+    padding-bottom: 36px;
+    padding-left: 64px;
+    padding-right: 64px;
+}
+
+.overview-col-left {
+    width: 352px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-right: 36px;
+    border-right-width: 1px;
+    border-right-color: #DEE2E5;
+}
+
+.overview-col-center {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    align-items: center;
+    padding-left: 40px;
+    padding-right: 40px;
+}
+
+.overview-col-right {
+    width: 400px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-left: 36px;
+    border-left-width: 1px;
+    border-left-color: #DEE2E5;
+}
+
+/* ---------- Shared section primitives ---------- */
+
+.panel-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 30px;
+}
+
+.panel-header-text {
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    color: #161B20;
+}
+
+.panel-header-rule {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-left: 22px;
+}
+
+.group-label {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #7B858F;
+    margin-bottom: 6px;
+}
+
+.panel-rule {
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-top: 26px;
+    margin-bottom: 26px;
+}
+
+/* ---------- Left column: survival bars ---------- */
+
+.survival-group {
+    flex-direction: column;
+}
+
+.survival-row {
+    flex-direction: row;
+    align-items: center;
+    height: 58px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.survival-marker {
+    width: 5px;
+    height: 5px;
+    background-color: #0E7F8C;
+    margin-right: 14px;
+}
+
+.survival-name {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #4A525C;
+    width: 74px;
+}
+
+.bar-track {
+    flex-grow: 1;
+    height: 4px;
+    background-color: #D3D8DC;
+    margin-left: 16px;
+    margin-right: 18px;
+}
+
+.bar-fill {
+    height: 4px;
+    width: 0%;
+    background-color: #161B20;
+}
+
+.survival-value {
+    font-size: 24px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+    min-width: 44px;
+    -unity-text-align: middle-right;
+}
+
+.survival-unit {
+    font-size: 12px;
+    color: #7B858F;
+    margin-left: 5px;
+}
+
+/* ---------- Left column: resource inventory ---------- */
+
+.resource-group {
+    flex-direction: column;
+}
+
+.resource-row {
+    flex-direction: row;
+    align-items: center;
+    height: 42px;
+}
+
+.resource-name {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #4A525C;
+}
+
+.resource-rule {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #DEE2E5;
+    margin-left: 18px;
+    margin-right: 18px;
+    margin-bottom: 6px;
+}
+
+.resource-value {
+    font-size: 18px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+    min-width: 36px;
+    -unity-text-align: middle-right;
+}
+
+.panel-footnote {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 40px;
+}
+
+.footnote-tick {
+    width: 6px;
+    height: 6px;
+    background-color: #C9CFD4;
+    margin-right: 10px;
+}
+
+.footnote-label {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: #9AA2AA;
+}
+
+/* ---------- Center column: destination hero ---------- */
+
+.eyebrow {
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: #7B858F;
+    margin-top: 8px;
+}
+
+.hero-title {
+    font-size: 72px;
+    -unity-font-style: bold;
+    letter-spacing: 5px;
+    color: #161B20;
+    margin-top: 12px;
+}
+
+.hero-meta {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 14px;
+}
+
+.hero-meta-chip {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.chip-dot {
+    width: 4px;
+    height: 4px;
+    background-color: #0E7F8C;
+    margin-left: 18px;
+    margin-right: 18px;
+}
+
+/* ---------- Center column: planet stage ---------- */
+
+.planet-stage {
+    flex-grow: 1;
+    min-height: 0;
+    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.planet-wrap {
+    width: 560px;
+    height: 560px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.planet-disc {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 400px;
+    height: 400px;
+    margin-left: -200px;
+    margin-top: -200px;
+}
+
+.planet-halo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 438px;
+    height: 438px;
+    margin-left: -219px;
+    margin-top: -219px;
+    border-width: 1px;
+    border-color: rgba(14, 127, 140, 0.35);
+    border-radius: 219px;
+}
+
+.orbit-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 486px;
+    height: 486px;
+    margin-left: -243px;
+    margin-top: -243px;
+    border-width: 1px;
+    border-color: rgba(123, 133, 143, 0.35);
+    border-radius: 243px;
+}
+
+.orbit-ring-outer {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 522px;
+    height: 522px;
+    margin-left: -261px;
+    margin-top: -261px;
+    border-width: 1px;
+    border-color: rgba(123, 133, 143, 0.16);
+    border-radius: 261px;
+}
+
+/* Planet bounding registration marks */
+.corner-bracket {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 26px;
+    height: 26px;
+}
+
+.corner-tl {
+    margin-left: -200px;
+    margin-top: -200px;
+    border-top-width: 1px;
+    border-top-color: rgba(74, 82, 92, 0.85);
+    border-left-width: 1px;
+    border-left-color: rgba(74, 82, 92, 0.85);
+}
+
+.corner-tr {
+    margin-left: 174px;
+    margin-top: -200px;
+    border-top-width: 1px;
+    border-top-color: rgba(74, 82, 92, 0.85);
+    border-right-width: 1px;
+    border-right-color: rgba(74, 82, 92, 0.85);
+}
+
+.corner-bl {
+    margin-left: -200px;
+    margin-top: 174px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(74, 82, 92, 0.85);
+    border-left-width: 1px;
+    border-left-color: rgba(74, 82, 92, 0.85);
+}
+
+.corner-br {
+    margin-left: 174px;
+    margin-top: 174px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(74, 82, 92, 0.85);
+    border-right-width: 1px;
+    border-right-color: rgba(74, 82, 92, 0.85);
+}
+
+/* Side rails with sparse technical annotations */
+.planet-rail {
+    width: 180px;
+    flex-shrink: 0;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.rail-left {
+    align-items: flex-end;
+    padding-right: 26px;
+}
+
+.rail-right {
+    align-items: flex-start;
+    padding-left: 26px;
+}
+
+.annotation-label {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: #7B858F;
+}
+
+.annotation-dim {
+    color: #9AA2AA;
+    margin-top: 6px;
+}
+
+.annotation-rule {
+    width: 34px;
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    margin-right: 6px;
+}
+
+.lock-line {
+    width: 1px;
+    height: 26px;
+    background-color: #C9CFD4;
+    margin-top: 6px;
+    margin-bottom: 10px;
+}
+
+.scan-meta {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.annotation-scan-value {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #161B20;
+    letter-spacing: 1px;
+    margin-left: 10px;
+}
+
+.planet-rail .mini-track {
+    width: 130px;
+    margin-top: 10px;
+}
+
+.mini-track {
+    height: 3px;
+    background-color: #D3D8DC;
+}
+
+.mini-fill {
+    height: 3px;
+    background-color: #0E7F8C;
+}
+
+/* ---------- Center column: primary CTA ---------- */
+
+.cta-action {
+    flex-shrink: 0;
+    width: 460px;
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 28px;
+    margin-top: 26px;
+    margin-bottom: 4px;
+    background-color: #161B20;
+    border-width: 1px;
+    border-color: #161B20;
+    transition-property: background-color, border-color;
+    transition-duration: 0.13s;
+}
+
+.cta-action:hover {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+}
+
+.cta-action:active {
+    background-color: #0A616C;
+    border-color: #0A616C;
+}
+
+.cta-mark {
+    width: 10px;
+    height: 10px;
+    background-color: #FFFFFF;
+    margin-right: 22px;
+}
+
+.cta-action:hover .cta-mark {
+    background-color: #0A616C;
+}
+
+.cta-label {
+    font-size: 15px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    color: #FFFFFF;
+}
+
+/* ---------- Right column: objective + mission status ---------- */
+
+.objective-title {
+    font-size: 22px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: #161B20;
+    margin-bottom: 10px;
+}
+
+.objective-copy {
+    font-size: 14px;
+    color: #4A525C;
+    margin-bottom: 32px;
+    max-width: 320px;
+}
+
+.objective-row {
+    flex-direction: row;
+    align-items: center;
+    height: 46px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.objective-index {
+    width: 44px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.objective-text {
+    flex-grow: 1;
+    font-size: 13px;
+    letter-spacing: 1px;
+    color: #161B20;
+}
+
+.objective-state {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #9AA2AA;
+}
+
+.objective-active .objective-index {
+    color: #0E7F8C;
+    -unity-font-style: bold;
+}
+
+.objective-active .objective-text {
+    -unity-font-style: bold;
+}
+
+.objective-active .objective-state {
+    color: #0E7F8C;
+}
+
+.mission-block {
+    flex-direction: column;
+}
+
+.mission-line {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+}
+
+.mission-key {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.mission-value {
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: #161B20;
+}
+
+.mission-value-row {
+    margin-left: auto;
+}
+
+.mission-track {
+    width: 100%;
+    margin-top: 8px;
+}

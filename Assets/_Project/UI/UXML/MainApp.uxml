@@ -1,41 +1,185 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="AppRoot" class="app-root">
         <ui:VisualElement name="AppBody" class="app-body">
-            <!-- Screen 01: Overview -->
-            <ui:VisualElement name="OverviewScreen" class="screen">
-                <ui:Label name="AppTitle" class="app-title" text="SURVIVE // DRIFT" />
-                <ui:Label class="app-subtitle" text="SHIP STATUS OVERVIEW" />
-                <ui:Label class="section-title" text="SHIP STATUS" />
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="ENERGY" />
-                    <ui:Label name="EnergyValue" class="stat-value" text="0" />
+            <!-- ============================================================
+                 Screen 01: Overview  (Phase 02 main visual)
+                 Layout: top system bar / three columns / planet stage / CTA
+                 ============================================================ -->
+            <ui:VisualElement name="OverviewScreen" class="screen overview-screen">
+                <!-- Top system bar -->
+                <ui:VisualElement name="OverviewTopBar" class="overview-topbar">
+                    <ui:VisualElement class="topbar-left">
+                        <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
+                        <ui:VisualElement class="topbar-divider-v" />
+                        <ui:Label class="topbar-role" text="EXPEDITION CONTROL" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="topbar-right">
+                        <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:Label class="topbar-cell" text="CYCLE 1842" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:VisualElement class="topbar-system">
+                            <ui:VisualElement class="status-dot" />
+                            <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="FOOD" />
-                    <ui:Label name="FoodValue" class="stat-value" text="0" />
+
+                <!-- Main three-column body -->
+                <ui:VisualElement class="overview-body">
+                    <!-- LEFT: Ship status -->
+                    <ui:VisualElement name="ShipStatusPanel" class="overview-col-left">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="SHIP STATUS" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+
+                        <ui:Label class="group-label" text="SURVIVAL CRITICAL" />
+                        <ui:VisualElement name="ShipSurvivalGroup" class="survival-group">
+                            <ui:VisualElement class="survival-row">
+                                <ui:VisualElement class="survival-marker" />
+                                <ui:Label class="survival-name" text="ENERGY" />
+                                <ui:VisualElement class="bar-track">
+                                    <ui:VisualElement name="EnergyBarFill" class="bar-fill" />
+                                </ui:VisualElement>
+                                <ui:Label name="EnergyValue" class="survival-value" text="0" />
+                                <ui:Label class="survival-unit" text="%" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="survival-row">
+                                <ui:VisualElement class="survival-marker" />
+                                <ui:Label class="survival-name" text="FOOD" />
+                                <ui:VisualElement class="bar-track">
+                                    <ui:VisualElement name="FoodBarFill" class="bar-fill" />
+                                </ui:VisualElement>
+                                <ui:Label name="FoodValue" class="survival-value" text="0" />
+                                <ui:Label class="survival-unit" text="%" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:Label class="group-label" text="RESOURCE INVENTORY" />
+                        <ui:VisualElement name="ShipResourceGroup" class="resource-group">
+                            <ui:VisualElement class="resource-row">
+                                <ui:Label class="resource-name" text="MINERALS" />
+                                <ui:VisualElement class="resource-rule" />
+                                <ui:Label name="MineralsValue" class="resource-value" text="0" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="resource-row">
+                                <ui:Label class="resource-name" text="FUEL" />
+                                <ui:VisualElement class="resource-rule" />
+                                <ui:Label name="FuelValue" class="resource-value" text="0" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="resource-row">
+                                <ui:Label class="resource-name" text="ALLOY" />
+                                <ui:VisualElement class="resource-rule" />
+                                <ui:Label name="AlloyValue" class="resource-value" text="0" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-footnote">
+                            <ui:VisualElement class="footnote-tick" />
+                            <ui:Label class="footnote-label" text="SHIP SYSTEMS // NOMINAL" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- CENTER: Destination main visual -->
+                    <ui:VisualElement name="DestinationPanel" class="overview-col-center">
+                        <ui:Label class="eyebrow" text="CURRENT DESTINATION" />
+                        <ui:Label name="DestinationValue" class="hero-title" text="NEREID-04" />
+                        <ui:VisualElement class="hero-meta">
+                            <ui:Label class="hero-meta-chip" text="UNKNOWN SURFACE" />
+                            <ui:VisualElement class="chip-dot" />
+                            <ui:Label class="hero-meta-chip" text="RESOURCE CANDIDATE" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement name="PlanetStage" class="planet-stage">
+                            <ui:VisualElement class="planet-wrap">
+                                <ui:VisualElement class="orbit-ring-outer" />
+                                <ui:VisualElement class="orbit-ring" />
+                                <ui:VisualElement class="planet-halo" />
+                                <ui:VisualElement name="PlanetDisc" class="planet-disc" />
+                                <ui:VisualElement class="corner-bracket corner-tl" />
+                                <ui:VisualElement class="corner-bracket corner-tr" />
+                                <ui:VisualElement class="corner-bracket corner-bl" />
+                                <ui:VisualElement class="corner-bracket corner-br" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="planet-rail rail-left">
+                                <ui:Label class="annotation-label" text="ORBITAL SURVEY" />
+                                <ui:VisualElement class="annotation-rule" />
+                                <ui:Label class="annotation-label" text="RESOURCE SIGNAL" />
+                                <ui:Label class="annotation-label annotation-dim" text="LOW" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="planet-rail rail-right">
+                                <ui:Label class="annotation-label" text="TARGET LOCK" />
+                                <ui:VisualElement class="lock-line" />
+                                <ui:VisualElement class="scan-meta">
+                                    <ui:Label class="annotation-label" text="SCAN" />
+                                    <ui:Label class="annotation-scan-value" text="73%" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="mini-track">
+                                    <ui:VisualElement class="mini-fill" style="width: 73%;" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:Button name="OpenPreparationButton" class="cta-action">
+                            <ui:VisualElement class="cta-mark" />
+                            <ui:Label class="cta-label" text="PREPARE EXPEDITION" />
+                        </ui:Button>
+                    </ui:VisualElement>
+
+                    <!-- RIGHT: Current objective -->
+                    <ui:VisualElement name="ObjectivePanel" class="overview-col-right">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="CURRENT OBJECTIVE" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+
+                        <ui:Label class="objective-title" text="SURVIVE THE DRIFT" />
+                        <ui:Label class="objective-copy" text="Locate viable resources and maintain ship energy above critical threshold." />
+
+                        <ui:Label class="group-label" text="PRIMARY DIRECTIVE" />
+                        <ui:VisualElement class="objective-row objective-active">
+                            <ui:Label class="objective-index" text="01" />
+                            <ui:Label class="objective-text" text="Survey NEREID-04" />
+                            <ui:Label class="objective-state" text="ACTIVE" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="objective-row">
+                            <ui:Label class="objective-index" text="02" />
+                            <ui:Label class="objective-text" text="Acquire raw material" />
+                            <ui:Label class="objective-state" text="PENDING" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="objective-row">
+                            <ui:Label class="objective-index" text="03" />
+                            <ui:Label class="objective-text" text="Restore fuel reserve" />
+                            <ui:Label class="objective-state" text="PENDING" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:VisualElement name="MissionStatusBlock" class="mission-block">
+                            <ui:Label class="group-label" text="MISSION STATUS" />
+                            <ui:VisualElement class="mission-line">
+                                <ui:Label class="mission-key" text="TARGET" />
+                                <ui:Label class="mission-value" text="ACQUIRED" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="mission-line">
+                                <ui:Label class="mission-key" text="READINESS" />
+                                <ui:VisualElement class="mission-value-row">
+                                    <ui:Label class="mission-value" text="72%" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                            <ui:VisualElement class="mini-track mission-track">
+                                <ui:VisualElement class="mini-fill" style="width: 72%;" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="MINERALS" />
-                    <ui:Label name="MineralsValue" class="stat-value" text="0" />
-                </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="FUEL" />
-                    <ui:Label name="FuelValue" class="stat-value" text="0" />
-                </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="ALLOY" />
-                    <ui:Label name="AlloyValue" class="stat-value" text="0" />
-                </ui:VisualElement>
-                <ui:Label class="section-title" text="CURRENT DESTINATION" />
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="PLANET" />
-                    <ui:Label name="DestinationValue" class="stat-value" text="NEREID-04" />
-                </ui:VisualElement>
-                <ui:Button name="OpenPreparationButton" class="button-primary" text="PREPARE EXPEDITION" />
             </ui:VisualElement>
 
-            <!-- Screen 02: Preparation -->
-            <ui:VisualElement name="PreparationScreen" class="screen">
+            <!-- Screen 02: Preparation (Phase 01 placeholder; kept basic) -->
+            <ui:VisualElement name="PreparationScreen" class="screen screen-pad">
                 <ui:Label class="app-title" text="PREPARE EXPEDITION" />
                 <ui:Label class="section-title" text="MISSION" />
                 <ui:Label class="app-subtitle" text="NEREID-04" />
@@ -62,8 +206,8 @@
                 <ui:Button name="ConfirmLoadoutButton" class="button-primary" text="CONFIRM LOADOUT" />
             </ui:VisualElement>
 
-            <!-- Screen 03: Processing -->
-            <ui:VisualElement name="ProcessingScreen" class="screen">
+            <!-- Screen 03: Processing (Phase 01 placeholder; kept basic) -->
+            <ui:VisualElement name="ProcessingScreen" class="screen screen-pad">
                 <ui:Label class="app-title" text="RESOURCE PROCESSING" />
                 <ui:Label class="section-title" text="RAW MINERALS" />
                 <ui:Label name="ProcessingMineralsValue" class="big-value" text="0" />
@@ -96,8 +240,8 @@
                 <ui:Button name="ProcessButton" class="button-primary" text="PROCESS 5 MINERALS" />
             </ui:VisualElement>
 
-            <!-- Screen 04: Outpost -->
-            <ui:VisualElement name="OutpostScreen" class="screen">
+            <!-- Screen 04: Outpost (Phase 01 placeholder; kept basic) -->
+            <ui:VisualElement name="OutpostScreen" class="screen screen-pad">
                 <ui:Label class="app-title" text="OUTPOST" />
                 <ui:Label class="app-subtitle" text="CORE MODULE" />
                 <ui:VisualElement class="stat-row">
@@ -122,16 +266,32 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- Bottom navigation (always available) -->
+        <!-- Bottom navigation (always available, active state via tab-active class) -->
         <ui:VisualElement name="BottomNav" class="bottom-nav">
-            <ui:Button name="NavOverview" class="nav-button" text="OVERVIEW" />
-            <ui:Button name="NavPreparation" class="nav-button" text="PREPARATION" />
-            <ui:Button name="NavProcessing" class="nav-button" text="PROCESSING" />
-            <ui:Button name="NavOutpost" class="nav-button" text="OUTPOST" />
+            <ui:Button name="NavOverview" class="nav-button">
+                <ui:VisualElement class="nav-rule-top" />
+                <ui:Label class="nav-index" text="01" />
+                <ui:Label class="nav-label" text="OVERVIEW" />
+            </ui:Button>
+            <ui:Button name="NavPreparation" class="nav-button">
+                <ui:VisualElement class="nav-rule-top" />
+                <ui:Label class="nav-index" text="02" />
+                <ui:Label class="nav-label" text="PREPARATION" />
+            </ui:Button>
+            <ui:Button name="NavProcessing" class="nav-button">
+                <ui:VisualElement class="nav-rule-top" />
+                <ui:Label class="nav-index" text="03" />
+                <ui:Label class="nav-label" text="PROCESSING" />
+            </ui:Button>
+            <ui:Button name="NavOutpost" class="nav-button">
+                <ui:VisualElement class="nav-rule-top" />
+                <ui:Label class="nav-index" text="04" />
+                <ui:Label class="nav-label" text="OUTPOST" />
+            </ui:Button>
         </ui:VisualElement>
 
-        <!-- Debug panel (developer-only, deliberately plain) -->
-        <ui:VisualElement name="DebugPanel" class="debug-panel">
+        <!-- Debug panel (developer-only; hidden by default, F12 reveals it) -->
+        <ui:VisualElement name="DebugPanel" class="debug-panel" style="display: none;">
             <ui:Button name="DebugToggleButton" class="debug-toggle" text="DEBUG" />
             <ui:VisualElement name="DebugContent" style="display: none;">
                 <ui:Button name="DebugAddMineralsButton" class="debug-button" text="+10 MINERALS" />
