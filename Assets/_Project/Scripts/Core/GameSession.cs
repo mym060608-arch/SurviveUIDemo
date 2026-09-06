@@ -25,10 +25,21 @@ public class GameSession : MonoBehaviour
     public const int DefaultRefineryLevel = 1;
     public const int DefaultOutpostLevel = 1;
 
-    // Prototype processing cost / reward.
-    public const int ProcessMineralsCost = 5;
+    // Refinery processing batches (Phase 04). One batch base = 5 minerals:
+    // +2 Fuel and +1 Alloy per base batch. See ProcessingScreen for the flow.
+    public const int ProcessBatchBase = 5;
     public const int ProcessFuelReward = 2;
     public const int ProcessAlloyReward = 1;
+    public const float ProcessDurationSeconds = 2.0f;
+
+    /// <summary>Refinery process lifecycle. Complete keeps the last result
+    /// visible until the next start or reset.</summary>
+    public enum RefineryProcessState
+    {
+        Idle,
+        Running,
+        Complete
+    }
 
     // Prototype refinery upgrade cost.
     public const int RefineryUpgradeAlloyCost = 3;
@@ -152,6 +163,130 @@ public class GameSession : MonoBehaviour
         return true;
     }
 
+    // ---- Refinery processing (Phase 04) ----
+    // Authoritative short resource-conversion flow. Minerals are deducted on
+    // start; Fuel/Alloy settle on completion. Reset cancels cleanly.
+
+    public RefineryProcessState ProcessState { get; private set; } = RefineryProcessState.Idle;
+
+    /// <summary>Selected batch size currently being processed (minerals).</summary>
+    public int ActiveBatchMinerals { get; private set; }
+
+    /// <summary>Fuel awarded when the running batch completes (result while Complete).</summary>
+    public int PendingFuel { get; private set; }
+
+    /// <summary>Alloy awarded when the running batch completes (result while Complete).</summary>
+    public int PendingAlloy { get; private set; }
+
+    public float ProcessRemainingSeconds { get; private set; }
+
+    public bool IsProcessing => ProcessState == RefineryProcessState.Running;
+
+    /// <summary>0..1 progress of the running batch (0 when not running).</summary>
+    public float ProcessProgress01
+    {
+        get
+        {
+            if (!IsProcessing)
+            {
+                return 0f;
+            }
+
+            float elapsed = ProcessDurationSeconds - ProcessRemainingSeconds;
+            return Mathf.Clamp01(elapsed / ProcessDurationSeconds);
+        }
+    }
+
+    /// <summary>Expected Fuel output for a batch size (deterministic).</summary>
+    public static int FuelGainFor(int batchMinerals)
+    {
+        return batchMinerals / ProcessBatchBase * ProcessFuelReward;
+    }
+
+    /// <summary>Expected Alloy output for a batch size (deterministic).</summary>
+    public static int AlloyGainFor(int batchMinerals)
+    {
+        return batchMinerals / ProcessBatchBase * ProcessAlloyReward;
+    }
+
+    /// <summary>True when <paramref name="batch"/> may be started right now:
+    /// not already processing and enough minerals available.</summary>
+    public bool CanStartBatch(int batchMinerals)
+    {
+        return !IsProcessing
+               && (batchMinerals == 5 || batchMinerals == 10 || batchMinerals == 15)
+               && Minerals >= batchMinerals;
+    }
+
+    /// <summary>
+    /// Starts a refinery batch: deducts minerals immediately and moves to
+    /// Running. Returns false (state untouched) when already processing,
+    /// the batch is unsupported, or minerals are insufficient. Completion
+    /// (via timer or AdvanceProcessing) settles the pending outputs.
+    /// </summary>
+    public bool TryStartProcess(int batchMinerals)
+    {
+        if (IsProcessing)
+        {
+            return false;
+        }
+
+        if (batchMinerals != 5 && batchMinerals != 10 && batchMinerals != 15)
+        {
+            return false;
+        }
+
+        if (Minerals < batchMinerals)
+        {
+            return false;
+        }
+
+        Minerals -= batchMinerals;
+        ActiveBatchMinerals = batchMinerals;
+        PendingFuel = FuelGainFor(batchMinerals);
+        PendingAlloy = AlloyGainFor(batchMinerals);
+        ProcessState = RefineryProcessState.Running;
+        ProcessRemainingSeconds = ProcessDurationSeconds;
+        NotifyChanged();
+        return true;
+    }
+
+    /// <summary>Advances the running process deterministically by
+    /// <paramref name="seconds"/>; completes (settles outputs) when the timer
+    /// reaches zero. No-op while Idle/Complete, so stale output can never be
+    /// awarded after a Reset.</summary>
+    public void AdvanceProcessing(float seconds)
+    {
+        if (!IsProcessing)
+        {
+            return;
+        }
+
+        ProcessRemainingSeconds -= seconds;
+        if (ProcessRemainingSeconds <= 0f)
+        {
+            FinishProcess();
+        }
+    }
+
+    private void FinishProcess()
+    {
+        Fuel += PendingFuel;
+        Alloy += PendingAlloy;
+        ProcessState = RefineryProcessState.Complete;
+        ProcessRemainingSeconds = 0f;
+        NotifyChanged();
+    }
+
+    private void ResetProcessing()
+    {
+        ProcessState = RefineryProcessState.Idle;
+        ActiveBatchMinerals = 0;
+        PendingFuel = 0;
+        PendingAlloy = 0;
+        ProcessRemainingSeconds = 0f;
+    }
+
     private bool _initialized;
 
     /// <summary>Returns the single authoritative session, creating it when absent.</summary>
@@ -203,6 +338,7 @@ public class GameSession : MonoBehaviour
         BatterySelected = false;
         DroneSelected = false;
         LoadoutConfirmed = false;
+        ResetProcessing();
         NotifyChanged();
     }
 
@@ -229,24 +365,6 @@ public class GameSession : MonoBehaviour
     }
 
     /// <summary>
-    /// Processes 5 Minerals into +2 Fuel and +1 Alloy.
-    /// Returns false (state untouched) when Minerals &lt; 5.
-    /// </summary>
-    public bool TryProcessMinerals()
-    {
-        if (Minerals < ProcessMineralsCost)
-        {
-            return false;
-        }
-
-        Minerals -= ProcessMineralsCost;
-        Fuel += ProcessFuelReward;
-        Alloy += ProcessAlloyReward;
-        NotifyChanged();
-        return true;
-    }
-
-    /// <summary>
     /// Upgrades the Refinery for 3 Alloy.
     /// Returns false (state untouched) when Alloy &lt; 3.
     /// </summary>
@@ -261,6 +379,17 @@ public class GameSession : MonoBehaviour
         RefineryLevel += 1;
         NotifyChanged();
         return true;
+    }
+
+    private void Update()
+    {
+        // Authoritative short process timer only; static UI never refreshes
+        // from Update. Processing belongs to this persistent session, so it
+        // keeps advancing while the player is on any other screen.
+        if (_initialized && Instance == this && IsProcessing)
+        {
+            AdvanceProcessing(Time.deltaTime);
+        }
     }
 
     private void NotifyChanged()
