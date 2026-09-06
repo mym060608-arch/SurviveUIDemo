@@ -29,6 +29,8 @@ public static class SurviveProjectValidator
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
+    private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
+    private const string GuidePath = "Docs/UI_LANGUAGE_STYLE.md";
 
     [MenuItem("Tools/SurviveUI/Validate Phase 01 Project")]
     public static void ValidateFromMenu()
@@ -64,12 +66,15 @@ public static class SurviveProjectValidator
         }
 
         // ---- Assets ----
+        string guideFullPath = Path.Combine(Application.dataPath, "..", GuidePath);
+        Record(File.Exists(guideFullPath), "language/style guide exists: " + GuidePath);
         Record(File.Exists(BootScenePath), "scene exists: " + BootScenePath);
         Record(File.Exists(HubScenePath), "scene exists: " + HubScenePath);
         Record(File.Exists(UxmlPath), "uxml exists: " + UxmlPath);
         Record(File.Exists(UssPath), "uss exists: " + UssPath);
         Record(File.Exists(OverviewUssPath), "overview uss exists: " + OverviewUssPath);
         Record(File.Exists(PreparationUssPath), "preparation uss exists: " + PreparationUssPath);
+        Record(File.Exists(ProcessingUssPath), "processing uss exists: " + ProcessingUssPath);
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
@@ -118,6 +123,12 @@ public static class SurviveProjectValidator
             foreach (string expected in ElementNames.PreparationStructure)
             {
                 Record(present.Contains(expected), "MainApp.uxml preparation structure: " + expected);
+            }
+
+            // Phase 04: Processing composition keeps its stable structure.
+            foreach (string expected in ElementNames.ProcessingStructure)
+            {
+                Record(present.Contains(expected), "MainApp.uxml processing structure: " + expected);
             }
         }
 

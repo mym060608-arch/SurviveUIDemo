@@ -1,0 +1,363 @@
+/*
+ * Survive UI Demo - Processing / Resource Processing layout (Phase 04).
+ * Inherits the Phase 02/03 industrial/aerospace language. Chinese-first copy
+ * with restrained letter spacing; shared section primitives are reused from
+ * OverviewScreen.uss / PreparationScreen.uss where possible.
+ */
+
+/* ---------- Screen shell / top system bar ---------- */
+
+.processing-screen {
+    flex-direction: column;
+}
+
+.process-topbar {
+    flex-shrink: 0;
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+/* ---------- Screen identity strip ---------- */
+
+.process-head {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.process-head-main {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.process-title {
+    font-size: 40px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-right: 24px;
+}
+
+.process-subtitle {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.process-head-data {
+    flex-direction: column;
+    min-width: 200px;
+    padding-left: 26px;
+    border-left-width: 1px;
+    border-left-color: #DEE2E5;
+}
+
+/* ---------- Main three-column body ---------- */
+
+.processing-body {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+    padding-top: 26px;
+    padding-bottom: 24px;
+    padding-left: 64px;
+    padding-right: 64px;
+}
+
+.process-col-left {
+    width: 340px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-right: 34px;
+    border-right-width: 1px;
+    border-right-color: #DEE2E5;
+}
+
+.process-col-center {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    padding-left: 34px;
+    padding-right: 34px;
+}
+
+.process-col-right {
+    width: 340px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-left: 32px;
+    border-left-width: 1px;
+    border-left-color: #DEE2E5;
+}
+
+/* ---------- Left: raw storage ---------- */
+
+.storage-line {
+    flex-direction: row;
+    align-items: flex-end;
+    margin-top: 4px;
+}
+
+.storage-caption {
+    font-size: 11px;
+    color: #7B858F;
+    margin-bottom: 8px;
+    margin-right: auto;
+}
+
+.storage-value {
+    font-size: 46px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+/* ---------- Left: batch selection ---------- */
+
+.batch-row {
+    flex-direction: row;
+    align-items: stretch;
+}
+
+.batch-button {
+    flex-grow: 1;
+    height: 66px;
+    -unity-text-align: middle-center;
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: #161B20;
+    background-color: #F3F5F6;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    border-left-width: 3px;
+    border-left-color: rgba(0, 0, 0, 0);
+    margin-right: 10px;
+}
+
+.batch-button.batch-last {
+    margin-right: 0px;
+}
+
+.batch-button:hover {
+    background-color: #EDF0F2;
+    border-color: #BFC6CC;
+}
+
+.batch-button.batch-selected {
+    background-color: #FFFFFF;
+    border-color: #B9CDD1;
+    border-left-color: #0E7F8C;
+    color: #0A616C;
+}
+
+.batch-button:disabled {
+    background-color: #F3F5F6;
+    border-color: #DEE2E5;
+    color: #A9AFB5;
+}
+
+.batch-unit {
+    font-size: 10px;
+    color: #7B858F;
+    margin-top: 12px;
+}
+
+/* ---------- Center: process flow ---------- */
+
+.flow-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.flow-node {
+    background-color: #F3F5F6;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    padding-left: 22px;
+    padding-right: 22px;
+}
+
+.flow-node-text {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.flow-arrow {
+    font-size: 16px;
+    color: #0E7F8C;
+    margin-left: 16px;
+    margin-right: 16px;
+}
+
+/* ---------- Center: expected / settled output ---------- */
+
+.output-block {
+    flex-direction: column;
+    align-items: center;
+    margin-top: 28px;
+}
+
+.output-caption {
+    font-size: 11px;
+    color: #7B858F;
+}
+
+.output-line {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.output-key {
+    width: 72px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: #161B20;
+    -unity-text-align: middle-right;
+    margin-right: 16px;
+}
+
+.output-value {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: #0A616C;
+    min-width: 64px;
+}
+
+/* ---------- Center: progress ---------- */
+
+.progress-block {
+    flex-direction: column;
+    margin-top: 30px;
+}
+
+.progress-headline {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.progress-percent {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #0A616C;
+}
+
+.progress-track {
+    height: 6px;
+    background-color: #D3D8DC;
+    margin-top: 10px;
+}
+
+.progress-fill {
+    height: 6px;
+    width: 0%;
+    background-color: #0E7F8C;
+}
+
+.process-status {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 14px;
+}
+
+/* ---------- Right: current inventory + refinery meta ---------- */
+
+.inventory-line {
+    flex-direction: row;
+    align-items: center;
+    height: 56px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.inventory-key {
+    font-size: 13px;
+    color: #4A525C;
+    margin-right: auto;
+}
+
+.inventory-value {
+    font-size: 28px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.meta-line {
+    flex-direction: row;
+    align-items: center;
+    height: 42px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.meta-key {
+    font-size: 12px;
+    color: #4A525C;
+    margin-right: auto;
+}
+
+.meta-value {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+/* ---------- Bottom action strip ---------- */
+
+.process-actionbar {
+    flex-shrink: 0;
+    height: 76px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-top-width: 1px;
+    border-top-color: #C9CFD4;
+    background-color: #E4E7EA;
+}
+
+.process-action {
+    width: 340px;
+    height: 50px;
+    -unity-text-align: middle-center;
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #FFFFFF;
+    background-color: #161B20;
+    border-width: 1px;
+    border-color: #161B20;
+}
+
+.process-action:hover {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+}
+
+.process-action:active {
+    background-color: #0A616C;
+    border-color: #0A616C;
+}
+
+.process-action:disabled {
+    background-color: #B7BDC3;
+    border-color: #A9AFB5;
+    color: #EDEFF1;
+}

@@ -23,6 +23,7 @@ public static class SurviveProjectSetup
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
+    private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
     private const string PanelSettingsPath = "Assets/_Project/UI/Settings/HubPanelSettings.asset";
 
     [MenuItem("Tools/SurviveUI/Setup Phase 01 Project")]
@@ -60,6 +61,7 @@ public static class SurviveProjectSetup
         var uss = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
         var overviewUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(OverviewUssPath);
         var preparationUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(PreparationUssPath);
+        var processingUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(ProcessingUssPath);
         if (uxml == null)
         {
             Debug.LogError("[SurviveProjectSetup] missing VisualTreeAsset: " + UxmlPath);
@@ -84,8 +86,14 @@ public static class SurviveProjectSetup
             ok = false;
         }
 
+        if (processingUss == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] missing StyleSheet: " + ProcessingUssPath);
+            ok = false;
+        }
+
         ok &= BuildBootScene();
-        ok &= BuildHubScene(uxml, uss, overviewUss, preparationUss);
+        ok &= BuildHubScene(uxml, uss, overviewUss, preparationUss, processingUss);
         ok &= SetBuildOrder();
 
         AssetDatabase.SaveAssets();
@@ -160,7 +168,7 @@ public static class SurviveProjectSetup
     }
 
     private static bool BuildHubScene(VisualTreeAsset uxml, StyleSheet uss, StyleSheet overviewUss,
-        StyleSheet preparationUss)
+        StyleSheet preparationUss, StyleSheet processingUss)
     {
         if (AssetDatabase.LoadAssetAtPath<SceneAsset>(HubScenePath) != null)
         {
@@ -186,7 +194,7 @@ public static class SurviveProjectSetup
         document.sortingOrder = 0;
 
         var app = ui.AddComponent<AppController>();
-        app.Configure(uss, overviewUss, preparationUss);
+        app.Configure(uss, overviewUss, preparationUss, processingUss);
 
         // Standalone smoke probe (inert unless launched with -smokeResult).
         var smoke = new GameObject("StandaloneSmoke");

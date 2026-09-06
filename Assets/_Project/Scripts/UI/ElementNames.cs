@@ -70,11 +70,26 @@ public static class ElementNames
     public const string ReadinessSurveyValue = "ReadinessSurveyValue";
     public const string ReadinessCargoValue = "ReadinessCargoValue";
 
-    // Processing.
+    // Processing (Phase 04 composition / runtime binding).
     public const string ProcessingMineralsValue = "ProcessingMineralsValue";
     public const string ProcessingFuelValue = "ProcessingFuelValue";
     public const string ProcessingAlloyValue = "ProcessingAlloyValue";
-    public const string ProcessButton = "ProcessButton";
+    public const string ProcessingStoragePanel = "ProcessingStoragePanel";
+    public const string Batch5Button = "Batch5Button";
+    public const string Batch10Button = "Batch10Button";
+    public const string Batch15Button = "Batch15Button";
+    public const string ProcessingCorePanel = "ProcessingCorePanel";
+    public const string ProcessingOutputPanel = "ProcessingOutputPanel";
+    public const string ProcessingOutputCaption = "ProcessingOutputCaption";
+    public const string ProcessingFuelGainValue = "ProcessingFuelGainValue";
+    public const string ProcessingAlloyGainValue = "ProcessingAlloyGainValue";
+    public const string ProcessingProgressFill = "ProcessingProgressFill";
+    public const string ProcessingProgressPercent = "ProcessingProgressPercent";
+    public const string ProcessingStatusLabel = "ProcessingStatusLabel";
+    public const string ProcessingInventoryPanel = "ProcessingInventoryPanel";
+    public const string ProcessingRefineryLevel = "ProcessingRefineryLevel";
+    public const string ProcessingEfficiencyValue = "ProcessingEfficiencyValue";
+    public const string ProcessingStartButton = "ProcessingStartButton";
 
     // Outpost.
     public const string HarvesterLevelValue = "HarvesterLevelValue";
@@ -124,7 +139,17 @@ public static class ElementNames
         ProcessingMineralsValue,
         ProcessingFuelValue,
         ProcessingAlloyValue,
-        ProcessButton,
+        Batch5Button,
+        Batch10Button,
+        Batch15Button,
+        ProcessingOutputCaption,
+        ProcessingFuelGainValue,
+        ProcessingAlloyGainValue,
+        ProcessingProgressFill,
+        ProcessingProgressPercent,
+        ProcessingStatusLabel,
+        ProcessingRefineryLevel,
+        ProcessingStartButton,
         HarvesterLevelValue,
         RefineryLevelValue,
         OutpostLevelValue,
@@ -178,6 +203,36 @@ public static class ElementNames
         LoadoutStateLabel,
         ReadinessCargoValue,
         ConfirmLoadoutButton,
+        BottomNav,
+        NavOverview,
+        NavPreparation,
+        NavProcessing,
+        NavOutpost
+    };
+
+    /// <summary>
+    /// Phase 04 Processing composition elements the structural validator must
+    /// find in MainApp.uxml (stable names, no pixel checks).
+    /// </summary>
+    public static readonly string[] ProcessingStructure =
+    {
+        ProcessingScreen,
+        ProcessingStoragePanel,
+        ProcessingMineralsValue,
+        Batch5Button,
+        Batch10Button,
+        Batch15Button,
+        ProcessingCorePanel,
+        ProcessingOutputPanel,
+        ProcessingFuelGainValue,
+        ProcessingAlloyGainValue,
+        ProcessingProgressFill,
+        ProcessingStatusLabel,
+        ProcessingInventoryPanel,
+        ProcessingFuelValue,
+        ProcessingAlloyValue,
+        ProcessingRefineryLevel,
+        ProcessingStartButton,
         BottomNav,
         NavOverview,
         NavPreparation,
