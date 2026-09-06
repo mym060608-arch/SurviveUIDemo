@@ -1,0 +1,404 @@
+/*
+ * Survive UI Demo - Preparation / Expedition Preparation layout (Phase 03).
+ * Inherits the Phase 02 industrial/aerospace visual language: off-white
+ * canvas, ink hierarchy, hairlines, single teal accent, Swiss grid.
+ * Loaded after AppTheme.uss / OverviewScreen.uss (shared classes reused).
+ */
+
+/* ---------- Screen shell / top system bar (Phase 02 language) ---------- */
+
+.preparation-screen {
+    flex-direction: column;
+}
+
+.prep-topbar {
+    flex-shrink: 0;
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+/* ---------- Mission summary strip ---------- */
+
+.mission-summary {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 18px;
+    padding-bottom: 18px;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.mission-head {
+    flex-direction: column;
+}
+
+.mission-planet {
+    font-size: 42px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    color: #161B20;
+    margin-top: 6px;
+}
+
+.mission-data {
+    flex-direction: row;
+    align-items: center;
+}
+
+.mission-cell {
+    flex-direction: column;
+    min-width: 168px;
+    padding-left: 26px;
+    border-left-width: 1px;
+    border-left-color: #DEE2E5;
+}
+
+.mission-cell-key {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: #7B858F;
+}
+
+.mission-cell-value {
+    font-size: 14px;
+    -unity-font-style: bold;
+    letter-spacing: 1.5px;
+    color: #161B20;
+    margin-top: 6px;
+}
+
+/* ---------- Main three-column body ---------- */
+
+.preparation-body {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+    padding-top: 28px;
+    padding-bottom: 24px;
+    padding-left: 64px;
+    padding-right: 64px;
+}
+
+.prep-col-left {
+    width: 320px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-right: 30px;
+    border-right-width: 1px;
+    border-right-color: #DEE2E5;
+}
+
+.prep-col-center {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    padding-left: 34px;
+    padding-right: 34px;
+}
+
+.prep-col-right {
+    width: 368px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-left: 32px;
+    border-left-width: 1px;
+    border-left-color: #DEE2E5;
+}
+
+/* ---------- Environment rows ---------- */
+
+.env-row {
+    flex-direction: row;
+    align-items: center;
+    height: 46px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.env-name {
+    width: 118px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #4A525C;
+}
+
+.env-value {
+    width: 104px;
+    font-size: 14px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+    -unity-text-align: middle-right;
+}
+
+.env-risk {
+    flex-grow: 1;
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #7B858F;
+    -unity-text-align: middle-right;
+}
+
+.env-risk-caution {
+    color: #0A616C;
+}
+
+.env-risk-na {
+    color: #9AA2AA;
+}
+
+/* ---------- Equipment / loadout rows ---------- */
+
+.equipment-row {
+    flex-direction: row;
+    align-items: center;
+    flex-shrink: 0;
+    height: 108px;
+    padding-left: 22px;
+    padding-right: 22px;
+    margin-bottom: 14px;
+    background-color: #F3F5F6;
+    border-width: 1px;
+    border-color: #D8DCE0;
+    border-left-width: 3px;
+    border-left-color: rgba(0, 0, 0, 0);
+}
+
+.equipment-row:hover {
+    background-color: #EDF0F2;
+    border-color: #BFC6CC;
+}
+
+.equipment-index {
+    width: 36px;
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.equipment-copy {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    margin-left: 14px;
+}
+
+.equipment-name {
+    font-size: 19px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: #161B20;
+}
+
+.equipment-purpose {
+    font-size: 12px;
+    color: #7B858F;
+    margin-top: 6px;
+}
+
+.equipment-trailing {
+    flex-direction: column;
+    align-items: flex-end;
+    margin-left: 20px;
+}
+
+.equipment-weight {
+    font-size: 15px;
+    -unity-font-style: bold;
+    letter-spacing: 1.5px;
+    color: #161B20;
+    margin-bottom: 9px;
+}
+
+.equipment-chip {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #7B858F;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    padding-left: 8px;
+    padding-right: 8px;
+    border-width: 1px;
+    border-color: #C9CFD4;
+}
+
+/* Selection language: index mark + accent left rule + chip state (never
+   colour only). */
+.equipment-row.row-selected {
+    background-color: #FFFFFF;
+    border-color: #B9CDD1;
+    border-left-color: #0E7F8C;
+}
+
+.equipment-row.row-selected .equipment-index {
+    color: #0E7F8C;
+    -unity-font-style: bold;
+}
+
+.equipment-row.row-selected .equipment-chip {
+    color: #0A616C;
+    border-color: #0E7F8C;
+}
+
+.equipment-row.row-required .equipment-chip {
+    color: #0A616C;
+    border-color: #0E7F8C;
+}
+
+.loadout-hint {
+    margin-top: auto;
+    align-items: center;
+}
+
+.loadout-hint-text {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: #9AA2AA;
+    -unity-text-align: middle-center;
+}
+
+/* ---------- Right column: cargo ---------- */
+
+.panel-block {
+    flex-direction: column;
+}
+
+.cargo-line {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.cargo-value {
+    font-size: 42px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: #161B20;
+}
+
+.cargo-unit {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7B858F;
+    margin-left: 12px;
+    margin-bottom: 10px;
+}
+
+.cargo-track {
+    height: 6px;
+    background-color: #D3D8DC;
+    margin-top: 12px;
+}
+
+.cargo-fill {
+    height: 6px;
+    width: 45%;
+    background-color: #161B20;
+}
+
+/* ---------- Right column: mission readiness ---------- */
+
+.readiness-block {
+    margin-top: 34px;
+}
+
+.readiness-status {
+    font-size: 34px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    color: #161B20;
+    margin-top: 4px;
+}
+
+.readiness-sub {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: #7B858F;
+    margin-top: 6px;
+    margin-bottom: 16px;
+}
+
+.readiness-row {
+    flex-direction: row;
+    align-items: center;
+    height: 36px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.readiness-key {
+    flex-grow: 1;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #4A525C;
+}
+
+.readiness-value {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #7B858F;
+}
+
+.readiness-value.readiness-active {
+    color: #0A616C;
+    -unity-font-style: bold;
+}
+
+/* ---------- Bottom action strip ---------- */
+
+.prep-actionbar {
+    flex-shrink: 0;
+    height: 76px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-top-width: 1px;
+    border-top-color: #C9CFD4;
+    background-color: #E4E7EA;
+}
+
+.actionbar-context {
+    margin-right: auto;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #7B858F;
+}
+
+.confirm-action {
+    width: 330px;
+    height: 50px;
+    -unity-text-align: middle-center;
+    font-size: 14px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    color: #FFFFFF;
+    background-color: #161B20;
+    border-width: 1px;
+    border-color: #161B20;
+}
+
+.confirm-action:hover {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+}
+
+.confirm-action:active {
+    background-color: #0A616C;
+    border-color: #0A616C;
+}
+
+.confirm-action:disabled {
+    background-color: #B7BDC3;
+    border-color: #A9AFB5;
+    color: #EDEFF1;
+}

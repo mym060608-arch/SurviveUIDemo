@@ -178,32 +178,192 @@
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <!-- Screen 02: Preparation (Phase 01 placeholder; kept basic) -->
-            <ui:VisualElement name="PreparationScreen" class="screen screen-pad">
-                <ui:Label class="app-title" text="PREPARE EXPEDITION" />
-                <ui:Label class="section-title" text="MISSION" />
-                <ui:Label class="app-subtitle" text="NEREID-04" />
-                <ui:Label class="section-title" text="ENVIRONMENT" />
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="Temperature" />
-                    <ui:Label class="stat-value" text="-37 C" />
+            <!-- Screen 02: Preparation / Expedition Preparation (Phase 03) -->
+            <ui:VisualElement name="PreparationScreen" class="screen preparation-screen">
+                <!-- Top system bar (Phase 02 language) -->
+                <ui:VisualElement class="prep-topbar">
+                    <ui:VisualElement class="topbar-left">
+                        <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
+                        <ui:VisualElement class="topbar-divider-v" />
+                        <ui:Label class="topbar-role" text="EXPEDITION CONTROL" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="topbar-right">
+                        <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:Label class="topbar-cell" text="CYCLE 1842" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:VisualElement class="topbar-system">
+                            <ui:VisualElement class="status-dot" />
+                            <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="Gravity" />
-                    <ui:Label class="stat-value" text="0.72 G" />
+
+                <!-- Mission / target summary -->
+                <ui:VisualElement name="MissionSummary" class="mission-summary">
+                    <ui:VisualElement class="mission-head">
+                        <ui:Label class="eyebrow" text="MISSION" />
+                        <ui:Label name="PreparationDestination" class="mission-planet" text="NEREID-04" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="mission-data">
+                        <ui:VisualElement class="mission-cell">
+                            <ui:Label class="mission-cell-key" text="TARGET CLASS" />
+                            <ui:Label class="mission-cell-value" text="UNKNOWN SURFACE" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="mission-cell">
+                            <ui:Label class="mission-cell-key" text="DISTANCE" />
+                            <ui:Label class="mission-cell-value" text="2.47 AU" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="mission-cell">
+                            <ui:Label class="mission-cell-key" text="MISSION TYPE" />
+                            <ui:Label class="mission-cell-value" text="RESOURCE SURVEY" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="mission-cell">
+                            <ui:Label class="mission-cell-key" text="SIGNAL" />
+                            <ui:Label class="mission-cell-value" text="STABLE" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="Radiation" />
-                    <ui:Label class="stat-value" text="MEDIUM" />
+
+                <!-- Main body: environment / equipment / cargo-readiness -->
+                <ui:VisualElement class="preparation-body">
+                    <!-- LEFT: environment -->
+                    <ui:VisualElement name="EnvironmentPanel" class="prep-col-left">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="ENVIRONMENT" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="env-row">
+                            <ui:Label class="env-name" text="TEMPERATURE" />
+                            <ui:Label class="env-value" text="-37 C" />
+                            <ui:Label class="env-risk" text="LOW" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="env-row">
+                            <ui:Label class="env-name" text="GRAVITY" />
+                            <ui:Label class="env-value" text="0.72 G" />
+                            <ui:Label class="env-risk" text="STABLE" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="env-row">
+                            <ui:Label class="env-name" text="RADIATION" />
+                            <ui:Label class="env-value" text="MEDIUM" />
+                            <ui:Label class="env-risk env-risk-caution" text="CAUTION" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="env-row">
+                            <ui:Label class="env-name" text="ATMOSPHERE" />
+                            <ui:Label class="env-value" text="THIN" />
+                            <ui:Label class="env-risk" text="LOW" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="env-row">
+                            <ui:Label class="env-name" text="SURFACE" />
+                            <ui:Label class="env-value" text="UNKNOWN" />
+                            <ui:Label class="env-risk env-risk-na" text="N/A" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="panel-footnote">
+                            <ui:VisualElement class="footnote-tick" />
+                            <ui:Label class="footnote-label" text="SURVEY DATA // PROVISIONAL" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- CENTER: equipment / loadout -->
+                    <ui:VisualElement name="EquipmentPanel" class="prep-col-center">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="EQUIPMENT // LOADOUT" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+
+                        <ui:Button name="HarvesterRowButton" class="equipment-row row-required">
+                            <ui:Label class="equipment-index" text="01" />
+                            <ui:VisualElement class="equipment-copy">
+                                <ui:Label class="equipment-name" text="HARVESTER MK-I" />
+                                <ui:Label class="equipment-purpose" text="Deployable extraction unit for mineral recovery." />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="equipment-trailing">
+                                <ui:Label class="equipment-weight" text="45 KG" />
+                                <ui:Label class="equipment-chip" text="REQUIRED" />
+                            </ui:VisualElement>
+                        </ui:Button>
+
+                        <ui:Button name="BatteryRowButton" class="equipment-row">
+                            <ui:Label class="equipment-index" text="02" />
+                            <ui:VisualElement class="equipment-copy">
+                                <ui:Label class="equipment-name" text="BATTERY PACK" />
+                                <ui:Label class="equipment-purpose" text="Auxiliary power reserve for remote equipment." />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="equipment-trailing">
+                                <ui:Label class="equipment-weight" text="25 KG" />
+                                <ui:Label class="equipment-chip" text="OPTIONAL" />
+                            </ui:VisualElement>
+                        </ui:Button>
+
+                        <ui:Button name="DroneRowButton" class="equipment-row">
+                            <ui:Label class="equipment-index" text="03" />
+                            <ui:VisualElement class="equipment-copy">
+                                <ui:Label class="equipment-name" text="SURVEY DRONE" />
+                                <ui:Label class="equipment-purpose" text="Short-range terrain and resource scanner." />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="equipment-trailing">
+                                <ui:Label class="equipment-weight" text="20 KG" />
+                                <ui:Label class="equipment-chip" text="OPTIONAL" />
+                            </ui:VisualElement>
+                        </ui:Button>
+
+                        <ui:VisualElement class="loadout-hint">
+                            <ui:Label class="loadout-hint-text" text="REQUIRED MODULES SHOWN FIRST // CONFIRM LOCKS PACKAGE" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- RIGHT: cargo / readiness -->
+                    <ui:VisualElement class="prep-col-right">
+                        <ui:VisualElement name="CargoPanel" class="panel-block">
+                            <ui:VisualElement class="panel-header">
+                                <ui:Label class="panel-header-text" text="CARGO" />
+                                <ui:VisualElement class="panel-header-rule" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="cargo-line">
+                                <ui:Label name="CargoValue" class="cargo-value" text="45 / 100" />
+                                <ui:Label class="cargo-unit" text="KG" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="cargo-track">
+                                <ui:VisualElement name="CargoBarFill" class="cargo-fill" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement name="ReadinessPanel" class="panel-block readiness-block">
+                            <ui:VisualElement class="panel-header">
+                                <ui:Label class="panel-header-text" text="MISSION READINESS" />
+                                <ui:VisualElement class="panel-header-rule" />
+                            </ui:VisualElement>
+                            <ui:Label name="LoadoutStateLabel" class="readiness-status" text="READY" />
+                            <ui:Label class="readiness-sub" text="VALID PACKAGE // AWAITING CONFIRMATION" />
+                            <ui:VisualElement class="readiness-row">
+                                <ui:Label class="readiness-key" text="TARGET DATA" />
+                                <ui:Label class="readiness-value" text="READY" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="readiness-row">
+                                <ui:Label class="readiness-key" text="HARVESTER" />
+                                <ui:Label class="readiness-value" text="READY" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="readiness-row">
+                                <ui:Label class="readiness-key" text="POWER" />
+                                <ui:Label name="ReadinessPowerValue" class="readiness-value" text="OPTIONAL" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="readiness-row">
+                                <ui:Label class="readiness-key" text="SURVEY" />
+                                <ui:Label name="ReadinessSurveyValue" class="readiness-value" text="OPTIONAL" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="readiness-row">
+                                <ui:Label class="readiness-key" text="CARGO" />
+                                <ui:Label name="ReadinessCargoValue" class="readiness-value" text="45 KG" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Label class="section-title" text="EQUIPMENT" />
-                <ui:Button name="HarvesterRowButton" class="equipment-button" text="HARVESTER MK-I" />
-                <ui:Button name="BatteryRowButton" class="equipment-button" text="BATTERY PACK" />
-                <ui:Button name="DroneRowButton" class="equipment-button" text="SURVEY DRONE" />
-                <ui:Label class="section-title" text="CARGO" />
-                <ui:Label name="CargoValue" class="big-value" text="0 / 100" />
-                <ui:Label name="LoadoutStateLabel" class="dialog-message" text="STATUS: DRAFT" />
-                <ui:Button name="ConfirmLoadoutButton" class="button-primary" text="CONFIRM LOADOUT" />
+
+                <!-- Bottom action strip -->
+                <ui:VisualElement class="prep-actionbar">
+                    <ui:Label class="actionbar-context" text="EXPEDITION PACKAGE" />
+                    <ui:Button name="ConfirmLoadoutButton" class="confirm-action" text="CONFIRM LOADOUT" />
+                </ui:VisualElement>
             </ui:VisualElement>
 
             <!-- Screen 03: Processing (Phase 01 placeholder; kept basic) -->

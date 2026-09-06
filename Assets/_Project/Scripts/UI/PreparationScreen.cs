@@ -1,36 +1,37 @@
-using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Screen 02 - Preparation. Lightweight loadout selection prototype.
+/// Screen 02 - Preparation / Expedition Preparation (Phase 03).
 ///
-/// State is intentionally local to this prototype screen (no inventory
-/// system): each equipment row is a selectable button, the sum of the
-/// selected weights drives the simple cargo value, and CONFIRM toggles a
-/// confirmation state that stays reversible/editable.
+/// All loadout state lives in GameSession (single authority); this class only
+/// renders it and forwards user intent. Cargo, readiness and confirmation UI
+/// are refreshed on every GameSession.OnStateChanged, so cross-screen edits
+/// (including Processing / Outpost mutations and Reset) stay consistent.
+///
+/// Interactions:
+/// - HARVESTER MK-I is mission-required (always carried, not toggleable);
+/// - BATTERY PACK / SURVEY DRONE rows toggle optional equipment;
+/// - CONFIRM LOADOUT locks the package (GameSession.TryConfirmLoadout);
+/// - any equipment change after confirmation clears it (state-side rule).
 /// </summary>
 public class PreparationScreen
 {
-    private const int HarvesterWeight = 40;
-    private const int BatteryWeight = 10;
-    private const int DroneWeight = 30;
-    private const int CargoCapacity = 100;
-
     private readonly VisualElement _root;
     private readonly GameSession _session;
+
+    private Label _cargoValue;
+    private VisualElement _cargoFill;
+    private Label _stateLabel;
+    private Label _readinessSub;
+    private Label _powerValue;
+    private Label _surveyValue;
+    private Label _readinessCargo;
+    private Button _confirmButton;
 
     private Button _harvesterRow;
     private Button _batteryRow;
     private Button _droneRow;
-    private Label _cargoValue;
-    private Label _stateLabel;
-    private Button _confirmButton;
-
-    private bool _harvesterSelected;
-    private bool _batterySelected;
-    private bool _droneSelected;
-    private bool _confirmed;
 
     public PreparationScreen(VisualElement root, GameSession session)
     {
@@ -40,79 +41,89 @@ public class PreparationScreen
 
     public void Bind()
     {
-        _harvesterRow = BindRow(ElementNames.HarvesterRowButton, () => _harvesterSelected = !_harvesterSelected);
-        _batteryRow = BindRow(ElementNames.BatteryRowButton, () => _batterySelected = !_batterySelected);
-        _droneRow = BindRow(ElementNames.DroneRowButton, () => _droneSelected = !_droneSelected);
+        _cargoValue = BindLabel(ElementNames.CargoValue);
+        _cargoFill = BindElement(ElementNames.CargoBarFill);
+        _stateLabel = BindLabel(ElementNames.LoadoutStateLabel);
+        _powerValue = BindLabel(ElementNames.ReadinessPowerValue);
+        _surveyValue = BindLabel(ElementNames.ReadinessSurveyValue);
+        _readinessCargo = BindLabel(ElementNames.ReadinessCargoValue);
 
-        _cargoValue = _root.Q<Label>(ElementNames.CargoValue);
-        _stateLabel = _root.Q<Label>(ElementNames.LoadoutStateLabel);
-        if (_cargoValue == null)
-        {
-            LogMissing(ElementNames.CargoValue);
-        }
+        _harvesterRow = BindButton(ElementNames.HarvesterRowButton, null);
+        _batteryRow = BindButton(ElementNames.BatteryRowButton,
+            () => _session.TrySetBatterySelected(!_session.BatterySelected));
+        _droneRow = BindButton(ElementNames.DroneRowButton,
+            () => _session.TrySetDroneSelected(!_session.DroneSelected));
 
-        if (_stateLabel == null)
-        {
-            LogMissing(ElementNames.LoadoutStateLabel);
-        }
+        _confirmButton = BindButton(ElementNames.ConfirmLoadoutButton, () => _session.TryConfirmLoadout());
 
-        _confirmButton = _root.Q<Button>(ElementNames.ConfirmLoadoutButton);
-        if (_confirmButton != null)
+        _readinessSub = _root.Q<Label>(null, "readiness-sub");
+        if (_readinessSub == null)
         {
-            _confirmButton.clicked += () =>
-            {
-                _confirmed = !_confirmed;
-                Refresh();
-            };
-        }
-        else
-        {
-            LogMissing(ElementNames.ConfirmLoadoutButton);
+            LogMissing("readiness-sub");
         }
     }
 
-    private Button BindRow(string name, Action onToggled)
+    private Button BindButton(string name, System.Action onClick)
     {
-        Button row = _root.Q<Button>(name);
-        if (row == null)
+        Button button = _root.Q<Button>(name);
+        if (button == null)
         {
             LogMissing(name);
             return null;
         }
 
-        row.clicked += () =>
+        if (onClick != null)
         {
-            onToggled();
-            // Editing a loadout invalidates a previous confirmation.
-            _confirmed = false;
-            Refresh();
-        };
+            button.clicked += onClick;
+        }
 
-        return row;
+        return button;
     }
 
     public void Refresh()
     {
-        int cargo = (_harvesterSelected ? HarvesterWeight : 0)
-                    + (_batterySelected ? BatteryWeight : 0)
-                    + (_droneSelected ? DroneWeight : 0);
-
-        if (_cargoValue != null)
-        {
-            _cargoValue.text = cargo + " / " + CargoCapacity;
-        }
-
-        if (_stateLabel != null)
-        {
-            _stateLabel.text = _confirmed ? "STATUS: CONFIRMED" : "STATUS: DRAFT";
-        }
-
-        RefreshRow(_harvesterRow, _harvesterSelected);
-        RefreshRow(_batteryRow, _batterySelected);
-        RefreshRow(_droneRow, _droneSelected);
+        RefreshCargo();
+        RefreshEquipmentRows();
+        RefreshReadiness();
+        RefreshConfirm();
     }
 
-    private static void RefreshRow(Button row, bool selected)
+    private void RefreshCargo()
+    {
+        int cargo = _session.CargoWeight;
+        if (_cargoValue != null)
+        {
+            _cargoValue.text = cargo + " / " + GameSession.CargoCapacityKg;
+        }
+
+        if (_cargoFill != null)
+        {
+            float percent = cargo * 100f / GameSession.CargoCapacityKg;
+            _cargoFill.style.width = Length.Percent(Mathf.Clamp(percent, 0f, 100f));
+        }
+
+        if (_readinessCargo != null)
+        {
+            _readinessCargo.text = cargo + " / " + GameSession.CargoCapacityKg;
+        }
+    }
+
+    private void RefreshEquipmentRows()
+    {
+        SetRowSelected(_batteryRow, _session.BatterySelected,
+            _session.BatterySelected ? "SELECTED" : "OPTIONAL");
+        SetRowSelected(_droneRow, _session.DroneSelected,
+            _session.DroneSelected ? "SELECTED" : "OPTIONAL");
+
+        // Harvester is required and always carried.
+        if (_harvesterRow != null)
+        {
+            _harvesterRow.AddToClassList("row-required");
+            _harvesterRow.AddToClassList("row-selected");
+        }
+    }
+
+    private static void SetRowSelected(Button row, bool selected, string chipText)
     {
         if (row == null)
         {
@@ -121,12 +132,97 @@ public class PreparationScreen
 
         if (selected)
         {
-            row.AddToClassList("selected");
+            row.AddToClassList("row-selected");
         }
         else
         {
-            row.RemoveFromClassList("selected");
+            row.RemoveFromClassList("row-selected");
         }
+
+        Label chip = row.Q<Label>(null, "equipment-chip");
+        if (chip != null)
+        {
+            chip.text = chipText;
+        }
+    }
+
+    private void RefreshReadiness()
+    {
+        bool confirmed = _session.LoadoutConfirmed;
+        bool ready = _session.IsLoadoutValid;
+
+        if (_stateLabel != null)
+        {
+            _stateLabel.text = confirmed ? "CONFIRMED" : (ready ? "READY" : "NOT READY");
+        }
+
+        if (_readinessSub != null)
+        {
+            _readinessSub.text = confirmed
+                ? "PACKAGE LOCKED // MISSION READY"
+                : (ready ? "VALID PACKAGE // AWAITING CONFIRMATION" : "REQUIRED MODULE MISSING");
+        }
+
+        SetReadinessValue(_powerValue, _session.BatterySelected);
+        SetReadinessValue(_surveyValue, _session.DroneSelected);
+    }
+
+    private static void SetReadinessValue(Label label, bool active)
+    {
+        if (label == null)
+        {
+            return;
+        }
+
+        label.text = active ? "READY" : "OPTIONAL";
+        if (active)
+        {
+            label.AddToClassList("readiness-active");
+        }
+        else
+        {
+            label.RemoveFromClassList("readiness-active");
+        }
+    }
+
+    private void RefreshConfirm()
+    {
+        if (_confirmButton == null)
+        {
+            return;
+        }
+
+        if (_session.LoadoutConfirmed)
+        {
+            _confirmButton.text = "LOADOUT CONFIRMED";
+            _confirmButton.SetEnabled(false);
+            return;
+        }
+
+        _confirmButton.text = "CONFIRM LOADOUT";
+        _confirmButton.SetEnabled(_session.IsLoadoutValid);
+    }
+
+    private Label BindLabel(string name)
+    {
+        Label label = _root.Q<Label>(name);
+        if (label == null)
+        {
+            LogMissing(name);
+        }
+
+        return label;
+    }
+
+    private VisualElement BindElement(string name)
+    {
+        VisualElement element = _root.Q<VisualElement>(name);
+        if (element == null)
+        {
+            LogMissing(name);
+        }
+
+        return element;
     }
 
     private static void LogMissing(string name)

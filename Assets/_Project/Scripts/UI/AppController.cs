@@ -28,6 +28,9 @@ public class AppController : MonoBehaviour
     [SerializeField]
     private StyleSheet overviewStyleSheet;
 
+    [SerializeField]
+    private StyleSheet preparationStyleSheet;
+
     private UIDocument _document;
     private VisualElement _root;
     private GameSession _session;
@@ -81,10 +84,11 @@ public class AppController : MonoBehaviour
     }
 
     /// <summary>Assigns the style sheets; called once by scene authoring tooling.</summary>
-    public void Configure(StyleSheet theme, StyleSheet overview)
+    public void Configure(StyleSheet theme, StyleSheet overview, StyleSheet preparation)
     {
         themeStyleSheet = theme;
         overviewStyleSheet = overview;
+        preparationStyleSheet = preparation;
     }
 
     private void Awake()
@@ -113,6 +117,11 @@ public class AppController : MonoBehaviour
         if (overviewStyleSheet != null)
         {
             _root.styleSheets.Add(overviewStyleSheet);
+        }
+
+        if (preparationStyleSheet != null)
+        {
+            _root.styleSheets.Add(preparationStyleSheet);
         }
 
         CacheContainers();

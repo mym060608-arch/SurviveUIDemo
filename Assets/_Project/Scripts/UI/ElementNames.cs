@@ -58,6 +58,18 @@ public static class ElementNames
     public const string LoadoutStateLabel = "LoadoutStateLabel";
     public const string ConfirmLoadoutButton = "ConfirmLoadoutButton";
 
+    // Preparation (Phase 03 composition / runtime binding).
+    public const string PreparationDestination = "PreparationDestination";
+    public const string MissionSummary = "MissionSummary";
+    public const string EnvironmentPanel = "EnvironmentPanel";
+    public const string EquipmentPanel = "EquipmentPanel";
+    public const string CargoPanel = "CargoPanel";
+    public const string CargoBarFill = "CargoBarFill";
+    public const string ReadinessPanel = "ReadinessPanel";
+    public const string ReadinessPowerValue = "ReadinessPowerValue";
+    public const string ReadinessSurveyValue = "ReadinessSurveyValue";
+    public const string ReadinessCargoValue = "ReadinessCargoValue";
+
     // Processing.
     public const string ProcessingMineralsValue = "ProcessingMineralsValue";
     public const string ProcessingFuelValue = "ProcessingFuelValue";
@@ -105,6 +117,10 @@ public static class ElementNames
         CargoValue,
         LoadoutStateLabel,
         ConfirmLoadoutButton,
+        CargoBarFill,
+        ReadinessPowerValue,
+        ReadinessSurveyValue,
+        ReadinessCargoValue,
         ProcessingMineralsValue,
         ProcessingFuelValue,
         ProcessingAlloyValue,
@@ -134,6 +150,34 @@ public static class ElementNames
         ObjectiveCopy,
         MissionStatusBlock,
         OpenPreparationButton,
+        BottomNav,
+        NavOverview,
+        NavPreparation,
+        NavProcessing,
+        NavOutpost
+    };
+
+    /// <summary>
+    /// Phase 03 Preparation composition elements the structural validator must
+    /// find in MainApp.uxml (stable names, no pixel checks).
+    /// </summary>
+    public static readonly string[] PreparationStructure =
+    {
+        PreparationScreen,
+        MissionSummary,
+        PreparationDestination,
+        EnvironmentPanel,
+        EquipmentPanel,
+        HarvesterRowButton,
+        BatteryRowButton,
+        DroneRowButton,
+        CargoPanel,
+        CargoValue,
+        CargoBarFill,
+        ReadinessPanel,
+        LoadoutStateLabel,
+        ReadinessCargoValue,
+        ConfirmLoadoutButton,
         BottomNav,
         NavOverview,
         NavPreparation,
