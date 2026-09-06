@@ -47,6 +47,7 @@ public static class ElementNames
     public const string PlanetStage = "PlanetStage";
     public const string PlanetDisc = "PlanetDisc";
     public const string ObjectivePanel = "ObjectivePanel";
+    public const string ObjectiveCopy = "ObjectiveCopy";
     public const string MissionStatusBlock = "MissionStatusBlock";
 
     // Preparation.
@@ -130,6 +131,7 @@ public static class ElementNames
         PlanetStage,
         PlanetDisc,
         ObjectivePanel,
+        ObjectiveCopy,
         MissionStatusBlock,
         OpenPreparationButton,
         BottomNav,

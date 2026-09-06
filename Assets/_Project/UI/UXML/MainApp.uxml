@@ -125,7 +125,7 @@
 
                         <ui:Button name="OpenPreparationButton" class="cta-action">
                             <ui:VisualElement class="cta-mark" />
-                            <ui:Label class="cta-label" text="PREPARE EXPEDITION" />
+                            <ui:Label class="cta-label" text="PREPARE EXPEDITION  »" />
                         </ui:Button>
                     </ui:VisualElement>
 
@@ -137,7 +137,7 @@
                         </ui:VisualElement>
 
                         <ui:Label class="objective-title" text="SURVIVE THE DRIFT" />
-                        <ui:Label class="objective-copy" text="Locate viable resources and maintain ship energy above critical threshold." />
+                        <ui:Label name="ObjectiveCopy" class="objective-copy" text="Locate viable resources and maintain ship energy above critical threshold." />
 
                         <ui:Label class="group-label" text="PRIMARY DIRECTIVE" />
                         <ui:VisualElement class="objective-row objective-active">

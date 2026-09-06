@@ -185,6 +185,23 @@ public class OverviewCapture : MonoBehaviour
             Rect objectiveRect = WorldBounds(objective);
             Check(results, ref failures, label + " left/right columns do not overlap",
                 shipRect.xMax <= objectiveRect.xMin);
+
+            // Objective copy must soft-wrap inside the right column instead of
+            // being clipped: a wrapped 14px label renders more than one line.
+            Label objectiveCopy = root.Q<Label>(ElementNames.ObjectiveCopy);
+            if (objectiveCopy != null)
+            {
+                Rect copyRect = WorldBounds(objectiveCopy);
+                Check(results, ref failures,
+                    label + " objective copy wrapped inside right column (height "
+                    + copyRect.height.ToString("0") + "px, copy x "
+                    + copyRect.xMin.ToString("0") + ".." + copyRect.xMax.ToString("0")
+                    + " panel x " + objectiveRect.xMin.ToString("0") + ".."
+                    + objectiveRect.xMax.ToString("0") + ")",
+                    copyRect.height > 26f
+                    && copyRect.xMin >= objectiveRect.xMin - 4f
+                    && copyRect.xMax <= objectiveRect.xMax + 4f);
+            }
         }
         else
         {

@@ -43,12 +43,20 @@ public static class SurviveBuildCLI
             };
 
             string exePath = buildPath + "/SurviveUIDemo.exe";
+
+            // Development builds add a visible "Development Build" watermark,
+            // so the review screenshot pipeline uses a Release player while
+            // automated runs keep using Development (default) when asked.
+            string devArg = GetArgValue("-development");
+            bool development = string.IsNullOrEmpty(devArg) || !string.Equals(devArg, "0");
+            BuildOptions buildOptions = development ? BuildOptions.Development : BuildOptions.None;
+
             var options = new BuildPlayerOptions
             {
                 scenes = scenePaths,
                 locationPathName = exePath,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.Development
+                options = buildOptions
             };
 
             BuildReport report = BuildPipeline.BuildPlayer(options);
@@ -57,6 +65,7 @@ public static class SurviveBuildCLI
 
             reportText.AppendLine(ok ? "BUILD SUCCESS" : "BUILD FAILED");
             reportText.AppendLine("path: " + exePath);
+            reportText.AppendLine("mode: " + (development ? "Development" : "Release"));
             reportText.AppendLine("result: " + summary.result);
             reportText.AppendLine("sizeBytes: " + summary.totalSize);
             reportText.AppendLine("warnings: " + summary.totalWarnings);

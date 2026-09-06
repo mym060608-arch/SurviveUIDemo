@@ -143,7 +143,7 @@
 .group-label {
     font-size: 10px;
     letter-spacing: 3px;
-    color: #7B858F;
+    color: #5A6570;
     margin-bottom: 6px;
 }
 
@@ -550,8 +550,9 @@
 .objective-copy {
     font-size: 14px;
     color: #4A525C;
+    white-space: normal;
+    width: 100%;
     margin-bottom: 32px;
-    max-width: 320px;
 }
 
 .objective-row {
