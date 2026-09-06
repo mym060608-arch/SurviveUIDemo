@@ -55,14 +55,14 @@
     font-size: 26px;
     color: #161B20;
     -unity-font-style: bold;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     margin-bottom: 6px;
 }
 
 .app-subtitle {
     font-size: 13px;
     color: #7B858F;
-    letter-spacing: 1px;
+    letter-spacing: 0px;
     margin-bottom: 10px;
 }
 
@@ -70,7 +70,7 @@
     font-size: 12px;
     color: #4A525C;
     -unity-font-style: bold;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     margin-top: 16px;
     margin-bottom: 8px;
 }
@@ -92,7 +92,7 @@
 .stat-name {
     font-size: 13px;
     color: #4A525C;
-    letter-spacing: 1px;
+    letter-spacing: 0px;
 }
 
 .stat-value {
@@ -112,7 +112,7 @@
 .dialog-message {
     font-size: 12px;
     color: #4A525C;
-    letter-spacing: 1px;
+    letter-spacing: 0px;
     margin-top: 10px;
 }
 
@@ -122,7 +122,7 @@
     -unity-text-align: middle-center;
     font-size: 13px;
     -unity-font-style: bold;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #FFFFFF;
     background-color: #161B20;
     border-width: 1px;
@@ -293,7 +293,7 @@
     font-size: 15px;
     color: #4A525C;
     -unity-font-style: bold;
-    letter-spacing: 3px;
+    letter-spacing: 0px;
     transition-property: color;
     transition-duration: 0.12s;
 }

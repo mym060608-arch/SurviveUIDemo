@@ -42,9 +42,9 @@ public class OutpostScreen
 
     public void Refresh()
     {
-        SetLevel(_harvesterLevel, "HARVESTER LV.", _session.HarvesterLevel);
-        SetLevel(_refineryLevel, "REFINERY LV.", _session.RefineryLevel);
-        SetLevel(_outpostLevel, "OUTPOST LV.", _session.OutpostLevel);
+        SetLevel(_harvesterLevel, "采集模块 LV.", _session.HarvesterLevel);
+        SetLevel(_refineryLevel, "精炼模块 LV.", _session.RefineryLevel);
+        SetLevel(_outpostLevel, "据点 LV.", _session.OutpostLevel);
         SetText(_alloy, _session.Alloy);
 
         if (_upgradeButton != null)

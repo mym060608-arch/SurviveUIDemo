@@ -11,7 +11,7 @@
                     <ui:VisualElement class="topbar-left">
                         <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
                         <ui:VisualElement class="topbar-divider-v" />
-                        <ui:Label class="topbar-role" text="EXPEDITION CONTROL" />
+                        <ui:Label class="topbar-role" text="远征控制" />
                     </ui:VisualElement>
                     <ui:VisualElement class="topbar-right">
                         <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
@@ -30,15 +30,15 @@
                     <!-- LEFT: Ship status -->
                     <ui:VisualElement name="ShipStatusPanel" class="overview-col-left">
                         <ui:VisualElement class="panel-header">
-                            <ui:Label class="panel-header-text" text="SHIP STATUS" />
+                            <ui:Label class="panel-header-text" text="舰船状态" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
 
-                        <ui:Label class="group-label" text="SURVIVAL CRITICAL" />
+                        <ui:Label class="group-label" text="生存指标" />
                         <ui:VisualElement name="ShipSurvivalGroup" class="survival-group">
                             <ui:VisualElement class="survival-row">
                                 <ui:VisualElement class="survival-marker" />
-                                <ui:Label class="survival-name" text="ENERGY" />
+                                <ui:Label class="survival-name" text="能源" />
                                 <ui:VisualElement class="bar-track">
                                     <ui:VisualElement name="EnergyBarFill" class="bar-fill" />
                                 </ui:VisualElement>
@@ -47,7 +47,7 @@
                             </ui:VisualElement>
                             <ui:VisualElement class="survival-row">
                                 <ui:VisualElement class="survival-marker" />
-                                <ui:Label class="survival-name" text="FOOD" />
+                                <ui:Label class="survival-name" text="食物" />
                                 <ui:VisualElement class="bar-track">
                                     <ui:VisualElement name="FoodBarFill" class="bar-fill" />
                                 </ui:VisualElement>
@@ -58,20 +58,20 @@
 
                         <ui:VisualElement class="panel-rule" />
 
-                        <ui:Label class="group-label" text="RESOURCE INVENTORY" />
+                        <ui:Label class="group-label" text="资源库存" />
                         <ui:VisualElement name="ShipResourceGroup" class="resource-group">
                             <ui:VisualElement class="resource-row">
-                                <ui:Label class="resource-name" text="MINERALS" />
+                                <ui:Label class="resource-name" text="矿物" />
                                 <ui:VisualElement class="resource-rule" />
                                 <ui:Label name="MineralsValue" class="resource-value" text="0" />
                             </ui:VisualElement>
                             <ui:VisualElement class="resource-row">
-                                <ui:Label class="resource-name" text="FUEL" />
+                                <ui:Label class="resource-name" text="燃料" />
                                 <ui:VisualElement class="resource-rule" />
                                 <ui:Label name="FuelValue" class="resource-value" text="0" />
                             </ui:VisualElement>
                             <ui:VisualElement class="resource-row">
-                                <ui:Label class="resource-name" text="ALLOY" />
+                                <ui:Label class="resource-name" text="合金" />
                                 <ui:VisualElement class="resource-rule" />
                                 <ui:Label name="AlloyValue" class="resource-value" text="0" />
                             </ui:VisualElement>
@@ -79,18 +79,18 @@
 
                         <ui:VisualElement class="panel-footnote">
                             <ui:VisualElement class="footnote-tick" />
-                            <ui:Label class="footnote-label" text="SHIP SYSTEMS // NOMINAL" />
+                            <ui:Label class="footnote-label" text="舰船系统 // 正常" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
                     <!-- CENTER: Destination main visual -->
                     <ui:VisualElement name="DestinationPanel" class="overview-col-center">
-                        <ui:Label class="eyebrow" text="CURRENT DESTINATION" />
+                        <ui:Label class="eyebrow" text="当前目的地" />
                         <ui:Label name="DestinationValue" class="hero-title" text="NEREID-04" />
                         <ui:VisualElement class="hero-meta">
-                            <ui:Label class="hero-meta-chip" text="UNKNOWN SURFACE" />
+                            <ui:Label class="hero-meta-chip" text="未知地表" />
                             <ui:VisualElement class="chip-dot" />
-                            <ui:Label class="hero-meta-chip" text="RESOURCE CANDIDATE" />
+                            <ui:Label class="hero-meta-chip" text="资源候选区" />
                         </ui:VisualElement>
 
                         <ui:VisualElement name="PlanetStage" class="planet-stage">
@@ -125,47 +125,47 @@
 
                         <ui:Button name="OpenPreparationButton" class="cta-action">
                             <ui:VisualElement class="cta-mark" />
-                            <ui:Label class="cta-label" text="PREPARE EXPEDITION  »" />
+                            <ui:Label class="cta-label" text="准备远征 »" />
                         </ui:Button>
                     </ui:VisualElement>
 
                     <!-- RIGHT: Current objective -->
                     <ui:VisualElement name="ObjectivePanel" class="overview-col-right">
                         <ui:VisualElement class="panel-header">
-                            <ui:Label class="panel-header-text" text="CURRENT OBJECTIVE" />
+                            <ui:Label class="panel-header-text" text="当前任务" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
 
-                        <ui:Label class="objective-title" text="SURVIVE THE DRIFT" />
-                        <ui:Label name="ObjectiveCopy" class="objective-copy" text="Locate viable resources and maintain ship energy above critical threshold." />
+                        <ui:Label class="objective-title" text="活下去" />
+                        <ui:Label name="ObjectiveCopy" class="objective-copy" text="寻找可利用资源，并维持舰船能源高于临界阈值。" />
 
-                        <ui:Label class="group-label" text="PRIMARY DIRECTIVE" />
+                        <ui:Label class="group-label" text="主要目标" />
                         <ui:VisualElement class="objective-row objective-active">
                             <ui:Label class="objective-index" text="01" />
-                            <ui:Label class="objective-text" text="Survey NEREID-04" />
-                            <ui:Label class="objective-state" text="ACTIVE" />
+                            <ui:Label class="objective-text" text="勘测 NEREID-04" />
+                            <ui:Label class="objective-state" text="进行中" />
                         </ui:VisualElement>
                         <ui:VisualElement class="objective-row">
                             <ui:Label class="objective-index" text="02" />
-                            <ui:Label class="objective-text" text="Acquire raw material" />
-                            <ui:Label class="objective-state" text="PENDING" />
+                            <ui:Label class="objective-text" text="获取原始资源" />
+                            <ui:Label class="objective-state" text="待处理" />
                         </ui:VisualElement>
                         <ui:VisualElement class="objective-row">
                             <ui:Label class="objective-index" text="03" />
-                            <ui:Label class="objective-text" text="Restore fuel reserve" />
-                            <ui:Label class="objective-state" text="PENDING" />
+                            <ui:Label class="objective-text" text="恢复燃料储备" />
+                            <ui:Label class="objective-state" text="待处理" />
                         </ui:VisualElement>
 
                         <ui:VisualElement class="panel-rule" />
 
                         <ui:VisualElement name="MissionStatusBlock" class="mission-block">
-                            <ui:Label class="group-label" text="MISSION STATUS" />
+                            <ui:Label class="group-label" text="任务状态" />
                             <ui:VisualElement class="mission-line">
-                                <ui:Label class="mission-key" text="TARGET" />
-                                <ui:Label class="mission-value" text="ACQUIRED" />
+                                <ui:Label class="mission-key" text="目标" />
+                                <ui:Label class="mission-value" text="已锁定" />
                             </ui:VisualElement>
                             <ui:VisualElement class="mission-line">
-                                <ui:Label class="mission-key" text="READINESS" />
+                                <ui:Label class="mission-key" text="准备度" />
                                 <ui:VisualElement class="mission-value-row">
                                     <ui:Label class="mission-value" text="72%" />
                                 </ui:VisualElement>
@@ -185,7 +185,7 @@
                     <ui:VisualElement class="topbar-left">
                         <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
                         <ui:VisualElement class="topbar-divider-v" />
-                        <ui:Label class="topbar-role" text="EXPEDITION CONTROL" />
+                        <ui:Label class="topbar-role" text="远征控制" />
                     </ui:VisualElement>
                     <ui:VisualElement class="topbar-right">
                         <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
@@ -202,25 +202,25 @@
                 <!-- Mission / target summary -->
                 <ui:VisualElement name="MissionSummary" class="mission-summary">
                     <ui:VisualElement class="mission-head">
-                        <ui:Label class="eyebrow" text="MISSION" />
+                        <ui:Label class="eyebrow" text="任务" />
                         <ui:Label name="PreparationDestination" class="mission-planet" text="NEREID-04" />
                     </ui:VisualElement>
                     <ui:VisualElement class="mission-data">
                         <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="TARGET CLASS" />
-                            <ui:Label class="mission-cell-value" text="UNKNOWN SURFACE" />
+                            <ui:Label class="mission-cell-key" text="目标类型" />
+                            <ui:Label class="mission-cell-value" text="未知地表" />
                         </ui:VisualElement>
                         <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="DISTANCE" />
+                            <ui:Label class="mission-cell-key" text="距离" />
                             <ui:Label class="mission-cell-value" text="2.47 AU" />
                         </ui:VisualElement>
                         <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="MISSION TYPE" />
-                            <ui:Label class="mission-cell-value" text="RESOURCE SURVEY" />
+                            <ui:Label class="mission-cell-key" text="任务类型" />
+                            <ui:Label class="mission-cell-value" text="资源勘测" />
                         </ui:VisualElement>
                         <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="SIGNAL" />
-                            <ui:Label class="mission-cell-value" text="STABLE" />
+                            <ui:Label class="mission-cell-key" text="信号" />
+                            <ui:Label class="mission-cell-value" text="稳定" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -230,85 +230,85 @@
                     <!-- LEFT: environment -->
                     <ui:VisualElement name="EnvironmentPanel" class="prep-col-left">
                         <ui:VisualElement class="panel-header">
-                            <ui:Label class="panel-header-text" text="ENVIRONMENT" />
+                            <ui:Label class="panel-header-text" text="环境数据" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="TEMPERATURE" />
-                            <ui:Label class="env-value" text="-37 C" />
-                            <ui:Label class="env-risk" text="LOW" />
+                            <ui:Label class="env-name" text="温度" />
+                            <ui:Label class="env-value" text="-37 °C" />
+                            <ui:Label class="env-risk" text="低温" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="GRAVITY" />
+                            <ui:Label class="env-name" text="重力" />
                             <ui:Label class="env-value" text="0.72 G" />
-                            <ui:Label class="env-risk" text="STABLE" />
+                            <ui:Label class="env-risk" text="稳定" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="RADIATION" />
-                            <ui:Label class="env-value" text="MEDIUM" />
-                            <ui:Label class="env-risk env-risk-caution" text="CAUTION" />
+                            <ui:Label class="env-name" text="辐射" />
+                            <ui:Label class="env-value" text="中等" />
+                            <ui:Label class="env-risk env-risk-caution" text="注意" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="ATMOSPHERE" />
-                            <ui:Label class="env-value" text="THIN" />
-                            <ui:Label class="env-risk" text="LOW" />
+                            <ui:Label class="env-name" text="大气" />
+                            <ui:Label class="env-value" text="稀薄" />
+                            <ui:Label class="env-risk" text="—" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="SURFACE" />
-                            <ui:Label class="env-value" text="UNKNOWN" />
-                            <ui:Label class="env-risk env-risk-na" text="N/A" />
+                            <ui:Label class="env-name" text="地表" />
+                            <ui:Label class="env-value" text="未知" />
+                            <ui:Label class="env-risk env-risk-na" text="—" />
                         </ui:VisualElement>
                         <ui:VisualElement class="panel-footnote">
                             <ui:VisualElement class="footnote-tick" />
-                            <ui:Label class="footnote-label" text="SURVEY DATA // PROVISIONAL" />
+                            <ui:Label class="footnote-label" text="勘测数据 // 临时" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
                     <!-- CENTER: equipment / loadout -->
                     <ui:VisualElement name="EquipmentPanel" class="prep-col-center">
                         <ui:VisualElement class="panel-header">
-                            <ui:Label class="panel-header-text" text="EQUIPMENT // LOADOUT" />
+                            <ui:Label class="panel-header-text" text="装备配置" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
 
                         <ui:Button name="HarvesterRowButton" class="equipment-row row-required">
                             <ui:Label class="equipment-index" text="01" />
                             <ui:VisualElement class="equipment-copy">
-                                <ui:Label class="equipment-name" text="HARVESTER MK-I" />
-                                <ui:Label class="equipment-purpose" text="Deployable extraction unit for mineral recovery." />
+                                <ui:Label class="equipment-name" text="采集器 MK-I" />
+                                <ui:Label class="equipment-purpose" text="可部署矿物采集模块" />
                             </ui:VisualElement>
                             <ui:VisualElement class="equipment-trailing">
                                 <ui:Label class="equipment-weight" text="45 KG" />
-                                <ui:Label class="equipment-chip" text="REQUIRED" />
+                                <ui:Label class="equipment-chip" text="必需" />
                             </ui:VisualElement>
                         </ui:Button>
 
                         <ui:Button name="BatteryRowButton" class="equipment-row">
                             <ui:Label class="equipment-index" text="02" />
                             <ui:VisualElement class="equipment-copy">
-                                <ui:Label class="equipment-name" text="BATTERY PACK" />
-                                <ui:Label class="equipment-purpose" text="Auxiliary power reserve for remote equipment." />
+                                <ui:Label class="equipment-name" text="备用电池组" />
+                                <ui:Label class="equipment-purpose" text="为远程设备提供辅助能源" />
                             </ui:VisualElement>
                             <ui:VisualElement class="equipment-trailing">
                                 <ui:Label class="equipment-weight" text="25 KG" />
-                                <ui:Label class="equipment-chip" text="OPTIONAL" />
+                                <ui:Label class="equipment-chip" text="可选" />
                             </ui:VisualElement>
                         </ui:Button>
 
                         <ui:Button name="DroneRowButton" class="equipment-row">
                             <ui:Label class="equipment-index" text="03" />
                             <ui:VisualElement class="equipment-copy">
-                                <ui:Label class="equipment-name" text="SURVEY DRONE" />
-                                <ui:Label class="equipment-purpose" text="Short-range terrain and resource scanner." />
+                                <ui:Label class="equipment-name" text="勘测无人机" />
+                                <ui:Label class="equipment-purpose" text="近距离地形与资源扫描" />
                             </ui:VisualElement>
                             <ui:VisualElement class="equipment-trailing">
                                 <ui:Label class="equipment-weight" text="20 KG" />
-                                <ui:Label class="equipment-chip" text="OPTIONAL" />
+                                <ui:Label class="equipment-chip" text="可选" />
                             </ui:VisualElement>
                         </ui:Button>
 
                         <ui:VisualElement class="loadout-hint">
-                            <ui:Label class="loadout-hint-text" text="REQUIRED MODULES SHOWN FIRST // CONFIRM LOCKS PACKAGE" />
+                            <ui:Label class="loadout-hint-text" text="必需模块优先显示 // 确认后锁定配置" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
@@ -316,7 +316,7 @@
                     <ui:VisualElement class="prep-col-right">
                         <ui:VisualElement name="CargoPanel" class="panel-block">
                             <ui:VisualElement class="panel-header">
-                                <ui:Label class="panel-header-text" text="CARGO" />
+                                <ui:Label class="panel-header-text" text="载荷" />
                                 <ui:VisualElement class="panel-header-rule" />
                             </ui:VisualElement>
                             <ui:VisualElement class="cargo-line">
@@ -330,30 +330,30 @@
 
                         <ui:VisualElement name="ReadinessPanel" class="panel-block readiness-block">
                             <ui:VisualElement class="panel-header">
-                                <ui:Label class="panel-header-text" text="MISSION READINESS" />
+                                <ui:Label class="panel-header-text" text="任务准备度" />
                                 <ui:VisualElement class="panel-header-rule" />
                             </ui:VisualElement>
-                            <ui:Label name="LoadoutStateLabel" class="readiness-status" text="READY" />
-                            <ui:Label class="readiness-sub" text="VALID PACKAGE // AWAITING CONFIRMATION" />
+                            <ui:Label name="LoadoutStateLabel" class="readiness-status" text="就绪" />
+                            <ui:Label class="readiness-sub" text="配置有效 // 等待确认" />
                             <ui:VisualElement class="readiness-row">
-                                <ui:Label class="readiness-key" text="TARGET DATA" />
-                                <ui:Label class="readiness-value" text="READY" />
+                                <ui:Label class="readiness-key" text="目标数据" />
+                                <ui:Label class="readiness-value" text="就绪" />
                             </ui:VisualElement>
                             <ui:VisualElement class="readiness-row">
-                                <ui:Label class="readiness-key" text="HARVESTER" />
-                                <ui:Label class="readiness-value" text="READY" />
+                                <ui:Label class="readiness-key" text="采集器" />
+                                <ui:Label class="readiness-value" text="就绪" />
                             </ui:VisualElement>
                             <ui:VisualElement class="readiness-row">
-                                <ui:Label class="readiness-key" text="POWER" />
-                                <ui:Label name="ReadinessPowerValue" class="readiness-value" text="OPTIONAL" />
+                                <ui:Label class="readiness-key" text="能源模块" />
+                                <ui:Label name="ReadinessPowerValue" class="readiness-value" text="可选" />
                             </ui:VisualElement>
                             <ui:VisualElement class="readiness-row">
-                                <ui:Label class="readiness-key" text="SURVEY" />
-                                <ui:Label name="ReadinessSurveyValue" class="readiness-value" text="OPTIONAL" />
+                                <ui:Label class="readiness-key" text="勘测系统" />
+                                <ui:Label name="ReadinessSurveyValue" class="readiness-value" text="可选" />
                             </ui:VisualElement>
                             <ui:VisualElement class="readiness-row">
-                                <ui:Label class="readiness-key" text="CARGO" />
-                                <ui:Label name="ReadinessCargoValue" class="readiness-value" text="45 KG" />
+                                <ui:Label class="readiness-key" text="载荷" />
+                                <ui:Label name="ReadinessCargoValue" class="readiness-value" text="45 / 100" />
                             </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
@@ -361,68 +361,172 @@
 
                 <!-- Bottom action strip -->
                 <ui:VisualElement class="prep-actionbar">
-                    <ui:Label class="actionbar-context" text="EXPEDITION PACKAGE" />
-                    <ui:Button name="ConfirmLoadoutButton" class="confirm-action" text="CONFIRM LOADOUT" />
+                    <ui:Label class="actionbar-context" text="远征配置" />
+                    <ui:Button name="ConfirmLoadoutButton" class="confirm-action" text="确认配置" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <!-- Screen 03: Processing (Phase 01 placeholder; kept basic) -->
-            <ui:VisualElement name="ProcessingScreen" class="screen screen-pad">
-                <ui:Label class="app-title" text="RESOURCE PROCESSING" />
-                <ui:Label class="section-title" text="RAW MINERALS" />
-                <ui:Label name="ProcessingMineralsValue" class="big-value" text="0" />
-                <ui:Label class="section-title" text="REFINERY FLOW" />
-                <ui:VisualElement class="schematic">
-                    <ui:Label class="schematic-box" text="MINERAL ORE" />
-                    <ui:Label class="schematic-flow" text="|" />
-                    <ui:Label class="schematic-flow" text="v" />
-                    <ui:Label class="schematic-box" text="REFINERY" />
-                    <ui:VisualElement class="schematic-row">
-                        <ui:VisualElement class="schematic-half">
-                            <ui:Label class="schematic-flow" text="v" />
-                            <ui:Label class="schematic-box" text="FUEL" />
-                        </ui:VisualElement>
-                        <ui:VisualElement class="schematic-half">
-                            <ui:Label class="schematic-flow" text="v" />
-                            <ui:Label class="schematic-box" text="ALLOY" />
+            <!-- Screen 03: Processing / Resource Processing (Phase 04) -->
+            <ui:VisualElement name="ProcessingScreen" class="screen processing-screen">
+                <!-- Top system bar (Phase 02 language) -->
+                <ui:VisualElement class="process-topbar">
+                    <ui:VisualElement class="topbar-left">
+                        <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
+                        <ui:VisualElement class="topbar-divider-v" />
+                        <ui:Label class="topbar-role" text="远征控制" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="topbar-right">
+                        <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:Label class="topbar-cell" text="CYCLE 1842" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:VisualElement class="topbar-system">
+                            <ui:VisualElement class="status-dot" />
+                            <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Label class="section-title" text="CURRENT OUTPUT" />
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="FUEL" />
-                    <ui:Label name="ProcessingFuelValue" class="stat-value" text="0" />
+
+                <!-- Screen identity strip -->
+                <ui:VisualElement class="process-head">
+                    <ui:VisualElement class="process-head-main">
+                        <ui:Label class="process-title" text="资源加工" />
+                        <ui:Label class="process-subtitle" text="RESOURCE PROCESSING" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="process-head-data">
+                        <ui:Label class="mission-cell-key" text="精炼单元" />
+                        <ui:Label class="mission-cell-value" text="REFINERY // UNIT-01" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="ALLOY" />
-                    <ui:Label name="ProcessingAlloyValue" class="stat-value" text="0" />
+
+                <!-- Main body: storage+batch / process core / inventory -->
+                <ui:VisualElement class="processing-body">
+                    <!-- LEFT: raw storage + batch -->
+                    <ui:VisualElement name="ProcessingStoragePanel" class="process-col-left">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="原料库存" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="storage-line">
+                            <ui:Label class="storage-caption" text="矿物 // RAW MINERALS" />
+                            <ui:Label name="ProcessingMineralsValue" class="storage-value" text="20" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:Label class="group-label" text="加工批次" />
+                        <ui:VisualElement class="batch-row">
+                            <ui:Button name="Batch5Button" class="batch-button batch-selected" text="05" />
+                            <ui:Button name="Batch10Button" class="batch-button" text="10" />
+                            <ui:Button name="Batch15Button" class="batch-button batch-last" text="15" />
+                        </ui:VisualElement>
+                        <ui:Label class="batch-unit" text="单位：矿物 // 5 矿物 = 燃料+2 / 合金+1" />
+                    </ui:VisualElement>
+
+                    <!-- CENTER: process core / output / progress -->
+                    <ui:VisualElement name="ProcessingCorePanel" class="process-col-center">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="精炼流程" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="flow-row">
+                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="矿物" /></ui:VisualElement>
+                            <ui:Label class="flow-arrow" text="»" />
+                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="精炼模块" /></ui:VisualElement>
+                            <ui:Label class="flow-arrow" text="»" />
+                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="燃料" /></ui:VisualElement>
+                            <ui:Label class="flow-arrow" text="»" />
+                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="合金" /></ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement name="ProcessingOutputPanel" class="output-block">
+                            <ui:Label name="ProcessingOutputCaption" class="output-caption" text="预计产出" />
+                            <ui:VisualElement class="output-line">
+                                <ui:Label class="output-key" text="燃料" />
+                                <ui:Label name="ProcessingFuelGainValue" class="output-value" text="+2" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="output-line">
+                                <ui:Label class="output-key" text="合金" />
+                                <ui:Label name="ProcessingAlloyGainValue" class="output-value" text="+1" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="progress-block">
+                            <ui:VisualElement class="progress-headline">
+                                <ui:Label class="output-caption" text="加工进度" />
+                                <ui:Label name="ProcessingProgressPercent" class="progress-percent" text="—" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="progress-track">
+                                <ui:VisualElement name="ProcessingProgressFill" class="progress-fill" />
+                            </ui:VisualElement>
+                            <ui:Label name="ProcessingStatusLabel" class="process-status" text="准备就绪" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- RIGHT: current inventory + refinery meta -->
+                    <ui:VisualElement name="ProcessingInventoryPanel" class="process-col-right">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="当前库存" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="inventory-line">
+                            <ui:Label class="inventory-key" text="燃料" />
+                            <ui:Label name="ProcessingFuelValue" class="inventory-value" text="8" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="inventory-line">
+                            <ui:Label class="inventory-key" text="合金" />
+                            <ui:Label name="ProcessingAlloyValue" class="inventory-value" text="5" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:Label class="group-label" text="精炼单元" />
+                        <ui:VisualElement class="meta-line">
+                            <ui:Label class="meta-key" text="精炼模块" />
+                            <ui:Label name="ProcessingRefineryLevel" class="meta-value" text="LV.1" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="meta-line">
+                            <ui:Label class="meta-key" text="加工效率" />
+                            <ui:Label name="ProcessingEfficiencyValue" class="meta-value" text="100%" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="panel-footnote">
+                            <ui:VisualElement class="footnote-tick" />
+                            <ui:Label class="footnote-label" text="精炼单元 // 在线" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Button name="ProcessButton" class="button-primary" text="PROCESS 5 MINERALS" />
+
+                <!-- Bottom action strip -->
+                <ui:VisualElement class="process-actionbar">
+                    <ui:Label class="actionbar-context" text="REFINERY // BATCH OPERATION" />
+                    <ui:Button name="ProcessingStartButton" class="process-action" text="开始加工" />
+                </ui:VisualElement>
             </ui:VisualElement>
 
-            <!-- Screen 04: Outpost (Phase 01 placeholder; kept basic) -->
+            <!-- Screen 04: Outpost (Phase 01 placeholder; minimal Chinese translation only) -->
             <ui:VisualElement name="OutpostScreen" class="screen screen-pad">
-                <ui:Label class="app-title" text="OUTPOST" />
-                <ui:Label class="app-subtitle" text="CORE MODULE" />
+                <ui:Label class="app-title" text="据点" />
+                <ui:Label class="app-subtitle" text="核心模块" />
                 <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="HARVESTER" />
-                    <ui:Label name="HarvesterLevelValue" class="stat-value" text="HARVESTER LV.1" />
+                    <ui:Label class="stat-name" text="采集模块" />
+                    <ui:Label name="HarvesterLevelValue" class="stat-value" text="采集模块 LV.1" />
                 </ui:VisualElement>
                 <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="REFINERY" />
-                    <ui:Label name="RefineryLevelValue" class="stat-value" text="REFINERY LV.1" />
+                    <ui:Label class="stat-name" text="精炼模块" />
+                    <ui:Label name="RefineryLevelValue" class="stat-value" text="精炼模块 LV.1" />
                 </ui:VisualElement>
                 <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="OUTPOST" />
-                    <ui:Label name="OutpostLevelValue" class="stat-value" text="OUTPOST LV.1" />
+                    <ui:Label class="stat-name" text="据点" />
+                    <ui:Label name="OutpostLevelValue" class="stat-value" text="据点 LV.1" />
                 </ui:VisualElement>
-                <ui:Label class="section-title" text="ALLOY STOCK" />
+                <ui:Label class="section-title" text="合金库存" />
                 <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="ALLOY" />
+                    <ui:Label class="stat-name" text="合金" />
                     <ui:Label name="OutpostAlloyValue" class="stat-value" text="0" />
                 </ui:VisualElement>
-                <ui:Button name="UpgradeRefineryButton" class="button-primary" text="UPGRADE REFINERY" />
-                <ui:Label class="dialog-message" text="COST: 3 ALLOY" />
+                <ui:Button name="UpgradeRefineryButton" class="button-primary" text="升级精炼模块" />
+                <ui:Label class="dialog-message" text="消耗：3 合金" />
             </ui:VisualElement>
         </ui:VisualElement>
 
@@ -431,22 +535,22 @@
             <ui:Button name="NavOverview" class="nav-button">
                 <ui:VisualElement class="nav-rule-top" />
                 <ui:Label class="nav-index" text="01" />
-                <ui:Label class="nav-label" text="OVERVIEW" />
+                <ui:Label class="nav-label" text="总览" />
             </ui:Button>
             <ui:Button name="NavPreparation" class="nav-button">
                 <ui:VisualElement class="nav-rule-top" />
                 <ui:Label class="nav-index" text="02" />
-                <ui:Label class="nav-label" text="PREPARATION" />
+                <ui:Label class="nav-label" text="出发准备" />
             </ui:Button>
             <ui:Button name="NavProcessing" class="nav-button">
                 <ui:VisualElement class="nav-rule-top" />
                 <ui:Label class="nav-index" text="03" />
-                <ui:Label class="nav-label" text="PROCESSING" />
+                <ui:Label class="nav-label" text="资源加工" />
             </ui:Button>
             <ui:Button name="NavOutpost" class="nav-button">
                 <ui:VisualElement class="nav-rule-top" />
                 <ui:Label class="nav-index" text="04" />
-                <ui:Label class="nav-label" text="OUTPOST" />
+                <ui:Label class="nav-label" text="据点" />
             </ui:Button>
         </ui:VisualElement>
 

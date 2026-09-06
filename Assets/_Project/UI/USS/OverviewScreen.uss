@@ -42,7 +42,7 @@
 
 .topbar-role {
     font-size: 11px;
-    letter-spacing: 3px;
+    letter-spacing: 0px;
     color: #7B858F;
 }
 
@@ -129,7 +129,7 @@
 .panel-header-text {
     font-size: 13px;
     -unity-font-style: bold;
-    letter-spacing: 3px;
+    letter-spacing: 0px;
     color: #161B20;
 }
 
@@ -142,7 +142,7 @@
 
 .group-label {
     font-size: 10px;
-    letter-spacing: 3px;
+    letter-spacing: 0px;
     color: #5A6570;
     margin-bottom: 6px;
 }
@@ -177,7 +177,7 @@
 
 .survival-name {
     font-size: 12px;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #4A525C;
     width: 74px;
 }
@@ -225,7 +225,7 @@
 
 .resource-name {
     font-size: 12px;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #4A525C;
 }
 
@@ -262,7 +262,7 @@
 
 .footnote-label {
     font-size: 10px;
-    letter-spacing: 2.5px;
+    letter-spacing: 0px;
     color: #9AA2AA;
 }
 
@@ -270,7 +270,7 @@
 
 .eyebrow {
     font-size: 11px;
-    letter-spacing: 4px;
+    letter-spacing: 0px;
     color: #7B858F;
     margin-top: 8px;
 }
@@ -291,7 +291,7 @@
 
 .hero-meta-chip {
     font-size: 13px;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #7B858F;
 }
 
@@ -533,7 +533,7 @@
 .cta-label {
     font-size: 15px;
     -unity-font-style: bold;
-    letter-spacing: 4px;
+    letter-spacing: 0px;
     color: #FFFFFF;
 }
 
@@ -542,7 +542,7 @@
 .objective-title {
     font-size: 22px;
     -unity-font-style: bold;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #161B20;
     margin-bottom: 10px;
 }
@@ -579,7 +579,7 @@
 
 .objective-state {
     font-size: 10px;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #9AA2AA;
 }
 
@@ -608,14 +608,14 @@
 
 .mission-key {
     font-size: 11px;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #7B858F;
 }
 
 .mission-value {
     font-size: 13px;
     -unity-font-style: bold;
-    letter-spacing: 2px;
+    letter-spacing: 0px;
     color: #161B20;
 }
 

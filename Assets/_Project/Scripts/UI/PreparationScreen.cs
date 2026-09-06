@@ -111,9 +111,9 @@ public class PreparationScreen
     private void RefreshEquipmentRows()
     {
         SetRowSelected(_batteryRow, _session.BatterySelected,
-            _session.BatterySelected ? "SELECTED" : "OPTIONAL");
+            _session.BatterySelected ? "已选择" : "可选");
         SetRowSelected(_droneRow, _session.DroneSelected,
-            _session.DroneSelected ? "SELECTED" : "OPTIONAL");
+            _session.DroneSelected ? "已选择" : "可选");
 
         // Harvester is required and always carried.
         if (_harvesterRow != null)
@@ -153,14 +153,14 @@ public class PreparationScreen
 
         if (_stateLabel != null)
         {
-            _stateLabel.text = confirmed ? "CONFIRMED" : (ready ? "READY" : "NOT READY");
+            _stateLabel.text = confirmed ? "已确认" : (ready ? "就绪" : "未就绪");
         }
 
         if (_readinessSub != null)
         {
             _readinessSub.text = confirmed
-                ? "PACKAGE LOCKED // MISSION READY"
-                : (ready ? "VALID PACKAGE // AWAITING CONFIRMATION" : "REQUIRED MODULE MISSING");
+                ? "配置已锁定 // 任务就绪"
+                : (ready ? "配置有效 // 等待确认" : "缺少必需模块");
         }
 
         SetReadinessValue(_powerValue, _session.BatterySelected);
@@ -174,7 +174,7 @@ public class PreparationScreen
             return;
         }
 
-        label.text = active ? "READY" : "OPTIONAL";
+        label.text = active ? "就绪" : "可选";
         if (active)
         {
             label.AddToClassList("readiness-active");
@@ -194,12 +194,12 @@ public class PreparationScreen
 
         if (_session.LoadoutConfirmed)
         {
-            _confirmButton.text = "LOADOUT CONFIRMED";
+            _confirmButton.text = "配置已确认";
             _confirmButton.SetEnabled(false);
             return;
         }
 
-        _confirmButton.text = "CONFIRM LOADOUT";
+        _confirmButton.text = "确认配置";
         _confirmButton.SetEnabled(_session.IsLoadoutValid);
     }
 

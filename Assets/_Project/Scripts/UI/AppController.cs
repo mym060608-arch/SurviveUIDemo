@@ -31,6 +31,9 @@ public class AppController : MonoBehaviour
     [SerializeField]
     private StyleSheet preparationStyleSheet;
 
+    [SerializeField]
+    private StyleSheet processingStyleSheet;
+
     private UIDocument _document;
     private VisualElement _root;
     private GameSession _session;
@@ -84,11 +87,13 @@ public class AppController : MonoBehaviour
     }
 
     /// <summary>Assigns the style sheets; called once by scene authoring tooling.</summary>
-    public void Configure(StyleSheet theme, StyleSheet overview, StyleSheet preparation)
+    public void Configure(StyleSheet theme, StyleSheet overview, StyleSheet preparation,
+        StyleSheet processing)
     {
         themeStyleSheet = theme;
         overviewStyleSheet = overview;
         preparationStyleSheet = preparation;
+        processingStyleSheet = processing;
     }
 
     private void Awake()
@@ -124,6 +129,13 @@ public class AppController : MonoBehaviour
             _root.styleSheets.Add(preparationStyleSheet);
         }
 
+        if (processingStyleSheet != null)
+        {
+            _root.styleSheets.Add(processingStyleSheet);
+        }
+
+        ApplyUiCjkFont();
+
         CacheContainers();
         BindNavigation();
         BindDebugPanel();
@@ -137,6 +149,42 @@ public class AppController : MonoBehaviour
         IsReady = true;
     }
 
+    private static Font _uiCjkFont;
+
+    /// <summary>
+    /// Phase 04 Chinese-first UI: applies a legal runtime system CJK font to
+    /// every text element. The font is referenced from the OS (never copied
+    /// into the project), so Editor, PlayMode, Standalone and the clean panel
+    /// screenshots all render identical glyphs on this machine.
+    /// See Docs/UI_LANGUAGE_STYLE.md for the temporary font policy.
+    /// </summary>
+    private void ApplyUiCjkFont()
+    {
+        if (_uiCjkFont == null)
+        {
+            string[] candidates =
+            {
+                "Microsoft YaHei UI",
+                "Microsoft YaHei",
+                "SimHei",
+                "Noto Sans CJK SC",
+                "Source Han Sans SC"
+            };
+
+            _uiCjkFont = Font.CreateDynamicFontFromOSFont(candidates, 16);
+        }
+
+        if (_uiCjkFont == null || _root == null)
+        {
+            return;
+        }
+
+        foreach (TextElement text in _root.Query<TextElement>().ToList())
+        {
+            text.style.unityFont = _uiCjkFont;
+        }
+    }
+
     private void Update()
     {
         // Developer shortcut: F12 reveals/hides the debug panel. Debug UI is
@@ -144,6 +192,13 @@ public class AppController : MonoBehaviour
         if (Keyboard.current != null && Keyboard.current[Key.F12].wasPressedThisFrame)
         {
             ToggleDebugVisibility();
+        }
+
+        // Only live progress rendering while the Processing screen is visible;
+        // the authoritative timer itself advances in GameSession.Update.
+        if (_processing != null)
+        {
+            _processing.TickProgressIfVisible(CurrentScreen == AppScreen.Processing);
         }
     }
 
