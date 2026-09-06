@@ -36,6 +36,19 @@ public static class ElementNames
     public const string DestinationValue = "DestinationValue";
     public const string OpenPreparationButton = "OpenPreparationButton";
 
+    // Overview (Phase 02 visual composition).
+    public const string OverviewTopBar = "OverviewTopBar";
+    public const string ShipStatusPanel = "ShipStatusPanel";
+    public const string ShipSurvivalGroup = "ShipSurvivalGroup";
+    public const string ShipResourceGroup = "ShipResourceGroup";
+    public const string EnergyBarFill = "EnergyBarFill";
+    public const string FoodBarFill = "FoodBarFill";
+    public const string DestinationPanel = "DestinationPanel";
+    public const string PlanetStage = "PlanetStage";
+    public const string PlanetDisc = "PlanetDisc";
+    public const string ObjectivePanel = "ObjectivePanel";
+    public const string MissionStatusBlock = "MissionStatusBlock";
+
     // Preparation.
     public const string HarvesterRowButton = "HarvesterRowButton";
     public const string BatteryRowButton = "BatteryRowButton";
@@ -82,6 +95,9 @@ public static class ElementNames
         AlloyValue,
         DestinationValue,
         OpenPreparationButton,
+        EnergyBarFill,
+        FoodBarFill,
+        PlanetDisc,
         HarvesterRowButton,
         BatteryRowButton,
         DroneRowButton,
@@ -97,5 +113,29 @@ public static class ElementNames
         OutpostLevelValue,
         OutpostAlloyValue,
         UpgradeRefineryButton
+    };
+
+    /// <summary>
+    /// Phase 02 Overview visual composition elements that the structural
+    /// validator must find in MainApp.uxml (stable names, no pixel checks).
+    /// </summary>
+    public static readonly string[] OverviewStructure =
+    {
+        OverviewScreen,
+        OverviewTopBar,
+        ShipStatusPanel,
+        ShipSurvivalGroup,
+        ShipResourceGroup,
+        DestinationPanel,
+        PlanetStage,
+        PlanetDisc,
+        ObjectivePanel,
+        MissionStatusBlock,
+        OpenPreparationButton,
+        BottomNav,
+        NavOverview,
+        NavPreparation,
+        NavProcessing,
+        NavOutpost
     };
 }

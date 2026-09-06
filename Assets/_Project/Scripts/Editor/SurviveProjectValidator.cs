@@ -27,6 +27,7 @@ public static class SurviveProjectValidator
     private const string HubScenePath = "Assets/_Project/Scenes/01_Hub.unity";
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
+    private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
 
     [MenuItem("Tools/SurviveUI/Validate Phase 01 Project")]
     public static void ValidateFromMenu()
@@ -66,6 +67,7 @@ public static class SurviveProjectValidator
         Record(File.Exists(HubScenePath), "scene exists: " + HubScenePath);
         Record(File.Exists(UxmlPath), "uxml exists: " + UxmlPath);
         Record(File.Exists(UssPath), "uss exists: " + UssPath);
+        Record(File.Exists(OverviewUssPath), "overview uss exists: " + OverviewUssPath);
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
@@ -101,6 +103,13 @@ public static class SurviveProjectValidator
             foreach (string expected in ElementNames.All)
             {
                 Record(present.Contains(expected), "MainApp.uxml contains element: " + expected);
+            }
+
+            // Phase 02: Overview visual composition must keep its stable
+            // structure (checked by names only, never by pixel values).
+            foreach (string expected in ElementNames.OverviewStructure)
+            {
+                Record(present.Contains(expected), "MainApp.uxml overview structure: " + expected);
             }
         }
 

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 /// <summary>
@@ -24,6 +25,9 @@ public class AppController : MonoBehaviour
     [SerializeField]
     private StyleSheet themeStyleSheet;
 
+    [SerializeField]
+    private StyleSheet overviewStyleSheet;
+
     private UIDocument _document;
     private VisualElement _root;
     private GameSession _session;
@@ -32,6 +36,7 @@ public class AppController : MonoBehaviour
     private VisualElement _preparationContainer;
     private VisualElement _processingContainer;
     private VisualElement _outpostContainer;
+    private VisualElement _debugPanel;
     private VisualElement _debugContent;
 
     private OverviewScreen _overview;
@@ -75,10 +80,11 @@ public class AppController : MonoBehaviour
         }
     }
 
-    /// <summary>Assigns the placeholder theme; called once by scene authoring tooling.</summary>
-    public void Configure(StyleSheet theme)
+    /// <summary>Assigns the style sheets; called once by scene authoring tooling.</summary>
+    public void Configure(StyleSheet theme, StyleSheet overview)
     {
         themeStyleSheet = theme;
+        overviewStyleSheet = overview;
     }
 
     private void Awake()
@@ -104,6 +110,11 @@ public class AppController : MonoBehaviour
             _root.styleSheets.Add(themeStyleSheet);
         }
 
+        if (overviewStyleSheet != null)
+        {
+            _root.styleSheets.Add(overviewStyleSheet);
+        }
+
         CacheContainers();
         BindNavigation();
         BindDebugPanel();
@@ -115,6 +126,16 @@ public class AppController : MonoBehaviour
         // Exactly one visible screen after startup: Overview.
         ShowScreen(AppScreen.Overview);
         IsReady = true;
+    }
+
+    private void Update()
+    {
+        // Developer shortcut: F12 reveals/hides the debug panel. Debug UI is
+        // never visible in normal play or in competition screenshots.
+        if (Keyboard.current != null && Keyboard.current[Key.F12].wasPressedThisFrame)
+        {
+            ToggleDebugVisibility();
+        }
     }
 
     private void OnDestroy()
@@ -164,6 +185,7 @@ public class AppController : MonoBehaviour
 
     private void BindDebugPanel()
     {
+        _debugPanel = _root.Q<VisualElement>(ElementNames.DebugPanel);
         _debugContent = _root.Q<VisualElement>(ElementNames.DebugContent);
 
         Button toggle = _root.Q<Button>(ElementNames.DebugToggleButton);
@@ -266,6 +288,17 @@ public class AppController : MonoBehaviour
         {
             tab.RemoveFromClassList("tab-active");
         }
+    }
+
+    private void ToggleDebugVisibility()
+    {
+        if (_debugPanel == null)
+        {
+            return;
+        }
+
+        _debugPanel.style.display =
+            _debugPanel.style.display == DisplayStyle.Flex ? DisplayStyle.None : DisplayStyle.Flex;
     }
 
     private void ToggleDebugPanel()

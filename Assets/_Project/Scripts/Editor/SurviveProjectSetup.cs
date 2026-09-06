@@ -21,6 +21,7 @@ public static class SurviveProjectSetup
     private const string HubScenePath = ScenesFolder + "/01_Hub.unity";
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
+    private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PanelSettingsPath = "Assets/_Project/UI/Settings/HubPanelSettings.asset";
 
     [MenuItem("Tools/SurviveUI/Setup Phase 01 Project")]
@@ -56,6 +57,7 @@ public static class SurviveProjectSetup
         // Source assets authored as text; verify they exist and are imported.
         var uxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
         var uss = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
+        var overviewUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(OverviewUssPath);
         if (uxml == null)
         {
             Debug.LogError("[SurviveProjectSetup] missing VisualTreeAsset: " + UxmlPath);
@@ -68,8 +70,14 @@ public static class SurviveProjectSetup
             ok = false;
         }
 
+        if (overviewUss == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] missing StyleSheet: " + OverviewUssPath);
+            ok = false;
+        }
+
         ok &= BuildBootScene();
-        ok &= BuildHubScene(uxml, uss);
+        ok &= BuildHubScene(uxml, uss, overviewUss);
         ok &= SetBuildOrder();
 
         AssetDatabase.SaveAssets();
@@ -143,7 +151,7 @@ public static class SurviveProjectSetup
         return true;
     }
 
-    private static bool BuildHubScene(VisualTreeAsset uxml, StyleSheet uss)
+    private static bool BuildHubScene(VisualTreeAsset uxml, StyleSheet uss, StyleSheet overviewUss)
     {
         if (AssetDatabase.LoadAssetAtPath<SceneAsset>(HubScenePath) != null)
         {
@@ -169,12 +177,17 @@ public static class SurviveProjectSetup
         document.sortingOrder = 0;
 
         var app = ui.AddComponent<AppController>();
-        app.Configure(uss);
+        app.Configure(uss, overviewUss);
 
         // Standalone smoke probe (inert unless launched with -smokeResult).
         var smoke = new GameObject("StandaloneSmoke");
         SceneManager.MoveGameObjectToScene(smoke, scene);
         smoke.AddComponent<StandaloneSmoke>();
+
+        // Overview screenshot/layout probe (inert unless launched with -captureDir).
+        var capture = new GameObject("OverviewCapture");
+        SceneManager.MoveGameObjectToScene(capture, scene);
+        capture.AddComponent<OverviewCapture>();
 
         if (!EditorSceneManager.SaveScene(scene, HubScenePath))
         {
