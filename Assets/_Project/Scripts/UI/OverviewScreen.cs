@@ -7,48 +7,77 @@ using UnityEngine.UIElements;
 /// </summary>
 public class OverviewScreen
 {
+    private readonly VisualElement _root;
     private readonly GameSession _session;
 
-    public OverviewScreen(GameSession session)
+    private Label _energy;
+    private Label _food;
+    private Label _minerals;
+    private Label _fuel;
+    private Label _alloy;
+    private Label _destination;
+
+    public OverviewScreen(VisualElement root, GameSession session)
     {
+        _root = root;
         _session = session;
     }
 
-    public void Bind(VisualElement root, System.Action navigateToPreparation)
+    public void Bind(System.Action navigateToPreparation)
     {
-        Button prepare = root.Q<Button>(ElementNames.OpenPreparationButton);
+        _energy = BindLabel(ElementNames.EnergyValue);
+        _food = BindLabel(ElementNames.FoodValue);
+        _minerals = BindLabel(ElementNames.MineralsValue);
+        _fuel = BindLabel(ElementNames.FuelValue);
+        _alloy = BindLabel(ElementNames.AlloyValue);
+        _destination = BindLabel(ElementNames.DestinationValue);
+
+        Button prepare = _root.Q<Button>(ElementNames.OpenPreparationButton);
         if (prepare != null)
         {
             prepare.clicked += navigateToPreparation;
         }
         else
         {
-            Debug.LogError("OverviewScreen: missing element " + ElementNames.OpenPreparationButton);
+            LogMissing(ElementNames.OpenPreparationButton);
         }
     }
 
-    public void Refresh(VisualElement root)
+    public void Refresh()
     {
-        SetText(root, ElementNames.EnergyValue, _session.Energy);
-        SetText(root, ElementNames.FoodValue, _session.Food);
-        SetText(root, ElementNames.MineralsValue, _session.Minerals);
-        SetText(root, ElementNames.FuelValue, _session.Fuel);
-        SetText(root, ElementNames.AlloyValue, _session.Alloy);
-
-        Label destination = root.Q<Label>(ElementNames.DestinationValue);
-        if (destination != null)
+        SetText(_energy, _session.Energy);
+        SetText(_food, _session.Food);
+        SetText(_minerals, _session.Minerals);
+        SetText(_fuel, _session.Fuel);
+        SetText(_alloy, _session.Alloy);
+        if (_destination != null)
         {
             // Phase 01 uses a single authored destination regardless of index.
-            destination.text = "NEREID-04";
+            _destination.text = "NEREID-04";
         }
     }
 
-    private static void SetText(VisualElement root, string name, int value)
+    private Label BindLabel(string name)
     {
-        Label label = root.Q<Label>(name);
+        Label label = _root.Q<Label>(name);
+        if (label == null)
+        {
+            LogMissing(name);
+        }
+
+        return label;
+    }
+
+    private static void SetText(Label label, int value)
+    {
         if (label != null)
         {
             label.text = value.ToString();
         }
+    }
+
+    private static void LogMissing(string name)
+    {
+        Debug.LogError("OverviewScreen: missing element " + name);
     }
 }

@@ -7,46 +7,71 @@ using UnityEngine.UIElements;
 /// </summary>
 public class ProcessingScreen
 {
+    private readonly VisualElement _root;
     private readonly GameSession _session;
 
-    public ProcessingScreen(GameSession session)
+    private Label _minerals;
+    private Label _fuel;
+    private Label _alloy;
+    private Button _processButton;
+
+    public ProcessingScreen(VisualElement root, GameSession session)
     {
+        _root = root;
         _session = session;
     }
 
-    public void Bind(VisualElement root)
+    public void Bind()
     {
-        Button process = root.Q<Button>(ElementNames.ProcessButton);
-        if (process != null)
+        _minerals = BindLabel(ElementNames.ProcessingMineralsValue);
+        _fuel = BindLabel(ElementNames.ProcessingFuelValue);
+        _alloy = BindLabel(ElementNames.ProcessingAlloyValue);
+
+        _processButton = _root.Q<Button>(ElementNames.ProcessButton);
+        if (_processButton != null)
         {
-            process.clicked += () => _session.TryProcessMinerals();
+            _processButton.clicked += () => _session.TryProcessMinerals();
         }
         else
         {
-            Debug.LogError("ProcessingScreen: missing element " + ElementNames.ProcessButton);
+            LogMissing(ElementNames.ProcessButton);
         }
     }
 
-    public void Refresh(VisualElement root)
+    public void Refresh()
     {
-        SetText(root, ElementNames.ProcessingMineralsValue, _session.Minerals);
-        SetText(root, ElementNames.ProcessingFuelValue, _session.Fuel);
-        SetText(root, ElementNames.ProcessingAlloyValue, _session.Alloy);
+        SetText(_minerals, _session.Minerals);
+        SetText(_fuel, _session.Fuel);
+        SetText(_alloy, _session.Alloy);
 
-        Button process = root.Q<Button>(ElementNames.ProcessButton);
-        if (process != null)
+        if (_processButton != null)
         {
             // Disabled while Minerals < 5 (TryProcessMinerals also fails safely).
-            process.SetEnabled(_session.Minerals >= GameSession.ProcessMineralsCost);
+            _processButton.SetEnabled(_session.Minerals >= GameSession.ProcessMineralsCost);
         }
     }
 
-    private static void SetText(VisualElement root, string name, int value)
+    private Label BindLabel(string name)
     {
-        Label label = root.Q<Label>(name);
+        Label label = _root.Q<Label>(name);
+        if (label == null)
+        {
+            LogMissing(name);
+        }
+
+        return label;
+    }
+
+    private static void SetText(Label label, int value)
+    {
         if (label != null)
         {
             label.text = value.ToString();
         }
+    }
+
+    private static void LogMissing(string name)
+    {
+        Debug.LogError("ProcessingScreen: missing element " + name);
     }
 }

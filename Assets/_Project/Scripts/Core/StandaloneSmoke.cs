@@ -120,10 +120,14 @@ public class StandaloneSmoke : MonoBehaviour
                     overviewMinerals != null && overviewMinerals.text == "25"
                     && overviewAlloy != null && overviewAlloy.text == "3");
 
-                // Insufficient-resource safety: one more refinery upgrade must fail.
-                bool overUpgrade = session.TryUpgradeRefinery();
-                Check(results, ref failures, "second upgrade fails safely (alloy<3)",
-                    !overUpgrade && session.RefineryLevel == 2 && session.Alloy == 3);
+                // Insufficient-resource safety: Alloy is now 3, so a second
+                // upgrade succeeds (3 -> 0, level 3) and a third must fail.
+                bool secondUpgrade = session.TryUpgradeRefinery();
+                Check(results, ref failures, "second upgrade succeeds (alloy=3) -> alloy=0 refinery=3",
+                    secondUpgrade && session.Alloy == 0 && session.RefineryLevel == 3);
+                bool thirdUpgrade = session.TryUpgradeRefinery();
+                Check(results, ref failures, "third upgrade fails safely (alloy<3)",
+                    !thirdUpgrade && session.RefineryLevel == 3 && session.Alloy == 0);
 
                 session.ResetSession();
                 Check(results, ref failures, "reset restores defaults minerals=20 fuel=8 alloy=5",

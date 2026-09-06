@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
@@ -16,46 +17,67 @@ public class PreparationScreen
     private const int DroneWeight = 30;
     private const int CargoCapacity = 100;
 
+    private readonly VisualElement _root;
     private readonly GameSession _session;
+
+    private Button _harvesterRow;
+    private Button _batteryRow;
+    private Button _droneRow;
+    private Label _cargoValue;
+    private Label _stateLabel;
+    private Button _confirmButton;
 
     private bool _harvesterSelected;
     private bool _batterySelected;
     private bool _droneSelected;
     private bool _confirmed;
 
-    public PreparationScreen(GameSession session)
+    public PreparationScreen(VisualElement root, GameSession session)
     {
+        _root = root;
         _session = session;
     }
 
-    public void Bind(VisualElement root)
+    public void Bind()
     {
-        BindRow(root, ElementNames.HarvesterRowButton, () => _harvesterSelected = !_harvesterSelected);
-        BindRow(root, ElementNames.BatteryRowButton, () => _batterySelected = !_batterySelected);
-        BindRow(root, ElementNames.DroneRowButton, () => _droneSelected = !_droneSelected);
+        _harvesterRow = BindRow(ElementNames.HarvesterRowButton, () => _harvesterSelected = !_harvesterSelected);
+        _batteryRow = BindRow(ElementNames.BatteryRowButton, () => _batterySelected = !_batterySelected);
+        _droneRow = BindRow(ElementNames.DroneRowButton, () => _droneSelected = !_droneSelected);
 
-        Button confirm = root.Q<Button>(ElementNames.ConfirmLoadoutButton);
-        if (confirm != null)
+        _cargoValue = _root.Q<Label>(ElementNames.CargoValue);
+        _stateLabel = _root.Q<Label>(ElementNames.LoadoutStateLabel);
+        if (_cargoValue == null)
         {
-            confirm.clicked += () =>
+            LogMissing(ElementNames.CargoValue);
+        }
+
+        if (_stateLabel == null)
+        {
+            LogMissing(ElementNames.LoadoutStateLabel);
+        }
+
+        _confirmButton = _root.Q<Button>(ElementNames.ConfirmLoadoutButton);
+        if (_confirmButton != null)
+        {
+            _confirmButton.clicked += () =>
             {
                 _confirmed = !_confirmed;
-                Refresh(root);
+                Refresh();
             };
         }
         else
         {
-            Debug.LogError("PreparationScreen: missing element " + ElementNames.ConfirmLoadoutButton);
+            LogMissing(ElementNames.ConfirmLoadoutButton);
         }
     }
 
-    private void BindRow(VisualElement root, string name, System.Action onToggled)
+    private Button BindRow(string name, Action onToggled)
     {
-        Button row = root.Q<Button>(name);
+        Button row = _root.Q<Button>(name);
         if (row == null)
         {
-            Debug.LogError("PreparationScreen: missing element " + name);
-            return;
+            LogMissing(name);
+            return null;
         }
 
         row.clicked += () =>
@@ -63,36 +85,35 @@ public class PreparationScreen
             onToggled();
             // Editing a loadout invalidates a previous confirmation.
             _confirmed = false;
-            Refresh(root);
+            Refresh();
         };
+
+        return row;
     }
 
-    public void Refresh(VisualElement root)
+    public void Refresh()
     {
         int cargo = (_harvesterSelected ? HarvesterWeight : 0)
                     + (_batterySelected ? BatteryWeight : 0)
                     + (_droneSelected ? DroneWeight : 0);
 
-        Label cargoValue = root.Q<Label>(ElementNames.CargoValue);
-        if (cargoValue != null)
+        if (_cargoValue != null)
         {
-            cargoValue.text = cargo + " / " + CargoCapacity;
+            _cargoValue.text = cargo + " / " + CargoCapacity;
         }
 
-        Label state = root.Q<Label>(ElementNames.LoadoutStateLabel);
-        if (state != null)
+        if (_stateLabel != null)
         {
-            state.text = _confirmed ? "STATUS: CONFIRMED" : "STATUS: DRAFT";
+            _stateLabel.text = _confirmed ? "STATUS: CONFIRMED" : "STATUS: DRAFT";
         }
 
-        SetRowSelected(root, ElementNames.HarvesterRowButton, _harvesterSelected);
-        SetRowSelected(root, ElementNames.BatteryRowButton, _batterySelected);
-        SetRowSelected(root, ElementNames.DroneRowButton, _droneSelected);
+        RefreshRow(_harvesterRow, _harvesterSelected);
+        RefreshRow(_batteryRow, _batterySelected);
+        RefreshRow(_droneRow, _droneSelected);
     }
 
-    private static void SetRowSelected(VisualElement root, string name, bool selected)
+    private static void RefreshRow(Button row, bool selected)
     {
-        Button row = root.Q<Button>(name);
         if (row == null)
         {
             return;
@@ -106,5 +127,10 @@ public class PreparationScreen
         {
             row.RemoveFromClassList("selected");
         }
+    }
+
+    private static void LogMissing(string name)
+    {
+        Debug.LogError("PreparationScreen: missing element " + name);
     }
 }

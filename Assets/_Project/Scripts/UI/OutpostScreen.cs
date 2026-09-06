@@ -7,56 +7,82 @@ using UnityEngine.UIElements;
 /// </summary>
 public class OutpostScreen
 {
+    private readonly VisualElement _root;
     private readonly GameSession _session;
 
-    public OutpostScreen(GameSession session)
+    private Label _harvesterLevel;
+    private Label _refineryLevel;
+    private Label _outpostLevel;
+    private Label _alloy;
+    private Button _upgradeButton;
+
+    public OutpostScreen(VisualElement root, GameSession session)
     {
+        _root = root;
         _session = session;
     }
 
-    public void Bind(VisualElement root)
+    public void Bind()
     {
-        Button upgrade = root.Q<Button>(ElementNames.UpgradeRefineryButton);
-        if (upgrade != null)
+        _harvesterLevel = BindLabel(ElementNames.HarvesterLevelValue);
+        _refineryLevel = BindLabel(ElementNames.RefineryLevelValue);
+        _outpostLevel = BindLabel(ElementNames.OutpostLevelValue);
+        _alloy = BindLabel(ElementNames.OutpostAlloyValue);
+
+        _upgradeButton = _root.Q<Button>(ElementNames.UpgradeRefineryButton);
+        if (_upgradeButton != null)
         {
-            upgrade.clicked += () => _session.TryUpgradeRefinery();
+            _upgradeButton.clicked += () => _session.TryUpgradeRefinery();
         }
         else
         {
-            Debug.LogError("OutpostScreen: missing element " + ElementNames.UpgradeRefineryButton);
+            LogMissing(ElementNames.UpgradeRefineryButton);
         }
     }
 
-    public void Refresh(VisualElement root)
+    public void Refresh()
     {
-        SetLevel(root, ElementNames.HarvesterLevelValue, "HARVESTER LV.", _session.HarvesterLevel);
-        SetLevel(root, ElementNames.RefineryLevelValue, "REFINERY LV.", _session.RefineryLevel);
-        SetLevel(root, ElementNames.OutpostLevelValue, "OUTPOST LV.", _session.OutpostLevel);
-        SetText(root, ElementNames.OutpostAlloyValue, _session.Alloy);
+        SetLevel(_harvesterLevel, "HARVESTER LV.", _session.HarvesterLevel);
+        SetLevel(_refineryLevel, "REFINERY LV.", _session.RefineryLevel);
+        SetLevel(_outpostLevel, "OUTPOST LV.", _session.OutpostLevel);
+        SetText(_alloy, _session.Alloy);
 
-        Button upgrade = root.Q<Button>(ElementNames.UpgradeRefineryButton);
-        if (upgrade != null)
+        if (_upgradeButton != null)
         {
             // Disabled while Alloy < 3 (TryUpgradeRefinery also fails safely).
-            upgrade.SetEnabled(_session.Alloy >= GameSession.RefineryUpgradeAlloyCost);
+            _upgradeButton.SetEnabled(_session.Alloy >= GameSession.RefineryUpgradeAlloyCost);
         }
     }
 
-    private static void SetLevel(VisualElement root, string name, string prefix, int level)
+    private Label BindLabel(string name)
     {
-        Label label = root.Q<Label>(name);
+        Label label = _root.Q<Label>(name);
+        if (label == null)
+        {
+            LogMissing(name);
+        }
+
+        return label;
+    }
+
+    private static void SetLevel(Label label, string prefix, int level)
+    {
         if (label != null)
         {
             label.text = prefix + level;
         }
     }
 
-    private static void SetText(VisualElement root, string name, int value)
+    private static void SetText(Label label, int value)
     {
-        Label label = root.Q<Label>(name);
         if (label != null)
         {
             label.text = value.ToString();
         }
+    }
+
+    private static void LogMissing(string name)
+    {
+        Debug.LogError("OutpostScreen: missing element " + name);
     }
 }
