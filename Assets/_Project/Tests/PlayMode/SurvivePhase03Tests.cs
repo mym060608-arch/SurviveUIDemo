@@ -85,7 +85,7 @@ public class SurvivePhase03Tests
         Assert.AreEqual(1, app.VisibleScreenCount, "one visible screen");
 
         Assert.AreEqual("45 / 100", LabelText(root, ElementNames.CargoValue), "default cargo 45/100");
-        Assert.AreEqual("READY", LabelText(root, ElementNames.LoadoutStateLabel), "default state READY");
+        Assert.AreEqual("就绪", LabelText(root, ElementNames.LoadoutStateLabel), "default state ready (就绪)");
         Assert.AreEqual("45 / 100", LabelText(root, ElementNames.ReadinessCargoValue), "readiness cargo");
 
         Button batteryRow = root.Q<Button>(ElementNames.BatteryRowButton);
@@ -112,15 +112,15 @@ public class SurvivePhase03Tests
         yield return null;
         Assert.AreEqual("70 / 100", LabelText(root, ElementNames.CargoValue), "cargo after battery");
         Assert.IsTrue(batteryRow.ClassListContains("row-selected"), "battery row selected");
-        Assert.AreEqual("SELECTED", ChipText(batteryRow), "battery chip SELECTED");
-        Assert.AreEqual("READY", LabelText(root, ElementNames.ReadinessPowerValue), "power readiness READY");
+        Assert.AreEqual("已选择", ChipText(batteryRow), "battery chip selected (已选择)");
+        Assert.AreEqual("就绪", LabelText(root, ElementNames.ReadinessPowerValue), "power readiness (就绪)");
         AssertBarRatio(root, ElementNames.CargoBarFill, 70f, "cargo bar after battery");
 
         // ---- Select SURVEY DRONE ----
         Assert.IsTrue(session.TrySetDroneSelected(true), "select drone accepted");
         yield return null;
         Assert.AreEqual("90 / 100", LabelText(root, ElementNames.CargoValue), "cargo after drone");
-        Assert.AreEqual("READY", LabelText(root, ElementNames.ReadinessSurveyValue), "survey readiness READY");
+        Assert.AreEqual("就绪", LabelText(root, ElementNames.ReadinessSurveyValue), "survey readiness (就绪)");
         Assert.IsTrue(droneRow.ClassListContains("row-selected"), "drone row selected");
 
         // ---- Capacity guard exists and rejects impossible cargo ----
@@ -133,8 +133,8 @@ public class SurvivePhase03Tests
         Assert.IsTrue(session.TryConfirmLoadout(), "confirm accepted for valid loadout");
         yield return null;
         Assert.IsTrue(session.LoadoutConfirmed, "session confirmed");
-        Assert.AreEqual("CONFIRMED", LabelText(root, ElementNames.LoadoutStateLabel), "state CONFIRMED");
-        Assert.AreEqual("LOADOUT CONFIRMED", confirm.text, "confirm button relabeled");
+        Assert.AreEqual("已确认", LabelText(root, ElementNames.LoadoutStateLabel), "state confirmed (已确认)");
+        Assert.AreEqual("配置已确认", confirm.text, "confirm button relabeled after locking");
         Assert.IsFalse(confirm.enabledSelf, "confirm disabled once locked");
 
         // ---- Editing after confirmation clears it ----
@@ -142,8 +142,8 @@ public class SurvivePhase03Tests
         yield return null;
         Assert.IsFalse(session.LoadoutConfirmed, "editing clears confirmation");
         Assert.AreEqual("65 / 100", LabelText(root, ElementNames.CargoValue), "cargo after battery removed");
-        Assert.AreEqual("READY", LabelText(root, ElementNames.LoadoutStateLabel), "back to READY");
-        Assert.AreEqual("CONFIRM LOADOUT", confirm.text, "confirm button relabeled back");
+        Assert.AreEqual("就绪", LabelText(root, ElementNames.LoadoutStateLabel), "back to ready (就绪)");
+        Assert.AreEqual("确认配置", confirm.text, "confirm button relabeled back");
         Assert.IsTrue(confirm.enabledSelf, "confirm re-enabled");
 
         // ---- Navigation persistence: leave and return ----
@@ -164,7 +164,7 @@ public class SurvivePhase03Tests
         session.ResetSession();
         yield return null;
         Assert.AreEqual("45 / 100", LabelText(root, ElementNames.CargoValue), "cargo restored after reset");
-        Assert.AreEqual("READY", LabelText(root, ElementNames.LoadoutStateLabel), "state restored after reset");
+        Assert.AreEqual("就绪", LabelText(root, ElementNames.LoadoutStateLabel), "state restored after reset (就绪)");
         Assert.IsFalse(session.BatterySelected, "battery reset");
         Assert.IsFalse(session.DroneSelected, "drone reset");
         Assert.IsFalse(session.LoadoutConfirmed, "confirmation reset");

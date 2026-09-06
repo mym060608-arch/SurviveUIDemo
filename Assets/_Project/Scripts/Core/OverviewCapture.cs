@@ -198,7 +198,9 @@ public class OverviewCapture : MonoBehaviour
                     + copyRect.xMin.ToString("0") + ".." + copyRect.xMax.ToString("0")
                     + " panel x " + objectiveRect.xMin.ToString("0") + ".."
                     + objectiveRect.xMax.ToString("0") + ")",
-                    copyRect.height > 26f
+                    // Chinese body copy wraps to >= 2 lines (line height ~12px
+                    // under the CJK system font), never clipped horizontally.
+                    copyRect.height > 22f
                     && copyRect.xMin >= objectiveRect.xMin - 4f
                     && copyRect.xMax <= objectiveRect.xMax + 4f);
             }

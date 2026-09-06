@@ -35,7 +35,17 @@ public class StandaloneSmoke : MonoBehaviour
         if (!string.IsNullOrEmpty(_resultPath))
         {
             StartCoroutine(RunProbe());
+            // Watchdog guarantees termination if an unexpected exception stops
+            // the probe coroutine.
+            StartCoroutine(QuitWatchdog());
         }
+    }
+
+    private static IEnumerator QuitWatchdog()
+    {
+        yield return new WaitForSecondsRealtime(120f);
+        Debug.LogError("[StandaloneSmoke] watchdog timeout - forcing quit");
+        Application.Quit(2);
     }
 
     private static string ParseFlag(string flag)
@@ -70,7 +80,9 @@ public class StandaloneSmoke : MonoBehaviour
             yield return null;
         }
 
-        try
+        // No try/catch here: iterator bodies may not contain yield inside a
+        // catch scope. Unexpected exceptions surface in the player log while
+        // the watchdog guarantees the process terminates.
         {
             if (app == null || GameSession.Instance == null)
             {
@@ -87,9 +99,11 @@ public class StandaloneSmoke : MonoBehaviour
                 session.AddMinerals(10);
                 Check(results, ref failures, "after +10 minerals minerals=30", session.Minerals == 30);
 
-                bool processed = session.TryProcessMinerals();
-                Check(results, ref failures, "process ok -> minerals=25 fuel=10 alloy=6",
-                    processed && session.Minerals == 25 && session.Fuel == 10 && session.Alloy == 6);
+                // Batch refinery (Phase 04): start deducts, completion settles.
+                bool started5 = session.TryStartProcess(5);
+                session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+                Check(results, ref failures, "batch5 complete -> minerals=25 fuel=10 alloy=6",
+                    started5 && session.Minerals == 25 && session.Fuel == 10 && session.Alloy == 6);
 
                 bool upgraded = session.TryUpgradeRefinery();
                 Check(results, ref failures, "upgrade ok -> alloy=3 refinery=2",
@@ -112,16 +126,15 @@ public class StandaloneSmoke : MonoBehaviour
                 Check(results, ref failures, "screen outpost active/unique",
                     app.CurrentScreen == AppScreen.Outpost && app.VisibleScreenCount == 1);
 
-                // Phase 03: Preparation loadout journey (authoritative state +
-                // rendered UI text).
+                // Phase 03: Preparation loadout journey (Chinese-first copy).
                 app.ShowScreen(AppScreen.Preparation);
                 Label cargoLabel = app.UiRoot?.Q<Label>(ElementNames.CargoValue);
                 Label stateLabel = app.UiRoot?.Q<Label>(ElementNames.LoadoutStateLabel);
                 Button confirmButton = app.UiRoot?.Q<Button>(ElementNames.ConfirmLoadoutButton);
-                Check(results, ref failures, "preparation defaults cargo 45/100 state READY confirm enabled",
+                Check(results, ref failures, "preparation defaults cargo 45/100 state 就绪 confirm enabled",
                     app.CurrentScreen == AppScreen.Preparation && app.VisibleScreenCount == 1
                     && cargoLabel != null && cargoLabel.text == "45 / 100"
-                    && stateLabel != null && stateLabel.text == "READY"
+                    && stateLabel != null && stateLabel.text == "就绪"
                     && confirmButton != null && confirmButton.enabledSelf);
 
                 bool selectBattery = session.TrySetBatterySelected(true);
@@ -135,9 +148,9 @@ public class StandaloneSmoke : MonoBehaviour
                     && cargoLabel != null && cargoLabel.text == "90 / 100");
 
                 bool confirmLoadout = session.TryConfirmLoadout();
-                Check(results, ref failures, "confirm loadout -> CONFIRMED",
+                Check(results, ref failures, "confirm loadout -> 已确认",
                     confirmLoadout && session.LoadoutConfirmed
-                    && stateLabel != null && stateLabel.text == "CONFIRMED");
+                    && stateLabel != null && stateLabel.text == "已确认");
 
                 // Leave Preparation and return: loadout state must persist.
                 app.ShowScreen(AppScreen.Overview);
@@ -159,8 +172,8 @@ public class StandaloneSmoke : MonoBehaviour
                     overviewMinerals != null && overviewMinerals.text == "25"
                     && overviewAlloy != null && overviewAlloy.text == "3");
 
-                // Insufficient-resource safety: Alloy is now 3, so a second
-                // upgrade succeeds (3 -> 0, level 3) and a third must fail.
+                // Insufficient-resource safety: second upgrade drains to 0,
+                // a third must fail.
                 bool secondUpgrade = session.TryUpgradeRefinery();
                 Check(results, ref failures, "second upgrade succeeds (alloy=3) -> alloy=0 refinery=3",
                     secondUpgrade && session.Alloy == 0 && session.RefineryLevel == 3);
@@ -168,20 +181,64 @@ public class StandaloneSmoke : MonoBehaviour
                 Check(results, ref failures, "third upgrade fails safely (alloy<3)",
                     !thirdUpgrade && session.RefineryLevel == 3 && session.Alloy == 0);
 
+                // Phase 04: Processing journey with real-time completion.
+                app.ShowScreen(AppScreen.Processing);
+                Label mineralsLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingMineralsValue);
+                Label fuelLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingFuelValue);
+                Label statusLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingStatusLabel);
+                Button processStart = app.UiRoot?.Q<Button>(ElementNames.ProcessingStartButton);
+
+                bool batch10 = session.TryStartProcess(10);
+                Check(results, ref failures, "start batch 10 -> minerals=15 state Running",
+                    batch10 && session.Minerals == 15 && session.IsProcessing
+                    && mineralsLabel != null && mineralsLabel.text == "15"
+                    && processStart != null && processStart.text == "加工中"
+                    && !processStart.enabledSelf);
+
+                // Navigate away and back while processing: state must persist.
+                app.ShowScreen(AppScreen.Overview);
+                app.ShowScreen(AppScreen.Preparation);
+                app.ShowScreen(AppScreen.Processing);
+                Check(results, ref failures, "processing persists across navigation",
+                    session.IsProcessing && session.Minerals == 15);
+
+                yield return WaitForProcessDone(session, 9000);
+                Check(results, ref failures, "batch10 complete -> fuel=14 alloy=2 status 加工完成",
+                    session.ProcessState == GameSession.RefineryProcessState.Complete
+                    && session.Fuel == 14 && session.Alloy == 2
+                    && fuelLabel != null && fuelLabel.text == "14"
+                    && statusLabel != null && statusLabel.text == "加工完成");
+
+                // A second batch from Complete demonstrates re-start.
+                bool again = session.TryStartProcess(5);
+                Check(results, ref failures, "re-start batch 5 after complete -> minerals=10",
+                    again && session.Minerals == 10 && session.IsProcessing);
+                yield return WaitForProcessDone(session, 9000);
+                Check(results, ref failures, "batch5 complete -> fuel=16 alloy=3",
+                    session.ProcessState == GameSession.RefineryProcessState.Complete
+                    && session.Fuel == 16 && session.Alloy == 3);
+
                 session.ResetSession();
                 Check(results, ref failures, "reset restores defaults minerals=20 fuel=8 alloy=5",
                     session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5);
             }
         }
-        catch (Exception e)
-        {
-            failures++;
-            results.AppendLine("FAIL :: unexpected exception: " + e);
-        }
 
         results.AppendLine(failures == 0 ? "RESULT: SUCCESS" : "RESULT: FAILED");
         WriteResult(results.ToString(), failures == 0);
         Application.Quit(failures == 0 ? 0 : 1);
+    }
+
+    /// <summary>Waits (bounded) for a running process to settle via the real
+    /// session timer; completes immediately if already finished.</summary>
+    private static IEnumerator WaitForProcessDone(GameSession session, int maxFrames)
+    {
+        int frames = 0;
+        while (session.IsProcessing && frames < maxFrames)
+        {
+            frames++;
+            yield return null;
+        }
     }
 
     private static void Check(StringBuilder results, ref int failures, string label, bool condition)

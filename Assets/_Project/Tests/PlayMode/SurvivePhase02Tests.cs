@@ -107,7 +107,7 @@ public class SurvivePhase02Tests
         Assert.IsTrue(cta.enabledSelf, "primary CTA enabled");
         Label ctaLabel = cta.Q<Label>(null, "cta-label");
         Assert.IsNotNull(ctaLabel, "CTA label element exists");
-        Assert.AreEqual("PREPARE EXPEDITION  »", ctaLabel.text, "CTA label text");
+        Assert.AreEqual("准备远征 »", ctaLabel.text, "CTA label text");
 
         // Navigation: Overview is the active tab, all four tabs exist.
         Assert.IsTrue(HasClass(root, ElementNames.NavOverview, "tab-active"), "Overview tab active");
