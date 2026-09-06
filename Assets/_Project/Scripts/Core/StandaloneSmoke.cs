@@ -112,6 +112,45 @@ public class StandaloneSmoke : MonoBehaviour
                 Check(results, ref failures, "screen outpost active/unique",
                     app.CurrentScreen == AppScreen.Outpost && app.VisibleScreenCount == 1);
 
+                // Phase 03: Preparation loadout journey (authoritative state +
+                // rendered UI text).
+                app.ShowScreen(AppScreen.Preparation);
+                Label cargoLabel = app.UiRoot?.Q<Label>(ElementNames.CargoValue);
+                Label stateLabel = app.UiRoot?.Q<Label>(ElementNames.LoadoutStateLabel);
+                Button confirmButton = app.UiRoot?.Q<Button>(ElementNames.ConfirmLoadoutButton);
+                Check(results, ref failures, "preparation defaults cargo 45/100 state READY confirm enabled",
+                    app.CurrentScreen == AppScreen.Preparation && app.VisibleScreenCount == 1
+                    && cargoLabel != null && cargoLabel.text == "45 / 100"
+                    && stateLabel != null && stateLabel.text == "READY"
+                    && confirmButton != null && confirmButton.enabledSelf);
+
+                bool selectBattery = session.TrySetBatterySelected(true);
+                Check(results, ref failures, "select battery -> cargo 70/100",
+                    selectBattery && session.CargoWeight == 70
+                    && cargoLabel != null && cargoLabel.text == "70 / 100");
+
+                bool selectDrone = session.TrySetDroneSelected(true);
+                Check(results, ref failures, "select drone -> cargo 90/100",
+                    selectDrone && session.CargoWeight == 90
+                    && cargoLabel != null && cargoLabel.text == "90 / 100");
+
+                bool confirmLoadout = session.TryConfirmLoadout();
+                Check(results, ref failures, "confirm loadout -> CONFIRMED",
+                    confirmLoadout && session.LoadoutConfirmed
+                    && stateLabel != null && stateLabel.text == "CONFIRMED");
+
+                // Leave Preparation and return: loadout state must persist.
+                app.ShowScreen(AppScreen.Overview);
+                app.ShowScreen(AppScreen.Preparation);
+                Check(results, ref failures, "loadout preserved across navigation",
+                    session.BatterySelected && session.DroneSelected && session.LoadoutConfirmed
+                    && cargoLabel != null && cargoLabel.text == "90 / 100");
+
+                bool editAfterConfirm = session.TrySetBatterySelected(false);
+                Check(results, ref failures, "edit after confirm clears confirmation (cargo 65)",
+                    editAfterConfirm && !session.LoadoutConfirmed
+                    && cargoLabel != null && cargoLabel.text == "65 / 100");
+
                 // Cross-screen consistency on the Overview after mutations.
                 app.ShowScreen(AppScreen.Overview);
                 Label overviewMinerals = app.UiRoot?.Q<Label>(ElementNames.MineralsValue);

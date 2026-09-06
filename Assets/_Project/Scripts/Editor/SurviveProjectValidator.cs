@@ -28,6 +28,7 @@ public static class SurviveProjectValidator
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
+    private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
 
     [MenuItem("Tools/SurviveUI/Validate Phase 01 Project")]
     public static void ValidateFromMenu()
@@ -68,6 +69,7 @@ public static class SurviveProjectValidator
         Record(File.Exists(UxmlPath), "uxml exists: " + UxmlPath);
         Record(File.Exists(UssPath), "uss exists: " + UssPath);
         Record(File.Exists(OverviewUssPath), "overview uss exists: " + OverviewUssPath);
+        Record(File.Exists(PreparationUssPath), "preparation uss exists: " + PreparationUssPath);
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
@@ -110,6 +112,12 @@ public static class SurviveProjectValidator
             foreach (string expected in ElementNames.OverviewStructure)
             {
                 Record(present.Contains(expected), "MainApp.uxml overview structure: " + expected);
+            }
+
+            // Phase 03: Preparation composition keeps its stable structure.
+            foreach (string expected in ElementNames.PreparationStructure)
+            {
+                Record(present.Contains(expected), "MainApp.uxml preparation structure: " + expected);
             }
         }
 

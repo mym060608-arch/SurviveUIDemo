@@ -142,12 +142,14 @@ public class SurvivePhase01Tests
         Assert.AreEqual("NEREID-04", LabelText(root, ElementNames.DestinationValue), "Overview destination text");
 
         // ---- Preparation screen: reachable, default cargo/status ----
+        // Phase 03 semantics: HARVESTER MK-I is required and always carried,
+        // so a fresh session starts at 45 / 100 KG in READY (valid, unconfirmed).
         app.ShowScreen(AppScreen.Preparation);
         yield return null;
         Assert.AreEqual(AppScreen.Preparation, app.CurrentScreen, "Preparation reachable");
         Assert.AreEqual(1, app.VisibleScreenCount, "one visible screen on Preparation");
-        Assert.AreEqual("0 / 100", LabelText(root, ElementNames.CargoValue), "Preparation default cargo");
-        Assert.AreEqual("STATUS: DRAFT", LabelText(root, ElementNames.LoadoutStateLabel), "Preparation default status");
+        Assert.AreEqual("45 / 100", LabelText(root, ElementNames.CargoValue), "Preparation default cargo");
+        Assert.AreEqual("READY", LabelText(root, ElementNames.LoadoutStateLabel), "Preparation default status");
 
         // ---- Processing: process mutation + button enablement ----
         app.ShowScreen(AppScreen.Processing);
