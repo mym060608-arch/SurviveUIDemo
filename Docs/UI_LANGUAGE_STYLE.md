@@ -1798,3 +1798,32 @@ The language system is successful when:
 ```text
 建立一套真正为中文玩家设计的航天工业信息界面。
 ```
+
+---
+
+# 61. Current Implementation Record (Phase 04)
+
+Phase 04 实际采用的字体现状：
+
+```text
+方案：运行时引用系统 CJK 字体（不复制、不分发字体文件）
+位置：AppController.ApplyUiCjkFont()
+机制：Font.CreateDynamicFontFromOSFont(候选列表)
+候选：Microsoft YaHei UI / Microsoft YaHei / SimHei
+      / Noto Sans CJK SC / Source Han Sans SC
+```
+
+- 该方案仅在本机 Editor / PlayMode / Standalone / Editor 干净截图流程中有效；
+- 未向仓库复制任何字体文件，未引入授权不明的字体资产；
+- 本机验证链路：微软雅黑（Regular/Bold）与黑体均安装可用。
+
+正式提交版如需跨机器分发：
+
+```text
+必须使用授权清晰、可嵌入的 CJK 字体（如思源黑体 / Noto Sans SC，
+OFL 许可），在最终资产阶段统一嵌入。
+```
+
+中文缺字 / 方框风险会在“字体验证检查”中以人工视觉审核为准。
+
+此记录将随后续 Phase 保持更新，直到正式字体落地。
