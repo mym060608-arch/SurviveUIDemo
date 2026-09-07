@@ -1843,7 +1843,7 @@ WRIST TERMINAL
 LOCAL MAP
 
 健康度
-饥饿度
+饱食度
 当前装备
 携带状态
 载荷
@@ -1861,12 +1861,14 @@ LOCAL MAP
 已装备
 已选择
 未选择
-0 = 不饿 · 100 = 极度饥饿
+0 = 极度饥饿 · 100 = 完全饱腹
 ```
 
 Semantics notes:
 
-- 饥饿度 higher = hungrier (0 = 不饿, 100 = 极度饥饿); never display 100 as “full”.
+- 饱食度 (PlayerSatiety) higher = better: 0 = 极度饥饿, 100 = 完全饱腹;
+  the default is a normal high value (82). Never display satiety as hunger
+  (lower-is-worse) on the wrist.
 - Normal exploration HUD shows only: crosshair, interaction prompt,
   navigation readout, temporary harvest/transfer feedback, return action.
 - Wrist shows: map, personal status, equipment, cargo, mission/node count.

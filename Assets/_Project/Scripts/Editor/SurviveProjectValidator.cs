@@ -47,7 +47,8 @@ public static class SurviveProjectValidator
         "HudNavBlock", "HudNavName", "HudNavDistance",
         "HudCrosshairDot", "HudCrosshairRing",
         "WristLayer", "WristPanel", "WristNodeCount",
-        "WristHealthValue", "WristHungerValue",
+        "WristHealthValue", "WristSatietyValue",
+        "WristHealthRing", "WristSatietyRing",
         "WristEquipHarvester", "WristEquipHarvesterState",
         "WristEquipBattery", "WristEquipBatteryState",
         "WristEquipDrone", "WristEquipDroneState",
@@ -258,6 +259,9 @@ public static class SurviveProjectValidator
             Record(CountInScene<FirstPersonInteractor>() == 1,
                 "02_NereidSurface has exactly one FirstPersonInteractor (found "
                 + CountInScene<FirstPersonInteractor>() + ")");
+            Record(CountInScene<LandingReturnInteractable>() == 1,
+                "02_NereidSurface has exactly one LandingReturnInteractable (found "
+                + CountInScene<LandingReturnInteractable>() + ")");
             Record(CountInScene<UIDocument>() == 1,
                 "02_NereidSurface has exactly one UIDocument (found "
                 + CountInScene<UIDocument>() + ")");
