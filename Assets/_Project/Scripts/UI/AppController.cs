@@ -111,6 +111,24 @@ public class AppController : MonoBehaviour
         // created here with defaults. After Boot it simply returns Boot's
         // persistent session, never a duplicate.
         _session = GameSession.Ensure();
+        ApplyHubUiMode();
+    }
+
+    private void OnEnable()
+    {
+        ApplyHubUiMode();
+    }
+
+    /// <summary>
+    /// Hub is a 2D UI screen: the OS cursor must always be unlocked + visible
+    /// (HubUiMode). This restores the cursor when returning from the surface
+    /// (WristMode / SurfaceFirstPersonMode leave it locked/hidden), and never
+    /// depends on object destruction to reset cursor state.
+    /// </summary>
+    public void ApplyHubUiMode()
+    {
+        UnityEngine.Cursor.lockState = CursorLockMode.None;
+        UnityEngine.Cursor.visible = true;
     }
 
     private void Start()

@@ -106,6 +106,8 @@ public class AutoSurfaceFlowProbe : MonoBehaviour
         SurfaceResourceNode node0 = controller.Nodes[0];
         Check("surface entry minerals unchanged", session.Minerals == 20);
         Check("node0 available at entry", node0.State == SurfaceResourceNode.NodeState.Available);
+        Check("surface FP cursor locked+hidden",
+            UnityEngine.Cursor.lockState == CursorLockMode.Locked && !UnityEngine.Cursor.visible);
 
         // Stage C: deploy Node 0 through the semantic E-equivalent path.
         SurfacePlayerController player = Object.FindAnyObjectByType<SurfacePlayerController>();
@@ -190,6 +192,8 @@ public class AutoSurfaceFlowProbe : MonoBehaviour
         app.ShowScreen(AppScreen.Processing);
         yield return null;
         Check("processing shows 25", LabelText(app, ElementNames.ProcessingMineralsValue) == "25");
+        Check("hub cursor restored unlocked+visible",
+            UnityEngine.Cursor.lockState == CursorLockMode.None && UnityEngine.Cursor.visible);
 
         // Stage F: Reset clears the node mask, minerals and launch gate.
         session.ResetSession();

@@ -91,7 +91,7 @@ public class SurfaceGameController : MonoBehaviour
             _wrist.Bind(this);
         }
 
-        ApplyCursorForMode();
+        ApplySurfaceFirstPersonMode();
         _ready = true;
     }
 
@@ -208,8 +208,31 @@ public class SurfaceGameController : MonoBehaviour
 
     private void ApplyCursorForMode()
     {
-        Cursor.lockState = _isWristOpen ? CursorLockMode.None : CursorLockMode.Locked;
-        Cursor.visible = false; // OS arrow never shown; wrist uses its own dot
+        if (_isWristOpen)
+        {
+            ApplyWristMode();
+        }
+        else
+        {
+            ApplySurfaceFirstPersonMode();
+        }
+    }
+
+    // Explicit input-mode semantics (see round-3 blocker 3):
+    // - SurfaceFirstPersonMode: locked + hidden OS cursor, mouse look on;
+    // - WristMode: unlocked + hidden OS cursor, dot pointer on the display;
+    // - HubUiMode (AppController): unlocked + visible for the 2D Hub.
+
+    public void ApplySurfaceFirstPersonMode()
+    {
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
+    }
+
+    public void ApplyWristMode()
+    {
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = false;
     }
 
     // ---- Navigation (scene-owned, wrist clickable) ----
