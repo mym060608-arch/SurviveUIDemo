@@ -83,6 +83,7 @@ public static class ElementNames
     public const string ProcessingOutputCaption = "ProcessingOutputCaption";
     public const string ProcessingFuelGainValue = "ProcessingFuelGainValue";
     public const string ProcessingAlloyGainValue = "ProcessingAlloyGainValue";
+    public const string ProcessingActiveBatch = "ProcessingActiveBatch";
     public const string ProcessingProgressFill = "ProcessingProgressFill";
     public const string ProcessingProgressPercent = "ProcessingProgressPercent";
     public const string ProcessingStatusLabel = "ProcessingStatusLabel";
@@ -148,6 +149,7 @@ public static class ElementNames
         ProcessingProgressFill,
         ProcessingProgressPercent,
         ProcessingStatusLabel,
+        ProcessingActiveBatch,
         ProcessingRefineryLevel,
         ProcessingStartButton,
         HarvesterLevelValue,

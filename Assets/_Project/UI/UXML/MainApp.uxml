@@ -428,39 +428,68 @@
                         <ui:VisualElement class="panel-header">
                             <ui:Label class="panel-header-text" text="精炼流程" />
                             <ui:VisualElement class="panel-header-rule" />
+                            <ui:VisualElement class="core-sys-dot" />
+                            <ui:Label class="core-sys-label" text="精炼单元 · 在线" />
                         </ui:VisualElement>
 
-                        <ui:VisualElement class="flow-row">
-                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="矿物" /></ui:VisualElement>
-                            <ui:Label class="flow-arrow" text="»" />
-                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="精炼模块" /></ui:VisualElement>
-                            <ui:Label class="flow-arrow" text="»" />
-                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="燃料" /></ui:VisualElement>
-                            <ui:Label class="flow-arrow" text="»" />
-                            <ui:VisualElement class="flow-node"><ui:Label class="flow-node-text" text="合金" /></ui:VisualElement>
-                        </ui:VisualElement>
+                        <ui:VisualElement class="core-panel">
+                            <!-- Main status + live progress readout -->
+                            <ui:VisualElement class="core-status-row">
+                                <ui:Label name="ProcessingStatusLabel" class="core-status" text="准备就绪" />
+                                <ui:VisualElement class="core-progress-readout">
+                                    <ui:Label class="core-progress-caption" text="加工进度" />
+                                    <ui:Label name="ProcessingProgressPercent" class="core-progress-big" text="—" />
+                                </ui:VisualElement>
+                            </ui:VisualElement>
 
-                        <ui:VisualElement name="ProcessingOutputPanel" class="output-block">
-                            <ui:Label name="ProcessingOutputCaption" class="output-caption" text="预计产出" />
-                            <ui:VisualElement class="output-line">
+                            <!-- Refinery flow: minerals -> module -> fuel/alloy -->
+                            <ui:VisualElement class="core-flow">
+                                <ui:VisualElement class="flow-node">
+                                    <ui:Label class="flow-node-text" text="矿物" />
+                                    <ui:Label class="flow-node-sub" text="原料输入" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="flow-conn">
+                                    <ui:VisualElement class="flow-line" />
+                                    <ui:Label class="flow-arrow" text="»" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="flow-node flow-node-core">
+                                    <ui:Label class="flow-node-text" text="精炼模块" />
+                                    <ui:Label name="ProcessingActiveBatch" class="flow-node-sub core-batch-note" text="批次 05" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="flow-conn">
+                                    <ui:VisualElement class="flow-line" />
+                                    <ui:Label class="flow-arrow" text="»" />
+                                </ui:VisualElement>
+                                <ui:VisualElement class="flow-output">
+                                    <ui:VisualElement class="flow-node flow-node-output">
+                                        <ui:Label class="flow-node-text" text="燃料" />
+                                        <ui:Label class="flow-node-sub" text="产物 A" />
+                                    </ui:VisualElement>
+                                    <ui:VisualElement class="flow-split-rule" />
+                                    <ui:VisualElement class="flow-node flow-node-output">
+                                        <ui:Label class="flow-node-text" text="合金" />
+                                        <ui:Label class="flow-node-sub" text="产物 B" />
+                                    </ui:VisualElement>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+
+                            <!-- Expected / settled output of the selected batch -->
+                            <ui:VisualElement name="ProcessingOutputPanel" class="result-panel">
+                                <ui:VisualElement class="result-mark" />
+                                <ui:Label name="ProcessingOutputCaption" class="result-caption" text="预计产出" />
                                 <ui:Label class="output-key" text="燃料" />
-                                <ui:Label name="ProcessingFuelGainValue" class="output-value" text="+2" />
-                            </ui:VisualElement>
-                            <ui:VisualElement class="output-line">
+                                <ui:Label name="ProcessingFuelGainValue" class="result-value" text="+2" />
+                                <ui:Label class="result-sep" text="·" />
                                 <ui:Label class="output-key" text="合金" />
-                                <ui:Label name="ProcessingAlloyGainValue" class="output-value" text="+1" />
+                                <ui:Label name="ProcessingAlloyGainValue" class="result-value" text="+1" />
                             </ui:VisualElement>
-                        </ui:VisualElement>
 
-                        <ui:VisualElement class="progress-block">
-                            <ui:VisualElement class="progress-headline">
-                                <ui:Label class="output-caption" text="加工进度" />
-                                <ui:Label name="ProcessingProgressPercent" class="progress-percent" text="—" />
+                            <!-- Capacity progress rule -->
+                            <ui:VisualElement class="core-track-row">
+                                <ui:VisualElement class="progress-track">
+                                    <ui:VisualElement name="ProcessingProgressFill" class="progress-fill" />
+                                </ui:VisualElement>
                             </ui:VisualElement>
-                            <ui:VisualElement class="progress-track">
-                                <ui:VisualElement name="ProcessingProgressFill" class="progress-fill" />
-                            </ui:VisualElement>
-                            <ui:Label name="ProcessingStatusLabel" class="process-status" text="准备就绪" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 

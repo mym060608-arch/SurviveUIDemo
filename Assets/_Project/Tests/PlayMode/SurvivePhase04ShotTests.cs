@@ -93,8 +93,22 @@ public class SurvivePhase04ShotTests
             return GeometryOk(app, "processing");
         });
 
+        yield return CaptureScreen(app, panel, "processing_complete", () =>
+        {
+            // Settled state: batch 5 finished, 本次产出 +2/+1 highlighted.
+            GameSession session = GameSession.Instance;
+            session.ResetSession();
+            session.TryStartProcess(5);
+            session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+            app.ShowScreen(AppScreen.Processing);
+            return GeometryOk(app, "processing");
+        });
+
         // Canonical names at the export root for the review screenshots.
-        foreach (string screen in new[] { "overview", "preparation", "processing" })
+        foreach (string screen in new[]
+        {
+            "overview", "preparation", "processing", "processing_complete"
+        })
         {
             string src = Path.Combine(OutDir, "surviveui_phase04_" + screen + "_1920x1080.png");
             string dst = Path.Combine(@"D:\dsh_gpt_unity_blender\export",
@@ -231,7 +245,7 @@ public class SurvivePhase04ShotTests
                    && confirmRect.yMax <= navRect.yMin + 1f;
         }
 
-        if (screen == "processing")
+        if (screen.StartsWith("processing"))
         {
             VisualElement storage = root.Q<VisualElement>(ElementNames.ProcessingStoragePanel);
             VisualElement core = root.Q<VisualElement>(ElementNames.ProcessingCorePanel);

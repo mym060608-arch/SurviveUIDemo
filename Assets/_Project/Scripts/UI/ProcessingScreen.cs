@@ -37,7 +37,9 @@ public class ProcessingScreen
     private Label _statusLabel;
     private Label _percentLabel;
     private Label _refineryLevel;
+    private Label _activeBatch;
     private VisualElement _progressFill;
+    private VisualElement _corePanel;
 
     public ProcessingScreen(VisualElement root, GameSession session)
     {
@@ -61,7 +63,9 @@ public class ProcessingScreen
         _statusLabel = BindLabel(ElementNames.ProcessingStatusLabel);
         _percentLabel = BindLabel(ElementNames.ProcessingProgressPercent);
         _refineryLevel = BindLabel(ElementNames.ProcessingRefineryLevel);
+        _activeBatch = BindLabel(ElementNames.ProcessingActiveBatch);
         _progressFill = BindElement(ElementNames.ProcessingProgressFill);
+        _corePanel = BindElement(ElementNames.ProcessingCorePanel);
 
         _startButton = BindButton(ElementNames.ProcessingStartButton,
             () => _session.TryStartProcess(_selectedBatch));
@@ -199,26 +203,70 @@ public class ProcessingScreen
     private void RefreshProgress()
     {
         bool running = _session.IsProcessing;
-        bool complete = _session.ProcessState == GameSession.RefineryProcessState.Complete;
+        // The completed-run emphasis only applies while its own batch is
+        // still selected; picking another batch starts a fresh candidate.
+        bool settledVisible = !running
+                              && _session.ProcessState == GameSession.RefineryProcessState.Complete
+                              && _session.ActiveBatchMinerals == _selectedBatch;
 
         if (_statusLabel != null)
         {
-            _statusLabel.text = running ? "加工中" : (complete ? "加工完成" : "准备就绪");
+            _statusLabel.text = running ? "加工中" : (settledVisible ? "加工完成" : "准备就绪");
         }
 
         if (_percentLabel != null)
         {
             _percentLabel.text = running
                 ? Mathf.RoundToInt(_session.ProcessProgress01 * 100f) + "%"
-                : (complete ? "100%" : "—");
+                : (settledVisible ? "100%" : "—");
         }
 
         if (_progressFill != null)
         {
             float percent = running
                 ? _session.ProcessProgress01 * 100f
-                : (complete ? 100f : 0f);
+                : (settledVisible ? 100f : 0f);
             _progressFill.style.width = Length.Percent(percent);
+        }
+
+        // Active-batch note inside the module node: which batch drives the
+        // current visual state (selection when idle, run when processing).
+        if (_activeBatch != null)
+        {
+            string batchText = running || settledVisible
+                ? "批次 " + _session.ActiveBatchMinerals.ToString("00")
+                : "批次 " + _selectedBatch.ToString("00");
+            if (running)
+            {
+                batchText += " · 加工中";
+            }
+            else if (settledVisible)
+            {
+                batchText += " · 已完成";
+            }
+
+            _activeBatch.text = batchText;
+        }
+
+        // Distinct stage emphasis: running lights the module + progress; a
+        // completed run highlights the settled result row.
+        if (_corePanel != null)
+        {
+            if (running)
+            {
+                _corePanel.AddToClassList("stage-running");
+                _corePanel.RemoveFromClassList("stage-complete");
+            }
+            else if (settledVisible)
+            {
+                _corePanel.RemoveFromClassList("stage-running");
+                _corePanel.AddToClassList("stage-complete");
+            }
+            else
+            {
+                _corePanel.RemoveFromClassList("stage-running");
+                _corePanel.RemoveFromClassList("stage-complete");
+            }
         }
     }
 
@@ -237,7 +285,8 @@ public class ProcessingScreen
         }
 
         bool canStart = _session.CanStartBatch(_selectedBatch);
-        bool complete = _session.ProcessState == GameSession.RefineryProcessState.Complete;
+        bool sameRun = _session.ProcessState == GameSession.RefineryProcessState.Complete
+                       && _session.ActiveBatchMinerals == _selectedBatch;
 
         if (!canStart)
         {
@@ -246,7 +295,7 @@ public class ProcessingScreen
             return;
         }
 
-        _startButton.text = complete ? "再次加工" : "开始加工";
+        _startButton.text = sameRun ? "再次加工" : "开始加工";
         _startButton.SetEnabled(true);
     }
 

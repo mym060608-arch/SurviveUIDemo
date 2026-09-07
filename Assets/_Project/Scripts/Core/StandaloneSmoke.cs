@@ -203,20 +203,22 @@ public class StandaloneSmoke : MonoBehaviour
                     session.IsProcessing && session.Minerals == 15);
 
                 yield return WaitForProcessDone(session, 9000);
-                Check(results, ref failures, "batch10 complete -> fuel=14 alloy=2 status 加工完成",
+                Check(results, ref failures, "batch10 complete -> fuel=14 alloy=2",
                     session.ProcessState == GameSession.RefineryProcessState.Complete
                     && session.Fuel == 14 && session.Alloy == 2
-                    && fuelLabel != null && fuelLabel.text == "14"
-                    && statusLabel != null && statusLabel.text == "加工完成");
+                    && fuelLabel != null && fuelLabel.text == "14");
 
-                // A second batch from Complete demonstrates re-start.
+                // A second batch from Complete demonstrates re-start; the UI
+                // selection (batch 5) matches this run, so the settled state
+                // "加工完成" is shown.
                 bool again = session.TryStartProcess(5);
                 Check(results, ref failures, "re-start batch 5 after complete -> minerals=10",
                     again && session.Minerals == 10 && session.IsProcessing);
                 yield return WaitForProcessDone(session, 9000);
-                Check(results, ref failures, "batch5 complete -> fuel=16 alloy=3",
+                Check(results, ref failures, "batch5 complete -> fuel=16 alloy=3 status 加工完成",
                     session.ProcessState == GameSession.RefineryProcessState.Complete
-                    && session.Fuel == 16 && session.Alloy == 3);
+                    && session.Fuel == 16 && session.Alloy == 3
+                    && statusLabel != null && statusLabel.text == "加工完成");
 
                 session.ResetSession();
                 Check(results, ref failures, "reset restores defaults minerals=20 fuel=8 alloy=5",

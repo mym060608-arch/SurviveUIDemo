@@ -173,109 +173,236 @@
     margin-top: 12px;
 }
 
-/* ---------- Center: process flow ---------- */
+/* ---------- Center: refinery core panel ---------- */
 
-.flow-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    margin-top: 10px;
+.core-sys-dot {
+    width: 6px;
+    height: 6px;
+    background-color: #0E7F8C;
+    margin-left: 18px;
+    margin-right: 8px;
 }
 
-.flow-node {
-    background-color: #F3F5F6;
-    border-width: 1px;
-    border-color: #C9CFD4;
-    padding-top: 10px;
-    padding-bottom: 10px;
-    padding-left: 22px;
-    padding-right: 22px;
-}
-
-.flow-node-text {
-    font-size: 13px;
-    -unity-font-style: bold;
-    color: #161B20;
-}
-
-.flow-arrow {
-    font-size: 16px;
-    color: #0E7F8C;
-    margin-left: 16px;
-    margin-right: 16px;
-}
-
-/* ---------- Center: expected / settled output ---------- */
-
-.output-block {
-    flex-direction: column;
-    align-items: center;
-    margin-top: 28px;
-}
-
-.output-caption {
-    font-size: 11px;
+.core-sys-label {
+    font-size: 10px;
     color: #7B858F;
 }
 
-.output-line {
+.core-panel {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: column;
+    border-width: 1px;
+    border-color: #D8DCE0;
+    background-color: #F6F7F8;
+    padding-top: 20px;
+    padding-bottom: 18px;
+    padding-left: 24px;
+    padding-right: 24px;
+    margin-top: 8px;
+}
+
+/* Main state + live progress readout (visual anchor of the panel) */
+.core-status-row {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.core-status {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-right: auto;
+}
+
+.core-progress-readout {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.core-progress-caption {
+    font-size: 10px;
+    color: #7B858F;
+    margin-right: 10px;
+}
+
+.core-progress-big {
+    font-size: 30px;
+    -unity-font-style: bold;
+    color: #0A616C;
+    min-width: 84px;
+    -unity-text-align: middle-right;
+}
+
+/* Refinery flow track: minerals -> module -> fuel / alloy */
+.core-flow {
+    flex-grow: 1;
+    min-height: 0;
     flex-direction: row;
     align-items: center;
-    margin-top: 10px;
+    margin-top: 18px;
+    margin-bottom: 16px;
+}
+
+.flow-node {
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: center;
+    background-color: #FFFFFF;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    padding-left: 26px;
+    padding-right: 26px;
+}
+
+.flow-node-text {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.flow-node-sub {
+    font-size: 9px;
+    color: #7B858F;
+    margin-top: 6px;
+}
+
+.flow-node-core {
+    background-color: #FFFFFF;
+    border-color: #B9CDD1;
+}
+
+.core-batch-note {
+    color: #0A616C;
+    -unity-font-style: bold;
+}
+
+.flow-conn {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    margin-left: 10px;
+    margin-right: 10px;
+}
+
+.flow-line {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #C9CFD4;
+}
+
+.flow-arrow {
+    font-size: 15px;
+    color: #0E7F8C;
+    margin-left: 8px;
+}
+
+.flow-output {
+    flex-direction: column;
+    align-items: stretch;
+    margin-left: 4px;
+}
+
+.flow-node-output {
+    padding-top: 8px;
+    padding-bottom: 8px;
+    padding-left: 20px;
+    padding-right: 20px;
+    background-color: #FFFFFF;
+}
+
+.flow-split-rule {
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+/* Active / settled state emphasis (driven by stage classes) */
+.process-col-center.stage-running .flow-node-core {
+    background-color: #E9F3F4;
+    border-color: #0E7F8C;
+}
+
+.process-col-center.stage-running .core-progress-caption {
+    color: #0A616C;
+}
+
+.process-col-center.stage-complete .result-panel {
+    background-color: #EDF5F6;
+    border-color: #B9CDD1;
+}
+
+.process-col-center.stage-complete .result-caption {
+    color: #0A616C;
+}
+
+/* ---------- Center: expected / settled output row ---------- */
+
+.result-panel {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    border-width: 1px;
+    border-color: #DEE2E5;
+    background-color: #FFFFFF;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    padding-left: 18px;
+    padding-right: 18px;
+}
+
+.result-mark {
+    width: 3px;
+    height: 22px;
+    background-color: #0E7F8C;
+    margin-right: 14px;
+}
+
+.result-caption {
+    font-size: 12px;
+    color: #161B20;
+    -unity-font-style: bold;
+    margin-right: auto;
 }
 
 .output-key {
-    width: 72px;
-    font-size: 14px;
-    -unity-font-style: bold;
-    color: #161B20;
-    -unity-text-align: middle-right;
-    margin-right: 16px;
-}
-
-.output-value {
-    font-size: 24px;
-    -unity-font-style: bold;
-    color: #0A616C;
-    min-width: 64px;
-}
-
-/* ---------- Center: progress ---------- */
-
-.progress-block {
-    flex-direction: column;
-    margin-top: 30px;
-}
-
-.progress-headline {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.progress-percent {
     font-size: 13px;
+    color: #4A525C;
+    margin-left: 18px;
+}
+
+.result-value {
+    font-size: 26px;
     -unity-font-style: bold;
     color: #0A616C;
+    margin-left: 10px;
+}
+
+.result-sep {
+    font-size: 14px;
+    color: #C9CFD4;
+    margin-left: 14px;
+}
+
+/* ---------- Center: capacity progress rule ---------- */
+
+.core-track-row {
+    flex-shrink: 0;
+    margin-top: 14px;
 }
 
 .progress-track {
     height: 6px;
     background-color: #D3D8DC;
-    margin-top: 10px;
 }
 
 .progress-fill {
     height: 6px;
     width: 0%;
     background-color: #0E7F8C;
-}
-
-.process-status {
-    font-size: 18px;
-    -unity-font-style: bold;
-    color: #161B20;
-    margin-top: 14px;
 }
 
 /* ---------- Right: current inventory + refinery meta ---------- */
