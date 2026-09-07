@@ -31,15 +31,16 @@ public static class SurviveBuildCLI
             Directory.CreateDirectory(Path.GetDirectoryName(resultPath));
 
             var scenes = EditorBuildSettings.scenes;
-            if (scenes == null || scenes.Length != 2)
+            if (scenes == null || scenes.Length != 3)
             {
-                throw new Exception("build settings must contain exactly 2 scenes");
+                throw new Exception("build settings must contain exactly 3 scenes");
             }
 
             string[] scenePaths =
             {
                 scenes[0].path,
-                scenes[1].path
+                scenes[1].path,
+                scenes[2].path
             };
 
             string exePath = buildPath + "/SurviveUIDemo.exe";

@@ -54,7 +54,7 @@ public class PreparationScreen
         _droneRow = BindButton(ElementNames.DroneRowButton,
             () => _session.TrySetDroneSelected(!_session.DroneSelected));
 
-        _confirmButton = BindButton(ElementNames.ConfirmLoadoutButton, () => _session.TryConfirmLoadout());
+        _confirmButton = BindButton(ElementNames.ConfirmLoadoutButton, OnPrimaryAction);
 
         _readinessSub = _root.Q<Label>(null, "readiness-sub");
         if (_readinessSub == null)
@@ -194,13 +194,32 @@ public class PreparationScreen
 
         if (_session.LoadoutConfirmed)
         {
-            _confirmButton.text = "配置已确认";
-            _confirmButton.SetEnabled(false);
+            // Phase 06: a confirmed loadout turns the CTA into the real
+            // expedition launch; always available while confirmed.
+            _confirmButton.text = "开始远征 »";
+            _confirmButton.SetEnabled(_session.CanStartExpedition);
             return;
         }
 
         _confirmButton.text = "确认配置";
         _confirmButton.SetEnabled(_session.IsLoadoutValid);
+    }
+
+    /// <summary>Primary action: confirm the package, or (once confirmed)
+    /// launch the expedition into the NEREID-04 surface scene.</summary>
+    private void OnPrimaryAction()
+    {
+        if (_session.LoadoutConfirmed)
+        {
+            if (_session.CanStartExpedition)
+            {
+                UnityEngine.SceneManagement.SceneManager.LoadScene(GameSession.SurfaceSceneName);
+            }
+
+            return;
+        }
+
+        _session.TryConfirmLoadout();
     }
 
     private Label BindLabel(string name)

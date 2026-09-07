@@ -34,6 +34,14 @@ public class GameSession : MonoBehaviour
     // Outpost module progression (Phase 05). Demo tier range LV.1..LV.3.
     public const int MaxModuleLevel = 3;
 
+    // NEREID-04 surface harvesting (Phase 06). Three fixed resource nodes,
+    // each settles exactly +5 Minerals once per Reset.
+    public const int SurfaceNodeCount = 3;
+    public const int SurfaceNodeYield = 5;
+    public const float SurfaceBaseHarvestSeconds = 4.0f;
+    public const float SurfaceWirelessTransferSeconds = 0.75f;
+    public const string SurfaceSceneName = "02_NereidSurface";
+
     /// <summary>Selectable outpost modules (three authoritative levels).</summary>
     public enum OutpostModule
     {
@@ -101,6 +109,74 @@ public class GameSession : MonoBehaviour
     /// <summary>Processing duration derived from RefineryLevel (LV.1=2.0s,
     /// LV.2=1.6s, LV.3=1.2s). Affects speed only, never the output ratio.</summary>
     public float RefineryProcessSeconds => Mathf.Max(0.5f, 2.0f - (RefineryLevel - 1) * 0.4f);
+
+    /// <summary>Surface harvest duration driven by the real Phase 05
+    /// harvester multiplier: LV.1 = 4.0s, LV.2 = 3.2s, LV.3 ~2.67s.</summary>
+    public float SurfaceHarvestSeconds =>
+        SurfaceBaseHarvestSeconds / HarvesterEfficiencyMultiplier;
+
+    // ---- NEREID-04 surface state (Phase 06) ----
+    // Authoritative per-node completion. Three nodes => 3-bit mask is enough.
+    // UI and scene objects only call the APIs below; no duplicate protection
+    // is scattered into the scene.
+
+    private int _harvestedNodeMask;
+
+    /// <summary>Number of surface nodes completed this session.</summary>
+    public int HarvestedNodeCount
+    {
+        get
+        {
+            int count = 0;
+            for (int id = 0; id < SurfaceNodeCount; id++)
+            {
+                if ((_harvestedNodeMask & (1 << id)) != 0)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+    }
+
+    /// <summary>True when node <paramref name="id"/> already delivered its
+    /// yield this session (persists across surface re-entry until Reset).</summary>
+    public bool IsSurfaceNodeCompleted(int id)
+    {
+        if (id < 0 || id >= SurfaceNodeCount)
+        {
+            return false;
+        }
+
+        return (_harvestedNodeMask & (1 << id)) != 0;
+    }
+
+    /// <summary>
+    /// Atomically completes a surface node: rejects already-completed or
+    /// out-of-range ids, marks the bit and settles +yield Minerals once.
+    /// Returns true only when the node was newly completed.
+    /// </summary>
+    public bool TryCompleteSurfaceNode(int id, int mineralYield)
+    {
+        if (id < 0 || id >= SurfaceNodeCount || IsSurfaceNodeCompleted(id))
+        {
+            return false;
+        }
+
+        if (mineralYield <= 0)
+        {
+            return false;
+        }
+
+        _harvestedNodeMask |= 1 << id;
+        Minerals += mineralYield;
+        NotifyChanged();
+        return true;
+    }
+
+    /// <summary>Expedition may launch only after the loadout is confirmed.</summary>
+    public bool CanStartExpedition => LoadoutConfirmed && IsLoadoutValid;
 
     // ---- Expedition loadout (Phase 03) ----
     // Single authoritative preparation state. The UI never owns these values;
@@ -377,6 +453,7 @@ public class GameSession : MonoBehaviour
         BatterySelected = false;
         DroneSelected = false;
         LoadoutConfirmed = false;
+        _harvestedNodeMask = 0;
         ResetProcessing();
         NotifyChanged();
     }

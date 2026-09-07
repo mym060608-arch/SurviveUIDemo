@@ -10,13 +10,15 @@ using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 /// <summary>
-/// Phase 01 structural validator.
+/// Phase 01-06 structural validator.
 ///
 /// Checks (edit-mode, deterministic):
-/// - scenes exist with the correct build order (0 = 00_Boot, 1 = 01_Hub),
+/// - scenes exist with the correct build order (0 = 00_Boot, 1 = 01_Hub, 2 = 02_NereidSurface),
 /// - MainApp.uxml contains every element the runtime binds to,
 /// - 00_Boot keeps its minimal role (BootController, no UI / no authored GameSession),
-/// - 01_Hub has exactly one UIDocument + one AppController with valid assets.
+/// - 01_Hub has exactly one UIDocument + one AppController with valid assets,
+/// - 02_NereidSurface authors no GameSession and keeps one player controller,
+///   one game controller, one HUD controller, one UIDocument and three resource nodes.
 ///
 /// Run via Tools/SurviveUI/Validate Phase 01 Project or
 /// -executeMethod SurviveProjectValidator.RunCli -resultPath &lt;file&gt;
@@ -25,12 +27,15 @@ public static class SurviveProjectValidator
 {
     private const string BootScenePath = "Assets/_Project/Scenes/00_Boot.unity";
     private const string HubScenePath = "Assets/_Project/Scenes/01_Hub.unity";
+    private const string SurfaceScenePath = "Assets/_Project/Scenes/02_NereidSurface.unity";
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
     private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
     private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
+    private const string SurfaceHudUxmlPath = "Assets/_Project/UI/UXML/SurfaceHUD.uxml";
+    private const string SurfaceHudUssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
     private const string GuidePath = "Docs/UI_LANGUAGE_STYLE.md";
 
     [MenuItem("Tools/SurviveUI/Validate Phase 01 Project")]
@@ -71,17 +76,20 @@ public static class SurviveProjectValidator
         Record(File.Exists(guideFullPath), "language/style guide exists: " + GuidePath);
         Record(File.Exists(BootScenePath), "scene exists: " + BootScenePath);
         Record(File.Exists(HubScenePath), "scene exists: " + HubScenePath);
+        Record(File.Exists(SurfaceScenePath), "scene exists: " + SurfaceScenePath);
         Record(File.Exists(UxmlPath), "uxml exists: " + UxmlPath);
         Record(File.Exists(UssPath), "uss exists: " + UssPath);
         Record(File.Exists(OverviewUssPath), "overview uss exists: " + OverviewUssPath);
         Record(File.Exists(PreparationUssPath), "preparation uss exists: " + PreparationUssPath);
         Record(File.Exists(ProcessingUssPath), "processing uss exists: " + ProcessingUssPath);
         Record(File.Exists(OutpostUssPath), "outpost uss exists: " + OutpostUssPath);
+        Record(File.Exists(SurfaceHudUxmlPath), "surface HUD uxml exists: " + SurfaceHudUxmlPath);
+        Record(File.Exists(SurfaceHudUssPath), "surface HUD uss exists: " + SurfaceHudUssPath);
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
-        Record(buildScenes.Length == 2,
-            "build contains exactly 2 scenes (found " + buildScenes.Length + ")");
+        Record(buildScenes.Length == 3,
+            "build contains exactly 3 scenes (found " + buildScenes.Length + ")");
         if (buildScenes.Length >= 1)
         {
             Record(buildScenes[0].path == BootScenePath && buildScenes[0].enabled,
@@ -92,6 +100,12 @@ public static class SurviveProjectValidator
         {
             Record(buildScenes[1].path == HubScenePath && buildScenes[1].enabled,
                 "build[1] = 01_Hub enabled (actual: " + buildScenes[1].path + ")");
+        }
+
+        if (buildScenes.Length >= 3)
+        {
+            Record(buildScenes[2].path == SurfaceScenePath && buildScenes[2].enabled,
+                "build[2] = 02_NereidSurface enabled (actual: " + buildScenes[2].path + ")");
         }
 
         // ---- MainApp.uxml coverage ----
@@ -176,6 +190,65 @@ public static class SurviveProjectValidator
             {
                 Record(false, "UIDocument missing (cannot verify binding)");
             }
+        }
+
+        // ---- 02_NereidSurface scene content ----
+        if (File.Exists(SurfaceScenePath))
+        {
+            EditorSceneManager.OpenScene(SurfaceScenePath, OpenSceneMode.Single);
+            Record(CountInScene<GameSession>() == 0,
+                "02_NereidSurface authors no GameSession instance (found "
+                + CountInScene<GameSession>() + ")");
+            Record(CountInScene<SurfacePlayerController>() == 1,
+                "02_NereidSurface has exactly one SurfacePlayerController (found "
+                + CountInScene<SurfacePlayerController>() + ")");
+            Record(CountInScene<SurfaceGameController>() == 1,
+                "02_NereidSurface has exactly one SurfaceGameController (found "
+                + CountInScene<SurfaceGameController>() + ")");
+            Record(CountInScene<SurfaceHudController>() == 1,
+                "02_NereidSurface has exactly one SurfaceHudController (found "
+                + CountInScene<SurfaceHudController>() + ")");
+            Record(CountInScene<UIDocument>() == 1,
+                "02_NereidSurface has exactly one UIDocument (found "
+                + CountInScene<UIDocument>() + ")");
+            Record(CountInScene<SurfaceResourceNode>() == 3,
+                "02_NereidSurface has exactly 3 resource nodes (found "
+                + CountInScene<SurfaceResourceNode>() + ")");
+
+            UIDocument surfaceDocument = FirstInScene<UIDocument>();
+            SurfaceHudController surfaceHud = FirstInScene<SurfaceHudController>();
+            if (surfaceDocument != null)
+            {
+                string surfaceSource = surfaceDocument.visualTreeAsset != null
+                    ? surfaceDocument.visualTreeAsset.name
+                    : "<null>";
+                Record(surfaceSource == "SurfaceHUD",
+                    "Surface UIDocument bound to SurfaceHUD.uxml (actual: " + surfaceSource + ")");
+                // PanelSettings rides on the HUD controller field (deterministic
+                // builder cannot serialize it on UIDocument) and is applied to
+                // the document at runtime; either storage is acceptable.
+                bool panelAssigned = surfaceDocument.panelSettings != null
+                    || (surfaceHud != null && surfaceHud.panelSettings != null);
+                Record(panelAssigned, "Surface HUD PanelSettings assigned");
+            }
+            else
+            {
+                Record(false, "Surface UIDocument missing (cannot verify binding)");
+            }
+
+            // Surface resource node ids must be unique and well-formed.
+            var nodeIds = new List<int>();
+            Scene surfaceActive = SceneManager.GetActiveScene();
+            foreach (GameObject root in surfaceActive.GetRootGameObjects())
+            {
+                foreach (SurfaceResourceNode node in root.GetComponentsInChildren<SurfaceResourceNode>(true))
+                {
+                    nodeIds.Add(node.NodeId);
+                }
+            }
+
+            Record(nodeIds.Count == 3 && new HashSet<int>(nodeIds).Count == 3,
+                "surface node ids unique (found " + nodeIds.Count + " distinct)");
         }
 
         bool ok = failures == 0;
