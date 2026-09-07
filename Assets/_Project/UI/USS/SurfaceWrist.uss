@@ -1,8 +1,11 @@
 /*
- * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision).
- * Chinese-first field terminal: contained floating panel around a circular
- * LOCAL MAP. The world stays visible around it (light panel, negative space,
- * no full-screen dashboard). Industrial hairlines + teal accent only.
+ * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision round 2).
+ * Floating field terminal: no enclosing rectangle. A central circular LOCAL
+ * MAP is the visual anchor; thin segmented status rings hug its perimeter;
+ * equipment / cargo / navigation / harvest states are detached small
+ * hairline blocks. Large negative space keeps the 3D world clearly visible,
+ * so the UI reads as an interface projected forward from the wrist.
+ * Off-white / ink / teal, Swiss grid, restrained radius. No neon.
  */
 
 /* ---------- Layer + open presentation ---------- */
@@ -16,168 +19,64 @@
     align-items: center;
     justify-content: center;
     display: none;
-    background-color: rgba(0, 0, 0, 0.12);
 }
 
-.wrist-panel {
-    width: 1040px;
-    height: 640px;
-    background-color: rgba(233, 235, 237, 0.97);
-    border-width: 1px;
-    border-color: #C9CFD4;
-    padding: 18px 22px;
-    border-radius: 6px;
+/* Transparent cluster that positions everything without a card background. */
+.wrist-cluster {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -670px;
+    margin-top: -470px;
+    width: 1340px;
+    height: 940px;
     flex-shrink: 0;
 }
 
-/* ---------- Header ---------- */
-
-.wrist-header {
-    flex-direction: row;
-    align-items: flex-end;
-    border-bottom-width: 1px;
-    border-bottom-color: #C9CFD4;
-    padding-bottom: 8px;
-    margin-bottom: 12px;
-}
+/* ---------- Brand line (floating, small) ---------- */
 
 .wrist-brand {
-    font-size: 22px;
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 4px;
+    -unity-text-align: middle-center;
+    font-size: 13px;
     -unity-font-style: bold;
-    color: #161B20;
     letter-spacing: 0;
+    color: #161B20;
 }
 
 .wrist-node-count {
-    font-size: 13px;
-    color: #0E7F8C;
-    -unity-font-style: bold;
-    margin-left: auto;
-    letter-spacing: 0;
-}
-
-.wrist-meta {
-    font-size: 9px;
-    letter-spacing: 1px;
-    color: #7B858F;
-    margin-left: 16px;
-}
-
-/* ---------- Main columns ---------- */
-
-.wrist-columns {
-    flex-direction: row;
-    flex: 1;
-}
-
-.wrist-col {
-    flex-direction: column;
-}
-
-.wrist-col-left {
-    width: 250px;
-    padding-right: 18px;
-    border-right-width: 1px;
-    border-right-color: #D6DBDF;
-}
-
-.wrist-col-map {
-    flex: 1;
-    align-items: center;
-    padding: 0 18px;
-}
-
-.wrist-col-right {
-    width: 250px;
-    padding-left: 18px;
-    border-left-width: 1px;
-    border-left-color: #D6DBDF;
-}
-
-/* ---------- Shared text styles ---------- */
-
-.wrist-label {
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: #7B858F;
-}
-
-.wrist-value {
-    font-size: 34px;
-    -unity-font-style: bold;
-    color: #161B20;
-    margin-top: -2px;
-}
-
-.wrist-hint {
-    font-size: 9px;
-    letter-spacing: 0;
-    color: #9AA3AC;
-    margin-top: 2px;
-}
-
-.wrist-section {
+    position: absolute;
+    right: 14px;
+    top: 6px;
     font-size: 12px;
     -unity-font-style: bold;
-    color: #161B20;
-    margin-top: 14px;
-    margin-bottom: 6px;
-    letter-spacing: 0;
-    border-bottom-width: 1px;
-    border-bottom-color: #D6DBDF;
-    padding-bottom: 3px;
-}
-
-.wrist-block {
-    margin-bottom: 2px;
-}
-
-.wrist-row {
-    flex-direction: row;
-    align-items: center;
-    height: 24px;
-}
-
-.wrist-row-name {
-    font-size: 13px;
-    color: #161B20;
-    margin-right: auto;
-    letter-spacing: 0;
-}
-
-.wrist-row-state {
-    font-size: 11px;
-    -unity-font-style: bold;
     color: #0E7F8C;
     letter-spacing: 0;
+    background-color: rgba(233, 235, 237, 0.75);
+    padding: 4px 10px;
+    border-width: 1px;
+    border-color: #C9CFD4;
 }
 
-.wrist-row-state.state-off {
-    color: #7B858F;
-}
-
-/* ---------- Circular local map ---------- */
-
-.wrist-map-caption {
-    font-size: 10px;
-    letter-spacing: 1px;
-    color: #7B858F;
-    margin-bottom: 6px;
-    align-self: flex-start;
-}
+/* ---------- Circular local map (dominant visual anchor) ---------- */
 
 .wrist-map-circle {
-    width: 440px;
-    height: 440px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -310px;
+    margin-top: -310px;
+    width: 620px;
+    height: 620px;
     border-radius: 50%;
     overflow: hidden;
-    background-color: #E2E6E9;
+    background-color: rgba(226, 230, 233, 0.9);
     border-width: 1px;
     border-color: #9AA3AC;
-    position: relative;
 }
-
-/* world -> map math sets absolute left/top on markers at runtime */
 
 .map-marker {
     position: absolute;
@@ -205,8 +104,8 @@
 
 .map-nav-ring {
     position: absolute;
-    width: 34px;
-    height: 34px;
+    width: 38px;
+    height: 38px;
     border-width: 2px;
     border-color: #0E7F8C;
     border-radius: 3px;
@@ -215,21 +114,21 @@
 
 .map-marker-btn {
     position: absolute;
-    width: 24px;
-    height: 24px;
-    margin-left: -12px;
-    margin-top: -12px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
     background-color: #161B20;
     border-width: 1px;
     border-color: #161B20;
     -unity-text-align: middle-center;
     padding: 0;
+    align-items: center;
+    justify-content: center;
 }
 
 .map-marker-btn .map-marker-label {
     -unity-text-align: middle-center;
-    font-size: 11px;
+    font-size: 12px;
     -unity-font-style: bold;
     color: #FFFFFF;
 }
@@ -254,21 +153,166 @@
 }
 
 .map-marker-btn.marker-selected {
-    border-width: 2px;
+    border-width: 3px;
     border-color: #161B20;
 }
 
-.wrist-map-hint {
-    font-size: 9px;
-    letter-spacing: 0;
-    color: #9AA3AC;
-    margin-top: 8px;
+.map-marker-btn:hover {
+    border-color: #0E7F8C;
 }
 
-/* ---------- Right column: navigation + live harvest ---------- */
+.wrist-map-hint {
+    display: none;
+}
+
+/* ---------- Thin ring readouts (tick segments built at runtime) ---------- */
+
+.wrist-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    pointer-events: none;
+}
+
+.ring-satiety {
+    width: 800px;
+    height: 800px;
+    margin-left: -400px;
+    margin-top: -400px;
+}
+
+.ring-health {
+    width: 900px;
+    height: 900px;
+    margin-left: -450px;
+    margin-top: -450px;
+}
+
+.ring-tick {
+    position: absolute;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #D6DBDF;
+}
+
+.ring-tick.tick-active {
+    background-color: #0E7F8C;
+}
+
+.ring-tick.tick-health-active {
+    background-color: #161B20;
+}
+
+/* Ring chips: caption + value in the small gaps between map and rings */
+
+.ring-chip {
+    position: absolute;
+    flex-direction: row;
+    align-items: center;
+    background-color: rgba(233, 235, 237, 0.72);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding: 3px 10px;
+}
+
+.chip-health {
+    left: 50%;
+    margin-left: -70px;
+    top: 118px;
+    width: 140px;
+    height: 26px;
+}
+
+.chip-satiety {
+    left: 50%;
+    margin-left: -70px;
+    top: 794px;
+    width: 140px;
+    height: 26px;
+}
+
+.ring-chip-caption {
+    font-size: 10px;
+    color: #4A525C;
+    letter-spacing: 0;
+    margin-right: auto;
+}
+
+.ring-chip-value {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+/* ---------- Floating side modules (detached hairline blocks) ---------- */
+
+.float-card {
+    position: absolute;
+    width: 220px;
+    background-color: rgba(233, 235, 237, 0.72);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding: 8px 12px;
+}
+
+.float-title {
+    font-size: 10px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+    border-bottom-width: 1px;
+    border-bottom-color: #C9CFD4;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+}
+
+.card-equip {
+    left: 22px;
+    top: 158px;
+}
+
+.card-cargo {
+    right: 22px;
+    top: 158px;
+}
+
+.card-nav {
+    left: 22px;
+    bottom: 170px;
+}
+
+.card-active {
+    right: 22px;
+    bottom: 170px;
+}
+
+.wrist-row {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+}
+
+.wrist-row-name {
+    font-size: 12px;
+    color: #161B20;
+    margin-right: auto;
+    letter-spacing: 0;
+}
+
+.wrist-row-state {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: #0E7F8C;
+    letter-spacing: 0;
+}
+
+.wrist-row-state.state-off {
+    color: #7B858F;
+}
 
 .wrist-nav-name {
-    font-size: 15px;
+    font-size: 14px;
     -unity-font-style: bold;
     color: #161B20;
     margin-top: 2px;
@@ -276,41 +320,28 @@
 }
 
 .wrist-nav-distance {
-    font-size: 20px;
+    font-size: 18px;
     -unity-font-style: bold;
     color: #0E7F8C;
-    margin-top: 2px;
-}
-
-.wrist-active-card {
-    background-color: #EDEFF1;
-    border-width: 1px;
-    border-color: #C9CFD4;
-    padding: 10px 14px;
-}
-
-.wrist-active-header {
-    font-size: 9px;
-    letter-spacing: 1px;
-    color: #7B858F;
+    margin-top: 1px;
 }
 
 .wrist-active-node {
-    font-size: 14px;
+    font-size: 13px;
     -unity-font-style: bold;
     color: #161B20;
-    margin-top: 3px;
+    margin-top: 2px;
     letter-spacing: 0;
 }
 
 .wrist-active-line {
     flex-direction: row;
     align-items: center;
-    margin-top: 6px;
+    margin-top: 3px;
 }
 
 .wrist-active-state {
-    font-size: 13px;
+    font-size: 12px;
     -unity-font-style: bold;
     color: #0A616C;
     margin-right: auto;
@@ -318,20 +349,22 @@
 }
 
 .wrist-active-percent {
-    font-size: 16px;
+    font-size: 15px;
     -unity-font-style: bold;
     color: #0A616C;
 }
 
-/* ---------- Footer ---------- */
+/* ---------- Footer (single small line under the cluster) ---------- */
 
 .wrist-footer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -26px;
+    -unity-text-align: middle-center;
     font-size: 10px;
     letter-spacing: 0;
-    color: #7B858F;
-    margin-top: 10px;
-    text-align: center;
-    -unity-text-align: middle-center;
+    color: rgba(22, 27, 32, 0.8);
 }
 
 /* ---------- Custom dot cursor ---------- */

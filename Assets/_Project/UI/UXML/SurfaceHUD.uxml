@@ -54,84 +54,80 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- ============ Wrist terminal layer (hidden by default) ============ -->
+        <!-- ============ Wrist terminal layer (floating; world visible) ============ -->
         <ui:VisualElement name="WristLayer" class="wrist-layer">
-            <ui:VisualElement name="WristPanel" class="wrist-panel">
-                <ui:VisualElement class="wrist-header">
-                    <ui:Label class="wrist-brand" text="NEREID-04 · 地表勘测" />
-                    <ui:Label name="WristNodeCount" class="wrist-node-count" text="回收节点 0 / 3" />
-                    <ui:Label class="wrist-meta" text="腕部终端 // WRIST TERMINAL" />
+            <ui:VisualElement name="WristPanel" class="wrist-cluster">
+                <!-- Brand line (small, floating) -->
+                <ui:Label class="wrist-brand" text="NEREID-04 · 地表勘测" />
+                <ui:Label name="WristNodeCount" class="wrist-node-count" text="回收节点 0 / 3" />
+
+                <!-- Thin ring readouts around the map (segments built at runtime) -->
+                <ui:VisualElement name="WristSatietyRing" class="wrist-ring ring-satiety" />
+                <ui:VisualElement name="WristHealthRing" class="wrist-ring ring-health" />
+
+                <!-- Status ring captions: small floating chips in the ring gaps -->
+                <ui:VisualElement class="ring-chip chip-health">
+                    <ui:Label class="ring-chip-caption" text="健康度" />
+                    <ui:Label name="WristHealthValue" class="ring-chip-value" text="100" />
+                </ui:VisualElement>
+                <ui:VisualElement class="ring-chip chip-satiety">
+                    <ui:Label class="ring-chip-caption" text="饱食度" />
+                    <ui:Label name="WristSatietyValue" class="ring-chip-value" text="82" />
                 </ui:VisualElement>
 
-                <ui:VisualElement class="wrist-columns">
-                    <!-- Personal status + equipment + cargo -->
-                    <ui:VisualElement class="wrist-col wrist-col-left">
-                        <ui:VisualElement class="wrist-block">
-                            <ui:Label class="wrist-label" text="健康度" />
-                            <ui:Label name="WristHealthValue" class="wrist-value" text="100" />
-                        </ui:VisualElement>
-                        <ui:VisualElement class="wrist-block">
-                            <ui:Label class="wrist-label" text="饥饿度" />
-                            <ui:Label name="WristHungerValue" class="wrist-value" text="18" />
-                            <ui:Label class="wrist-hint" text="0 = 不饿  ·  100 = 极度饥饿" />
-                        </ui:VisualElement>
+                <!-- Circular local map (the dominant visual anchor) -->
+                <ui:VisualElement name="WristMapCircle" class="wrist-map-circle">
+                    <ui:Label name="MapLanding" class="map-marker map-landing" text="▣" />
+                    <ui:Label name="MapPlayer" class="map-player" text="▲" />
+                    <ui:VisualElement name="MapNavRing" class="map-nav-ring" />
+                    <ui:VisualElement name="MapNode0" class="map-marker-btn"><ui:Label class="map-marker-label" text="1" /></ui:VisualElement>
+                    <ui:VisualElement name="MapNode1" class="map-marker-btn"><ui:Label class="map-marker-label" text="2" /></ui:VisualElement>
+                    <ui:VisualElement name="MapNode2" class="map-marker-btn"><ui:Label class="map-marker-label" text="3" /></ui:VisualElement>
+                </ui:VisualElement>
 
-                        <ui:Label class="wrist-section" text="当前装备" />
-                        <ui:VisualElement name="WristEquipHarvester" class="wrist-row">
-                            <ui:Label class="wrist-row-name" text="采集器 MK-I" />
-                            <ui:Label name="WristEquipHarvesterState" class="wrist-row-state" text="已装备" />
-                        </ui:VisualElement>
-                        <ui:VisualElement name="WristEquipBattery" class="wrist-row">
-                            <ui:Label class="wrist-row-name" text="备用电池组" />
-                            <ui:Label name="WristEquipBatteryState" class="wrist-row-state" text="未选择" />
-                        </ui:VisualElement>
-                        <ui:VisualElement name="WristEquipDrone" class="wrist-row">
-                            <ui:Label class="wrist-row-name" text="勘测无人机" />
-                            <ui:Label name="WristEquipDroneState" class="wrist-row-state" text="未选择" />
-                        </ui:VisualElement>
+                <ui:Label class="wrist-map-hint" text="点击资源节点 · 设置导航目标" />
 
-                        <ui:Label class="wrist-section" text="携带状态" />
-                        <ui:VisualElement class="wrist-row">
-                            <ui:Label class="wrist-row-name" text="载荷" />
-                            <ui:Label name="WristCargoValue" class="wrist-row-state" text="45 / 100 KG" />
-                        </ui:VisualElement>
+                <!-- Floating side modules (independent hairline blocks) -->
+                <ui:VisualElement class="float-card card-equip">
+                    <ui:Label class="float-title" text="当前装备" />
+                    <ui:VisualElement name="WristEquipHarvester" class="wrist-row">
+                        <ui:Label class="wrist-row-name" text="采集器 MK-I" />
+                        <ui:Label name="WristEquipHarvesterState" class="wrist-row-state" text="已装备" />
                     </ui:VisualElement>
-
-                    <!-- Circular local map (dominant visual anchor) -->
-                    <ui:VisualElement class="wrist-col wrist-col-map">
-                        <ui:Label class="wrist-map-caption" text="地表地图 // LOCAL MAP" />
-                        <ui:VisualElement name="WristMapCircle" class="wrist-map-circle">
-                            <ui:Label name="MapLanding" class="map-marker map-landing" text="▣" />
-                            <ui:Label name="MapPlayer" class="map-player" text="▲" />
-                            <ui:VisualElement name="MapNavRing" class="map-nav-ring" />
-                            <ui:VisualElement name="MapNode0" class="map-marker-btn"><ui:Label class="map-marker-label" text="1" /></ui:VisualElement>
-                            <ui:VisualElement name="MapNode1" class="map-marker-btn"><ui:Label class="map-marker-label" text="2" /></ui:VisualElement>
-                            <ui:VisualElement name="MapNode2" class="map-marker-btn"><ui:Label class="map-marker-label" text="3" /></ui:VisualElement>
-                        </ui:VisualElement>
-                        <ui:Label class="wrist-map-hint" text="点击资源节点 · 设置导航目标" />
+                    <ui:VisualElement name="WristEquipBattery" class="wrist-row">
+                        <ui:Label class="wrist-row-name" text="备用电池组" />
+                        <ui:Label name="WristEquipBatteryState" class="wrist-row-state" text="未选择" />
                     </ui:VisualElement>
-
-                    <!-- Navigation + live harvest context -->
-                    <ui:VisualElement class="wrist-col wrist-col-right">
-                        <ui:Label class="wrist-section" text="当前导航" />
-                        <ui:VisualElement name="WristNavBlock" class="wrist-block">
-                            <ui:Label name="WristNavName" class="wrist-nav-name" text="未设置" />
-                            <ui:Label name="WristNavDistance" class="wrist-nav-distance" text="" />
-                        </ui:VisualElement>
-
-                        <ui:Label class="wrist-section" text="采集状态" />
-                        <ui:VisualElement name="WristActiveCard" class="wrist-active-card">
-                            <ui:Label class="wrist-active-header" text="采集器 MK-I" />
-                            <ui:Label name="WristActiveNode" class="wrist-active-node" text="—" />
-                            <ui:VisualElement class="wrist-active-line">
-                                <ui:Label name="WristActiveState" class="wrist-active-state" text="待机" />
-                                <ui:Label name="WristActivePercent" class="wrist-active-percent" text="" />
-                            </ui:VisualElement>
-                        </ui:VisualElement>
+                    <ui:VisualElement name="WristEquipDrone" class="wrist-row">
+                        <ui:Label class="wrist-row-name" text="勘测无人机" />
+                        <ui:Label name="WristEquipDroneState" class="wrist-row-state" text="未选择" />
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <ui:Label class="wrist-footer" text="Esc / M / I  关闭腕表   ·   世界计时继续运行" />
+                <ui:VisualElement class="float-card card-cargo">
+                    <ui:Label class="float-title" text="携带状态" />
+                    <ui:VisualElement class="wrist-row">
+                        <ui:Label class="wrist-row-name" text="载荷" />
+                        <ui:Label name="WristCargoValue" class="wrist-row-state" text="45 / 100 KG" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:VisualElement class="float-card card-nav">
+                    <ui:Label class="float-title" text="当前导航" />
+                    <ui:Label name="WristNavName" class="wrist-nav-name" text="未设置" />
+                    <ui:Label name="WristNavDistance" class="wrist-nav-distance" text="" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="float-card card-active">
+                    <ui:Label class="float-title" text="采集状态" />
+                    <ui:Label name="WristActiveNode" class="wrist-active-node" text="—" />
+                    <ui:VisualElement class="wrist-active-line">
+                        <ui:Label name="WristActiveState" class="wrist-active-state" text="待机" />
+                        <ui:Label name="WristActivePercent" class="wrist-active-percent" text="" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:Label class="wrist-footer" text="Esc / M / I 关闭腕表   ·   世界计时继续运行" />
             </ui:VisualElement>
 
             <!-- Project-native dot cursor (OS arrow hidden while wrist is open) -->

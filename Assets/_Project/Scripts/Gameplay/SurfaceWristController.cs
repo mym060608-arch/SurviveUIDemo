@@ -1,29 +1,38 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Wrist terminal view for the NEREID-04 surface (Phase 06 Revision).
+/// Wrist terminal view for the NEREID-04 surface (Phase 06 Revision round 2).
 ///
 /// Pure presentation: SurfaceGameController owns wrist mode and navigation
-/// state, GameSession owns personal status / loadout / cargo, and the nodes
-/// own their harvesting states. This controller binds those live sources into
-/// the wrist UXML: circular LOCAL MAP, personal status, equipment, cargo,
-/// navigation readout and the active harvest context. The world keeps running
-/// while the wrist is open.
+/// state, GameSession owns personal status (health + satiety) / loadout /
+/// cargo, and the nodes own their harvesting states. This controller binds
+/// those live sources into the floating wrist UXML: a central circular LOCAL
+/// MAP as the visual anchor, thin segmented satiety/health ring readouts
+/// around it, detached small blocks for equipment / cargo / navigation /
+/// harvest context, and the project-native dot cursor. The world keeps
+/// running and stays visible through the layout's negative space.
+///
+/// Real pointer input: node markers receive PointerDown + Click and forward
+/// the selection to SurfaceGameController.TrySelectNavigationTarget - the
+/// same authoritative API the semantic tests use.
 /// </summary>
 public class SurfaceWristController : MonoBehaviour
 {
-    private const float MapMarkerRadiusPx = 12f;
+    private const int RingTickCount = 64;
+    private const float RingTickHalfPx = 3f;
+    private const float MapMarkerHalfPx = 17f;   // 34px button markers
     private const float LandingHalfPx = 8f;
     private const float PlayerHalfPx = 8f;
-    private const float NavRingHalfPx = 17f;
+    private const float NavRingHalfPx = 19f;     // 38px ring
     private const float CompletionHoldSeconds = 4f;
 
     private UIDocument _document;
     private VisualElement _root;
     private VisualElement _wristLayer;
-    private VisualElement _wristPanel;
+    private VisualElement _wristCluster;
     private VisualElement _mapCircle;
     private VisualElement _mapPlayer;
     private VisualElement _mapLanding;
@@ -32,7 +41,7 @@ public class SurfaceWristController : MonoBehaviour
     private VisualElement[] _markers;
     private Label _nodeCount;
     private Label _healthValue;
-    private Label _hungerValue;
+    private Label _satietyValue;
     private Label _harvesterState;
     private Label _batteryState;
     private Label _droneState;
@@ -42,6 +51,12 @@ public class SurfaceWristController : MonoBehaviour
     private Label _activeNodeLabel;
     private Label _activeState;
     private Label _activePercent;
+
+    private VisualElement _satietyRing;
+    private VisualElement _healthRing;
+    private readonly List<VisualElement> _satietyTicks = new List<VisualElement>();
+    private readonly List<VisualElement> _healthTicks = new List<VisualElement>();
+    private bool _ticksBuilt;
 
     private SurfaceGameController _controller;
     private GameSession _session;
@@ -129,15 +144,17 @@ public class SurfaceWristController : MonoBehaviour
 
         _root = _document.rootVisualElement;
         _wristLayer = _root.Q<VisualElement>("WristLayer");
-        _wristPanel = _root.Q<VisualElement>("WristPanel");
+        _wristCluster = _root.Q<VisualElement>("WristPanel");
         _mapCircle = _root.Q<VisualElement>("WristMapCircle");
         _mapPlayer = _root.Q<VisualElement>("MapPlayer");
         _mapLanding = _root.Q<VisualElement>("MapLanding");
         _navRing = _root.Q<VisualElement>("MapNavRing");
         _cursor = _root.Q<VisualElement>("WristCursor");
+        _satietyRing = _root.Q<VisualElement>("WristSatietyRing");
+        _healthRing = _root.Q<VisualElement>("WristHealthRing");
         _nodeCount = _root.Q<Label>("WristNodeCount");
         _healthValue = _root.Q<Label>("WristHealthValue");
-        _hungerValue = _root.Q<Label>("WristHungerValue");
+        _satietyValue = _root.Q<Label>("WristSatietyValue");
         _harvesterState = _root.Q<Label>("WristEquipHarvesterState");
         _batteryState = _root.Q<Label>("WristEquipBatteryState");
         _droneState = _root.Q<Label>("WristEquipDroneState");
@@ -155,7 +172,6 @@ public class SurfaceWristController : MonoBehaviour
 
         if (_cursor != null && _wristLayer != null)
         {
-            // Project-native dot cursor follows the real pointer.
             _wristLayer.RegisterCallback<PointerMoveEvent>(OnPointerMoved);
         }
 
@@ -168,7 +184,20 @@ public class SurfaceWristController : MonoBehaviour
                 continue;
             }
 
+            marker.pickingMode = PickingMode.Position;
+
+            // Real left-click navigation: PointerDown (immediate) plus Click
+            // fallback both route into the same authoritative selector. A
+            // marker is small, so any pointer press reaching it selects.
             marker.RegisterCallback<PointerDownEvent>(evt =>
+            {
+                if (_controller != null)
+                {
+                    _controller.TrySelectNavigationTarget(captured);
+                }
+            });
+
+            marker.RegisterCallback<ClickEvent>(evt =>
             {
                 if (_controller != null)
                 {
@@ -180,6 +209,7 @@ public class SurfaceWristController : MonoBehaviour
             marker.RegisterCallback<PointerOutEvent>(evt => SetCursorActive(false));
         }
 
+        BuildRingTicks();
         _bound = _wristLayer != null && _mapCircle != null;
     }
 
@@ -205,6 +235,7 @@ public class SurfaceWristController : MonoBehaviour
         }
 
         RefreshMapGeometry();
+        RefreshRingPositions();
         RefreshActiveProgress();
     }
 
@@ -229,17 +260,17 @@ public class SurfaceWristController : MonoBehaviour
             _cursor.style.display = open ? DisplayStyle.Flex : DisplayStyle.None;
         }
 
-        if (open && _wristPanel != null)
+        if (open && _wristCluster != null)
         {
             _animator = StartCoroutine(AnimateOpen());
         }
         else
         {
-            if (_wristPanel != null)
+            if (_wristCluster != null)
             {
-                _wristPanel.style.opacity = 1f;
-                _wristPanel.style.scale = new Scale(Vector3.one);
-                _wristPanel.style.translate = new Translate(0f, 0f, 0f);
+                _wristCluster.style.opacity = 1f;
+                _wristCluster.style.scale = new Scale(Vector3.one);
+                _wristCluster.style.translate = new Translate(0f, 0f, 0f);
             }
 
             if (_cursor != null)
@@ -253,6 +284,8 @@ public class SurfaceWristController : MonoBehaviour
             RefreshSessionData();
             RefreshNavigation();
             RefreshMapGeometry();
+            RefreshRingPositions();
+            RefreshRingVisuals();
             RefreshActiveProgress();
         }
     }
@@ -267,12 +300,12 @@ public class SurfaceWristController : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             t = t * t * (3f - 2f * t); // smoothstep
-            if (_wristPanel != null)
+            if (_wristCluster != null)
             {
-                _wristPanel.style.opacity = t;
-                _wristPanel.style.scale = new Scale(new Vector3(0.92f + 0.08f * t,
+                _wristCluster.style.opacity = t;
+                _wristCluster.style.scale = new Scale(new Vector3(0.92f + 0.08f * t,
                     0.92f + 0.08f * t, 1f));
-                _wristPanel.style.translate = new Translate(0f, (1f - t) * 40f, 0f);
+                _wristCluster.style.translate = new Translate(0f, (1f - t) * 40f, 0f);
             }
 
             yield return null;
@@ -291,6 +324,7 @@ public class SurfaceWristController : MonoBehaviour
     private void HandleSessionChanged()
     {
         RefreshSessionData();
+        RefreshRingVisuals();
     }
 
     private void HandleNodeState(SurfaceResourceNode node)
@@ -319,7 +353,7 @@ public class SurfaceWristController : MonoBehaviour
         }
 
         SetText(_healthValue, _session.PlayerHealth.ToString());
-        SetText(_hungerValue, _session.PlayerHunger.ToString());
+        SetText(_satietyValue, _session.PlayerSatiety.ToString());
         SetText(_nodeCount, "回收节点 " + _session.HarvestedNodeCount + " / "
                             + GameSession.SurfaceNodeCount);
 
@@ -354,32 +388,92 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
-    private void RefreshNavigation()
+    // ---- Thin ring readouts (built segments around the map) ----
+
+    private void BuildRingTicks()
     {
-        if (_controller == null)
+        if (_ticksBuilt || _satietyRing == null || _healthRing == null)
         {
             return;
         }
 
-        if (_controller.IsNavigationActive)
+        _satietyTicks.Clear();
+        _healthTicks.Clear();
+        BuildTicksInto(_satietyRing, _satietyTicks);
+        BuildTicksInto(_healthRing, _healthTicks);
+        _ticksBuilt = true;
+    }
+
+    private static void BuildTicksInto(VisualElement ring, List<VisualElement> output)
+    {
+        if (ring == null)
         {
-            SetText(_navName, SurfaceGameController.NodeDisplayName(
-                _controller.NavigationTargetNodeId));
-            SetText(_navDistance, _controller.NavigationReached
-                ? "目标已到达"
-                : _controller.NavigationDistance.ToString("0.0") + " m");
-        }
-        else
-        {
-            SetText(_navName, "未设置");
-            SetText(_navDistance, "");
+            return;
         }
 
-        if (_navRing != null)
+        for (int i = 0; i < RingTickCount; i++)
         {
-            _navRing.style.display = _controller.IsNavigationActive
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
+            var tick = new VisualElement();
+            tick.AddToClassList("ring-tick");
+            ring.Add(tick);
+            output.Add(tick);
+        }
+    }
+
+    private void RefreshRingVisuals()
+    {
+        if (_session == null)
+        {
+            return;
+        }
+
+        ApplyRingFraction(_healthTicks, _session.PlayerHealth / 100f);
+        ApplyRingFraction(_satietyTicks, _session.PlayerSatiety / 100f);
+    }
+
+    private static void ApplyRingFraction(List<VisualElement> ticks, float fraction01)
+    {
+        int active = Mathf.RoundToInt(Mathf.Clamp01(fraction01) * ticks.Count);
+        for (int i = 0; i < ticks.Count; i++)
+        {
+            if (i < active)
+            {
+                ticks[i].AddToClassList("tick-active");
+            }
+            else
+            {
+                ticks[i].RemoveFromClassList("tick-active");
+            }
+        }
+    }
+
+    private void RefreshRingPositions()
+    {
+        LayoutTicks(_satietyRing, _satietyTicks);
+        LayoutTicks(_healthRing, _healthTicks);
+    }
+
+    private static void LayoutTicks(VisualElement ring, List<VisualElement> ticks)
+    {
+        if (ring == null || ticks.Count == 0)
+        {
+            return;
+        }
+
+        float width = ring.resolvedStyle.width > 10f ? ring.resolvedStyle.width : 800f;
+        float height = ring.resolvedStyle.height > 10f ? ring.resolvedStyle.height : 800f;
+        float centerX = width * 0.5f;
+        float centerY = height * 0.5f;
+        float radius = Mathf.Min(centerX, centerY) - 12f;
+        float stepDegrees = 360f / ticks.Count;
+
+        for (int i = 0; i < ticks.Count; i++)
+        {
+            float angle = (i * stepDegrees - 90f) * Mathf.Deg2Rad;
+            float x = centerX + Mathf.Cos(angle) * radius - RingTickHalfPx;
+            float y = centerY + Mathf.Sin(angle) * radius - RingTickHalfPx;
+            ticks[i].style.left = x;
+            ticks[i].style.top = y;
         }
     }
 
@@ -396,13 +490,13 @@ public class SurfaceWristController : MonoBehaviour
 
         float width = _mapCircle.resolvedStyle.width > 10f
             ? _mapCircle.resolvedStyle.width
-            : 440f;
+            : 620f;
         float height = _mapCircle.resolvedStyle.height > 10f
             ? _mapCircle.resolvedStyle.height
-            : 440f;
+            : 620f;
         float centerX = width * 0.5f;
         float centerY = height * 0.5f;
-        float radius = Mathf.Min(centerX, centerY) - 18f;
+        float radius = Mathf.Min(centerX, centerY) - 24f;
 
         Vector3 playerPos = _controller.Player.transform.position;
         PlaceMapMarker(_mapPlayer, playerPos, PlayerHalfPx, centerX, centerY, radius);
@@ -432,7 +526,7 @@ public class SurfaceWristController : MonoBehaviour
                 continue;
             }
 
-            PlaceMapMarker(_markers[i], node.transform.position, MapMarkerRadiusPx,
+            PlaceMapMarker(_markers[i], node.transform.position, MapMarkerHalfPx,
                 centerX, centerY, radius);
             ApplyMarkerState(_markers[i], node,
                 _controller.NavigationTargetNodeId == i);
@@ -527,6 +621,35 @@ public class SurfaceWristController : MonoBehaviour
             SetText(_activeNodeLabel, "—");
             SetText(_activeState, "待机");
             SetText(_activePercent, "");
+        }
+    }
+
+    private void RefreshNavigation()
+    {
+        if (_controller == null)
+        {
+            return;
+        }
+
+        if (_controller.IsNavigationActive)
+        {
+            SetText(_navName, SurfaceGameController.NodeDisplayName(
+                _controller.NavigationTargetNodeId));
+            SetText(_navDistance, _controller.NavigationReached
+                ? "目标已到达"
+                : _controller.NavigationDistance.ToString("0.0") + " m");
+        }
+        else
+        {
+            SetText(_navName, "未设置");
+            SetText(_navDistance, "");
+        }
+
+        if (_navRing != null)
+        {
+            _navRing.style.display = _controller.IsNavigationActive
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
         }
     }
 
