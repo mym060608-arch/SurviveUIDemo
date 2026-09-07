@@ -236,8 +236,10 @@ public class SurvivePhase06Tests
             yield return null;
         }
 
-        // Chinese-first HUD bound to the real session values.
-        UIDocument hudDocument = Object.FindAnyObjectByType<UIDocument>();
+        // Chinese-first HUD bound to the real session values. The surface
+        // scene owns two documents (screen HUD + wrist RenderTexture); tests
+        // always pick the screen-space SurfaceHUD one by asset name.
+        UIDocument hudDocument = FindHudDocument();
         Assert.IsNotNull(hudDocument, "HUD UIDocument exists");
         Assert.AreEqual("SurfaceHUD", hudDocument.visualTreeAsset.name, "HUD bound to SurfaceHUD");
         VisualElement hudRoot = hudDocument.rootVisualElement;
@@ -360,7 +362,7 @@ public class SurvivePhase06Tests
         Assert.AreEqual(25, session.Minerals, "minerals preserved on re-entry");
 
         // Fresh HUD document on the re-entered scene reports the live values.
-        hudDocument = Object.FindAnyObjectByType<UIDocument>();
+        hudDocument = FindHudDocument();
         Assert.IsNotNull(hudDocument, "HUD UIDocument on re-entry");
         hudRoot = hudDocument.rootVisualElement;
         Assert.AreEqual("25", hudRoot.Q<Label>("HudMineralsValue").text, "HUD minerals 25 on re-entry");
@@ -389,6 +391,19 @@ public class SurvivePhase06Tests
         {
             yield return null;
         }
+    }
+
+    private static UIDocument FindHudDocument()
+    {
+        foreach (UIDocument doc in Object.FindObjectsByType<UIDocument>())
+        {
+            if (doc.visualTreeAsset != null && doc.visualTreeAsset.name == "SurfaceHUD")
+            {
+                return doc;
+            }
+        }
+
+        return null;
     }
 
     private static string LabelText(VisualElement root, string name)

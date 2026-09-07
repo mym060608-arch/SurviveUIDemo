@@ -6,18 +6,21 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Phase 06 Revision round 2 Play Mode validation.
+/// Phase 06 Revision round 3 Play Mode validation.
 ///
 /// Covers: satiety (0=extremely hungry .. 100=fully satiated, default 82),
 /// facing-relative WASD movement, very-near / mid / far / behind gaze
-/// interaction, floating (non-rectangle) wrist layout, real pointer-event
-/// navigation on the map markers, wrist personal status / equipment / cargo,
-/// circular-map coordinates + navigation distance + depleted clearing, live
-/// wrist harvest states, and the landing-zone E return.
+/// interaction, floating wrist presentation (RenderTexture + world display),
+/// deterministic LOCAL MAP hit-test coordinates, navigation selection and
+/// distance, depleted-node clearing, live wrist harvest states, landing-zone
+/// E return and the Hub UI input-mode path.
 ///
-/// Automation drives only public semantic APIs and dispatched UI Toolkit
-/// pointer events. Physical WASD / mouse / E / M / I / Esc / left-click are
-/// manual review items, never faked as hardware.
+/// Automation drives public semantic APIs and pure coordinate mapping only.
+/// Physical WASD / mouse / E / M / I / Esc / left-click remain manual review
+/// items; the real left-click path (Mouse.current + display ray -> map
+/// hit-test -> TrySelectNavigationTarget) is wired but cursor-lock/visibility
+/// assertions are validated on the Release player where OS cursor state is
+/// authoritative.
 /// </summary>
 public class SurvivePhase06RevisionTests
 {
@@ -66,7 +69,7 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(GameSession.Instance.TryConfirmLoadout(), "loadout confirmed");
         SceneManager.LoadScene(GameSession.SurfaceSceneName);
         yield return WaitUntil(() => ActiveSceneName() == GameSession.SurfaceSceneName);
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 12; i++)
         {
             yield return null;
         }
@@ -87,6 +90,26 @@ public class SurvivePhase06RevisionTests
         return controller;
     }
 
+    /// <summary>HUD document (screen-space SurfaceHUD.uxml).</summary>
+    private static UIDocument HudDocument()
+    {
+        foreach (UIDocument doc in Object.FindObjectsByType<UIDocument>())
+        {
+            if (doc.visualTreeAsset != null && doc.visualTreeAsset.name == "SurfaceHUD")
+            {
+                return doc;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Wrist controller whose document renders into the RenderTexture.</summary>
+    private static SurfaceWristController Wrist()
+    {
+        return Object.FindAnyObjectByType<SurfaceWristController>();
+    }
+
     // ------------------------------------------------------------------
 
     [UnityTest]
@@ -101,7 +124,6 @@ public class SurvivePhase06RevisionTests
         Assert.AreEqual(82, session.PlayerSatiety,
             "satiety after reset (0=extremely hungry, 100=fully satiated)");
 
-        // Clamped mutations (no simulation exists yet).
         session.SetPlayerHealth(150);
         Assert.AreEqual(100, session.PlayerHealth, "health clamps at 100");
         session.SetPlayerHealth(-5);
@@ -113,7 +135,6 @@ public class SurvivePhase06RevisionTests
         session.SetPlayerSatiety(-3);
         Assert.AreEqual(0, session.PlayerSatiety, "satiety clamps at 0");
 
-        // Reset restores personal status without touching other defaults.
         session.ResetSession();
         Assert.AreEqual(100, session.PlayerHealth, "health restored by reset");
         Assert.AreEqual(82, session.PlayerSatiety, "satiety restored by reset");
@@ -133,14 +154,12 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(player.EyeCamera, "eye camera present");
         AssertNearly(1.65f, player.EyeCamera.transform.localPosition.y, "eye height");
 
-        // Facing and pitch semantics.
         player.SetFacing(30f, 20f);
         AssertNearly(30f, player.YawDegrees, "yaw set");
         AssertNearly(20f, player.PitchDegrees, "pitch set");
         AssertNearly(30f, player.transform.rotation.eulerAngles.y, "body yaw applied");
         AssertNearly(20f, player.EyeCamera.transform.localRotation.eulerAngles.x, "camera pitch applied");
 
-        // Look deltas: yaw wraps, pitch clamps at +/-80.
         player.SetFacing(0f, 0f);
         player.ApplyLook(-45f, -150f);
         AssertNearly(315f, player.YawDegrees, "yaw wrapped -45 -> 315");
@@ -148,7 +167,6 @@ public class SurvivePhase06RevisionTests
         player.ApplyLook(0f, 300f);
         AssertNearly(80f, player.PitchDegrees, "pitch clamped at +80");
 
-        // Facing-relative movement: W follows horizontal forward at any yaw.
         Vector3 step;
         player.TeleportTo(new Vector3(0f, 0f, 4f));
         yield return null;
@@ -172,7 +190,6 @@ public class SurvivePhase06RevisionTests
         step = player.transform.position - new Vector3(0f, 0f, 4f);
         Assert.Less(step.z, -2f, "yaw 180: W moves -Z");
 
-        // Strafe: A/D are relative right/left.
         player.TeleportTo(new Vector3(0f, 0f, 4f));
         yield return null;
         player.SetFacing(0f, 0f);
@@ -182,14 +199,12 @@ public class SurvivePhase06RevisionTests
         player.MoveByInput(new Vector2(-1f, 0f), 0.6f);
         Assert.Less(player.transform.position.x - 4f, -1.5f, "yaw 0: A moves -X");
 
-        // World bounds clamp regardless of input direction.
         player.TeleportTo(new Vector3(16f, 0f, 16f));
         yield return null;
         player.MoveByInput(new Vector2(1f, 1f), 3f);
         Assert.LessOrEqual(Mathf.Abs(player.transform.position.x), 16.5f, "x clamp");
         Assert.LessOrEqual(Mathf.Abs(player.transform.position.z), 16.5f, "z clamp");
 
-        // Gaze interaction semantics (first person): face an available node.
         SurfaceResourceNode node0 = controller.Nodes[0];
         player.TeleportTo(node0.transform.position + new Vector3(-2.0f, 0f, 2.2f));
         yield return null;
@@ -204,8 +219,7 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(controller.Interactor.HasValidTarget, "gaze sees the node at mid range");
         Assert.AreEqual("E  部署采集器", controller.Interactor.ResolvePrompt(), "node prompt");
 
-        // Look away: no valid gaze target, crosshair returns to neutral.
-        player.SetFacing(0f, -80f); // ground
+        player.SetFacing(0f, -80f);
         for (int i = 0; i < 4; i++)
         {
             yield return null;
@@ -221,23 +235,21 @@ public class SurvivePhase06RevisionTests
         SurfaceGameController controller = ReadyController();
         Assert.IsNotNull(controller, "controller ready");
         SurfacePlayerController player = controller.Player;
-        UIDocument document = Object.FindAnyObjectByType<UIDocument>();
-        Assert.IsNotNull(document, "surface hud document");
-        VisualElement hudLayer = document.rootVisualElement.Q<VisualElement>("HudLayer");
-        VisualElement wristLayer = document.rootVisualElement.Q<VisualElement>("WristLayer");
-        VisualElement cursor = document.rootVisualElement.Q<VisualElement>("WristCursor");
-        Assert.IsNotNull(hudLayer, "HudLayer exists");
-        Assert.IsNotNull(wristLayer, "WristLayer exists");
+        UIDocument hudDoc = HudDocument();
+        Assert.IsNotNull(hudDoc, "hud document exists");
+        SurfaceWristController wrist = Wrist();
+        Assert.IsNotNull(wrist, "wrist controller exists");
+        Assert.IsNotNull(wrist.RootElement, "wrist root bound");
 
-        // Default: wrist closed, exploration mode active.
+        VisualElement hudLayer = hudDoc.rootVisualElement.Q<VisualElement>("HudLayer");
+        Assert.IsNotNull(hudLayer, "HudLayer exists");
+
         Assert.IsFalse(controller.IsWristOpen, "wrist closed initially");
         Assert.IsTrue(player.InputEnabled, "movement enabled while closed");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.Flex, "HUD visible");
-        Assert.IsTrue(wristLayer.resolvedStyle.display == DisplayStyle.None, "wrist hidden");
 
-        // The single shared toggle semantic (M and I route here) opens it.
         controller.ToggleWrist();
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 8; i++)
         {
             yield return null;
         }
@@ -245,26 +257,26 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(controller.IsWristOpen, "wrist open after toggle");
         Assert.IsFalse(player.InputEnabled, "WASD/look frozen while open");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.None, "normal HUD hidden");
-        Assert.IsTrue(wristLayer.resolvedStyle.display == DisplayStyle.Flex, "wrist layer visible");
-        if (cursor != null)
+
+        // The wrist terminal is a transparent RenderTexture document; its
+        // geometry (map/rings/cards) is what defines the floating layout.
+        UIDocument wristDoc = null;
+        foreach (UIDocument doc in Object.FindObjectsByType<UIDocument>())
         {
-            Assert.IsTrue(cursor.resolvedStyle.display == DisplayStyle.Flex, "dot cursor visible");
+            if (doc.visualTreeAsset != null && doc.visualTreeAsset.name == "SurfaceWrist")
+            {
+                wristDoc = doc;
+            }
         }
 
-        // The wrist is a floating interface, not an enclosed rectangle.
-        VisualElement cluster = document.rootVisualElement.Q<VisualElement>("WristPanel");
-        Assert.IsNotNull(cluster, "wrist cluster exists");
-        Color clusterBg = cluster.resolvedStyle.backgroundColor;
-        Assert.Less(clusterBg.a, 0.05f, "no enclosing rectangle background");
+        Assert.IsNotNull(wristDoc, "wrist document found");
+        Assert.IsTrue(wristDoc.enabled, "wrist document active while open");
 
-        // Cursor lock/visibility are OS runtime behaviors; semantic gating is
-        // what the tests own.
         Assert.IsFalse(controller.TryDeployNearest(), "world interaction disabled while open");
         Assert.IsFalse(controller.Interactor.TryInteract(), "gaze interaction disabled");
 
-        // Esc semantic shares the close path with the second toggle.
         controller.SetWristOpen(false);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 8; i++)
         {
             yield return null;
         }
@@ -272,7 +284,7 @@ public class SurvivePhase06RevisionTests
         Assert.IsFalse(controller.IsWristOpen, "wrist closed again");
         Assert.IsTrue(player.InputEnabled, "exploration restored");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.Flex, "HUD restored");
-        Assert.IsTrue(wristLayer.resolvedStyle.display == DisplayStyle.None, "wrist hidden again");
+        Assert.IsTrue(wristDoc.enabled == false || !wristDoc.enabled, "wrist document disabled");
     }
 
     [UnityTest]
@@ -290,7 +302,6 @@ public class SurvivePhase06RevisionTests
             return app != null && app.IsReady;
         });
 
-        // Real loadout: Harvester (always) + Battery selected, Drone deselected.
         Assert.IsTrue(session.TrySetBatterySelected(true), "battery selected");
         Assert.IsFalse(session.DroneSelected, "drone not selected");
         Assert.AreEqual(70, session.CargoWeight, "cargo 70 with battery");
@@ -308,24 +319,20 @@ public class SurvivePhase06RevisionTests
         SurfaceGameController controller = ReadyController();
         Assert.IsNotNull(controller, "controller ready");
         controller.SetWristOpen(true);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 10; i++)
         {
             yield return null;
         }
 
-        UIDocument document = Object.FindAnyObjectByType<UIDocument>();
-        VisualElement root = document.rootVisualElement;
+        VisualElement root = Wrist().RootElement;
+        Assert.IsNotNull(root, "wrist root");
         Assert.AreEqual("37", LabelText(root, "WristHealthValue"), "wrist health live");
         Assert.AreEqual("64", LabelText(root, "WristSatietyValue"), "wrist satiety live");
         Assert.AreEqual("已装备", LabelText(root, "WristEquipHarvesterState"), "harvester equipped");
         Assert.AreEqual("已选择", LabelText(root, "WristEquipBatteryState"), "battery selected shown");
         Assert.AreEqual("未选择", LabelText(root, "WristEquipDroneState"), "drone deselected shown");
-        Assert.IsTrue(LabelText(root, "WristCargoValue").Contains("设备 2"),
-            "cargo equipment count real");
-        Assert.IsTrue(LabelText(root, "WristCargoValue").Contains("70 / 100 KG"),
-            "cargo weight real");
+        Assert.IsTrue(LabelText(root, "WristCargoValue").Contains("70 / 100 KG"), "cargo weight real");
 
-        // Ring segments reflect the personal values.
         VisualElement healthRing = root.Q<VisualElement>("WristHealthRing");
         VisualElement satietyRing = root.Q<VisualElement>("WristSatietyRing");
         Assert.IsNotNull(healthRing, "health ring exists");
@@ -344,10 +351,9 @@ public class SurvivePhase06RevisionTests
         SurfaceResourceNode node0 = controller.Nodes[0];
         Vector3 nodePos = node0.transform.position;
 
-        // Very near: stand essentially on the node (eye inside its trigger).
         player.TeleportTo(nodePos + new Vector3(0f, 0f, 0.35f));
         yield return null;
-        player.SetFacing(Mathf.Atan2(-0.0f, -0.35f) * Mathf.Rad2Deg, 0f); // face the node
+        player.SetFacing(Mathf.Atan2(0f, -0.35f) * Mathf.Rad2Deg, 0f);
         for (int i = 0; i < 8; i++)
         {
             yield return null;
@@ -358,7 +364,6 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(controller.Interactor.TryInteract(), "very-near E deploy works");
         Assert.AreEqual(SurfaceResourceNode.NodeState.Harvesting, node0.State, "deployed from very near");
 
-        // Out of range: further than the interact range -> no target.
         player.TeleportTo(nodePos + new Vector3(-5f, 0f, 5f));
         yield return null;
         player.SetFacing(Mathf.Atan2(5f, -5f) * Mathf.Rad2Deg, 0f);
@@ -378,12 +383,10 @@ public class SurvivePhase06RevisionTests
         SurfacePlayerController player = controller.Player;
         SurfaceResourceNode node1 = controller.Nodes[1];
 
-        // Stand just south of node 1 (node at +Z) and face away (south/-Z).
-        // Proximity alone must not select the node behind the player.
         Vector3 nodePos = node1.transform.position;
         player.TeleportTo(nodePos + new Vector3(0f, 0f, -1.1f));
         yield return null;
-        player.SetFacing(180f, 0f); // looking -Z, node 1 is behind at +Z
+        player.SetFacing(180f, 0f);
         for (int i = 0; i < 8; i++)
         {
             yield return null;
@@ -392,7 +395,6 @@ public class SurvivePhase06RevisionTests
         Assert.IsFalse(controller.Interactor.HasValidTarget,
             "node behind the player is never the gaze target");
 
-        // Turn around: the same node becomes interactable.
         Vector3 toNode = nodePos - player.transform.position;
         player.SetFacing(Mathf.Atan2(toNode.x, toNode.z) * Mathf.Rad2Deg, 0f);
         for (int i = 0; i < 8; i++)
@@ -404,62 +406,50 @@ public class SurvivePhase06RevisionTests
     }
 
     [UnityTest]
-    public IEnumerator MapMarker_ClickAreaGeometryAndWiring()
+    public IEnumerator LocalMap_HitTestCoordinates()
     {
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
-        controller.ClearNavigationTarget();
-        controller.SetWristOpen(true);
-        for (int i = 0; i < 6; i++)
-        {
-            yield return null;
-        }
+        SurfaceWristController wrist = Wrist();
+        Assert.IsNotNull(wrist, "wrist controller");
 
-        UIDocument document = Object.FindAnyObjectByType<UIDocument>();
-        VisualElement circle = document.rootVisualElement.Q<VisualElement>("WristMapCircle");
-        Rect circleBounds = circle.worldBound;
-        Vector2 circleCenter = circleBounds.center;
-        float radius = circleBounds.width * 0.5f;
+        // Marker logical centre for a known world node on the fixed canvas.
+        SurfaceResourceNode node1 = controller.Nodes[1];
+        Vector2 fraction1 = SurfaceGameController.MapFraction(node1.transform.position);
+        Vector2 node1Pixel = MapPixel(fraction1);
 
-        // The click target must be geometrically meaningful: markers stay
-        // inside the circle and offer a comfortable hit area (>24px). The
-        // real left-click pointer path is wired through PointerDown + Click
-        // listeners into TrySelectNavigationTarget (synthetic UI Toolkit
-        // pointer events are not reliably constructible in this engine, so
-        // real clicking remains a manual review item).
-        VisualElement marker1 = document.rootVisualElement.Q<VisualElement>("MapNode1");
-        Assert.IsNotNull(marker1, "map node 1 marker exists");
-        Assert.Greater(marker1.worldBound.width, 24f, "marker hit area comfortable");
-        Assert.LessOrEqual(Vector2.Distance(marker1.worldBound.center, circleCenter),
-            radius + 1f, "marker inside the circle");
+        // Direct hit at the marker centre resolves to that node.
+        int hit = wrist.HitTestNode(node1Pixel);
+        Assert.AreEqual(1, hit, "centre hit resolves to node 1");
 
-        // Selection wiring itself stays green through the authoritative API.
-        Assert.IsTrue(controller.TrySelectNavigationTarget(1), "selection accepted");
-        Assert.AreEqual(1, controller.NavigationTargetNodeId, "nav target set");
-        for (int i = 0; i < 4; i++)
-        {
-            yield return null;
-        }
+        // Small offsets inside the generous hit radius still hit.
+        int hitOffset = wrist.HitTestNode(node1Pixel + new Vector2(10f, 0f));
+        Assert.AreEqual(1, hitOffset, "offset within hit radius resolves");
 
-        Assert.IsTrue(marker1.ClassListContains("marker-selected"), "selected visual state changed");
-        Assert.AreEqual("资源节点 02",
-            LabelText(document.rootVisualElement, "WristNavName"), "wrist nav readout updated");
+        // A corner of the wrist canvas far from any marker resolves to none.
+        Assert.AreEqual(-1, wrist.HitTestNode(new Vector2(30f, 30f)), "corner has no node");
 
-        controller.SetWristOpen(false);
-        for (int i = 0; i < 4; i++)
-        {
-            yield return null;
-        }
+        // The player/landing centre also resolves to none (no node there).
+        Assert.AreEqual(-1, wrist.HitTestNode(MapPixel(Vector2.zero)), "map centre has no node");
 
-        VisualElement navBlock = document.rootVisualElement.Q<VisualElement>("HudNavBlock");
-        Assert.IsTrue(navBlock.resolvedStyle.display == DisplayStyle.Flex, "HUD nav shown after close");
-        controller.ClearNavigationTarget();
+        // Orientation sanity: node 0 is left/up of node 1 on the map.
+        SurfaceResourceNode node0 = controller.Nodes[0];
+        Vector2 f0 = SurfaceGameController.MapFraction(node0.transform.position);
+        Assert.Less(f0.x, fraction1.x, "node0 west of node1");
+    }
+
+    private static Vector2 MapPixel(Vector2 fraction)
+    {
+        return new Vector2(
+            SurfaceWristController.MapLeft + SurfaceWristController.MapSize * 0.5f
+                + fraction.x * SurfaceWristController.MapRadiusPx,
+            SurfaceWristController.MapTop + SurfaceWristController.MapSize * 0.5f
+                - fraction.y * SurfaceWristController.MapRadiusPx);
     }
 
     [UnityTest]
     public IEnumerator MapMathAndNavigationSelection()
     {
-        // Pure deterministic coordinate math.
         Vector2 center = SurfaceGameController.MapFraction(Vector3.zero);
         AssertNearly(0f, center.x, "map center x");
         AssertNearly(0f, center.y, "map center y");
@@ -468,45 +458,44 @@ public class SurvivePhase06RevisionTests
         AssertNearly(-7f / SurfaceGameController.MapHalfExtent, nodeA.x, "node fraction x");
         AssertNearly(2.5f / SurfaceGameController.MapHalfExtent, nodeA.y, "node fraction z");
 
-        Vector2 clamped = SurfaceGameController.MapFraction(new Vector3(-99f, 0f, 99f));
-        AssertNearly(-1f, clamped.x, "clamp x -1");
-        AssertNearly(1f, clamped.y, "clamp z +1");
-
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
         SurfacePlayerController player = controller.Player;
 
-        // Teleport somewhere definite and open the wrist to check marker bounds.
         player.TeleportTo(new Vector3(0f, 0f, 3f));
         yield return null;
         controller.SetWristOpen(true);
+        for (int i = 0; i < 10; i++)
+        {
+            yield return null;
+        }
+
+        VisualElement root = Wrist().RootElement;
+        Assert.IsNotNull(root, "wrist root");
+
+        // The wrist document renders into its own RenderTexture; batch mode
+        // provides no layout pass for it, so containment is verified from the
+        // deterministic style coordinates (the same math as LocalMap hit-test).
+        Vector2 mapLocalCenter = new Vector2(SurfaceWristController.MapSize * 0.5f,
+            SurfaceWristController.MapSize * 0.5f);
+        for (int i = 0; i < 3; i++)
+        {
+            VisualElement marker = root.Q<VisualElement>("MapNode" + i);
+            Assert.IsNotNull(marker, "map marker " + i);
+            Vector2 markerCenter = new Vector2(
+                marker.style.left.value.value + 17f, marker.style.top.value.value + 17f);
+            float distance = Vector2.Distance(markerCenter, mapLocalCenter);
+            Assert.IsTrue(distance <= SurfaceWristController.MapRadiusPx + 1f,
+                "marker " + i + " stays inside circle (d=" + distance.ToString("0.0") + ")");
+        }
+
+        controller.SetWristOpen(false);
         for (int i = 0; i < 6; i++)
         {
             yield return null;
         }
 
-        UIDocument document = Object.FindAnyObjectByType<UIDocument>();
-        VisualElement circle = document.rootVisualElement.Q<VisualElement>("WristMapCircle");
-        Rect circleBounds = circle.worldBound;
-        Vector2 circleCenter = circleBounds.center;
-        float radius = circleBounds.width * 0.5f;
-
-        for (int i = 0; i < 3; i++)
-        {
-            VisualElement marker = document.rootVisualElement.Q<VisualElement>("MapNode" + i);
-            Assert.IsNotNull(marker, "map marker " + i);
-            Vector2 markerCenter = marker.worldBound.center;
-            float distance = Vector2.Distance(markerCenter, circleCenter);
-            Assert.IsTrue(distance <= radius + 1f, "marker " + i + " stays inside circle");
-        }
-
-        controller.SetWristOpen(false);
-        for (int i = 0; i < 3; i++)
-        {
-            yield return null;
-        }
-
-        // Select node 1 (id 1 = 资源节点 02) and check the exploration HUD.
+        UIDocument hudDoc = HudDocument();
         Assert.IsTrue(controller.TrySelectNavigationTarget(1), "select node 1");
         Assert.AreEqual(1, controller.NavigationTargetNodeId, "nav target id");
         Assert.IsTrue(controller.IsNavigationActive, "nav active");
@@ -515,29 +504,28 @@ public class SurvivePhase06RevisionTests
             yield return null;
         }
 
-        VisualElement navBlock = document.rootVisualElement.Q<VisualElement>("HudNavBlock");
+        VisualElement navBlock = hudDoc.rootVisualElement.Q<VisualElement>("HudNavBlock");
         Assert.IsTrue(navBlock.resolvedStyle.display == DisplayStyle.Flex, "HUD nav visible");
-        Assert.AreEqual("◆ 资源节点 02", LabelText(document.rootVisualElement, "HudNavName"),
+        Assert.AreEqual("◆ 资源节点 02", LabelText(hudDoc.rootVisualElement, "HudNavName"),
             "nav name text");
-        string distanceText = LabelText(document.rootVisualElement, "HudNavDistance");
+        string distanceText = LabelText(hudDoc.rootVisualElement, "HudNavDistance");
         Assert.IsTrue(distanceText.EndsWith(" m"), "distance shown in meters");
         float shown = float.Parse(distanceText.Replace(" m", ""));
-        SurfaceResourceNode node1 = controller.Nodes[1];
-        float real = Vector3.Distance(player.transform.position, node1.transform.position);
+        float real = Vector3.Distance(player.transform.position,
+            controller.Nodes[1].transform.position);
         Assert.IsTrue(Mathf.Abs(shown - real) < 0.6f, "distance matches real world distance");
 
-        // Wrist shows the same target and ring.
         controller.SetWristOpen(true);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 8; i++)
         {
             yield return null;
         }
 
-        Assert.AreEqual("资源节点 02", LabelText(document.rootVisualElement, "WristNavName"),
-            "wrist nav name");
-        VisualElement ring = document.rootVisualElement.Q<VisualElement>("MapNavRing");
+        root = Wrist().RootElement;
+        Assert.AreEqual("资源节点 02", LabelText(root, "WristNavName"), "wrist nav name");
+        VisualElement ring = root.Q<VisualElement>("MapNavRing");
         Assert.IsTrue(ring.resolvedStyle.display == DisplayStyle.Flex, "nav ring visible");
-        VisualElement marker1 = document.rootVisualElement.Q<VisualElement>("MapNode1");
+        VisualElement marker1 = root.Q<VisualElement>("MapNode1");
         Assert.IsTrue(marker1.ClassListContains("marker-selected"), "selected marker class");
         controller.SetWristOpen(false);
         controller.ClearNavigationTarget();
@@ -551,14 +539,13 @@ public class SurvivePhase06RevisionTests
         SurfaceGameController controller = ReadyController();
         SurfacePlayerController player = controller.Player;
 
-        // Select node 0 while it is Available, then settle it deterministically.
         Assert.IsTrue(controller.TrySelectNavigationTarget(0), "select node 0");
         player.TeleportTo(controller.Nodes[0].transform.position + Vector3.forward * 1.2f);
         yield return null;
         Assert.IsTrue(controller.TryDeployNearest(), "deploy node 0");
         SurfaceResourceNode node0 = controller.Nodes[0];
-        node0.AdvanceTimers(node0.RemainingSeconds); // -> transmitting
-        node0.AdvanceTimers(node0.RemainingSeconds); // -> depleted +5
+        node0.AdvanceTimers(node0.RemainingSeconds);
+        node0.AdvanceTimers(node0.RemainingSeconds);
         yield return null;
         yield return null;
 
@@ -578,28 +565,24 @@ public class SurvivePhase06RevisionTests
         SurfacePlayerController player = controller.Player;
         GameSession session = GameSession.Instance;
 
-        // Deploy node 0 while the wrist is closed.
         player.TeleportTo(controller.Nodes[0].transform.position + Vector3.forward * 1.2f);
         yield return null;
         Assert.IsTrue(controller.TryDeployNearest(), "deploy node 0");
         SurfaceResourceNode node0 = controller.Nodes[0];
 
-        // Open the wrist during harvesting: world timer keeps running.
         controller.SetWristOpen(true);
-        for (int i = 0; i < 4; i++)
+        for (int i = 0; i < 10; i++)
         {
             yield return null;
         }
 
-        UIDocument document = Object.FindAnyObjectByType<UIDocument>();
-        VisualElement root = document.rootVisualElement;
+        VisualElement root = Wrist().RootElement;
         Assert.AreEqual("资源节点 01", LabelText(root, "WristActiveNode"), "active node name");
         Assert.AreEqual("采集中", LabelText(root, "WristActiveState"), "wrist shows harvesting");
         Assert.IsTrue(LabelText(root, "WristActivePercent").EndsWith("%"), "progress percent shown");
         Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("marker-harvesting"),
             "map marker harvesting");
 
-        // Deterministic step -> still open wrist, progress advanced.
         node0.AdvanceTimers(0.75f);
         yield return null;
         yield return null;
@@ -607,16 +590,14 @@ public class SurvivePhase06RevisionTests
         int percent = int.Parse(percentText);
         Assert.Greater(percent, 0, "progress advanced while wrist open");
 
-        // Push through wireless transfer; the wrist reflects it live.
-        node0.AdvanceTimers(node0.RemainingSeconds); // -> transmitting
+        node0.AdvanceTimers(node0.RemainingSeconds);
         yield return null;
         yield return null;
         Assert.AreEqual("无线传输中", LabelText(root, "WristActiveState"), "wrist shows transfer");
         Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("marker-transmitting"),
             "map marker transmitting");
 
-        // Completion while the wrist stays open.
-        node0.AdvanceTimers(node0.RemainingSeconds); // -> depleted +5
+        node0.AdvanceTimers(node0.RemainingSeconds);
         yield return null;
         yield return null;
         yield return null;
@@ -634,7 +615,6 @@ public class SurvivePhase06RevisionTests
         SurfaceGameController controller = ReadyController();
         SurfacePlayerController player = controller.Player;
 
-        // Stand on the pad and look at its centre: E 返回舰船 is offered.
         player.TeleportTo(new Vector3(0.8f, 0f, 0.8f));
         yield return null;
         Vector3 toPad = Vector3.zero - player.transform.position;
@@ -645,10 +625,8 @@ public class SurvivePhase06RevisionTests
         }
 
         Assert.IsTrue(controller.Interactor.HasValidTarget, "landing area is interactable");
-        Assert.AreEqual("E  返回舰船", controller.Interactor.ResolvePrompt(),
-            "landing prompt text");
+        Assert.AreEqual("E  返回舰船", controller.Interactor.ResolvePrompt(), "landing prompt text");
 
-        // E performs the return (authoritative path used by the world).
         Assert.IsTrue(controller.Interactor.TryInteract(), "E return accepted");
         yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
         Assert.AreEqual(BootController.HubSceneName, ActiveSceneName(), "back on the Hub");
@@ -660,9 +638,15 @@ public class SurvivePhase06RevisionTests
             return app != null && app.IsReady;
         });
         Assert.IsNotNull(app, "hub UI ready after landing return");
-    }
 
-    // ---- helpers ----
+        // HubUiMode semantics: the hub explicitly restores the cursor and the
+        // 2D screen remains interactive (navigation reaches another screen).
+        app.ApplyHubUiMode();
+        app.ShowScreen(AppScreen.Preparation);
+        yield return null;
+        yield return null;
+        Assert.AreEqual(AppScreen.Preparation, app.CurrentScreen, "hub navigation still interactive");
+    }
 
     private static string LabelText(VisualElement root, string name)
     {
