@@ -179,22 +179,32 @@ public static class NereidSurfaceBuilder
         wrist.wristStyleSheet = wristUss;
 
         // Tilted display plane anchored to the eye camera (camera-relative).
-        // Stable baseline (round 4): close, comfortably in view, RT aspect
-        // matched. Tune later from the runtime visibility report.
+        // Round 5: smaller "raised left wrist" size; base orientation keeps
+        // the readable front toward the camera (Unity Quad front = -Z), then a
+        // small tilt is applied - no near-180 yaw, so the UI is never mirrored.
         var displayGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
         Object.DestroyImmediate(displayGo.GetComponent<Collider>());
         displayGo.name = "WristDisplay";
         displayGo.transform.SetParent(eyeGo.transform, false);
         displayGo.transform.localPosition = WristDisplayLocalPosition;
         displayGo.transform.localRotation = Quaternion.Euler(WristDisplayLocalRotation);
-        displayGo.transform.localScale = new Vector3(1.2f, 0.75f, 1f);
+        displayGo.transform.localScale = WristDisplayLocalScale;
 
-        Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
-        var displayMaterial = new Material(unlit != null ? unlit : Shader.Find("Unlit/Color"))
+        Shader wristShader = Shader.Find("Survive/WristDisplayUnlit");
+        if (wristShader == null)
+        {
+            wristShader = Shader.Find("Universal Render Pipeline/Unlit");
+        }
+
+        var displayMaterial = new Material(wristShader)
         {
             name = "M_WristDisplay",
             color = Color.white
         };
+
+        // Transparent unlit presentation (alpha blend, no ZWrite, Cull Off
+        // handled in the dedicated shader).
+        displayMaterial.SetFloat("_Cull", 0f);
 
         var displayRenderer = displayGo.GetComponent<Renderer>();
         displayRenderer.sharedMaterial = displayMaterial;
@@ -217,11 +227,13 @@ public static class NereidSurfaceBuilder
         return ok;
     }
 
-    // Camera-relative wrist placement (tunable; lower-left of view). Round 4
-    // uses a stable baseline near the view centre: the display must be
-    // unambiguously visible in the first-person frame.
-    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.15f, -0.05f, 0.65f);
-    private static readonly Vector3 WristDisplayLocalRotation = new Vector3(-5f, 194f, -3f);
+    // Camera-relative wrist placement (tunable; lower-left, raised-wrist feel).
+    // Round 5: no near-180 yaw. Base faces the camera via Unity Quad -Z front,
+    // then a small yaw/pitch/roll tilt is applied; readable, unmirrored.
+    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.24f, -0.14f, 0.78f);
+    private static readonly Vector3 WristDisplayLocalRotation = new Vector3(-6f, 12f, -3f);
+    // Physical size ~0.60m wide; 1280x800 -> height = width * 800/1280.
+    private static readonly Vector3 WristDisplayLocalScale = new Vector3(0.60f, 0.375f, 1f);
 
     private static void BuildLandingPad(Transform parent, Material pad, Material signal)
     {

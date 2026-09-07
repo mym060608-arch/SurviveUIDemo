@@ -23,6 +23,11 @@ public class WristDisplayAnchor : MonoBehaviour
     public Collider SurfaceCollider => _collider;
     public bool Visible => _visible;
 
+    /// <summary>Unity's built-in Quad faces its front toward -Z; therefore the
+    /// display front normal is the negated transform.forward. This is the
+    /// direction the readable UI texture faces, used by visibility checks.</summary>
+    public Vector3 FrontNormal => -transform.forward;
+
     private void Awake()
     {
         _renderer = GetComponent<Renderer>();
@@ -69,9 +74,6 @@ public class WristDisplayAnchor : MonoBehaviour
             return;
         }
 
-        // URP Unlit samples _BaseMap; legacy paths sample _MainTex. Set both
-        // so whichever shader variant is active shows the wrist UI.
-        _materialInstance.mainTexture = texture;
         _materialInstance.SetTexture("_BaseMap", texture);
     }
 
@@ -87,10 +89,19 @@ public class WristDisplayAnchor : MonoBehaviour
     public bool HasTexture(RenderTexture texture)
     {
         EnsureMaterial();
-        return texture != null
-               && (_materialInstance != null
-                   && (_materialInstance.mainTexture == texture
-                       || _materialInstance.GetTexture("_BaseMap") == texture));
+        return texture != null && _materialInstance != null
+               && _materialInstance.GetTexture("_BaseMap") == texture;
+    }
+
+    /// <summary>Converts a world point on the display plane to its UV
+    /// (0..1, bottom-left origin) using the same local-space math as the
+    /// hit-test. u grows toward local +X (display right), v grows toward local
+    /// +Y (display top).</summary>
+    public Vector2 WorldPointToUV(Vector3 worldPoint)
+    {
+        Vector3 local = transform.InverseTransformPoint(worldPoint);
+        return new Vector2(Mathf.Clamp01(local.x + 0.5f),
+            Mathf.Clamp01(local.y + 0.5f));
     }
 
     /// <summary>Casts a cursor ray onto the display plane and returns its UV
@@ -109,10 +120,7 @@ public class WristDisplayAnchor : MonoBehaviour
             return false;
         }
 
-        // Quad mesh spans +-0.5 in its local XY plane regardless of scale.
-        Vector3 local = transform.InverseTransformPoint(hit.point);
-        uv = new Vector2(Mathf.Clamp01(local.x + 0.5f),
-            Mathf.Clamp01(local.y + 0.5f));
+        uv = WorldPointToUV(hit.point);
         return true;
     }
 }

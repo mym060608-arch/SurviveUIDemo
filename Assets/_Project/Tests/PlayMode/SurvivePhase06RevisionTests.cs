@@ -460,6 +460,8 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(wrist.CurrentRenderTexture, "RenderTexture exists");
         Assert.Greater(wrist.CurrentRenderTexture.width, 0, "RT width");
         Assert.Greater(wrist.CurrentRenderTexture.height, 0, "RT height");
+        Assert.AreEqual(RenderTextureFormat.ARGB32, wrist.CurrentRenderTexture.format,
+            "RT carries alpha");
 
         controller.SetWristOpen(true);
         for (int i = 0; i < 16; i++)
@@ -493,7 +495,7 @@ public class SurvivePhase06RevisionTests
             "material references wrist RT");
 
         // Player-camera geometry: display centre projected inside the viewport,
-        // in clip range, and facing the camera.
+        // in clip range, front normal toward the camera, and a sane size.
         Camera cam = player.EyeCamera;
         Vector3 centre = anchor.transform.position;
         Vector3 viewport = cam.WorldToViewportPoint(centre);
@@ -502,9 +504,49 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(viewport.x >= -0.05f && viewport.x <= 1.05f
                       && viewport.y >= -0.05f && viewport.y <= 1.05f,
             "centre inside viewport (v=" + viewport.ToString("0.000") + ")");
-        float facing = Vector3.Dot(anchor.transform.forward,
+
+        // Unity Quad readable front is -transform.forward; it must face back
+        // toward the camera (this is what prevents the mirrored text).
+        float facing = Vector3.Dot(anchor.FrontNormal,
             (cam.transform.position - centre).normalized);
-        Assert.Greater(facing, 0.1f, "display forward faces the camera");
+        Assert.Greater(facing, 0.5f, "display front normal faces the camera");
+
+        // Projected size sanity: the wrist must not dominate the whole screen.
+        Vector3 scale = anchor.transform.localScale;
+        float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
+        for (int sx = -1; sx <= 1; sx += 2)
+        {
+            for (int sy = -1; sy <= 1; sy += 2)
+            {
+                Vector3 corner = centre + anchor.transform.right * (sx * scale.x * 0.5f)
+                                 + anchor.transform.up * (sy * scale.y * 0.5f);
+                Vector3 c = cam.WorldToViewportPoint(corner);
+                if (c.z > 0f)
+                {
+                    minX = Mathf.Min(minX, c.x);
+                    maxX = Mathf.Max(maxX, c.x);
+                    minY = Mathf.Min(minY, c.y);
+                    maxY = Mathf.Max(maxY, c.y);
+                }
+            }
+        }
+
+        float widthFraction = Mathf.Clamp01(maxX - minX);
+        float heightFraction = Mathf.Clamp01(maxY - minY);
+        Assert.IsTrue(widthFraction <= 0.65f && widthFraction > 0.03f,
+            "projected width sane (was " + (widthFraction * 100f).ToString("0") + "%)");
+        Assert.IsTrue(heightFraction <= 0.70f && heightFraction > 0.03f,
+            "projected height sane (was " + (heightFraction * 100f).ToString("0") + "%)");
+
+        // UV orientation: display-right world direction maps to larger u
+        // (RT right); display-top world direction maps to larger v (RT top).
+        Vector3 p = anchor.transform.position;
+        float uvLeft = anchor.WorldPointToUV(p - anchor.transform.right * 0.2f).x;
+        float uvRight = anchor.WorldPointToUV(p + anchor.transform.right * 0.2f).x;
+        float uvBottom = anchor.WorldPointToUV(p - anchor.transform.up * 0.2f).y;
+        float uvTop = anchor.WorldPointToUV(p + anchor.transform.up * 0.2f).y;
+        Assert.Less(uvLeft, uvRight, "display right -> RT right (no horizontal flip)");
+        Assert.Less(uvBottom, uvTop, "display top -> RT top (no vertical flip)");
 
         controller.SetWristOpen(false);
         for (int i = 0; i < 6; i++)

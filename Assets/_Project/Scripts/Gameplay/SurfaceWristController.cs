@@ -99,7 +99,7 @@ public class SurfaceWristController : MonoBehaviour
     private void Awake()
     {
         _document = GetComponent<UIDocument>();
-        _renderTexture = new RenderTexture(UiWidth, UiHeight, 0);
+        _renderTexture = new RenderTexture(UiWidth, UiHeight, 0, RenderTextureFormat.ARGB32);
         _renderTexture.name = "WristRenderTexture";
         _renderTexture.Create();
 
@@ -364,11 +364,42 @@ public class SurfaceWristController : MonoBehaviour
         bool ok = VerifyDisplayVisible(out string report);
         if (ok)
         {
-            Debug.Log("[WristVisibility] OK\n" + report);
+            Debug.Log("[WristVisibility] OK\n" + report + SampleAlphaReport());
         }
         else
         {
-            Debug.LogError("[WristVisibility] FAIL\n" + report);
+            Debug.LogError("[WristVisibility] FAIL\n" + report + SampleAlphaReport());
+        }
+    }
+
+    /// <summary>Best-effort alpha sampling (Release log only): the empty
+    /// display region must be transparent and a real UI pixel opaque. Never
+    /// throws; returns a short report.</summary>
+    private string SampleAlphaReport()
+    {
+        if (_renderTexture == null || !_renderTexture.IsCreated())
+        {
+            return "ALPHA :: unavailable (RT not created)\n";
+        }
+
+        try
+        {
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = _renderTexture;
+            var readback = new Texture2D(UiWidth, UiHeight, TextureFormat.ARGB32, false);
+            readback.ReadPixels(new Rect(0, 0, UiWidth, UiHeight), 0, 0, false);
+            readback.Apply();
+            float clearAlpha = readback.GetPixel(UiWidth - 50, UiHeight - 50).a;
+            float uiAlpha = readback.GetPixel(640, 400).a;
+            RenderTexture.active = previous;
+            Object.Destroy(readback);
+            return "ALPHA :: clear-region=" + clearAlpha.ToString("0.00")
+                   + " (expect ~0) map-center=" + uiAlpha.ToString("0.00")
+                   + " (expect >0)\n";
+        }
+        catch (System.Exception e)
+        {
+            return "ALPHA :: sampling failed: " + e.Message + "\n";
         }
     }
 
@@ -394,6 +425,9 @@ public class SurfaceWristController : MonoBehaviour
               && _renderTexture.width > 0 && _renderTexture.height > 0,
             "RenderTexture created at " + (_renderTexture != null
                 ? _renderTexture.width + "x" + _renderTexture.height : "<null>"));
+        Check(_renderTexture != null && _renderTexture.format == RenderTextureFormat.ARGB32,
+            "RenderTexture format carries alpha (actual: "
+            + (_renderTexture != null ? _renderTexture.format.ToString() : "<null>") + ")");
         Check(_document != null && _document.enabled, "wrist UIDocument enabled");
         Check(panelSettings != null && panelSettings.targetTexture == _renderTexture,
             "PanelSettings.targetTexture bound to wrist RenderTexture");
@@ -410,6 +444,13 @@ public class SurfaceWristController : MonoBehaviour
             Check(_display.HasTexture(_renderTexture),
                 "wrist material references the wrist RenderTexture (name: "
                 + (_display.SurfaceMaterial != null ? _display.SurfaceMaterial.name : "<null>") + ")");
+            Check(_display.SurfaceMaterial != null
+                  && (_display.SurfaceMaterial.renderQueue == (int)UnityEngine.Rendering.RenderQueue.Transparent
+                      || (_display.SurfaceMaterial.shader != null
+                          && _display.SurfaceMaterial.shader.name == "Survive/WristDisplayUnlit")),
+                "wrist material uses transparent unlit (queue="
+                + (_display.SurfaceMaterial != null
+                    ? _display.SurfaceMaterial.renderQueue.ToString() : "<null>") + ")");
         }
 
         if (_mainCamera == null && Camera.main != null)
@@ -431,8 +472,13 @@ public class SurfaceWristController : MonoBehaviour
             Check(distance > _mainCamera.nearClipPlane * 2f
                   && distance < _mainCamera.farClipPlane * 0.9f,
                 "display in front of camera within clip (dist=" + distance.ToString("0.00") + "m)");
-            Check(Vector3.Dot(t.forward, toCamera.normalized) > 0.1f,
-                "display forward faces the camera");
+
+            // Unity Quad readable front is -transform.forward; it must point
+            // back toward the camera so the UI is never mirrored.
+            Vector3 frontNormal = _display.FrontNormal;
+            float facing = Vector3.Dot(frontNormal, toCamera.normalized);
+            Check(facing > 0.5f,
+                "display front normal faces the camera (dot=" + facing.ToString("0.00") + ")");
 
             Vector3 viewport = _mainCamera.WorldToViewportPoint(planePos);
             Check(viewport.z > 0f
@@ -440,9 +486,11 @@ public class SurfaceWristController : MonoBehaviour
                   && viewport.y >= -0.05f && viewport.y <= 1.05f,
                 "display centre inside camera viewport (v=" + viewport.ToString("0.000"));
 
-            // Any projected display corner inside the viewport proves visible.
+            // Projected bounds sanity: the wrist must cover only a moderate
+            // share of the screen so the world stays visible around it.
             Vector3 scale = t.localScale;
-            bool cornerVisible = false;
+            float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
+            bool anyVisible = false;
             for (int sx = -1; sx <= 1; sx += 2)
             {
                 for (int sy = -1; sy <= 1; sy += 2)
@@ -452,12 +500,26 @@ public class SurfaceWristController : MonoBehaviour
                     Vector3 c = _mainCamera.WorldToViewportPoint(corner);
                     if (c.z > 0f && c.x >= 0f && c.x <= 1f && c.y >= 0f && c.y <= 1f)
                     {
-                        cornerVisible = true;
+                        anyVisible = true;
+                    }
+
+                    if (c.z > 0f)
+                    {
+                        minX = Mathf.Min(minX, c.x);
+                        maxX = Mathf.Max(maxX, c.x);
+                        minY = Mathf.Min(minY, c.y);
+                        maxY = Mathf.Max(maxY, c.y);
                     }
                 }
             }
 
-            Check(cornerVisible, "at least one projected display corner in view");
+            Check(anyVisible, "at least one projected display corner in view");
+            float widthFraction = Mathf.Clamp01(maxX - minX);
+            float heightFraction = Mathf.Clamp01(maxY - minY);
+            Check(widthFraction > 0.03f && widthFraction <= 0.65f,
+                "display width <=65% of screen (actual " + (widthFraction * 100f).ToString("0") + "%)");
+            Check(heightFraction > 0.03f && heightFraction <= 0.70f,
+                "display height <=70% of screen (actual " + (heightFraction * 100f).ToString("0") + "%)");
         }
 
         report = lines.ToString();
