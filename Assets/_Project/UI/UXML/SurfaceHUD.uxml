@@ -1,42 +1,141 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <ui:VisualElement name="SurfaceHudRoot" class="hud-root">
-        <!-- Mission context + real resource readouts (top-left) -->
-        <ui:VisualElement class="hud-card hud-context">
-            <ui:VisualElement class="hud-context-line">
-                <ui:Label class="hud-title" text="NEREID-04" />
-                <ui:Label class="hud-subtitle" text="地表勘测" />
+        <!-- ============ Normal exploration layer ============ -->
+        <ui:VisualElement name="HudLayer" class="hud-layer">
+            <!-- Mission context + real resource readouts (top-left) -->
+            <ui:VisualElement class="hud-card hud-context">
+                <ui:VisualElement class="hud-context-line">
+                    <ui:Label class="hud-title" text="NEREID-04" />
+                    <ui:Label class="hud-subtitle" text="地表勘测" />
+                </ui:VisualElement>
+                <ui:VisualElement class="hud-rule" />
+                <ui:VisualElement class="hud-row">
+                    <ui:Label class="hud-row-key" text="矿物" />
+                    <ui:Label name="HudMineralsValue" class="hud-row-value" text="20" />
+                </ui:VisualElement>
+                <ui:VisualElement class="hud-row">
+                    <ui:Label class="hud-row-key" text="采集效率" />
+                    <ui:Label name="HudEfficiencyValue" class="hud-row-value" text="100%" />
+                </ui:VisualElement>
+                <ui:VisualElement class="hud-row">
+                    <ui:Label class="hud-row-key" text="回收节点" />
+                    <ui:Label name="HudNodesValue" class="hud-row-value" text="0 / 3" />
+                </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement class="hud-rule" />
-            <ui:VisualElement class="hud-row">
-                <ui:Label class="hud-row-key" text="矿物" />
-                <ui:Label name="HudMineralsValue" class="hud-row-value" text="20" />
+
+            <!-- Node status / harvest progress (left, mid-low) -->
+            <ui:VisualElement name="HudStatusCard" class="hud-card hud-status">
+                <ui:Label class="hud-status-label" text="加工状态" />
+                <ui:VisualElement class="hud-status-line">
+                    <ui:Label name="HudStatusText" class="hud-status-text" text="—" />
+                    <ui:Label name="HudStatusPercent" class="hud-status-percent" text="" />
+                </ui:VisualElement>
             </ui:VisualElement>
-            <ui:VisualElement class="hud-row">
-                <ui:Label class="hud-row-key" text="采集效率" />
-                <ui:Label name="HudEfficiencyValue" class="hud-row-value" text="100%" />
+
+            <!-- Navigation readout (left, above the interaction prompt) -->
+            <ui:VisualElement name="HudNavBlock" class="hud-nav">
+                <ui:Label name="HudNavName" class="hud-nav-name" text="" />
+                <ui:Label name="HudNavDistance" class="hud-nav-distance" text="" />
             </ui:VisualElement>
-            <ui:VisualElement class="hud-row">
-                <ui:Label class="hud-row-key" text="回收节点" />
-                <ui:Label name="HudNodesValue" class="hud-row-value" text="0 / 3" />
+
+            <!-- Interaction prompt (bottom center) -->
+            <ui:Label name="HudPrompt" class="hud-prompt" text="搜寻资源节点" />
+
+            <!-- Transfer result (center) -->
+            <ui:Label name="HudResult" class="hud-result" text="" />
+
+            <!-- Return to ship (top-right) -->
+            <ui:Button name="HudReturnButton" class="hud-return" text="返回舰船" />
+
+            <!-- Center interaction crosshair (neutral dot + optional ring) -->
+            <ui:VisualElement class="hud-crosshair-wrap">
+                <ui:VisualElement name="HudCrosshairDot" class="hud-xh-dot" />
+                <ui:VisualElement name="HudCrosshairRing" class="hud-xh-ring" />
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- Node status / harvest progress (left, mid-low) -->
-        <ui:VisualElement name="HudStatusCard" class="hud-card hud-status">
-            <ui:Label class="hud-status-label" text="加工状态" />
-            <ui:VisualElement class="hud-status-line">
-                <ui:Label name="HudStatusText" class="hud-status-text" text="—" />
-                <ui:Label name="HudStatusPercent" class="hud-status-percent" text="" />
+        <!-- ============ Wrist terminal layer (hidden by default) ============ -->
+        <ui:VisualElement name="WristLayer" class="wrist-layer">
+            <ui:VisualElement name="WristPanel" class="wrist-panel">
+                <ui:VisualElement class="wrist-header">
+                    <ui:Label class="wrist-brand" text="NEREID-04 · 地表勘测" />
+                    <ui:Label name="WristNodeCount" class="wrist-node-count" text="回收节点 0 / 3" />
+                    <ui:Label class="wrist-meta" text="腕部终端 // WRIST TERMINAL" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="wrist-columns">
+                    <!-- Personal status + equipment + cargo -->
+                    <ui:VisualElement class="wrist-col wrist-col-left">
+                        <ui:VisualElement class="wrist-block">
+                            <ui:Label class="wrist-label" text="健康度" />
+                            <ui:Label name="WristHealthValue" class="wrist-value" text="100" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="wrist-block">
+                            <ui:Label class="wrist-label" text="饥饿度" />
+                            <ui:Label name="WristHungerValue" class="wrist-value" text="18" />
+                            <ui:Label class="wrist-hint" text="0 = 不饿  ·  100 = 极度饥饿" />
+                        </ui:VisualElement>
+
+                        <ui:Label class="wrist-section" text="当前装备" />
+                        <ui:VisualElement name="WristEquipHarvester" class="wrist-row">
+                            <ui:Label class="wrist-row-name" text="采集器 MK-I" />
+                            <ui:Label name="WristEquipHarvesterState" class="wrist-row-state" text="已装备" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="WristEquipBattery" class="wrist-row">
+                            <ui:Label class="wrist-row-name" text="备用电池组" />
+                            <ui:Label name="WristEquipBatteryState" class="wrist-row-state" text="未选择" />
+                        </ui:VisualElement>
+                        <ui:VisualElement name="WristEquipDrone" class="wrist-row">
+                            <ui:Label class="wrist-row-name" text="勘测无人机" />
+                            <ui:Label name="WristEquipDroneState" class="wrist-row-state" text="未选择" />
+                        </ui:VisualElement>
+
+                        <ui:Label class="wrist-section" text="携带状态" />
+                        <ui:VisualElement class="wrist-row">
+                            <ui:Label class="wrist-row-name" text="载荷" />
+                            <ui:Label name="WristCargoValue" class="wrist-row-state" text="45 / 100 KG" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- Circular local map (dominant visual anchor) -->
+                    <ui:VisualElement class="wrist-col wrist-col-map">
+                        <ui:Label class="wrist-map-caption" text="地表地图 // LOCAL MAP" />
+                        <ui:VisualElement name="WristMapCircle" class="wrist-map-circle">
+                            <ui:Label name="MapLanding" class="map-marker map-landing" text="▣" />
+                            <ui:Label name="MapPlayer" class="map-player" text="▲" />
+                            <ui:VisualElement name="MapNavRing" class="map-nav-ring" />
+                            <ui:VisualElement name="MapNode0" class="map-marker-btn"><ui:Label class="map-marker-label" text="1" /></ui:VisualElement>
+                            <ui:VisualElement name="MapNode1" class="map-marker-btn"><ui:Label class="map-marker-label" text="2" /></ui:VisualElement>
+                            <ui:VisualElement name="MapNode2" class="map-marker-btn"><ui:Label class="map-marker-label" text="3" /></ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:Label class="wrist-map-hint" text="点击资源节点 · 设置导航目标" />
+                    </ui:VisualElement>
+
+                    <!-- Navigation + live harvest context -->
+                    <ui:VisualElement class="wrist-col wrist-col-right">
+                        <ui:Label class="wrist-section" text="当前导航" />
+                        <ui:VisualElement name="WristNavBlock" class="wrist-block">
+                            <ui:Label name="WristNavName" class="wrist-nav-name" text="未设置" />
+                            <ui:Label name="WristNavDistance" class="wrist-nav-distance" text="" />
+                        </ui:VisualElement>
+
+                        <ui:Label class="wrist-section" text="采集状态" />
+                        <ui:VisualElement name="WristActiveCard" class="wrist-active-card">
+                            <ui:Label class="wrist-active-header" text="采集器 MK-I" />
+                            <ui:Label name="WristActiveNode" class="wrist-active-node" text="—" />
+                            <ui:VisualElement class="wrist-active-line">
+                                <ui:Label name="WristActiveState" class="wrist-active-state" text="待机" />
+                                <ui:Label name="WristActivePercent" class="wrist-active-percent" text="" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+
+                <ui:Label class="wrist-footer" text="Esc / M / I  关闭腕表   ·   世界计时继续运行" />
             </ui:VisualElement>
+
+            <!-- Project-native dot cursor (OS arrow hidden while wrist is open) -->
+            <ui:VisualElement name="WristCursor" class="wrist-cursor" />
         </ui:VisualElement>
-
-        <!-- Interaction prompt (bottom center) -->
-        <ui:Label name="HudPrompt" class="hud-prompt" text="搜寻资源节点" />
-
-        <!-- Transfer result (center) -->
-        <ui:Label name="HudResult" class="hud-result" text="" />
-
-        <!-- Return to ship (top-right) -->
-        <ui:Button name="HudReturnButton" class="hud-return" text="返回舰船" />
     </ui:VisualElement>
 </ui:UXML>

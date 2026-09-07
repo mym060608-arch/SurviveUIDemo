@@ -34,6 +34,12 @@ public class GameSession : MonoBehaviour
     // Outpost module progression (Phase 05). Demo tier range LV.1..LV.3.
     public const int MaxModuleLevel = 3;
 
+    // Personal survival status (Phase 06 Revision). Health 0-100 where 100 is
+    // the healthy default. Hunger 0 = not hungry .. 100 = starving; the low
+    // default (18) means the explorer is only mildly hungry. No simulation yet.
+    public const int DefaultPlayerHealth = 100;
+    public const int DefaultPlayerHunger = 18;
+
     // NEREID-04 surface harvesting (Phase 06). Three fixed resource nodes,
     // each settles exactly +5 Minerals once per Reset.
     public const int SurfaceNodeCount = 3;
@@ -91,6 +97,13 @@ public class GameSession : MonoBehaviour
     public int HarvesterLevel { get; private set; }
     public int RefineryLevel { get; private set; }
     public int OutpostLevel { get; private set; }
+
+    /// <summary>Personal health, 0-100, 100 = healthy (Revision foundation).</summary>
+    public int PlayerHealth { get; private set; }
+
+    /// <summary>Personal hunger, 0 = not hungry .. 100 = starving. Default 18
+    /// keeps the meaning unambiguous: 100 is never "full".</summary>
+    public int PlayerHunger { get; private set; }
 
     // ---- Outpost module effects (Phase 05) ----
     // Derived authoritative values consumed by the UI and future gameplay.
@@ -453,6 +466,8 @@ public class GameSession : MonoBehaviour
         BatterySelected = false;
         DroneSelected = false;
         LoadoutConfirmed = false;
+        PlayerHealth = DefaultPlayerHealth;
+        PlayerHunger = DefaultPlayerHunger;
         _harvestedNodeMask = 0;
         ResetProcessing();
         NotifyChanged();
@@ -477,6 +492,34 @@ public class GameSession : MonoBehaviour
         }
 
         Alloy += amount;
+        NotifyChanged();
+    }
+
+    /// <summary>Clamped personal health mutation (tests/debug only; no damage
+    /// simulation exists yet).</summary>
+    public void SetPlayerHealth(int value)
+    {
+        int clamped = Mathf.Clamp(value, 0, 100);
+        if (clamped == PlayerHealth)
+        {
+            return;
+        }
+
+        PlayerHealth = clamped;
+        NotifyChanged();
+    }
+
+    /// <summary>Clamped personal hunger mutation (tests/debug only; no decay
+    /// exists yet). Higher value = hungrier.</summary>
+    public void SetPlayerHunger(int value)
+    {
+        int clamped = Mathf.Clamp(value, 0, 100);
+        if (clamped == PlayerHunger)
+        {
+            return;
+        }
+
+        PlayerHunger = clamped;
         NotifyChanged();
     }
 

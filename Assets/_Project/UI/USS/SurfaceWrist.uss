@@ -1,0 +1,354 @@
+/*
+ * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision).
+ * Chinese-first field terminal: contained floating panel around a circular
+ * LOCAL MAP. The world stays visible around it (light panel, negative space,
+ * no full-screen dashboard). Industrial hairlines + teal accent only.
+ */
+
+/* ---------- Layer + open presentation ---------- */
+
+.wrist-layer {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.12);
+}
+
+.wrist-panel {
+    width: 1040px;
+    height: 640px;
+    background-color: rgba(233, 235, 237, 0.97);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding: 18px 22px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+/* ---------- Header ---------- */
+
+.wrist-header {
+    flex-direction: row;
+    align-items: flex-end;
+    border-bottom-width: 1px;
+    border-bottom-color: #C9CFD4;
+    padding-bottom: 8px;
+    margin-bottom: 12px;
+}
+
+.wrist-brand {
+    font-size: 22px;
+    -unity-font-style: bold;
+    color: #161B20;
+    letter-spacing: 0;
+}
+
+.wrist-node-count {
+    font-size: 13px;
+    color: #0E7F8C;
+    -unity-font-style: bold;
+    margin-left: auto;
+    letter-spacing: 0;
+}
+
+.wrist-meta {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #7B858F;
+    margin-left: 16px;
+}
+
+/* ---------- Main columns ---------- */
+
+.wrist-columns {
+    flex-direction: row;
+    flex: 1;
+}
+
+.wrist-col {
+    flex-direction: column;
+}
+
+.wrist-col-left {
+    width: 250px;
+    padding-right: 18px;
+    border-right-width: 1px;
+    border-right-color: #D6DBDF;
+}
+
+.wrist-col-map {
+    flex: 1;
+    align-items: center;
+    padding: 0 18px;
+}
+
+.wrist-col-right {
+    width: 250px;
+    padding-left: 18px;
+    border-left-width: 1px;
+    border-left-color: #D6DBDF;
+}
+
+/* ---------- Shared text styles ---------- */
+
+.wrist-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #7B858F;
+}
+
+.wrist-value {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: -2px;
+}
+
+.wrist-hint {
+    font-size: 9px;
+    letter-spacing: 0;
+    color: #9AA3AC;
+    margin-top: 2px;
+}
+
+.wrist-section {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 14px;
+    margin-bottom: 6px;
+    letter-spacing: 0;
+    border-bottom-width: 1px;
+    border-bottom-color: #D6DBDF;
+    padding-bottom: 3px;
+}
+
+.wrist-block {
+    margin-bottom: 2px;
+}
+
+.wrist-row {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+}
+
+.wrist-row-name {
+    font-size: 13px;
+    color: #161B20;
+    margin-right: auto;
+    letter-spacing: 0;
+}
+
+.wrist-row-state {
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: #0E7F8C;
+    letter-spacing: 0;
+}
+
+.wrist-row-state.state-off {
+    color: #7B858F;
+}
+
+/* ---------- Circular local map ---------- */
+
+.wrist-map-caption {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #7B858F;
+    margin-bottom: 6px;
+    align-self: flex-start;
+}
+
+.wrist-map-circle {
+    width: 440px;
+    height: 440px;
+    border-radius: 50%;
+    overflow: hidden;
+    background-color: #E2E6E9;
+    border-width: 1px;
+    border-color: #9AA3AC;
+    position: relative;
+}
+
+/* world -> map math sets absolute left/top on markers at runtime */
+
+.map-marker {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    -unity-text-align: middle-center;
+    font-size: 12px;
+}
+
+.map-landing {
+    color: #5A6570;
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+.map-player {
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    -unity-text-align: middle-center;
+    color: #161B20;
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+.map-nav-ring {
+    position: absolute;
+    width: 34px;
+    height: 34px;
+    border-width: 2px;
+    border-color: #0E7F8C;
+    border-radius: 3px;
+    display: none;
+}
+
+.map-marker-btn {
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    margin-left: -12px;
+    margin-top: -12px;
+    border-radius: 50%;
+    background-color: #161B20;
+    border-width: 1px;
+    border-color: #161B20;
+    -unity-text-align: middle-center;
+    padding: 0;
+}
+
+.map-marker-btn .map-marker-label {
+    -unity-text-align: middle-center;
+    font-size: 11px;
+    -unity-font-style: bold;
+    color: #FFFFFF;
+}
+
+.map-marker-btn.marker-harvesting {
+    background-color: #0E7F8C;
+    border-color: #0A616C;
+}
+
+.map-marker-btn.marker-transmitting {
+    background-color: #0A616C;
+    border-color: #0E7F8C;
+}
+
+.map-marker-btn.marker-depleted {
+    background-color: transparent;
+    border-color: #9AA3AC;
+}
+
+.map-marker-btn.marker-depleted .map-marker-label {
+    color: #7B858F;
+}
+
+.map-marker-btn.marker-selected {
+    border-width: 2px;
+    border-color: #161B20;
+}
+
+.wrist-map-hint {
+    font-size: 9px;
+    letter-spacing: 0;
+    color: #9AA3AC;
+    margin-top: 8px;
+}
+
+/* ---------- Right column: navigation + live harvest ---------- */
+
+.wrist-nav-name {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 2px;
+    letter-spacing: 0;
+}
+
+.wrist-nav-distance {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: #0E7F8C;
+    margin-top: 2px;
+}
+
+.wrist-active-card {
+    background-color: #EDEFF1;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding: 10px 14px;
+}
+
+.wrist-active-header {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #7B858F;
+}
+
+.wrist-active-node {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 3px;
+    letter-spacing: 0;
+}
+
+.wrist-active-line {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 6px;
+}
+
+.wrist-active-state {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #0A616C;
+    margin-right: auto;
+    letter-spacing: 0;
+}
+
+.wrist-active-percent {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #0A616C;
+}
+
+/* ---------- Footer ---------- */
+
+.wrist-footer {
+    font-size: 10px;
+    letter-spacing: 0;
+    color: #7B858F;
+    margin-top: 10px;
+    text-align: center;
+    -unity-text-align: middle-center;
+}
+
+/* ---------- Custom dot cursor ---------- */
+
+.wrist-cursor {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border-width: 1px;
+    border-color: #161B20;
+    background-color: rgba(14, 127, 140, 0.35);
+    display: none;
+    pointer-events: none;
+}
+
+.wrist-cursor.cursor-active {
+    background-color: rgba(14, 127, 140, 0.6);
+    border-color: #0E7F8C;
+}

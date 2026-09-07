@@ -1,7 +1,9 @@
 /*
  * Survive UI Demo - NEREID-04 surface HUD (Phase 06).
  * Chinese-first, inherits the off-white/ink/teal/hairline language but stays
- * light so the 3D world remains the primary visual.
+ * light so the 3D world remains the primary visual. Phase 06 Revision adds
+ * the first-person layer (crosshair, navigation readout) and the wrist
+ * terminal layer (styles live in SurfaceWrist.uss).
  */
 
 .hud-root {
@@ -11,6 +13,15 @@
     right: 0;
     bottom: 0;
     background-color: rgba(0, 0, 0, 0);
+}
+
+/* Normal exploration content is grouped so the wrist can hide it wholesale. */
+.hud-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
 }
 
 /* ---------- Context card (top-left) ---------- */
@@ -105,6 +116,33 @@
     color: #0A616C;
 }
 
+/* ---------- Navigation readout (left, above the prompt) ---------- */
+
+.hud-nav {
+    position: absolute;
+    left: 24px;
+    bottom: 110px;
+    min-width: 220px;
+    background-color: rgba(237, 239, 241, 0.9);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding: 10px 16px;
+    display: none;
+}
+
+.hud-nav-name {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.hud-nav-distance {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #0E7F8C;
+    margin-top: 2px;
+}
+
 /* ---------- Interaction prompt (bottom center) ---------- */
 
 .hud-prompt {
@@ -169,4 +207,57 @@
 .hud-return:active {
     background-color: #0A616C;
     border-color: #0A616C;
+}
+
+/* ---------- Center crosshair (first-person, Phase 06 Revision) ---------- */
+
+.hud-crosshair-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.hud-xh-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(22, 27, 32, 0.88);
+}
+
+.hud-xh-dot.dot-valid {
+    background-color: #0E7F8C;
+}
+
+.hud-xh-dot.dot-blocked {
+    background-color: #5A6570;
+}
+
+.hud-xh-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -10px;
+    margin-top: -10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border-width: 1px;
+    border-color: transparent;
+    display: none;
+}
+
+.hud-xh-ring.ring-visible {
+    display: block;
+}
+
+.hud-xh-ring.ring-valid {
+    border-color: #0E7F8C;
+}
+
+.hud-xh-ring.ring-blocked {
+    border-color: #5A6570;
 }

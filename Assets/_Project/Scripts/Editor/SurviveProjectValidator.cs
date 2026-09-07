@@ -36,7 +36,28 @@ public static class SurviveProjectValidator
     private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
     private const string SurfaceHudUxmlPath = "Assets/_Project/UI/UXML/SurfaceHUD.uxml";
     private const string SurfaceHudUssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
+    private const string SurfaceWristUssPath = "Assets/_Project/UI/USS/SurfaceWrist.uss";
     private const string GuidePath = "Docs/UI_LANGUAGE_STYLE.md";
+
+    /// <summary>Phase 06 Revision first-person HUD + wrist terminal element
+    /// names the runtime binds to.</summary>
+    private static readonly string[] SurfaceRevisionStructure =
+    {
+        "HudLayer",
+        "HudNavBlock", "HudNavName", "HudNavDistance",
+        "HudCrosshairDot", "HudCrosshairRing",
+        "WristLayer", "WristPanel", "WristNodeCount",
+        "WristHealthValue", "WristHungerValue",
+        "WristEquipHarvester", "WristEquipHarvesterState",
+        "WristEquipBattery", "WristEquipBatteryState",
+        "WristEquipDrone", "WristEquipDroneState",
+        "WristCargoValue",
+        "WristMapCircle", "MapLanding", "MapPlayer", "MapNavRing",
+        "MapNode0", "MapNode1", "MapNode2",
+        "WristNavName", "WristNavDistance",
+        "WristActiveNode", "WristActiveState", "WristActivePercent",
+        "WristCursor"
+    };
 
     [MenuItem("Tools/SurviveUI/Validate Phase 01 Project")]
     public static void ValidateFromMenu()
@@ -85,6 +106,7 @@ public static class SurviveProjectValidator
         Record(File.Exists(OutpostUssPath), "outpost uss exists: " + OutpostUssPath);
         Record(File.Exists(SurfaceHudUxmlPath), "surface HUD uxml exists: " + SurfaceHudUxmlPath);
         Record(File.Exists(SurfaceHudUssPath), "surface HUD uss exists: " + SurfaceHudUssPath);
+        Record(File.Exists(SurfaceWristUssPath), "surface wrist uss exists: " + SurfaceWristUssPath);
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
@@ -154,6 +176,28 @@ public static class SurviveProjectValidator
             }
         }
 
+        // ---- SurfaceHUD.uxml coverage (Phase 06 + Revision structure) ----
+        var surfaceUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SurfaceHudUxmlPath);
+        Record(surfaceUxml != null, "SurfaceHUD.uxml imports as VisualTreeAsset");
+        if (surfaceUxml != null)
+        {
+            HashSet<string> surfacePresent = new HashSet<string>();
+            TemplateContainer surfaceTemplate = surfaceUxml.Instantiate();
+            surfaceTemplate.Query<VisualElement>().ForEach(element =>
+            {
+                if (!string.IsNullOrEmpty(element.name))
+                {
+                    surfacePresent.Add(element.name);
+                }
+            });
+
+            foreach (string expected in SurfaceRevisionStructure)
+            {
+                Record(surfacePresent.Contains(expected),
+                    "SurfaceHUD.uxml revision structure: " + expected);
+            }
+        }
+
         // ---- 00_Boot scene content ----
         if (File.Exists(BootScenePath))
         {
@@ -208,12 +252,38 @@ public static class SurviveProjectValidator
             Record(CountInScene<SurfaceHudController>() == 1,
                 "02_NereidSurface has exactly one SurfaceHudController (found "
                 + CountInScene<SurfaceHudController>() + ")");
+            Record(CountInScene<SurfaceWristController>() == 1,
+                "02_NereidSurface has exactly one SurfaceWristController (found "
+                + CountInScene<SurfaceWristController>() + ")");
+            Record(CountInScene<FirstPersonInteractor>() == 1,
+                "02_NereidSurface has exactly one FirstPersonInteractor (found "
+                + CountInScene<FirstPersonInteractor>() + ")");
             Record(CountInScene<UIDocument>() == 1,
                 "02_NereidSurface has exactly one UIDocument (found "
                 + CountInScene<UIDocument>() + ")");
             Record(CountInScene<SurfaceResourceNode>() == 3,
                 "02_NereidSurface has exactly 3 resource nodes (found "
                 + CountInScene<SurfaceResourceNode>() + ")");
+
+            // Revision: first-person presentation - eye camera is a child of
+            // the player body and no legacy follow camera root exists.
+            SurfacePlayerController surfacePlayer = FirstInScene<SurfacePlayerController>();
+            bool cameraUnderPlayer = false;
+            bool sawCamera = false;
+            if (surfacePlayer != null)
+            {
+                foreach (Camera c in surfacePlayer.GetComponentsInChildren<Camera>(true))
+                {
+                    sawCamera = true;
+                    cameraUnderPlayer = true;
+                    Record(c.transform.localPosition.y > 1.4f && c.transform.localPosition.y < 1.9f,
+                        "first-person eye camera at eye height (y="
+                        + c.transform.localPosition.y.ToString("0.00") + ")");
+                }
+            }
+
+            Record(sawCamera && cameraUnderPlayer, "surface camera is child of Player (first person)");
+            Record(!RootExists("GameplayCamera"), "no legacy third-person follow camera root");
 
             UIDocument surfaceDocument = FirstInScene<UIDocument>();
             SurfaceHudController surfaceHud = FirstInScene<SurfaceHudController>();
@@ -300,6 +370,20 @@ public static class SurviveProjectValidator
         }
 
         return count;
+    }
+
+    private static bool RootExists(string rootName)
+    {
+        Scene active = SceneManager.GetActiveScene();
+        foreach (GameObject root in active.GetRootGameObjects())
+        {
+            if (root.name == rootName)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static T FirstInScene<T>() where T : Component

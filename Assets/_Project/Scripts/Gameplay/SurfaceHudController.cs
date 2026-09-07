@@ -2,17 +2,28 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Lightweight Chinese-first gameplay HUD for the NEREID-04 surface.
+/// Lightweight Chinese-first first-person HUD for the NEREID-04 surface.
 ///
-/// The 3D world stays primary; this overlay only carries mission context,
-/// real resource readouts, the interaction prompt and the return action.
-/// Resource numbers refresh on GameSession.OnStateChanged (event driven);
-/// only the active harvest progress updates during gameplay frames.
+/// Normal exploration shows: mission context, real resource readouts, the
+/// gaze interaction prompt, a small center crosshair, the navigation readout,
+/// temporary harvest/transfer feedback and the return action. When the wrist
+/// terminal opens (M/I/Esc) the whole normal layer hides and SurfaceWrist-
+/// Controller owns the screen instead; the world keeps running underneath.
 /// </summary>
 public class SurfaceHudController : MonoBehaviour
 {
+    public enum HudCrosshairState
+    {
+        None,
+        ValidTarget,
+        BlockedTarget
+    }
+
     [SerializeField]
     public StyleSheet hudStyleSheet;
+
+    [SerializeField]
+    public StyleSheet wristStyleSheet;
 
     // Panel settings wired at runtime: UIDocument.panelSettings does not
     // serialize reliably from the deterministic scene builder, so the builder
@@ -22,6 +33,7 @@ public class SurfaceHudController : MonoBehaviour
 
     private UIDocument _document;
     private VisualElement _root;
+    private VisualElement _hudLayer;
     private SurfaceGameController _controller;
     private GameSession _session;
 
@@ -34,6 +46,12 @@ public class SurfaceHudController : MonoBehaviour
     private Label _result;
     private Button _returnButton;
     private VisualElement _statusCard;
+
+    private VisualElement _crosshairDot;
+    private VisualElement _crosshairRing;
+    private VisualElement _navBlock;
+    private Label _navName;
+    private Label _navDistance;
 
     private bool _bound;
 
@@ -85,14 +103,20 @@ public class SurfaceHudController : MonoBehaviour
     private void BindElements(VisualElement root)
     {
         _root = root;
-        if (hudStyleSheet != null && !_bound)
+        if (!_bound && hudStyleSheet != null)
         {
             root.styleSheets.Add(hudStyleSheet);
+            if (wristStyleSheet != null)
+            {
+                root.styleSheets.Add(wristStyleSheet);
+            }
+
             _bound = true;
         }
 
         ApplyUiCjkFont();
 
+        _hudLayer = root.Q<VisualElement>("HudLayer");
         _minerals = root.Q<Label>("HudMineralsValue");
         _efficiency = root.Q<Label>("HudEfficiencyValue");
         _nodes = root.Q<Label>("HudNodesValue");
@@ -102,6 +126,11 @@ public class SurfaceHudController : MonoBehaviour
         _result = root.Q<Label>("HudResult");
         _statusCard = root.Q<VisualElement>("HudStatusCard");
         _returnButton = root.Q<Button>("HudReturnButton");
+        _crosshairDot = root.Q<VisualElement>("HudCrosshairDot");
+        _crosshairRing = root.Q<VisualElement>("HudCrosshairRing");
+        _navBlock = root.Q<VisualElement>("HudNavBlock");
+        _navName = root.Q<Label>("HudNavName");
+        _navDistance = root.Q<Label>("HudNavDistance");
 
         if (_returnButton != null && _controller != null)
         {
@@ -164,6 +193,16 @@ public class SurfaceHudController : MonoBehaviour
         }
     }
 
+    /// <summary>Wrist terminal mode: the whole normal exploration layer hides
+    /// so the world + wrist stay uncluttered.</summary>
+    public void SetWristMode(bool wristOpen)
+    {
+        if (_hudLayer != null)
+        {
+            _hudLayer.style.display = wristOpen ? DisplayStyle.None : DisplayStyle.Flex;
+        }
+    }
+
     public void SetPrompt(string text)
     {
         if (_prompt != null)
@@ -190,6 +229,51 @@ public class SurfaceHudController : MonoBehaviour
             _statusPercent.text = active
                 ? Mathf.RoundToInt(progress01 * 100f) + "%"
                 : "";
+        }
+    }
+
+    /// <summary>Crosshair feedback for the gaze interaction state.</summary>
+    public void SetCrosshairState(HudCrosshairState state)
+    {
+        if (_crosshairDot == null || _crosshairRing == null)
+        {
+            return;
+        }
+
+        _crosshairDot.RemoveFromClassList("dot-valid");
+        _crosshairDot.RemoveFromClassList("dot-blocked");
+        _crosshairRing.RemoveFromClassList("ring-visible");
+        _crosshairRing.RemoveFromClassList("ring-valid");
+        _crosshairRing.RemoveFromClassList("ring-blocked");
+
+        switch (state)
+        {
+            case HudCrosshairState.ValidTarget:
+                _crosshairDot.AddToClassList("dot-valid");
+                _crosshairRing.AddToClassList("ring-visible");
+                _crosshairRing.AddToClassList("ring-valid");
+                break;
+            case HudCrosshairState.BlockedTarget:
+                _crosshairDot.AddToClassList("dot-blocked");
+                _crosshairRing.AddToClassList("ring-visible");
+                _crosshairRing.AddToClassList("ring-blocked");
+                break;
+        }
+    }
+
+    /// <summary>Restrained exploration navigation readout.</summary>
+    public void SetNavigation(string nodeName, string distanceText, bool visible)
+    {
+        if (_navBlock == null)
+        {
+            return;
+        }
+
+        _navBlock.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        if (visible)
+        {
+            SetText(_navName, "◆ " + nodeName);
+            SetText(_navDistance, distanceText);
         }
     }
 
