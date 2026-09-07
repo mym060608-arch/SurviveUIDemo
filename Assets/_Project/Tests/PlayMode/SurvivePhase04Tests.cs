@@ -67,7 +67,7 @@ public class SurvivePhase04Tests
         Assert.AreEqual(15, session.Minerals, "no duplicate cost");
         Assert.AreEqual(GameSession.RefineryProcessState.Running, session.ProcessState, "still running");
 
-        session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+        session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(GameSession.RefineryProcessState.Complete, session.ProcessState, "complete");
         Assert.AreEqual(10, session.Fuel, "fuel after batch 5");
         Assert.AreEqual(6, session.Alloy, "alloy after batch 5");
@@ -90,7 +90,7 @@ public class SurvivePhase04Tests
 
         // Batch 10 from reset completes to fuel 12, alloy 7.
         Assert.IsTrue(session.TryStartProcess(10), "batch 10 (reset) start");
-        session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+        session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(GameSession.RefineryProcessState.Complete, session.ProcessState, "batch10 complete");
         Assert.AreEqual(10, session.Minerals, "minerals after batch 10");
         Assert.AreEqual(12, session.Fuel, "fuel after batch 10 (+4)");
@@ -100,7 +100,7 @@ public class SurvivePhase04Tests
         session.ResetSession();
         Assert.IsTrue(session.TryStartProcess(15), "batch 15 start");
         Assert.AreEqual(5, session.Minerals, "minerals after start batch 15");
-        session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+        session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(14, session.Fuel, "fuel after batch 15 (+6)");
         Assert.AreEqual(8, session.Alloy, "alloy after batch 15 (+3)");
 
@@ -110,7 +110,7 @@ public class SurvivePhase04Tests
         Assert.IsFalse(session.CanStartBatch(15), "batch 15 unavailable at minerals 5");
         Assert.IsTrue(session.CanStartBatch(5), "batch 5 startable at minerals 5");
         Assert.IsTrue(session.TryStartProcess(5), "batch 5 start accepted");
-        session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+        session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(0, session.Minerals, "minerals never negative");
         Assert.IsFalse(session.TryStartProcess(5), "no start at minerals 0");
 
@@ -204,9 +204,9 @@ public class SurvivePhase04Tests
         Assert.AreEqual("+1", LabelText(root, ElementNames.ProcessingAlloyGainValue), "expected alloy +1 preview");
 
         // Progress tick path (deterministic advance).
-        session.AdvanceProcessing(GameSession.ProcessDurationSeconds * 0.5f);
+        session.AdvanceProcessing(session.RefineryProcessSeconds * 0.5f);
         Assert.IsTrue(session.ProcessProgress01 > 0f, "progress advanced after half duration");
-        session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+        session.AdvanceProcessing(session.RefineryProcessSeconds);
         yield return null;
         Assert.AreEqual(GameSession.RefineryProcessState.Complete, session.ProcessState, "complete");
         Assert.AreEqual("加工完成", LabelText(root, ElementNames.ProcessingStatusLabel), "status 加工完成");
@@ -229,7 +229,7 @@ public class SurvivePhase04Tests
         yield return null;
         Assert.IsTrue(session.IsProcessing, "processing still running after navigation");
         Assert.AreEqual(10, session.Minerals, "no state duplication across navigation");
-        session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+        session.AdvanceProcessing(session.RefineryProcessSeconds);
         yield return null;
         Assert.AreEqual(GameSession.RefineryProcessState.Complete, session.ProcessState, "complete after return");
         Assert.AreEqual("12", LabelText(root, ElementNames.ProcessingFuelValue), "fuel after second batch 5");

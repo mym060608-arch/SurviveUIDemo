@@ -93,21 +93,31 @@ public class StandaloneSmoke : MonoBehaviour
                 GameSession session = GameSession.Instance;
                 session.ResetSession();
 
-                Check(results, ref failures, "defaults minerals=20 fuel=8 alloy=5 refinery=1",
-                    session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5 && session.RefineryLevel == 1);
+                Check(results, ref failures, "defaults minerals=20 fuel=8 alloy=5 modules LV1",
+                    session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5
+                    && session.RefineryLevel == 1 && session.HarvesterLevel == 1 && session.OutpostLevel == 1);
+
+                // Derived defaults.
+                Check(results, ref failures, "derived defaults eff=100 duration=2.0 cap=LV.2",
+                    session.HarvesterEfficiencyPercent == 100
+                    && Math.Abs(session.RefineryProcessSeconds - 2.0f) < 0.001f
+                    && session.SubsystemLevelCap == 2);
 
                 session.AddMinerals(10);
                 Check(results, ref failures, "after +10 minerals minerals=30", session.Minerals == 30);
 
-                // Batch refinery (Phase 04): start deducts, completion settles.
+                // Batch refinery: start deducts, completion settles.
                 bool started5 = session.TryStartProcess(5);
-                session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+                session.AdvanceProcessing(session.RefineryProcessSeconds);
                 Check(results, ref failures, "batch5 complete -> minerals=25 fuel=10 alloy=6",
                     started5 && session.Minerals == 25 && session.Fuel == 10 && session.Alloy == 6);
 
-                bool upgraded = session.TryUpgradeRefinery();
-                Check(results, ref failures, "upgrade ok -> alloy=3 refinery=2",
-                    upgraded && session.Alloy == 3 && session.RefineryLevel == 2);
+                // Phase 05 economy: Refinery LV.1 -> LV.2 costs 3 Alloy.
+                bool upgradeOk = session.TryUpgrade(GameSession.OutpostModule.Refinery)
+                                 == GameSession.UpgradeFailureReason.None;
+                Check(results, ref failures, "refinery upgrade -> alloy=3 level=2 duration=1.6",
+                    upgradeOk && session.Alloy == 3 && session.RefineryLevel == 2
+                    && Math.Abs(session.RefineryProcessSeconds - 1.6f) < 0.001f);
 
                 // Navigation: every screen reachable, exactly one visible.
                 app.ShowScreen(AppScreen.Overview);
@@ -172,21 +182,47 @@ public class StandaloneSmoke : MonoBehaviour
                     overviewMinerals != null && overviewMinerals.text == "25"
                     && overviewAlloy != null && overviewAlloy.text == "3");
 
-                // Insufficient-resource safety: second upgrade drains to 0,
-                // a third must fail.
-                bool secondUpgrade = session.TryUpgradeRefinery();
-                Check(results, ref failures, "second upgrade succeeds (alloy=3) -> alloy=0 refinery=3",
-                    secondUpgrade && session.Alloy == 0 && session.RefineryLevel == 3);
-                bool thirdUpgrade = session.TryUpgradeRefinery();
-                Check(results, ref failures, "third upgrade fails safely (alloy<3)",
-                    !thirdUpgrade && session.RefineryLevel == 3 && session.Alloy == 0);
+                // Module blockers: LV.3 needs Core LV.2; Core costs more than
+                // the 3 remaining Alloy.
+                bool blockedByCore = session.TryUpgrade(GameSession.OutpostModule.Refinery)
+                                     == GameSession.UpgradeFailureReason.CoreLevelRequired;
+                Check(results, ref failures, "refinery LV3 blocked by core (alloy unchanged)",
+                    blockedByCore && session.RefineryLevel == 2 && session.Alloy == 3);
+                bool coreLack = session.TryUpgrade(GameSession.OutpostModule.Core)
+                                == GameSession.UpgradeFailureReason.InsufficientAlloy;
+                Check(results, ref failures, "core upgrade insufficient alloy",
+                    coreLack && session.OutpostLevel == 1 && session.Alloy == 3);
 
-                // Phase 04: Processing journey with real-time completion.
+                // Outpost UI reflects state: refinery LV.2, new duration, CTA
+                // shows the Core prerequisite and is disabled.
+                app.ShowScreen(AppScreen.Outpost);
+                yield return null;
+                yield return null;
+                Label outpostAlloy = app.UiRoot?.Q<Label>(ElementNames.OutpostAlloyValue);
+                Label refineryStatus = app.UiRoot?.Q<Label>(ElementNames.RefineryLevelValue);
+                Label detailDuration = app.UiRoot?.Q<Label>(ElementNames.ModuleCurrentEffectValue);
+                Label detailName = app.UiRoot?.Q<Label>(ElementNames.ModuleDetailName);
+                Button outpostUpgrade = app.UiRoot?.Q<Button>(ElementNames.OutpostUpgradeButton);
+                Check(results, ref failures, "outpost UI shows refinery LV.2 duration 1.6 CTA core-locked",
+                    outpostAlloy != null && outpostAlloy.text == "3"
+                    && refineryStatus != null && refineryStatus.text == "LV.2"
+                    && detailName != null && detailName.text == "精炼模块"
+                    && detailDuration != null && detailDuration.text == "1.6s"
+                    && outpostUpgrade != null && outpostUpgrade.text == "需要核心升级"
+                    && !outpostUpgrade.enabledSelf);
+
+                // Phase 04: Processing journey with real-time completion and
+                // the Phase 05 duration integration visible.
                 app.ShowScreen(AppScreen.Processing);
                 Label mineralsLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingMineralsValue);
                 Label fuelLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingFuelValue);
                 Label statusLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingStatusLabel);
+                Label durationMeta = app.UiRoot?.Q<Label>(ElementNames.ProcessingDurationValue);
+                Label refineryMeta = app.UiRoot?.Q<Label>(ElementNames.ProcessingRefineryLevel);
                 Button processStart = app.UiRoot?.Q<Button>(ElementNames.ProcessingStartButton);
+                Check(results, ref failures, "processing shows refinery LV.2 duration 1.6s",
+                    refineryMeta != null && refineryMeta.text == "LV.2"
+                    && durationMeta != null && durationMeta.text == "1.6s");
 
                 bool batch10 = session.TryStartProcess(10);
                 Check(results, ref failures, "start batch 10 -> minerals=15 state Running",
@@ -203,26 +239,27 @@ public class StandaloneSmoke : MonoBehaviour
                     session.IsProcessing && session.Minerals == 15);
 
                 yield return WaitForProcessDone(session, 9000);
-                Check(results, ref failures, "batch10 complete -> fuel=14 alloy=2",
+                Check(results, ref failures, "batch10 complete -> fuel=14 alloy=5",
                     session.ProcessState == GameSession.RefineryProcessState.Complete
-                    && session.Fuel == 14 && session.Alloy == 2
+                    && session.Fuel == 14 && session.Alloy == 5
                     && fuelLabel != null && fuelLabel.text == "14");
 
                 // A second batch from Complete demonstrates re-start; the UI
-                // selection (batch 5) matches this run, so the settled state
-                // "加工完成" is shown.
+                // selection (batch 5) matches this run, so "加工完成" is shown.
                 bool again = session.TryStartProcess(5);
                 Check(results, ref failures, "re-start batch 5 after complete -> minerals=10",
                     again && session.Minerals == 10 && session.IsProcessing);
                 yield return WaitForProcessDone(session, 9000);
-                Check(results, ref failures, "batch5 complete -> fuel=16 alloy=3 status 加工完成",
+                Check(results, ref failures, "batch5 complete -> fuel=16 alloy=6 status 加工完成",
                     session.ProcessState == GameSession.RefineryProcessState.Complete
-                    && session.Fuel == 16 && session.Alloy == 3
+                    && session.Fuel == 16 && session.Alloy == 6
                     && statusLabel != null && statusLabel.text == "加工完成");
 
                 session.ResetSession();
-                Check(results, ref failures, "reset restores defaults minerals=20 fuel=8 alloy=5",
-                    session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5);
+                Check(results, ref failures, "reset restores defaults minerals=20 fuel=8 alloy=5 modules LV1",
+                    session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5
+                    && session.RefineryLevel == 1 && session.HarvesterLevel == 1 && session.OutpostLevel == 1
+                    && Math.Abs(session.RefineryProcessSeconds - 2.0f) < 0.001f);
             }
         }
 

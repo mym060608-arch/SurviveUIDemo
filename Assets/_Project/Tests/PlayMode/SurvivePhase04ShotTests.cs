@@ -99,7 +99,7 @@ public class SurvivePhase04ShotTests
             GameSession session = GameSession.Instance;
             session.ResetSession();
             session.TryStartProcess(5);
-            session.AdvanceProcessing(GameSession.ProcessDurationSeconds);
+            session.AdvanceProcessing(session.RefineryProcessSeconds);
             app.ShowScreen(AppScreen.Processing);
             return GeometryOk(app, "processing");
         });
