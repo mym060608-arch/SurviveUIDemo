@@ -90,6 +90,12 @@ public class SurfaceWristController : MonoBehaviour
     /// <summary>Exposed for tests: the wrist document's root element.</summary>
     public VisualElement RootElement => _root;
 
+    /// <summary>The wrist RenderTexture (exposed for visibility assertions).</summary>
+    public RenderTexture CurrentRenderTexture => _renderTexture;
+
+    /// <summary>Wrist display anchor (exposed for visibility assertions).</summary>
+    public WristDisplayAnchor Display => _display;
+
     private void Awake()
     {
         _document = GetComponent<UIDocument>();
@@ -338,7 +344,124 @@ public class SurfaceWristController : MonoBehaviour
             RefreshRingPositions();
             RefreshRingVisuals();
             RefreshActiveProgress();
+            StartCoroutine(LogVisibilityAfterOpen());
         }
+    }
+
+    // ---- Runtime visibility protection (round 4) ----
+
+    /// <summary>Waits until the wrist display has had a frame to come up, then
+    /// logs a full visibility report. Any failing link is logged as an error
+    /// so an invisible wrist is never silent.</summary>
+    private IEnumerator LogVisibilityAfterOpen()
+    {
+        yield return new WaitForSecondsRealtime(0.35f);
+        if (!IsWristOpenState())
+        {
+            yield break;
+        }
+
+        bool ok = VerifyDisplayVisible(out string report);
+        if (ok)
+        {
+            Debug.Log("[WristVisibility] OK\n" + report);
+        }
+        else
+        {
+            Debug.LogError("[WristVisibility] FAIL\n" + report);
+        }
+    }
+
+    private bool IsWristOpenState()
+    {
+        return _document != null && _document.enabled;
+    }
+
+    /// <summary>Checks every link of the wrist world-space display chain.
+    /// Returns false (with a report) when any link is broken.</summary>
+    public bool VerifyDisplayVisible(out string report)
+    {
+        var lines = new System.Text.StringBuilder();
+        bool ok = true;
+
+        void Check(bool pass, string label)
+        {
+            lines.AppendLine((pass ? "PASS" : "FAIL") + " :: " + label);
+            ok &= pass;
+        }
+
+        Check(_renderTexture != null && _renderTexture.IsCreated()
+              && _renderTexture.width > 0 && _renderTexture.height > 0,
+            "RenderTexture created at " + (_renderTexture != null
+                ? _renderTexture.width + "x" + _renderTexture.height : "<null>"));
+        Check(_document != null && _document.enabled, "wrist UIDocument enabled");
+        Check(panelSettings != null && panelSettings.targetTexture == _renderTexture,
+            "PanelSettings.targetTexture bound to wrist RenderTexture");
+        if (_display == null)
+        {
+            _display = Object.FindAnyObjectByType<WristDisplayAnchor>();
+        }
+
+        Check(_display != null, "WristDisplayAnchor present");
+        if (_display != null)
+        {
+            Check(_display.SurfaceRenderer != null && _display.SurfaceRenderer.enabled,
+                "wrist renderer enabled");
+            Check(_display.HasTexture(_renderTexture),
+                "wrist material references the wrist RenderTexture (name: "
+                + (_display.SurfaceMaterial != null ? _display.SurfaceMaterial.name : "<null>") + ")");
+        }
+
+        if (_mainCamera == null && Camera.main != null)
+        {
+            _mainCamera = Camera.main;
+        }
+
+        if (_mainCamera == null || _display == null)
+        {
+            Check(false, "camera available for viewport math");
+        }
+        else
+        {
+            Transform t = _display.transform;
+            Vector3 camPos = _mainCamera.transform.position;
+            Vector3 planePos = t.position;
+            Vector3 toCamera = camPos - planePos;
+            float distance = toCamera.magnitude;
+            Check(distance > _mainCamera.nearClipPlane * 2f
+                  && distance < _mainCamera.farClipPlane * 0.9f,
+                "display in front of camera within clip (dist=" + distance.ToString("0.00") + "m)");
+            Check(Vector3.Dot(t.forward, toCamera.normalized) > 0.1f,
+                "display forward faces the camera");
+
+            Vector3 viewport = _mainCamera.WorldToViewportPoint(planePos);
+            Check(viewport.z > 0f
+                  && viewport.x >= -0.05f && viewport.x <= 1.05f
+                  && viewport.y >= -0.05f && viewport.y <= 1.05f,
+                "display centre inside camera viewport (v=" + viewport.ToString("0.000"));
+
+            // Any projected display corner inside the viewport proves visible.
+            Vector3 scale = t.localScale;
+            bool cornerVisible = false;
+            for (int sx = -1; sx <= 1; sx += 2)
+            {
+                for (int sy = -1; sy <= 1; sy += 2)
+                {
+                    Vector3 corner = planePos + t.right * (sx * scale.x * 0.5f)
+                                     + t.up * (sy * scale.y * 0.5f);
+                    Vector3 c = _mainCamera.WorldToViewportPoint(corner);
+                    if (c.z > 0f && c.x >= 0f && c.x <= 1f && c.y >= 0f && c.y <= 1f)
+                    {
+                        cornerVisible = true;
+                    }
+                }
+            }
+
+            Check(cornerVisible, "at least one projected display corner in view");
+        }
+
+        report = lines.ToString();
+        return ok;
     }
 
     private IEnumerator AnimateOpen()

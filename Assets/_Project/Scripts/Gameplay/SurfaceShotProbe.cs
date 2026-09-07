@@ -181,6 +181,12 @@ public class SurfaceShotProbe : MonoBehaviour
             yield break;
         }
 
+        // Shut the wrist panel down before quitting: an active UI Toolkit
+        // panel targeting a RenderTexture at Application.Quit can crash the
+        // engine graphics teardown on some drivers.
+        controller.SetWristOpen(false);
+        yield return new WaitForSecondsRealtime(0.4f);
+
         Debug.Log("[SurfaceShotProbe] wrote screenshots: " + explorePath + " | "
                   + wristMapPath + " | " + wristNavPath + " | " + wristTransferPath
                   + " | " + wristSettledPath);

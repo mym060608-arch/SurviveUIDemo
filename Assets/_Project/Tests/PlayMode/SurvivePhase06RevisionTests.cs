@@ -448,6 +448,78 @@ public class SurvivePhase06RevisionTests
     }
 
     [UnityTest]
+    public IEnumerator WristDisplay_RuntimeVisibilityChain()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        SurfaceWristController wrist = Wrist();
+        Assert.IsNotNull(wrist, "wrist controller");
+        SurfacePlayerController player = controller.Player;
+
+        // Closed: nothing of the chain is active yet.
+        Assert.IsNotNull(wrist.CurrentRenderTexture, "RenderTexture exists");
+        Assert.Greater(wrist.CurrentRenderTexture.width, 0, "RT width");
+        Assert.Greater(wrist.CurrentRenderTexture.height, 0, "RT height");
+
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 16; i++)
+        {
+            yield return null;
+        }
+
+        bool ok = wrist.VerifyDisplayVisible(out string report);
+        Assert.IsTrue(ok, "wrist display chain visible:\n" + report);
+
+        // Individual links (independent of the report helper).
+        UIDocument wristDoc = null;
+        foreach (UIDocument doc in Object.FindObjectsByType<UIDocument>())
+        {
+            if (doc.visualTreeAsset != null && doc.visualTreeAsset.name == "SurfaceWrist")
+            {
+                wristDoc = doc;
+            }
+        }
+
+        Assert.IsNotNull(wristDoc, "wrist doc");
+        Assert.IsTrue(wristDoc.enabled, "wrist doc enabled while open");
+        Assert.IsTrue(wristDoc.panelSettings != null
+                      && wristDoc.panelSettings.targetTexture == wrist.CurrentRenderTexture,
+            "panel targets wrist RT");
+        WristDisplayAnchor anchor = wrist.Display;
+        Assert.IsNotNull(anchor, "display anchor");
+        Assert.IsTrue(anchor.SurfaceRenderer != null && anchor.SurfaceRenderer.enabled,
+            "renderer enabled");
+        Assert.IsTrue(anchor.HasTexture(wrist.CurrentRenderTexture),
+            "material references wrist RT");
+
+        // Player-camera geometry: display centre projected inside the viewport,
+        // in clip range, and facing the camera.
+        Camera cam = player.EyeCamera;
+        Vector3 centre = anchor.transform.position;
+        Vector3 viewport = cam.WorldToViewportPoint(centre);
+        Assert.IsTrue(viewport.z > cam.nearClipPlane, "centre beyond near clip");
+        Assert.IsTrue(viewport.z < cam.farClipPlane, "centre within far clip");
+        Assert.IsTrue(viewport.x >= -0.05f && viewport.x <= 1.05f
+                      && viewport.y >= -0.05f && viewport.y <= 1.05f,
+            "centre inside viewport (v=" + viewport.ToString("0.000") + ")");
+        float facing = Vector3.Dot(anchor.transform.forward,
+            (cam.transform.position - centre).normalized);
+        Assert.Greater(facing, 0.1f, "display forward faces the camera");
+
+        controller.SetWristOpen(false);
+        for (int i = 0; i < 6; i++)
+        {
+            yield return null;
+        }
+
+        Assert.IsFalse(wristDoc.enabled, "wrist doc disabled after close");
+        if (anchor.SurfaceRenderer != null)
+        {
+            Assert.IsFalse(anchor.SurfaceRenderer.enabled, "renderer disabled after close");
+        }
+    }
+
+    [UnityTest]
     public IEnumerator MapMathAndNavigationSelection()
     {
         Vector2 center = SurfaceGameController.MapFraction(Vector3.zero);

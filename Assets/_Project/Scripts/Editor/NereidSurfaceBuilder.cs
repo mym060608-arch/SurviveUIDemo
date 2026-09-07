@@ -179,18 +179,21 @@ public static class NereidSurfaceBuilder
         wrist.wristStyleSheet = wristUss;
 
         // Tilted display plane anchored to the eye camera (camera-relative).
+        // Stable baseline (round 4): close, comfortably in view, RT aspect
+        // matched. Tune later from the runtime visibility report.
         var displayGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
         Object.DestroyImmediate(displayGo.GetComponent<Collider>());
         displayGo.name = "WristDisplay";
         displayGo.transform.SetParent(eyeGo.transform, false);
         displayGo.transform.localPosition = WristDisplayLocalPosition;
         displayGo.transform.localRotation = Quaternion.Euler(WristDisplayLocalRotation);
-        displayGo.transform.localScale = new Vector3(1.42f, 0.89f, 1f);
+        displayGo.transform.localScale = new Vector3(1.2f, 0.75f, 1f);
 
         Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
         var displayMaterial = new Material(unlit != null ? unlit : Shader.Find("Unlit/Color"))
         {
-            name = "M_WristDisplay"
+            name = "M_WristDisplay",
+            color = Color.white
         };
 
         var displayRenderer = displayGo.GetComponent<Renderer>();
@@ -214,9 +217,11 @@ public static class NereidSurfaceBuilder
         return ok;
     }
 
-    // Camera-relative wrist placement (tunable; lower-left of view).
-    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.42f, -0.3f, 1.05f);
-    private static readonly Vector3 WristDisplayLocalRotation = new Vector3(8f, 172f, -2f);
+    // Camera-relative wrist placement (tunable; lower-left of view). Round 4
+    // uses a stable baseline near the view centre: the display must be
+    // unambiguously visible in the first-person frame.
+    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.15f, -0.05f, 0.65f);
+    private static readonly Vector3 WristDisplayLocalRotation = new Vector3(-5f, 194f, -3f);
 
     private static void BuildLandingPad(Transform parent, Material pad, Material signal)
     {

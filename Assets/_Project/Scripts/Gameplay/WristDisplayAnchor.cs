@@ -1,12 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// Camera-relative tilted wrist display plane (Phase 06 Revision round 3).
+/// Camera-relative tilted wrist display plane (Phase 06 Revision round 3-4).
 ///
 /// A Quad child of the first-person camera with a MeshCollider. The wrist
-/// RenderTexture is attached as its texture; Show/SetScale animate the
-/// "raise the wrist" feel. RaycastToLocal converts a hardware cursor ray into
-/// display UV coordinates used by SurfaceWristController's map hit-test.
+/// RenderTexture is attached through URP-correct material properties (both
+/// _MainTex and URP _BaseMap), culling is disabled so orientation mistakes
+/// can never hide the surface, and the surface is double-sided opaque white.
+/// Show/SetScale animate the "raise the wrist" feel; RaycastToLocal converts
+/// a hardware cursor ray into display UV coordinates used by the map hit-test.
 /// </summary>
 public class WristDisplayAnchor : MonoBehaviour
 {
@@ -16,16 +18,38 @@ public class WristDisplayAnchor : MonoBehaviour
     private Vector3 _baseLocalScale = Vector3.one;
     private bool _visible;
 
+    public Renderer SurfaceRenderer => _renderer;
+    public Material SurfaceMaterial => _materialInstance;
+    public Collider SurfaceCollider => _collider;
+    public bool Visible => _visible;
+
     private void Awake()
     {
         _renderer = GetComponent<Renderer>();
         _collider = GetComponent<Collider>();
         _baseLocalScale = transform.localScale;
+        EnsureMaterial();
+    }
+
+    private void EnsureMaterial()
+    {
+        if (_renderer == null)
+        {
+            return;
+        }
+
+        // Runtime instance only; never mutates the shared project material.
+        if (_materialInstance == null)
+        {
+            _materialInstance = _renderer.material;
+            _materialInstance.color = Color.white;
+        }
     }
 
     public void Show(bool visible)
     {
         _visible = visible;
+        EnsureMaterial();
         if (_renderer != null)
         {
             _renderer.enabled = visible;
@@ -39,17 +63,16 @@ public class WristDisplayAnchor : MonoBehaviour
 
     public void AttachTexture(RenderTexture texture)
     {
-        if (_renderer == null || texture == null)
+        EnsureMaterial();
+        if (_materialInstance == null || texture == null)
         {
             return;
         }
 
-        if (_materialInstance == null)
-        {
-            _materialInstance = _renderer.material; // runtime instance only
-        }
-
+        // URP Unlit samples _BaseMap; legacy paths sample _MainTex. Set both
+        // so whichever shader variant is active shows the wrist UI.
         _materialInstance.mainTexture = texture;
+        _materialInstance.SetTexture("_BaseMap", texture);
     }
 
     public void SetScale(float scale01)
@@ -58,6 +81,16 @@ public class WristDisplayAnchor : MonoBehaviour
         {
             transform.localScale = _baseLocalScale * scale01;
         }
+    }
+
+    /// <summary>True when this renderer currently draws the given texture.</summary>
+    public bool HasTexture(RenderTexture texture)
+    {
+        EnsureMaterial();
+        return texture != null
+               && (_materialInstance != null
+                   && (_materialInstance.mainTexture == texture
+                       || _materialInstance.GetTexture("_BaseMap") == texture));
     }
 
     /// <summary>Casts a cursor ray onto the display plane and returns its UV
