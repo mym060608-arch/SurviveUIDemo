@@ -422,7 +422,9 @@ public static class NereidSurfaceBuilder
     // ---- helpers ----
 
     /// <summary>Creates (idempotently) the wrist panel settings asset that
-    /// renders the SurfaceWrist UI into its RenderTexture at fixed pixels.</summary>
+    /// renders the SurfaceWrist UI into its RenderTexture at fixed pixels.
+    /// ConstantPixelSize pins the layout to the 1280x800 texture independent
+    /// of the player window; reference/match are recorded for clarity.</summary>
     private static PanelSettings EnsureWristPanelSettings()
     {
         var existing = AssetDatabase.LoadAssetAtPath<PanelSettings>(WristPanelSettingsPath);
@@ -433,6 +435,10 @@ public static class NereidSurfaceBuilder
 
         var panel = ScriptableObject.CreateInstance<PanelSettings>();
         panel.scaleMode = PanelScaleMode.ConstantPixelSize;
+        panel.referenceResolution = new Vector2Int(1280, 800);
+        panel.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
+        panel.match = 0.5f;
+        panel.scale = 1f;
         AssetDatabase.CreateAsset(panel, WristPanelSettingsPath);
         EditorUtility.SetDirty(panel);
         Debug.Log("[NereidSurfaceBuilder] wrote " + WristPanelSettingsPath);

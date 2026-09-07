@@ -346,6 +346,16 @@ public class SurvivePhase06RevisionTests
         VisualElement satietyRing = root.Q<VisualElement>("WristSatietyRing");
         Assert.IsNotNull(healthRing, "health ring exists");
         Assert.IsNotNull(satietyRing, "satiety ring exists");
+
+        // Ring segments are appended when the document tree is bound; wait a
+        // bounded number of frames for the bind/layout to complete.
+        for (int i = 0; i < 60 && healthRing.childCount == 0; i++)
+        {
+            yield return null;
+            healthRing = root.Q<VisualElement>("WristHealthRing");
+            satietyRing = root.Q<VisualElement>("WristSatietyRing");
+        }
+
         Assert.Greater(healthRing.childCount, 0, "health ring has segments");
         Assert.AreEqual(healthRing.childCount, satietyRing.childCount, "both rings sized equal");
         controller.SetWristOpen(false);

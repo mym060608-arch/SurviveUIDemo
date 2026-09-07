@@ -209,6 +209,145 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
+    /// <summary>Adds SurfaceWrist.uss to the wrist document root exactly once
+    /// (guarded by Contains so re-opens never duplicate). Exposed diagnostics
+    /// report whether the sheet is actually bound.</summary>
+    public bool EnsureStyleSheets()
+    {
+        if (_document == null || _document.rootVisualElement == null || wristStyleSheet == null)
+        {
+            return false;
+        }
+
+        VisualElement root = _document.rootVisualElement;
+        if (!root.styleSheets.Contains(wristStyleSheet))
+        {
+            root.styleSheets.Add(wristStyleSheet);
+        }
+
+        _root = root;
+        return root.styleSheets.Contains(wristStyleSheet);
+    }
+
+    /// <summary>Sheet binding summary for the wrist document (logs/tests).</summary>
+    public string BoundStyleSheetNames()
+    {
+        if (_document == null || _document.rootVisualElement == null)
+        {
+            return "<no root>";
+        }
+
+        bool bound = EnsureStyleSheets();
+        return bound ? "SurfaceWrist.uss attached" : "SurfaceWrist.uss MISSING";
+    }
+
+    /// <summary>Runtime computed-style/layout report for the wrist document:
+    /// returns false when any measured geometry is NaN/zero/degenerate.</summary>
+    public bool VerifyWristLayoutGeometry(out string report)
+    {
+        var lines = new System.Text.StringBuilder();
+        bool ok = true;
+
+        void Check(bool pass, string label)
+        {
+            lines.AppendLine((pass ? "PASS" : "FAIL") + " :: " + label);
+            ok &= pass;
+        }
+
+        if (_document == null || _document.rootVisualElement == null)
+        {
+            report = "FAIL :: wrist document root missing\n";
+            return false;
+        }
+
+        lines.AppendLine("INFO :: visualTreeAsset="
+                         + (_document.visualTreeAsset != null ? _document.visualTreeAsset.name : "<null>")
+                         + " styles=[" + BoundStyleSheetNames() + "]");
+
+        VisualElement root = _document.rootVisualElement;
+        bool sheetBound = EnsureStyleSheets();
+        Check(sheetBound, "SurfaceWrist.uss bound on the wrist document root");
+        lines.AppendLine("INFO :: root children=" + root.childCount
+                         + " resolved=" + RootResolved(root));
+
+        VisualElement map = root.Q<VisualElement>("WristMapCircle");
+        Check(map != null, "LocalMap element resolved");
+        if (map != null)
+        {
+            string m = Resolved(map);
+            lines.AppendLine("INFO :: LocalMap " + m);
+            float w = map.resolvedStyle.width;
+            float h = map.resolvedStyle.height;
+            Check(!float.IsNaN(w) && !float.IsNaN(h) && w >= 480f && h >= 480f,
+                "LocalMap size >= ~500px (got " + w.ToString("0") + "x" + h.ToString("0") + ")");
+            Check(!float.IsNaN(w) && !float.IsNaN(h) && w > 0f
+                  && Mathf.Abs(w - h) / Mathf.Max(1f, h) < 0.02f,
+                "LocalMap stays square/aspect ~1");
+        }
+
+        VisualElement healthRing = root.Q<VisualElement>("WristHealthRing");
+        VisualElement satietyRing = root.Q<VisualElement>("WristSatietyRing");
+        Check(healthRing != null && HealthRingWidth(healthRing) > 300f,
+            "Health ring region >300px");
+        Check(satietyRing != null && HealthRingWidth(satietyRing) > 300f,
+            "Satiety ring region >300px");
+        if (map != null && healthRing != null && satietyRing != null)
+        {
+            Check(!float.IsNaN(healthRing.resolvedStyle.width) && healthRing.resolvedStyle.width > 0f,
+                "Health ring not 0x0");
+            Check(!float.IsNaN(satietyRing.resolvedStyle.width) && satietyRing.resolvedStyle.width > 0f,
+                "Satiety ring not 0x0");
+            lines.AppendLine("INFO :: healthRing " + Resolved(healthRing));
+            lines.AppendLine("INFO :: satietyRing " + Resolved(satietyRing));
+            lines.AppendLine("INFO :: map top=" + map.resolvedStyle.top.ToString("0")
+                             + " health top=" + healthRing.resolvedStyle.top.ToString("0")
+                             + " satiety top=" + satietyRing.resolvedStyle.top.ToString("0"));
+        }
+
+        // Four floating panels at their sketch quadrants (style coordinates).
+        string[] panelNames = { "WristEquipHarvester", "WristCargoValue", "WristNavName", "WristActiveState" };
+        lines.AppendLine("INFO :: panels resolved: " + Resolved(root.Q<VisualElement>("WristEquipHarvester"))
+                         + " | " + Resolved(root.Q<VisualElement>("WristNavName"))
+                         + " | " + Resolved(root.Q<VisualElement>("WristCargoValue"))
+                         + " | " + Resolved(root.Q<VisualElement>("WristActiveState")));
+
+        report = lines.ToString();
+        return ok;
+    }
+
+    private static float HealthRingWidth(VisualElement ring)
+    {
+        return ring == null ? 0f : ring.resolvedStyle.width;
+    }
+
+    private static string Resolved(VisualElement e)
+    {
+        if (e == null)
+        {
+            return "<null>";
+        }
+
+        string pos = "?";
+        try
+        {
+            pos = e.resolvedStyle.left.ToString("0") + ","
+                  + e.resolvedStyle.top.ToString("0");
+        }
+        catch (System.Exception)
+        {
+            pos = "auto";
+        }
+
+        return "resolved=" + e.resolvedStyle.width.ToString("0") + "x"
+               + e.resolvedStyle.height.ToString("0") + " pos=" + pos;
+    }
+
+    private static string RootResolved(VisualElement root)
+    {
+        return root.resolvedStyle.width.ToString("0") + "x"
+               + root.resolvedStyle.height.ToString("0");
+    }
+
     private void BindElements()
     {
         if (_document == null || _document.rootVisualElement == null)
@@ -217,11 +356,7 @@ public class SurfaceWristController : MonoBehaviour
         }
 
         _root = _document.rootVisualElement;
-        if (wristStyleSheet != null)
-        {
-            _root.styleSheets.Add(wristStyleSheet);
-        }
-
+        EnsureStyleSheets();
         ApplyUiCjkFont();
 
         _mapCircle = _root.Q<VisualElement>("WristMapCircle");
@@ -303,6 +438,7 @@ public class SurfaceWristController : MonoBehaviour
             return;
         }
 
+        EnsureRingTicksCurrent();
         RefreshMapGeometry();
         RefreshRingPositions();
         RefreshActiveProgress();
@@ -453,6 +589,14 @@ public class SurfaceWristController : MonoBehaviour
         // The wrist UXML renders only into its own RenderTexture, so it can be
         // kept disabled (and cheap) whenever the terminal is closed.
         _document.enabled = open;
+        if (open)
+        {
+            // Re-assert the stylesheet binding whenever the document comes up:
+            // a document re-enabled after cloning must still carry its USS.
+            EnsureStyleSheets();
+            BindElements();
+        }
+
         if (_display == null)
         {
             _display = Object.FindAnyObjectByType<WristDisplayAnchor>();
@@ -502,6 +646,16 @@ public class SurfaceWristController : MonoBehaviour
         else
         {
             Debug.LogError("[WristVisibility] FAIL\n" + report + SampleAlphaReport());
+        }
+
+        bool layoutOk = VerifyWristLayoutGeometry(out string layoutReport);
+        if (layoutOk)
+        {
+            Debug.Log("[WristLayout] OK\n" + layoutReport);
+        }
+        else
+        {
+            Debug.LogError("[WristLayout] FAIL\n" + layoutReport);
         }
     }
 
@@ -804,6 +958,30 @@ public class SurfaceWristController : MonoBehaviour
             tick.AddToClassList("ring-tick");
             ring.Add(tick);
             output.Add(tick);
+        }
+    }
+
+    /// <summary>Ring segments can be lost when the UIDocument re-instantiates
+    /// its tree on enable toggles; reconcile by rebuilding into the current
+    /// ring containers whenever they come up empty.</summary>
+    private void EnsureRingTicksCurrent()
+    {
+        if (_satietyRing == null || _healthRing == null)
+        {
+            BindElements();
+        }
+
+        if (_satietyRing == null || _healthRing == null)
+        {
+            return;
+        }
+
+        if (_satietyRing.childCount == 0 && _healthRing.childCount == 0)
+        {
+            _ticksBuilt = false;
+            _satietyTicks.Clear();
+            _healthTicks.Clear();
+            BuildRingTicks();
         }
     }
 
