@@ -33,3 +33,6 @@ Desktop.ini
 sysinfo.txt
 *.tmp
 *.bak
+
+# Unity Test Runner results
+TestResults*.xml

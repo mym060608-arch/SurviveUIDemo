@@ -134,8 +134,10 @@ public class SurvivePhase03Tests
         yield return null;
         Assert.IsTrue(session.LoadoutConfirmed, "session confirmed");
         Assert.AreEqual("已确认", LabelText(root, ElementNames.LoadoutStateLabel), "state confirmed (已确认)");
-        Assert.AreEqual("配置已确认", confirm.text, "confirm button relabeled after locking");
-        Assert.IsFalse(confirm.enabledSelf, "confirm disabled once locked");
+        // Phase 06: a locked loadout turns the CTA into the expedition launch
+        // (always reachable while the package stays valid).
+        Assert.AreEqual("开始远征 »", confirm.text, "confirm button becomes launch CTA after locking");
+        Assert.IsTrue(confirm.enabledSelf, "launch CTA enabled once locked");
 
         // ---- Editing after confirmation clears it ----
         Assert.IsTrue(session.TrySetBatterySelected(false), "deselect battery accepted");
