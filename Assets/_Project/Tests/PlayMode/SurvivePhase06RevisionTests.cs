@@ -243,6 +243,8 @@ public class SurvivePhase06RevisionTests
 
         VisualElement hudLayer = hudDoc.rootVisualElement.Q<VisualElement>("HudLayer");
         Assert.IsNotNull(hudLayer, "HudLayer exists");
+        SurfaceHudController hud = hudDoc.GetComponent<SurfaceHudController>();
+        Assert.IsNotNull(hud, "hud controller on the hud document");
 
         Assert.IsFalse(controller.IsWristOpen, "wrist closed initially");
         Assert.IsTrue(player.InputEnabled, "movement enabled while closed");
@@ -257,6 +259,12 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(controller.IsWristOpen, "wrist open after toggle");
         Assert.IsFalse(player.InputEnabled, "WASD/look frozen while open");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.None, "normal HUD hidden");
+        Assert.IsTrue(hudDoc.rootVisualElement.Q<VisualElement>("WristCursorOverlay") != null,
+            "overlay cursor element present on the screen-space HUD");
+        Assert.IsTrue(hud.IsWristCursorEnabled, "overlay cursor enabled while open");
+        // Visual visibility of the dot needs a real mouse device; PlayMode
+        // owns the mode semantics, Release/人工 owns the visual check.
+        hud.TickWristCursor(false);
 
         // The wrist terminal is a transparent RenderTexture document; its
         // geometry (map/rings/cards) is what defines the floating layout.
@@ -285,6 +293,7 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(player.InputEnabled, "exploration restored");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.Flex, "HUD restored");
         Assert.IsTrue(wristDoc.enabled == false || !wristDoc.enabled, "wrist document disabled");
+        Assert.IsFalse(hud.IsWristCursorEnabled, "overlay cursor disabled when wrist closed");
     }
 
     [UnityTest]

@@ -124,10 +124,36 @@ public class SurfaceGameController : MonoBehaviour
         }
 
         RefreshNavigationDistance();
+        TickWristCursorOverlay();
         RefreshHudDynamic();
         if (_wrist != null)
         {
             _wrist.Tick();
+        }
+    }
+
+    private bool _cursorOverlayActive;
+
+    /// <summary>Drives the screen-space dot cursor while WristMode is open and
+    /// hides it otherwise (never two cursors; OS cursor stays hidden).</summary>
+    private void TickWristCursorOverlay()
+    {
+        if (_hud == null)
+        {
+            return;
+        }
+
+        bool shouldShow = _isWristOpen;
+        if (shouldShow != _cursorOverlayActive)
+        {
+            _cursorOverlayActive = shouldShow;
+            _hud.SetWristCursorEnabled(shouldShow);
+        }
+
+        if (shouldShow)
+        {
+            int hover = _wrist != null ? _wrist.HitTestFromScreenMouse() : -1;
+            _hud.TickWristCursor(hover >= 0);
         }
     }
 

@@ -83,6 +83,12 @@ public class SurfaceWristController : MonoBehaviour
     private Coroutine _animator;
     private Camera _mainCamera;
 
+    // Light raised-wrist tilt (small, safe). Automatically reduced when the
+    // projected aspect would collapse below 1.35 (near edge-on).
+    private float _tiltYaw = 5f;
+    private float _tiltPitch = 3f;
+    private float _tiltRoll = -2f;
+
     private WristDisplayAnchor _display;
     private int _hoverNodeId = -1;
     private Vector2 _lastPointerPixel = new Vector2(UiWidth * 0.5f, UiHeight * 0.5f);
@@ -303,6 +309,132 @@ public class SurfaceWristController : MonoBehaviour
         ProcessHardwarePointer();
     }
 
+    // ---- Runtime pose: front-facing basis + light tilt (round 6) ----
+
+    /// <summary>Points the display front (Quad front = -transform.forward)
+    /// directly at the camera, aligned with camera up/right, then applies a
+    /// small raised-wrist tilt that is automatically reduced if the projected
+    /// aspect would collapse. No hardcoded near-180 guess.</summary>
+    public void PoseDisplayFacingCamera()
+    {
+        if (_display == null)
+        {
+            _display = Object.FindAnyObjectByType<WristDisplayAnchor>();
+        }
+
+        if (_display == null || _mainCamera == null)
+        {
+            return;
+        }
+
+        Transform display = _display.transform;
+        Transform camera = _mainCamera.transform;
+        Vector3 toCamera = camera.position - display.position;
+        if (toCamera.sqrMagnitude < 1e-6f)
+        {
+            return;
+        }
+
+        // transform.forward must point AWAY from the camera so that the Quad
+        // front (-forward) faces it, aligned to camera up.
+        Quaternion frontFacing = Quaternion.LookRotation(-toCamera.normalized,
+            camera.up);
+        display.rotation = frontFacing;
+        float safeYaw = _tiltYaw;
+        float safePitch = _tiltPitch;
+        float safeRoll = _tiltRoll;
+        int guard = 0;
+        while (guard < 3)
+        {
+            display.rotation = frontFacing
+                               * Quaternion.Euler(safePitch, safeYaw, safeRoll);
+            float aspect = ComputeProjectedAspectPx();
+            if (aspect <= 0f || aspect >= 1.35f)
+            {
+                break;
+            }
+
+            safeYaw *= 0.5f;
+            safePitch *= 0.5f;
+            safeRoll *= 0.5f;
+            guard++;
+        }
+
+        _tiltYaw = safeYaw;
+        _tiltPitch = safePitch;
+        _tiltRoll = safeRoll;
+        Debug.Log("[WristVisibility] tilt yaw=" + _tiltYaw + " pitch=" + _tiltPitch
+                  + " roll=" + _tiltRoll + " aspect="
+                  + ComputeProjectedAspectPx().ToString("0.00"));
+    }
+
+    /// <summary>Projected display aspect in screen pixels (width/height),
+    /// computed from the four display corners through the main camera.
+    /// Returns 0 when the display/camera are unusable.</summary>
+    public float ComputeProjectedAspectPx()
+    {
+        if (_display == null || _mainCamera == null || Screen.width <= 0 || Screen.height <= 0)
+        {
+            return 0f;
+        }
+
+        Transform t = _display.transform;
+        Vector3 scale = t.localScale;
+        float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
+        bool any = false;
+        for (int sx = -1; sx <= 1; sx += 2)
+        {
+            for (int sy = -1; sy <= 1; sy += 2)
+            {
+                Vector3 corner = t.position + t.right * (sx * scale.x * 0.5f)
+                                 + t.up * (sy * scale.y * 0.5f);
+                Vector3 c = _mainCamera.WorldToViewportPoint(corner);
+                if (c.z > 0f)
+                {
+                    any = true;
+                    minX = Mathf.Min(minX, c.x);
+                    maxX = Mathf.Max(maxX, c.x);
+                    minY = Mathf.Min(minY, c.y);
+                    maxY = Mathf.Max(maxY, c.y);
+                }
+            }
+        }
+
+        if (!any)
+        {
+            return 0f;
+        }
+
+        float widthPx = (maxX - minX) * Screen.width;
+        float heightPx = (maxY - minY) * Screen.height;
+        return heightPx > 0f ? widthPx / heightPx : 0f;
+    }
+
+    /// <summary>Screen-space node hover for the custom cursor overlay: maps
+    /// the real mouse position through the display collider to a node id
+    /// (-1 = no node).</summary>
+    public int HitTestFromScreenMouse()
+    {
+        if (_mainCamera == null || _display == null)
+        {
+            return -1;
+        }
+
+        Mouse mouse = Mouse.current;
+        if (mouse == null)
+        {
+            return -1;
+        }
+
+        Ray ray = _mainCamera.ScreenPointToRay(mouse.position.ReadValue());
+        if (!_display.RaycastToLocal(ray, out Vector2 uv))
+        {
+            return -1;
+        }
+
+        return HitTestNode(UVToWristPixel(uv));
+    }
+
     // ---- Wrist mode open / close ----
 
     public void SetOpen(bool open)
@@ -332,6 +464,7 @@ public class SurfaceWristController : MonoBehaviour
             if (open)
             {
                 _display.AttachTexture(_renderTexture);
+                PoseDisplayFacingCamera();
                 _animator = StartCoroutine(AnimateOpen());
             }
         }
@@ -520,6 +653,25 @@ public class SurfaceWristController : MonoBehaviour
                 "display width <=65% of screen (actual " + (widthFraction * 100f).ToString("0") + "%)");
             Check(heightFraction > 0.03f && heightFraction <= 0.70f,
                 "display height <=70% of screen (actual " + (heightFraction * 100f).ToString("0") + "%)");
+
+            // Round 6 pose guards: projected pixel aspect ~1280/800 = 1.6 and
+            // a uniform scale chain (no parent non-uniform distortion).
+            float widthPx = (maxX - minX) * Screen.width;
+            float heightPx = (maxY - minY) * Screen.height;
+            float aspectPx = heightPx > 1f ? widthPx / heightPx : 0f;
+            Check(aspectPx >= 1.35f && aspectPx <= 1.85f,
+                "projected aspect ~1.6 (px " + widthPx.ToString("0") + "x"
+                + heightPx.ToString("0") + " aspect " + aspectPx.ToString("0.00") + ")");
+            lines.AppendLine("INFO :: localScale=" + t.localScale.ToString("0.000")
+                             + " lossyScale=" + t.lossyScale.ToString("0.000")
+                             + " parentLossy="
+                             + (t.parent != null ? t.parent.lossyScale.ToString("0.000") : "<root>")
+                             + " projectedPx=" + widthPx.ToString("0") + "x"
+                             + heightPx.ToString("0"));
+            float scaleRatio = Mathf.Abs(scale.x / scale.y - (1280f / 800f));
+            Check(scaleRatio < 0.02f,
+                "display local scale keeps 1280:800 aspect (x/y ratio "
+                + (scale.x / scale.y).ToString("0.00") + ")");
         }
 
         report = lines.ToString();

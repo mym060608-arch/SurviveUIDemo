@@ -227,13 +227,13 @@ public static class NereidSurfaceBuilder
         return ok;
     }
 
-    // Camera-relative wrist placement (tunable; lower-left, raised-wrist feel).
-    // Round 5: no near-180 yaw. Base faces the camera via Unity Quad -Z front,
-    // then a small yaw/pitch/roll tilt is applied; readable, unmirrored.
-    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.24f, -0.14f, 0.78f);
-    private static readonly Vector3 WristDisplayLocalRotation = new Vector3(-6f, 12f, -3f);
-    // Physical size ~0.60m wide; 1280x800 -> height = width * 800/1280.
-    private static readonly Vector3 WristDisplayLocalScale = new Vector3(0.60f, 0.375f, 1f);
+    // Camera-relative wrist placement. The runtime pose is computed from the
+    // camera basis each open (see SurfaceWristController.PoseDisplayFacingCamera);
+    // these values only define the display centre offset. Physical size
+    // ~0.70m wide (1280x800 -> height 0.4375).
+    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.13f, -0.06f, 0.82f);
+    private static readonly Vector3 WristDisplayLocalRotation = Vector3.zero; // runtime-aligned
+    private static readonly Vector3 WristDisplayLocalScale = new Vector3(0.70f, 0.4375f, 1f);
 
     private static void BuildLandingPad(Transform parent, Material pad, Material signal)
     {
