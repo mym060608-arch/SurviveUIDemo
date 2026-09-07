@@ -34,11 +34,12 @@ public class GameSession : MonoBehaviour
     // Outpost module progression (Phase 05). Demo tier range LV.1..LV.3.
     public const int MaxModuleLevel = 3;
 
-    // Personal survival status (Phase 06 Revision). Health 0-100 where 100 is
-    // the healthy default. Hunger 0 = not hungry .. 100 = starving; the low
-    // default (18) means the explorer is only mildly hungry. No simulation yet.
+    // Personal survival status (Phase 06 Revision round 2). Health 0-100
+    // where 100 is the healthy default. Satiety 0 = extremely hungry,
+    // 100 = fully satiated; the default is a normal high value (82). No
+    // decay / eating / damage simulation yet.
     public const int DefaultPlayerHealth = 100;
-    public const int DefaultPlayerHunger = 18;
+    public const int DefaultPlayerSatiety = 82;
 
     // NEREID-04 surface harvesting (Phase 06). Three fixed resource nodes,
     // each settles exactly +5 Minerals once per Reset.
@@ -101,9 +102,10 @@ public class GameSession : MonoBehaviour
     /// <summary>Personal health, 0-100, 100 = healthy (Revision foundation).</summary>
     public int PlayerHealth { get; private set; }
 
-    /// <summary>Personal hunger, 0 = not hungry .. 100 = starving. Default 18
-    /// keeps the meaning unambiguous: 100 is never "full".</summary>
-    public int PlayerHunger { get; private set; }
+    /// <summary>Personal satiety, 0 = extremely hungry .. 100 = fully
+    /// satiated. Default is a normal high value (82). Higher is always better;
+    /// there is no ambiguity between "full" and "starving".</summary>
+    public int PlayerSatiety { get; private set; }
 
     // ---- Outpost module effects (Phase 05) ----
     // Derived authoritative values consumed by the UI and future gameplay.
@@ -467,7 +469,7 @@ public class GameSession : MonoBehaviour
         DroneSelected = false;
         LoadoutConfirmed = false;
         PlayerHealth = DefaultPlayerHealth;
-        PlayerHunger = DefaultPlayerHunger;
+        PlayerSatiety = DefaultPlayerSatiety;
         _harvestedNodeMask = 0;
         ResetProcessing();
         NotifyChanged();
@@ -509,17 +511,17 @@ public class GameSession : MonoBehaviour
         NotifyChanged();
     }
 
-    /// <summary>Clamped personal hunger mutation (tests/debug only; no decay
-    /// exists yet). Higher value = hungrier.</summary>
-    public void SetPlayerHunger(int value)
+    /// <summary>Clamped personal satiety mutation (tests/debug only; no decay
+    /// exists yet). Lower value = hungrier.</summary>
+    public void SetPlayerSatiety(int value)
     {
         int clamped = Mathf.Clamp(value, 0, 100);
-        if (clamped == PlayerHunger)
+        if (clamped == PlayerSatiety)
         {
             return;
         }
 
-        PlayerHunger = clamped;
+        PlayerSatiety = clamped;
         NotifyChanged();
     }
 

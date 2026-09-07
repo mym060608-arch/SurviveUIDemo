@@ -99,7 +99,8 @@ public class SurfacePlayerController : MonoBehaviour
     }
 
     /// <summary>Movement integration driven by Update with real keyboard
-    /// input; public for semantic automation (no physical key presses).</summary>
+    /// input; public for semantic automation (no physical key presses).
+    /// Input is camera/body-relative: x = strafe right (+), y = forward (+).</summary>
     public void MoveByInput(Vector2 input, float deltaTime)
     {
         if (input.sqrMagnitude > 1f)
@@ -107,7 +108,22 @@ public class SurfacePlayerController : MonoBehaviour
             input.Normalize();
         }
 
-        Vector3 planarMove = new Vector3(input.x, 0f, input.y);
+        // Facing-relative planar motion: project the body axes onto XZ so W
+        // always follows the current horizontal forward after turning.
+        Vector3 forward = transform.forward;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            forward = Vector3.forward;
+        }
+
+        forward.Normalize();
+        Vector3 right = Vector3.Cross(Vector3.up, forward);
+        Vector3 planarMove = right * input.x + forward * input.y;
+        if (planarMove.sqrMagnitude > 1f)
+        {
+            planarMove.Normalize();
+        }
 
         if (_controller.isGrounded)
         {

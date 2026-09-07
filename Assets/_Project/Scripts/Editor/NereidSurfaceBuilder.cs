@@ -88,6 +88,13 @@ public static class NereidSurfaceBuilder
         MoveToScene(scene, padRoot);
         BuildLandingPad(padRoot.transform, pad, signal);
 
+        // E-return world interaction over the pad (first-person interactable).
+        var returnVolume = padRoot.AddComponent<SphereCollider>();
+        returnVolume.isTrigger = true;
+        returnVolume.radius = 2.2f;
+        returnVolume.center = new Vector3(0f, 1f, 0f);
+        padRoot.AddComponent<LandingReturnInteractable>();
+
         // ---- Decorative rocks (deterministic, off the walk path) ----
         BuildRocks(scene, rock);
 

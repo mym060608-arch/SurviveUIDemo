@@ -15,6 +15,13 @@ public class FirstPersonInteractor : MonoBehaviour
 {
     public float interactRange = 3.0f;
 
+    // When the camera origin sits inside a target's trigger volume, plain
+    // ray/SphereCast misses. A small overlap fallback still requires the
+    // target to be roughly in front (gaze-directed), so a node behind the
+    // player is never picked just because it is near.
+    public float veryNearOverlapRadius = 0.8f;
+    public float veryNearConeDot = 0.45f; // ~63 degrees half-angle
+
     private Camera _eyeCamera;
     private SurfacePlayerController _player;
     private IFirstPersonInteractable _currentTarget;
@@ -60,7 +67,7 @@ public class FirstPersonInteractor : MonoBehaviour
         }
     }
 
-    /// <summary>Re-evaluates the gazed target from the camera center ray.</summary>
+    /// <summary>Re-evaluates the gazed target from the camera center.</summary>
     public void RefreshTarget()
     {
         _currentTarget = null;
@@ -70,25 +77,96 @@ public class FirstPersonInteractor : MonoBehaviour
             return;
         }
 
+        Vector3 origin = _eyeCamera.transform.position;
         Ray ray = _eyeCamera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 0f));
-        if (Physics.Raycast(ray, out RaycastHit hit, interactRange,
+        Vector3 forward = ray.direction;
+        forward.y = 0f;
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            forward = _eyeCamera.transform.forward;
+        }
+
+        forward.Normalize();
+
+        // 1) Thin sphere cast first: forgiving of grazing angles near edges.
+        if (Physics.SphereCast(ray, 0.15f, out RaycastHit hit, interactRange,
             ~0, QueryTriggerInteraction.Collide))
         {
-            IFirstPersonInteractable target =
-                hit.collider.GetComponentInParent<IFirstPersonInteractable>();
-            if (target != null)
+            if (TryResolveTarget(hit.collider))
             {
-                if (target.CanInteract())
+                return;
+            }
+        }
+
+        // 2) Very-near fallback: when the camera origin is inside the target's
+        // trigger, casts miss entirely. Overlap the immediate area and only
+        // accept a target that is in front of the player (gaze-directed).
+        if (Physics.OverlapSphere(origin, veryNearOverlapRadius, ~0,
+            QueryTriggerInteraction.Collide) is { Length: > 0 } overlaps)
+        {
+            IFirstPersonInteractable best = null;
+            float bestScore = float.MinValue;
+            foreach (Collider overlap in overlaps)
+            {
+                IFirstPersonInteractable target =
+                    overlap.GetComponentInParent<IFirstPersonInteractable>();
+                if (target == null)
                 {
-                    _currentTarget = target;
+                    continue;
                 }
-                else
+
+                Vector3 toTarget = overlap.transform.position - origin;
+                toTarget.y = 0f;
+                if (toTarget.sqrMagnitude < 0.0001f)
                 {
-                    // Remember a looked-at busy/depleted object so the HUD can
-                    // show its state prompt instead of the generic one.
-                    _lastBlockedTarget = target;
+                    // Standing exactly on the marker: treat any forward as ok.
+                    toTarget = forward;
+                }
+
+                toTarget.Normalize();
+                float dot = Vector3.Dot(forward, toTarget);
+                if (dot < veryNearConeDot)
+                {
+                    continue; // behind/side target must not win by proximity
+                }
+
+                if (dot > bestScore)
+                {
+                    bestScore = dot;
+                    best = target;
                 }
             }
+
+            if (best != null)
+            {
+                Classify(best);
+                return;
+            }
+        }
+    }
+
+    private bool TryResolveTarget(Collider collider)
+    {
+        IFirstPersonInteractable target =
+            collider.GetComponentInParent<IFirstPersonInteractable>();
+        if (target == null)
+        {
+            return false;
+        }
+
+        Classify(target);
+        return true;
+    }
+
+    private void Classify(IFirstPersonInteractable target)
+    {
+        if (target.CanInteract())
+        {
+            _currentTarget = target;
+        }
+        else
+        {
+            _lastBlockedTarget = target;
         }
     }
 
