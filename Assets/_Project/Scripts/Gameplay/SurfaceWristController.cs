@@ -1,38 +1,54 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Wrist terminal view for the NEREID-04 surface (Phase 06 Revision round 2).
+/// Wrist terminal presented as a real "raised wrist" projection
+/// (Phase 06 Revision round 3).
 ///
-/// Pure presentation: SurfaceGameController owns wrist mode and navigation
-/// state, GameSession owns personal status (health + satiety) / loadout /
-/// cargo, and the nodes own their harvesting states. This controller binds
-/// those live sources into the floating wrist UXML: a central circular LOCAL
-/// MAP as the visual anchor, thin segmented satiety/health ring readouts
-/// around it, detached small blocks for equipment / cargo / navigation /
-/// harvest context, and the project-native dot cursor. The world keeps
-/// running and stays visible through the layout's negative space.
+/// The wrist UXML renders into a fixed 1280x800 RenderTexture which is shown
+/// on a tilted world plane anchored camera-relative (lower-left of view), so
+/// the terminal reads as floating interface projected from the wrist while
+/// the 3D world stays visible around it.
 ///
-/// Real pointer input: node markers receive PointerDown + Click and forward
-/// the selection to SurfaceGameController.TrySelectNavigationTarget - the
-/// same authoritative API the semantic tests use.
+/// Real hardware navigation: while WristMode is open this controller reads
+/// Mouse.current.leftButton and the real cursor position, casts a ray from
+/// the main camera through the cursor onto the wrist display plane, converts
+/// the hit to LOCAL MAP coordinates, and hit-tests the node markers before
+/// calling the single authoritative TrySelectNavigationTarget(nodeId).
+/// TrySelectNavigationTarget remains the state semantic; physical clicks are
+/// routed through this same method and still need a human spot-check.
 /// </summary>
 public class SurfaceWristController : MonoBehaviour
 {
+    // RenderTexture / logical UI size and LOCAL MAP anchor (fixed pixels).
+    public const int UiWidth = 1280;
+    public const int UiHeight = 800;
+    public const int MapLeft = 390;
+    public const int MapTop = 150;
+    public const int MapSize = 500;
+    public const float MapRadiusPx = 226f;
+    public const float NodeHitRadiusPx = 34f;
+
     private const int RingTickCount = 64;
     private const float RingTickHalfPx = 3f;
-    private const float MapMarkerHalfPx = 17f;   // 34px button markers
+    private const float MapMarkerHalfPx = 17f;
     private const float LandingHalfPx = 8f;
     private const float PlayerHalfPx = 8f;
-    private const float NavRingHalfPx = 19f;     // 38px ring
+    private const float NavRingHalfPx = 21f;
     private const float CompletionHoldSeconds = 4f;
 
+    [SerializeField]
+    public StyleSheet wristStyleSheet;
+
+    [SerializeField]
+    public PanelSettings panelSettings;
+
     private UIDocument _document;
+    private RenderTexture _renderTexture;
     private VisualElement _root;
-    private VisualElement _wristLayer;
-    private VisualElement _wristCluster;
     private VisualElement _mapCircle;
     private VisualElement _mapPlayer;
     private VisualElement _mapLanding;
@@ -42,6 +58,7 @@ public class SurfaceWristController : MonoBehaviour
     private Label _nodeCount;
     private Label _healthValue;
     private Label _satietyValue;
+    private Label _actionState;
     private Label _harvesterState;
     private Label _batteryState;
     private Label _droneState;
@@ -64,18 +81,57 @@ public class SurfaceWristController : MonoBehaviour
     private float _completedAt;
     private bool _bound;
     private Coroutine _animator;
+    private Camera _mainCamera;
+
+    private WristDisplayAnchor _display;
+    private int _hoverNodeId = -1;
+    private Vector2 _lastPointerPixel = new Vector2(UiWidth * 0.5f, UiHeight * 0.5f);
+
+    /// <summary>Exposed for tests: the wrist document's root element.</summary>
+    public VisualElement RootElement => _root;
 
     private void Awake()
     {
         _document = GetComponent<UIDocument>();
+        _renderTexture = new RenderTexture(UiWidth, UiHeight, 0);
+        _renderTexture.name = "WristRenderTexture";
+        _renderTexture.Create();
+
+        if (_document != null)
+        {
+            if (_document.panelSettings == null && panelSettings != null)
+            {
+                _document.panelSettings = panelSettings;
+            }
+
+            if (_document.panelSettings != null)
+            {
+                _document.panelSettings.targetTexture = _renderTexture;
+            }
+        }
     }
 
-    /// <summary>Binds the wrist view to the authoritative surface controller
-    /// (called once the surface Start order is done).</summary>
+    private void OnDestroy()
+    {
+        OnDestroyUnsubscribe();
+        if (_document != null && _document.panelSettings != null)
+        {
+            _document.panelSettings.targetTexture = null;
+        }
+
+        if (_renderTexture != null)
+        {
+            _renderTexture.Release();
+            _renderTexture = null;
+        }
+    }
+
+    /// <summary>Binds the wrist view to the authoritative surface controller.</summary>
     public void Bind(SurfaceGameController controller)
     {
         _controller = controller;
         _session = GameSession.Instance;
+        _mainCamera = controller.Player != null ? controller.Player.EyeCamera : Camera.main;
         BindElements();
         SubscribeNodes();
 
@@ -91,9 +147,10 @@ public class SurfaceWristController : MonoBehaviour
         }
 
         RefreshSessionData();
+        SetOpen(false);
     }
 
-    private void OnDestroy()
+    private void OnDestroyUnsubscribe()
     {
         if (_session != null)
         {
@@ -121,6 +178,11 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
+    private void OnDisable()
+    {
+        OnDestroyUnsubscribe();
+    }
+
     private void SubscribeNodes()
     {
         if (_controller == null)
@@ -143,8 +205,13 @@ public class SurfaceWristController : MonoBehaviour
         }
 
         _root = _document.rootVisualElement;
-        _wristLayer = _root.Q<VisualElement>("WristLayer");
-        _wristCluster = _root.Q<VisualElement>("WristPanel");
+        if (wristStyleSheet != null)
+        {
+            _root.styleSheets.Add(wristStyleSheet);
+        }
+
+        ApplyUiCjkFont();
+
         _mapCircle = _root.Q<VisualElement>("WristMapCircle");
         _mapPlayer = _root.Q<VisualElement>("MapPlayer");
         _mapLanding = _root.Q<VisualElement>("MapLanding");
@@ -155,6 +222,7 @@ public class SurfaceWristController : MonoBehaviour
         _nodeCount = _root.Q<Label>("WristNodeCount");
         _healthValue = _root.Q<Label>("WristHealthValue");
         _satietyValue = _root.Q<Label>("WristSatietyValue");
+        _actionState = _root.Q<Label>("WristActionState");
         _harvesterState = _root.Q<Label>("WristEquipHarvesterState");
         _batteryState = _root.Q<Label>("WristEquipBatteryState");
         _droneState = _root.Q<Label>("WristEquipDroneState");
@@ -170,51 +238,40 @@ public class SurfaceWristController : MonoBehaviour
             _markers[i] = _root.Q<VisualElement>("MapNode" + i);
         }
 
-        if (_cursor != null && _wristLayer != null)
-        {
-            _wristLayer.RegisterCallback<PointerMoveEvent>(OnPointerMoved);
-        }
-
-        for (int i = 0; i < _markers.Length; i++)
-        {
-            int captured = i;
-            VisualElement marker = _markers[i];
-            if (marker == null)
-            {
-                continue;
-            }
-
-            marker.pickingMode = PickingMode.Position;
-
-            // Real left-click navigation: PointerDown (immediate) plus Click
-            // fallback both route into the same authoritative selector. A
-            // marker is small, so any pointer press reaching it selects.
-            marker.RegisterCallback<PointerDownEvent>(evt =>
-            {
-                if (_controller != null)
-                {
-                    _controller.TrySelectNavigationTarget(captured);
-                }
-            });
-
-            marker.RegisterCallback<ClickEvent>(evt =>
-            {
-                if (_controller != null)
-                {
-                    _controller.TrySelectNavigationTarget(captured);
-                }
-            });
-
-            marker.RegisterCallback<PointerOverEvent>(evt => SetCursorActive(true));
-            marker.RegisterCallback<PointerOutEvent>(evt => SetCursorActive(false));
-        }
-
         BuildRingTicks();
-        _bound = _wristLayer != null && _mapCircle != null;
+        _bound = _mapCircle != null;
     }
 
-    /// <summary>Driven every frame by the surface controller so the map stays
-    /// live even while the wrist is open.</summary>
+    private static Font _cjkFont;
+
+    private void ApplyUiCjkFont()
+    {
+        if (_cjkFont == null)
+        {
+            string[] candidates =
+            {
+                "Microsoft YaHei UI",
+                "Microsoft YaHei",
+                "SimHei",
+                "Noto Sans CJK SC",
+                "Source Han Sans SC"
+            };
+
+            _cjkFont = Font.CreateDynamicFontFromOSFont(candidates, 16);
+        }
+
+        if (_cjkFont == null || _root == null)
+        {
+            return;
+        }
+
+        foreach (TextElement text in _root.Query<TextElement>().ToList())
+        {
+            text.style.unityFont = _cjkFont;
+        }
+    }
+
+    /// <summary>Driven every frame by the surface controller.</summary>
     public void Tick()
     {
         if (!_bound)
@@ -229,7 +286,7 @@ public class SurfaceWristController : MonoBehaviour
             RefreshSessionData();
         }
 
-        if (_wristLayer == null || _wristLayer.style.display == DisplayStyle.None)
+        if (_document == null || !_document.enabled)
         {
             return;
         }
@@ -237,13 +294,14 @@ public class SurfaceWristController : MonoBehaviour
         RefreshMapGeometry();
         RefreshRingPositions();
         RefreshActiveProgress();
+        ProcessHardwarePointer();
     }
 
-    // ---- Wrist mode open / close (with light raise animation) ----
+    // ---- Wrist mode open / close ----
 
     public void SetOpen(bool open)
     {
-        if (_wristLayer == null)
+        if (_document == null)
         {
             return;
         }
@@ -254,28 +312,21 @@ public class SurfaceWristController : MonoBehaviour
             _animator = null;
         }
 
-        _wristLayer.style.display = open ? DisplayStyle.Flex : DisplayStyle.None;
-        if (_cursor != null)
+        // The wrist UXML renders only into its own RenderTexture, so it can be
+        // kept disabled (and cheap) whenever the terminal is closed.
+        _document.enabled = open;
+        if (_display == null)
         {
-            _cursor.style.display = open ? DisplayStyle.Flex : DisplayStyle.None;
+            _display = Object.FindAnyObjectByType<WristDisplayAnchor>();
         }
 
-        if (open && _wristCluster != null)
+        if (_display != null)
         {
-            _animator = StartCoroutine(AnimateOpen());
-        }
-        else
-        {
-            if (_wristCluster != null)
+            _display.Show(open);
+            if (open)
             {
-                _wristCluster.style.opacity = 1f;
-                _wristCluster.style.scale = new Scale(Vector3.one);
-                _wristCluster.style.translate = new Translate(0f, 0f, 0f);
-            }
-
-            if (_cursor != null)
-            {
-                _cursor.style.display = DisplayStyle.None;
+                _display.AttachTexture(_renderTexture);
+                _animator = StartCoroutine(AnimateOpen());
             }
         }
 
@@ -292,20 +343,21 @@ public class SurfaceWristController : MonoBehaviour
 
     private IEnumerator AnimateOpen()
     {
-        // Small "raise the wrist" feel: fade in, scale up, lift into place.
-        float duration = 0.22f;
+        if (_display == null)
+        {
+            yield break;
+        }
+
+        float duration = 0.2f;
         float elapsed = 0f;
         while (elapsed < duration)
         {
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
-            t = t * t * (3f - 2f * t); // smoothstep
-            if (_wristCluster != null)
+            t = t * t * (3f - 2f * t);
+            if (_display != null)
             {
-                _wristCluster.style.opacity = t;
-                _wristCluster.style.scale = new Scale(new Vector3(0.92f + 0.08f * t,
-                    0.92f + 0.08f * t, 1f));
-                _wristCluster.style.translate = new Translate(0f, (1f - t) * 40f, 0f);
+                _display.SetScale(Mathf.Lerp(0.82f, 1f, t));
             }
 
             yield return null;
@@ -316,10 +368,10 @@ public class SurfaceWristController : MonoBehaviour
 
     private void HandleWristOpenChanged(bool open)
     {
-        // State is already applied through SetOpen by the controller.
+        // SetOpen is applied by the controller already.
     }
 
-    // ---- Live data refresh (event driven + per-frame) ----
+    // ---- Live data refresh ----
 
     private void HandleSessionChanged()
     {
@@ -354,8 +406,12 @@ public class SurfaceWristController : MonoBehaviour
 
         SetText(_healthValue, _session.PlayerHealth.ToString());
         SetText(_satietyValue, _session.PlayerSatiety.ToString());
-        SetText(_nodeCount, "回收节点 " + _session.HarvestedNodeCount + " / "
-                            + GameSession.SurfaceNodeCount);
+        SetText(_nodeCount, _session.HarvestedNodeCount + " / " + GameSession.SurfaceNodeCount);
+
+        SurfaceResourceNode active = _controller != null ? _controller.ActiveNode : null;
+        SetText(_actionState, active != null
+            ? (active.State == SurfaceResourceNode.NodeState.Harvesting ? "采集中" : "传输中")
+            : "探索中");
 
         SetEquipState(_harvesterState, "已装备", false);
         SetEquipState(_batteryState, _session.BatterySelected ? "已选择" : "未选择",
@@ -365,9 +421,8 @@ public class SurfaceWristController : MonoBehaviour
 
         int equipmentCount = 1 + (_session.BatterySelected ? 1 : 0)
                              + (_session.DroneSelected ? 1 : 0);
-        SetText(_cargoValue, "设备 " + equipmentCount + " · 载荷 "
-                            + _session.CargoWeight + " / "
-                            + GameSession.CargoCapacityKg + " KG");
+        SetText(_cargoValue, "设备 " + equipmentCount + " · " + _session.CargoWeight
+                            + " / " + GameSession.CargoCapacityKg + " KG");
     }
 
     private static void SetEquipState(Label state, string text, bool off)
@@ -388,7 +443,7 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
-    // ---- Thin ring readouts (built segments around the map) ----
+    // ---- Thin ring readouts ----
 
     private void BuildRingTicks()
     {
@@ -406,11 +461,6 @@ public class SurfaceWristController : MonoBehaviour
 
     private static void BuildTicksInto(VisualElement ring, List<VisualElement> output)
     {
-        if (ring == null)
-        {
-            return;
-        }
-
         for (int i = 0; i < RingTickCount; i++)
         {
             var tick = new VisualElement();
@@ -460,8 +510,8 @@ public class SurfaceWristController : MonoBehaviour
             return;
         }
 
-        float width = ring.resolvedStyle.width > 10f ? ring.resolvedStyle.width : 800f;
-        float height = ring.resolvedStyle.height > 10f ? ring.resolvedStyle.height : 800f;
+        float width = ring.resolvedStyle.width > 10f ? ring.resolvedStyle.width : 660f;
+        float height = ring.resolvedStyle.height > 10f ? ring.resolvedStyle.height : 660f;
         float centerX = width * 0.5f;
         float centerY = height * 0.5f;
         float radius = Mathf.Min(centerX, centerY) - 12f;
@@ -479,8 +529,6 @@ public class SurfaceWristController : MonoBehaviour
 
     // ---- Circular map ----
 
-    /// <summary>Places every world marker on the circular map from live world
-    /// positions. North-up: world +X -> right, world +Z -> up.</summary>
     private void RefreshMapGeometry()
     {
         if (_controller == null || _mapCircle == null || _controller.Player == null)
@@ -488,31 +536,21 @@ public class SurfaceWristController : MonoBehaviour
             return;
         }
 
-        float width = _mapCircle.resolvedStyle.width > 10f
-            ? _mapCircle.resolvedStyle.width
-            : 620f;
-        float height = _mapCircle.resolvedStyle.height > 10f
-            ? _mapCircle.resolvedStyle.height
-            : 620f;
-        float centerX = width * 0.5f;
-        float centerY = height * 0.5f;
-        float radius = Mathf.Min(centerX, centerY) - 24f;
+        // The wrist is a fixed 1280x800 logical canvas, so map-local math is
+        // deterministic in UI pixels.
+        float centerX = MapSize * 0.5f;
+        float centerY = MapSize * 0.5f;
 
         Vector3 playerPos = _controller.Player.transform.position;
-        PlaceMapMarker(_mapPlayer, playerPos, PlayerHalfPx, centerX, centerY, radius);
+        PlaceMapMarker(_mapPlayer, playerPos, PlayerHalfPx, centerX, centerY);
 
-        // Player marker facing: yaw 0 faces +Z (up). UI rotation positive is
-        // clockwise, so the marker angle is -yaw.
         if (_mapPlayer != null)
         {
-            _mapPlayer.style.rotate = new Rotate(new Angle(
-                -_controller.Player.YawDegrees));
+            _mapPlayer.style.rotate = new Rotate(new Angle(-_controller.Player.YawDegrees));
         }
 
-        // Landing / return zone sits at the world origin.
-        PlaceMapMarker(_mapLanding, Vector3.zero, LandingHalfPx, centerX, centerY, radius);
+        PlaceMapMarker(_mapLanding, Vector3.zero, LandingHalfPx, centerX, centerY);
 
-        // Three resource nodes with live state classes.
         for (int i = 0; i < _markers.Length; i++)
         {
             if (_markers[i] == null)
@@ -526,28 +564,23 @@ public class SurfaceWristController : MonoBehaviour
                 continue;
             }
 
-            PlaceMapMarker(_markers[i], node.transform.position, MapMarkerHalfPx,
-                centerX, centerY, radius);
-            ApplyMarkerState(_markers[i], node,
-                _controller.NavigationTargetNodeId == i);
+            PlaceMapMarker(_markers[i], node.transform.position, MapMarkerHalfPx, centerX, centerY);
+            ApplyMarkerState(_markers[i], node, _controller.NavigationTargetNodeId == i);
         }
 
-        // Selected navigation ring over its node.
         if (_navRing != null && _controller.IsNavigationActive)
         {
-            SurfaceResourceNode target = _controller.GetNodeById(
-                _controller.NavigationTargetNodeId);
+            SurfaceResourceNode target = _controller.GetNodeById(_controller.NavigationTargetNodeId);
             if (target != null)
             {
-                PlaceMapMarker(_navRing, target.transform.position, NavRingHalfPx,
-                    centerX, centerY, radius);
+                PlaceMapMarker(_navRing, target.transform.position, NavRingHalfPx, centerX, centerY);
                 _navRing.style.rotate = new Rotate(new Angle(45f));
             }
         }
     }
 
     private static void PlaceMapMarker(VisualElement element, Vector3 world,
-        float halfSize, float centerX, float centerY, float radius)
+        float halfSize, float centerX, float centerY)
     {
         if (element == null)
         {
@@ -555,8 +588,8 @@ public class SurfaceWristController : MonoBehaviour
         }
 
         Vector2 fraction = SurfaceGameController.MapFraction(world);
-        element.style.left = centerX + fraction.x * radius - halfSize;
-        element.style.top = centerY - fraction.y * radius - halfSize;
+        element.style.left = centerX + fraction.x * MapRadiusPx - halfSize;
+        element.style.top = centerY - fraction.y * MapRadiusPx - halfSize;
     }
 
     private static void ApplyMarkerState(VisualElement marker,
@@ -586,7 +619,118 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
-    // ---- Live active harvest context (wrist never pauses the world) ----
+    // ---- Hardware pointer navigation (Mouse.current + display ray) ----
+
+    private void ProcessHardwarePointer()
+    {
+        if (_controller == null || _mainCamera == null || _display == null || _cursor == null)
+        {
+            return;
+        }
+
+        Mouse mouse = Mouse.current;
+        if (mouse == null)
+        {
+            return;
+        }
+
+        Vector2 mousePosition = mouse.position.ReadValue();
+        Ray ray = _mainCamera.ScreenPointToRay(mousePosition);
+        if (!_display.RaycastToLocal(ray, out Vector2 uv))
+        {
+            _cursor.style.display = DisplayStyle.None;
+            _hoverNodeId = -1;
+            return;
+        }
+
+        Vector2 wristPixel = UVToWristPixel(uv);
+        _lastPointerPixel = wristPixel;
+        _cursor.style.display = DisplayStyle.Flex;
+        _cursor.style.left = wristPixel.x - 7f;
+        _cursor.style.top = wristPixel.y - 7f;
+
+        int hit = HitTestNode(wristPixel);
+        SetCursorActive(hit >= 0);
+        _hoverNodeId = hit;
+
+        if (mouse.leftButton.wasPressedThisFrame)
+        {
+            // Real hardware left click -> deterministic hit-test -> single
+            // authoritative selector.
+            if (hit >= 0)
+            {
+                _controller.TrySelectNavigationTarget(hit);
+            }
+        }
+    }
+
+    /// <summary>Display UV (0..1) to wrist logical pixel (UI y down).</summary>
+    public static Vector2 UVToWristPixel(Vector2 uv)
+    {
+        return new Vector2(
+            Mathf.Clamp01(uv.x) * UiWidth,
+            (1f - Mathf.Clamp01(uv.y)) * UiHeight);
+    }
+
+    /// <summary>Deterministic LOCAL MAP node hit-test on a wrist pixel.
+    /// Returns node id or -1. Rejects nodes outside the circular map.</summary>
+    public int HitTestNode(Vector2 wristPixel)
+    {
+        if (_controller == null)
+        {
+            return -1;
+        }
+
+        float mapLocalX = wristPixel.x - MapLeft;
+        float mapLocalY = wristPixel.y - MapTop;
+        Vector2 mapCenter = new Vector2(MapSize * 0.5f, MapSize * 0.5f);
+        if (Vector2.Distance(new Vector2(mapLocalX, mapLocalY), mapCenter) > MapRadiusPx + 6f)
+        {
+            return -1;
+        }
+
+        int best = -1;
+        float bestDistance = NodeHitRadiusPx;
+        for (int i = 0; i < _controller.Nodes.Count; i++)
+        {
+            SurfaceResourceNode node = _controller.GetNodeById(i);
+            if (node == null)
+            {
+                continue;
+            }
+
+            Vector2 fraction = SurfaceGameController.MapFraction(node.transform.position);
+            Vector2 markerCenter = mapCenter + new Vector2(
+                fraction.x * MapRadiusPx, -fraction.y * MapRadiusPx);
+            float distance = Vector2.Distance(new Vector2(mapLocalX, mapLocalY), markerCenter);
+            if (distance <= bestDistance)
+            {
+                bestDistance = distance;
+                best = i;
+            }
+        }
+
+        return best;
+    }
+
+    private void SetCursorActive(bool active)
+    {
+        if (_cursor == null)
+        {
+            return;
+        }
+
+        if (active)
+        {
+            _cursor.AddToClassList("cursor-active");
+        }
+        else
+        {
+            _cursor.RemoveFromClassList("cursor-active");
+        }
+    }
+
+    // ---- Live active harvest context ----
 
     private void RefreshActiveProgress()
     {
@@ -611,8 +755,7 @@ public class SurfaceWristController : MonoBehaviour
         }
         else if (showCompletion)
         {
-            SetText(_activeNodeLabel, SurfaceGameController.NodeDisplayName(
-                _completedNode.NodeId));
+            SetText(_activeNodeLabel, SurfaceGameController.NodeDisplayName(_completedNode.NodeId));
             SetText(_activeState, "传输完成");
             SetText(_activePercent, "矿物 +5");
         }
@@ -650,36 +793,6 @@ public class SurfaceWristController : MonoBehaviour
             _navRing.style.display = _controller.IsNavigationActive
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
-        }
-    }
-
-    // ---- Custom dot cursor ----
-
-    private void OnPointerMoved(PointerMoveEvent evt)
-    {
-        if (_cursor == null)
-        {
-            return;
-        }
-
-        _cursor.style.left = evt.localPosition.x - 6f;
-        _cursor.style.top = evt.localPosition.y - 6f;
-    }
-
-    private void SetCursorActive(bool active)
-    {
-        if (_cursor == null)
-        {
-            return;
-        }
-
-        if (active)
-        {
-            _cursor.AddToClassList("cursor-active");
-        }
-        else
-        {
-            _cursor.RemoveFromClassList("cursor-active");
         }
     }
 

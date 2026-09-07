@@ -1,79 +1,46 @@
 /*
- * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision round 2).
- * Floating field terminal: no enclosing rectangle. A central circular LOCAL
- * MAP is the visual anchor; thin segmented status rings hug its perimeter;
- * equipment / cargo / navigation / harvest states are detached small
- * hairline blocks. Large negative space keeps the 3D world clearly visible,
- * so the UI reads as an interface projected forward from the wrist.
- * Off-white / ink / teal, Swiss grid, restrained radius. No neon.
+ * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision round 3).
+ * Rendered into a 1280x800 RenderTexture and projected onto a tilted world
+ * plane: a true "raised wrist" anchor with the world visible around it.
+ * Off-white / ink / teal / hairlines, restrained radius, no neon.
  */
 
-/* ---------- Layer + open presentation ---------- */
-
-.wrist-layer {
+.wrist-root {
     position: absolute;
     left: 0;
-    right: 0;
     top: 0;
-    bottom: 0;
-    align-items: center;
-    justify-content: center;
-    display: none;
+    width: 1280px;
+    height: 800px;
+    background-color: rgba(0, 0, 0, 0);
 }
 
-/* Transparent cluster that positions everything without a card background. */
-.wrist-cluster {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    margin-left: -670px;
-    margin-top: -470px;
-    width: 1340px;
-    height: 940px;
-    flex-shrink: 0;
-}
-
-/* ---------- Brand line (floating, small) ---------- */
+/* ---------- Brand ---------- */
 
 .wrist-brand {
     position: absolute;
-    left: 0;
-    right: 0;
-    top: 4px;
-    -unity-text-align: middle-center;
-    font-size: 13px;
+    left: 16px;
+    top: 10px;
+    font-size: 12px;
     -unity-font-style: bold;
     letter-spacing: 0;
     color: #161B20;
-}
-
-.wrist-node-count {
-    position: absolute;
-    right: 14px;
-    top: 6px;
-    font-size: 12px;
-    -unity-font-style: bold;
-    color: #0E7F8C;
-    letter-spacing: 0;
-    background-color: rgba(233, 235, 237, 0.75);
-    padding: 4px 10px;
+    background-color: rgba(233, 235, 237, 0.7);
+    padding: 3px 10px;
     border-width: 1px;
     border-color: #C9CFD4;
 }
 
-/* ---------- Circular local map (dominant visual anchor) ---------- */
+/* ---------- Circular local map (visual centre of the wrist) ---------- */
 
 .wrist-map-circle {
     position: absolute;
-    left: 50%;
-    top: 50%;
-    margin-left: -310px;
-    margin-top: -310px;
-    width: 620px;
-    height: 620px;
+    left: 390px;
+    top: 150px;
+    width: 500px;
+    height: 500px;
     border-radius: 50%;
     overflow: hidden;
-    background-color: rgba(226, 230, 233, 0.9);
+    background-color: rgba(226, 230, 233, 0.92);
     border-width: 1px;
     border-color: #9AA3AC;
 }
@@ -104,8 +71,8 @@
 
 .map-nav-ring {
     position: absolute;
-    width: 38px;
-    height: 38px;
+    width: 42px;
+    height: 42px;
     border-width: 2px;
     border-color: #0E7F8C;
     border-radius: 3px;
@@ -128,7 +95,7 @@
 
 .map-marker-btn .map-marker-label {
     -unity-text-align: middle-center;
-    font-size: 12px;
+    font-size: 13px;
     -unity-font-style: bold;
     color: #FFFFFF;
 }
@@ -157,35 +124,25 @@
     border-color: #161B20;
 }
 
-.map-marker-btn:hover {
-    border-color: #0E7F8C;
-}
-
-.wrist-map-hint {
-    display: none;
-}
-
-/* ---------- Thin ring readouts (tick segments built at runtime) ---------- */
+/* ---------- Ring containers (tick segments built at runtime) ---------- */
 
 .wrist-ring {
     position: absolute;
-    left: 50%;
-    top: 50%;
     pointer-events: none;
 }
 
 .ring-satiety {
-    width: 800px;
-    height: 800px;
-    margin-left: -400px;
-    margin-top: -400px;
+    left: 310px;
+    top: 70px;
+    width: 660px;
+    height: 660px;
 }
 
 .ring-health {
-    width: 900px;
-    height: 900px;
-    margin-left: -450px;
-    margin-top: -450px;
+    left: 260px;
+    top: 20px;
+    width: 760px;
+    height: 760px;
 }
 
 .ring-tick {
@@ -200,97 +157,89 @@
     background-color: #0E7F8C;
 }
 
-.ring-tick.tick-health-active {
-    background-color: #161B20;
-}
-
-/* Ring chips: caption + value in the small gaps between map and rings */
+/* ---------- Ring chips: caption + value above/below the map ---------- */
 
 .ring-chip {
     position: absolute;
     flex-direction: row;
     align-items: center;
-    background-color: rgba(233, 235, 237, 0.72);
+    width: 150px;
+    height: 26px;
+    background-color: rgba(233, 235, 237, 0.82);
     border-width: 1px;
     border-color: #C9CFD4;
-    padding: 3px 10px;
+    padding: 0 10px;
 }
 
 .chip-health {
-    left: 50%;
-    margin-left: -70px;
-    top: 118px;
-    width: 140px;
-    height: 26px;
+    left: 565px;
+    top: 108px;
 }
 
 .chip-satiety {
-    left: 50%;
-    margin-left: -70px;
-    top: 794px;
-    width: 140px;
-    height: 26px;
+    left: 565px;
+    top: 668px;
 }
 
 .ring-chip-caption {
-    font-size: 10px;
+    font-size: 11px;
     color: #4A525C;
     letter-spacing: 0;
     margin-right: auto;
 }
 
 .ring-chip-value {
-    font-size: 15px;
+    font-size: 16px;
     -unity-font-style: bold;
     color: #161B20;
 }
 
-/* ---------- Floating side modules (detached hairline blocks) ---------- */
+/* ---------- Detached corner modules ---------- */
 
-.float-card {
+.wrist-card {
     position: absolute;
-    width: 220px;
-    background-color: rgba(233, 235, 237, 0.72);
+    width: 232px;
+    background-color: rgba(233, 235, 237, 0.82);
     border-width: 1px;
     border-color: #C9CFD4;
     padding: 8px 12px;
 }
 
-.float-title {
-    font-size: 10px;
+.wrist-title {
+    font-size: 11px;
     -unity-font-style: bold;
     letter-spacing: 1px;
     color: #161B20;
     border-bottom-width: 1px;
     border-bottom-color: #C9CFD4;
     padding-bottom: 3px;
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .card-equip {
-    left: 22px;
-    top: 158px;
+    left: 12px;
+    top: 150px;
 }
 
-.card-cargo {
-    right: 22px;
-    top: 158px;
+.card-status {
+    right: 12px;
+    top: 150px;
 }
 
 .card-nav {
-    left: 22px;
-    bottom: 170px;
+    left: 12px;
+    bottom: 40px;
 }
 
 .card-active {
-    right: 22px;
-    bottom: 170px;
+    right: 12px;
+    bottom: 40px;
 }
 
 .wrist-row {
     flex-direction: row;
     align-items: center;
-    height: 24px;
+    height: 22px;
 }
 
 .wrist-row-name {
@@ -312,7 +261,7 @@
 }
 
 .wrist-nav-name {
-    font-size: 14px;
+    font-size: 15px;
     -unity-font-style: bold;
     color: #161B20;
     margin-top: 2px;
@@ -320,14 +269,14 @@
 }
 
 .wrist-nav-distance {
-    font-size: 18px;
+    font-size: 20px;
     -unity-font-style: bold;
     color: #0E7F8C;
     margin-top: 1px;
 }
 
 .wrist-active-node {
-    font-size: 13px;
+    font-size: 14px;
     -unity-font-style: bold;
     color: #161B20;
     margin-top: 2px;
@@ -341,7 +290,7 @@
 }
 
 .wrist-active-state {
-    font-size: 12px;
+    font-size: 13px;
     -unity-font-style: bold;
     color: #0A616C;
     margin-right: auto;
@@ -349,30 +298,30 @@
 }
 
 .wrist-active-percent {
-    font-size: 15px;
+    font-size: 16px;
     -unity-font-style: bold;
     color: #0A616C;
 }
 
-/* ---------- Footer (single small line under the cluster) ---------- */
+/* ---------- Footer ---------- */
 
 .wrist-footer {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: -26px;
+    bottom: 12px;
     -unity-text-align: middle-center;
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0;
-    color: rgba(22, 27, 32, 0.8);
+    color: rgba(22, 27, 32, 0.85);
 }
 
-/* ---------- Custom dot cursor ---------- */
+/* ---------- Project dot cursor (drawn on the wrist display) ---------- */
 
 .wrist-cursor {
     position: absolute;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     border-radius: 50%;
     border-width: 1px;
     border-color: #161B20;

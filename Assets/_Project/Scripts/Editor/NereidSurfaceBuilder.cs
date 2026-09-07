@@ -20,8 +20,10 @@ public static class NereidSurfaceBuilder
     private const string MaterialsFolder = "Assets/_Project/Materials/Surface";
     private const string UxmlPath = "Assets/_Project/UI/UXML/SurfaceHUD.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
+    private const string UxmlWristPath = "Assets/_Project/UI/UXML/SurfaceWrist.uxml";
     private const string UssWristPath = "Assets/_Project/UI/USS/SurfaceWrist.uss";
     private const string PanelSettingsPath = "Assets/_Project/UI/Settings/HubPanelSettings.asset";
+    private const string WristPanelSettingsPath = "Assets/_Project/UI/Settings/WristPanelSettings.asset";
 
     public static void RunCli()
     {
@@ -135,17 +137,7 @@ public static class NereidSurfaceBuilder
         eyeGo.transform.localPosition = new Vector3(0f, 1.65f, 0f);
         eyeGo.transform.localRotation = Quaternion.identity;
 
-        // ---- Surface HUD + wrist terminal (UI Toolkit overlay) ----
-        // UIDocument.panelSettings does not serialize from this deterministic
-        // builder (stays {fileID: 0}); the asset rides on the controller field
-        // and is applied to the UIDocument at runtime (OnEnable).
-        var wristUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssWristPath);
-        if (wristUss == null)
-        {
-            Debug.LogError("[NereidSurfaceBuilder] missing wrist uss: " + UssWristPath);
-            return false;
-        }
-
+        // ---- Surface HUD (screen-space UI Toolkit overlay) ----
         var hudGo = new GameObject("SurfaceHUD");
         MoveToScene(scene, hudGo);
         var document = hudGo.AddComponent<UIDocument>();
@@ -153,9 +145,59 @@ public static class NereidSurfaceBuilder
         document.sortingOrder = 1;
         var hud = hudGo.AddComponent<SurfaceHudController>();
         hud.hudStyleSheet = uss;
-        hud.wristStyleSheet = wristUss;
         hud.panelSettings = panelSettings;
-        hudGo.AddComponent<SurfaceWristController>();
+
+        // ---- Wrist terminal: own UIDocument -> RenderTexture -> tilted
+        // world plane (Phase 06 Revision round 3) ----
+        var wristUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlWristPath);
+        if (wristUxml == null)
+        {
+            Debug.LogError("[NereidSurfaceBuilder] missing wrist uxml: " + UxmlWristPath);
+            return false;
+        }
+
+        var wristUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssWristPath);
+        if (wristUss == null)
+        {
+            Debug.LogError("[NereidSurfaceBuilder] missing wrist uss: " + UssWristPath);
+            return false;
+        }
+
+        PanelSettings wristPanel = EnsureWristPanelSettings();
+        if (wristPanel == null)
+        {
+            Debug.LogError("[NereidSurfaceBuilder] wrist panel settings missing");
+            return false;
+        }
+
+        var wristGo = new GameObject("SurfaceWristUI");
+        MoveToScene(scene, wristGo);
+        var wristDoc = wristGo.AddComponent<UIDocument>();
+        wristDoc.visualTreeAsset = wristUxml;
+        var wrist = wristGo.AddComponent<SurfaceWristController>();
+        wrist.panelSettings = wristPanel;
+        wrist.wristStyleSheet = wristUss;
+
+        // Tilted display plane anchored to the eye camera (camera-relative).
+        var displayGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
+        Object.DestroyImmediate(displayGo.GetComponent<Collider>());
+        displayGo.name = "WristDisplay";
+        displayGo.transform.SetParent(eyeGo.transform, false);
+        displayGo.transform.localPosition = WristDisplayLocalPosition;
+        displayGo.transform.localRotation = Quaternion.Euler(WristDisplayLocalRotation);
+        displayGo.transform.localScale = new Vector3(1.42f, 0.89f, 1f);
+
+        Shader unlit = Shader.Find("Universal Render Pipeline/Unlit");
+        var displayMaterial = new Material(unlit != null ? unlit : Shader.Find("Unlit/Color"))
+        {
+            name = "M_WristDisplay"
+        };
+
+        var displayRenderer = displayGo.GetComponent<Renderer>();
+        displayRenderer.sharedMaterial = displayMaterial;
+        displayGo.AddComponent<MeshCollider>();
+        var anchor = displayGo.AddComponent<WristDisplayAnchor>();
+        anchor.Show(false); // controller shows it when the wrist opens
 
         // ---- Surface coordinator ----
         var controlGo = new GameObject("SurfaceGameController");
@@ -171,6 +213,10 @@ public static class NereidSurfaceBuilder
         Debug.Log("[NereidSurfaceBuilder] wrote " + ScenePath);
         return ok;
     }
+
+    // Camera-relative wrist placement (tunable; lower-left of view).
+    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.42f, -0.3f, 1.05f);
+    private static readonly Vector3 WristDisplayLocalRotation = new Vector3(8f, 172f, -2f);
 
     private static void BuildLandingPad(Transform parent, Material pad, Material signal)
     {
@@ -357,6 +403,24 @@ public static class NereidSurfaceBuilder
     }
 
     // ---- helpers ----
+
+    /// <summary>Creates (idempotently) the wrist panel settings asset that
+    /// renders the SurfaceWrist UI into its RenderTexture at fixed pixels.</summary>
+    private static PanelSettings EnsureWristPanelSettings()
+    {
+        var existing = AssetDatabase.LoadAssetAtPath<PanelSettings>(WristPanelSettingsPath);
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        var panel = ScriptableObject.CreateInstance<PanelSettings>();
+        panel.scaleMode = PanelScaleMode.ConstantPixelSize;
+        AssetDatabase.CreateAsset(panel, WristPanelSettingsPath);
+        EditorUtility.SetDirty(panel);
+        Debug.Log("[NereidSurfaceBuilder] wrote " + WristPanelSettingsPath);
+        return panel;
+    }
 
     private static bool EnsureMaterials()
     {

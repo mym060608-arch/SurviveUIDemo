@@ -36,17 +36,25 @@ public static class SurviveProjectValidator
     private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
     private const string SurfaceHudUxmlPath = "Assets/_Project/UI/UXML/SurfaceHUD.uxml";
     private const string SurfaceHudUssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
+    private const string SurfaceWristUxmlPath = "Assets/_Project/UI/UXML/SurfaceWrist.uxml";
     private const string SurfaceWristUssPath = "Assets/_Project/UI/USS/SurfaceWrist.uss";
     private const string GuidePath = "Docs/UI_LANGUAGE_STYLE.md";
 
-    /// <summary>Phase 06 Revision first-person HUD + wrist terminal element
-    /// names the runtime binds to.</summary>
-    private static readonly string[] SurfaceRevisionStructure =
+    /// <summary>Phase 06 Revision normal exploration HUD element names
+    /// (screen-space SurfaceHUD.uxml).</summary>
+    private static readonly string[] SurfaceHudRevisionStructure =
     {
         "HudLayer",
         "HudNavBlock", "HudNavName", "HudNavDistance",
-        "HudCrosshairDot", "HudCrosshairRing",
-        "WristLayer", "WristPanel", "WristNodeCount",
+        "HudCrosshairDot", "HudCrosshairRing"
+    };
+
+    /// <summary>Phase 06 Revision wrist terminal element names the runtime
+    /// binds to (SurfaceWrist.uxml, rendered to its own RenderTexture).</summary>
+    private static readonly string[] WristRevisionStructure =
+    {
+        "WristRoot",
+        "WristNodeCount",
         "WristHealthValue", "WristSatietyValue",
         "WristHealthRing", "WristSatietyRing",
         "WristEquipHarvester", "WristEquipHarvesterState",
@@ -56,6 +64,7 @@ public static class SurviveProjectValidator
         "WristMapCircle", "MapLanding", "MapPlayer", "MapNavRing",
         "MapNode0", "MapNode1", "MapNode2",
         "WristNavName", "WristNavDistance",
+        "WristActionState",
         "WristActiveNode", "WristActiveState", "WristActivePercent",
         "WristCursor"
     };
@@ -107,6 +116,7 @@ public static class SurviveProjectValidator
         Record(File.Exists(OutpostUssPath), "outpost uss exists: " + OutpostUssPath);
         Record(File.Exists(SurfaceHudUxmlPath), "surface HUD uxml exists: " + SurfaceHudUxmlPath);
         Record(File.Exists(SurfaceHudUssPath), "surface HUD uss exists: " + SurfaceHudUssPath);
+        Record(File.Exists(SurfaceWristUxmlPath), "surface wrist uxml exists: " + SurfaceWristUxmlPath);
         Record(File.Exists(SurfaceWristUssPath), "surface wrist uss exists: " + SurfaceWristUssPath);
 
         // ---- Build order ----
@@ -177,7 +187,7 @@ public static class SurviveProjectValidator
             }
         }
 
-        // ---- SurfaceHUD.uxml coverage (Phase 06 + Revision structure) ----
+        // ---- SurfaceHUD.uxml coverage (Phase 06 + Revision HUD structure) ----
         var surfaceUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SurfaceHudUxmlPath);
         Record(surfaceUxml != null, "SurfaceHUD.uxml imports as VisualTreeAsset");
         if (surfaceUxml != null)
@@ -192,10 +202,32 @@ public static class SurviveProjectValidator
                 }
             });
 
-            foreach (string expected in SurfaceRevisionStructure)
+            foreach (string expected in SurfaceHudRevisionStructure)
             {
                 Record(surfacePresent.Contains(expected),
                     "SurfaceHUD.uxml revision structure: " + expected);
+            }
+        }
+
+        // ---- SurfaceWrist.uxml coverage (floating wrist terminal) ----
+        var wristUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SurfaceWristUxmlPath);
+        Record(wristUxml != null, "SurfaceWrist.uxml imports as VisualTreeAsset");
+        if (wristUxml != null)
+        {
+            HashSet<string> wristPresent = new HashSet<string>();
+            TemplateContainer wristTemplate = wristUxml.Instantiate();
+            wristTemplate.Query<VisualElement>().ForEach(element =>
+            {
+                if (!string.IsNullOrEmpty(element.name))
+                {
+                    wristPresent.Add(element.name);
+                }
+            });
+
+            foreach (string expected in WristRevisionStructure)
+            {
+                Record(wristPresent.Contains(expected),
+                    "SurfaceWrist.uxml revision structure: " + expected);
             }
         }
 
@@ -262,8 +294,8 @@ public static class SurviveProjectValidator
             Record(CountInScene<LandingReturnInteractable>() == 1,
                 "02_NereidSurface has exactly one LandingReturnInteractable (found "
                 + CountInScene<LandingReturnInteractable>() + ")");
-            Record(CountInScene<UIDocument>() == 1,
-                "02_NereidSurface has exactly one UIDocument (found "
+            Record(CountInScene<UIDocument>() == 2,
+                "02_NereidSurface has exactly two UIDocuments (HUD + wrist) (found "
                 + CountInScene<UIDocument>() + ")");
             Record(CountInScene<SurfaceResourceNode>() == 3,
                 "02_NereidSurface has exactly 3 resource nodes (found "
@@ -288,27 +320,41 @@ public static class SurviveProjectValidator
 
             Record(sawCamera && cameraUnderPlayer, "surface camera is child of Player (first person)");
             Record(!RootExists("GameplayCamera"), "no legacy third-person follow camera root");
+            Record(CountInScene<WristDisplayAnchor>() == 1,
+                "02_NereidSurface has exactly one wrist display anchor (found "
+                + CountInScene<WristDisplayAnchor>() + ")");
 
-            UIDocument surfaceDocument = FirstInScene<UIDocument>();
-            SurfaceHudController surfaceHud = FirstInScene<SurfaceHudController>();
-            if (surfaceDocument != null)
+            // Both UIDocuments and their bindings / panel settings.
+            Scene active = SceneManager.GetActiveScene();
+            bool sawHudDoc = false;
+            bool sawWristDoc = false;
+            bool hudPanelAssigned = false;
+            bool wristPanelAssigned = false;
+            foreach (GameObject root in active.GetRootGameObjects())
             {
-                string surfaceSource = surfaceDocument.visualTreeAsset != null
-                    ? surfaceDocument.visualTreeAsset.name
-                    : "<null>";
-                Record(surfaceSource == "SurfaceHUD",
-                    "Surface UIDocument bound to SurfaceHUD.uxml (actual: " + surfaceSource + ")");
-                // PanelSettings rides on the HUD controller field (deterministic
-                // builder cannot serialize it on UIDocument) and is applied to
-                // the document at runtime; either storage is acceptable.
-                bool panelAssigned = surfaceDocument.panelSettings != null
-                    || (surfaceHud != null && surfaceHud.panelSettings != null);
-                Record(panelAssigned, "Surface HUD PanelSettings assigned");
+                foreach (UIDocument doc in root.GetComponentsInChildren<UIDocument>(true))
+                {
+                    string name = doc.visualTreeAsset != null ? doc.visualTreeAsset.name : "<null>";
+                    if (name == "SurfaceHUD")
+                    {
+                        sawHudDoc = true;
+                        SurfaceHudController hud = doc.GetComponent<SurfaceHudController>();
+                        hudPanelAssigned = doc.panelSettings != null
+                            || (hud != null && hud.panelSettings != null);
+                    }
+                    else if (name == "SurfaceWrist")
+                    {
+                        sawWristDoc = true;
+                        SurfaceWristController wrist = doc.GetComponent<SurfaceWristController>();
+                        wristPanelAssigned = wrist != null && wrist.panelSettings != null;
+                    }
+                }
             }
-            else
-            {
-                Record(false, "Surface UIDocument missing (cannot verify binding)");
-            }
+
+            Record(sawHudDoc, "Surface UIDocument bound to SurfaceHUD.uxml");
+            Record(sawWristDoc, "Wrist UIDocument bound to SurfaceWrist.uxml");
+            Record(hudPanelAssigned, "Surface HUD PanelSettings assigned");
+            Record(wristPanelAssigned, "Wrist PanelSettings assigned (RenderTexture target at runtime)");
 
             // Surface resource node ids must be unique and well-formed.
             var nodeIds = new List<int>();
