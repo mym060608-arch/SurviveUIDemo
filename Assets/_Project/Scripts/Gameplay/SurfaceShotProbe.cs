@@ -4,26 +4,30 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Clean combined gameplay screenshot probe (validation/asset pipeline only).
+/// Clean first-person + wrist screenshot probe (validation/asset pipeline).
 ///
-/// Inert unless launched with  -surfaceShot &lt;absolute png path&gt;. Lives on
-/// 00_Boot (DontDestroyOnLoad) so a Release player can drive the real journey:
-/// Hub loadout confirm -> 02_NereidSurface -> walk player next to node 0 ->
-/// deploy -> wait for the wireless transfer stage -> capture the combined
-/// 3D+HUD frame -> quit. Used with a Release player so the screenshot carries
-/// no engine watermark. Semantic checks belong to AutoSurfaceFlowProbe.
+/// Inert unless launched with  -surfaceShot &lt;base png path&gt;. Lives on
+/// 00_Boot (DontDestroyOnLoad) so a Release player drives the real journey:
+/// Hub loadout confirm -> 02_NereidSurface (first person) ->
+///   A. first-person exploration frame,
+///   B. wrist open - circular LOCAL MAP,
+///   C. wrist open with navigation node selected,
+///   D. wrist open during wireless transfer,
+///   E. wrist open after settlement (传输完成 / node recycled).
+/// All through public gameplay APIs (no fake physical input). Semantic checks
+/// belong to AutoSurfaceFlowProbe.
 /// </summary>
 public class SurfaceShotProbe : MonoBehaviour
 {
     private const string Flag = "-surfaceShot";
 
-    private string _outputPath;
+    private string _basePath;
     private bool _active;
 
     private void Awake()
     {
-        _outputPath = ParseFlag(Flag);
-        _active = !string.IsNullOrEmpty(_outputPath);
+        _basePath = ParseFlag(Flag);
+        _active = !string.IsNullOrEmpty(_basePath);
         if (!_active)
         {
             enabled = false;
@@ -44,15 +48,13 @@ public class SurfaceShotProbe : MonoBehaviour
 
     private static IEnumerator Watchdog()
     {
-        yield return new WaitForSecondsRealtime(150f);
+        yield return new WaitForSecondsRealtime(180f);
         Debug.LogError("[SurfaceShotProbe] watchdog timeout");
         Application.Quit(2);
     }
 
     private IEnumerator Run()
     {
-        // Stage A: reach the Hub (00_Boot auto-loads it) and confirm the
-        // default loadout so the expedition gate allows the surface launch.
         GameSession session = GameSession.Instance;
         AppController app = null;
         for (int i = 0; i < 1200; i++)
@@ -81,7 +83,6 @@ public class SurfaceShotProbe : MonoBehaviour
             yield break;
         }
 
-        // Stage B: enter the surface scene.
         SceneManager.LoadScene(GameSession.SurfaceSceneName);
         SurfaceGameController controller = null;
         for (int i = 0; i < 1200; i++)
@@ -102,11 +103,9 @@ public class SurfaceShotProbe : MonoBehaviour
             yield break;
         }
 
-        // Deterministic framing: windowed 1920x1080.
         Screen.SetResolution(1920, 1080, false);
-
-        SurfaceResourceNode node0 = controller.Nodes[0];
         SurfacePlayerController player = Object.FindAnyObjectByType<SurfacePlayerController>();
+        SurfaceResourceNode node0 = controller.Nodes[0];
         if (player == null)
         {
             Debug.LogError("[SurfaceShotProbe] player missing");
@@ -114,32 +113,57 @@ public class SurfaceShotProbe : MonoBehaviour
             yield break;
         }
 
-        player.TeleportTo(node0.transform.position + new Vector3(-1.6f, 0f, 1.6f));
+        string explorePath = Base("_fp_explore");
+        string wristMapPath = Base("_wrist_map");
+        string wristNavPath = Base("_wrist_nav");
+        string wristTransferPath = Base("_wrist_transfer");
+        string wristSettledPath = Base("_wrist_settled");
+
+        // A: first-person exploration, standing beside node 0 looking at it.
+        player.TeleportTo(node0.transform.position + new Vector3(-1.7f, 0f, 1.9f));
         yield return null;
-        bool deployed = controller.TryDeployNearest();
-
-        // Capture while the wireless transfer beam is visible (after harvest).
-        // Bounded by real seconds: frame counts do not bound wall time when
-        // the player loop is uncapped.
-        float waitUntil = Time.realtimeSinceStartup + 14f;
-        while ((!deployed || node0.State != SurfaceResourceNode.NodeState.Transmitting)
-               && Time.realtimeSinceStartup < waitUntil)
+        FaceToward(player, node0.transform.position);
+        yield return WaitForScreenshot(explorePath);
+        if (!File.Exists(explorePath))
         {
-            yield return null;
-        }
-
-        if (node0.State != SurfaceResourceNode.NodeState.Transmitting)
-        {
-            Debug.LogError("[SurfaceShotProbe] node0 never reached wireless transfer");
+            Debug.LogError("[SurfaceShotProbe] explore capture failed");
             Application.Quit(1);
             yield break;
         }
 
-        yield return new WaitForSecondsRealtime(0.25f);
-        Capture();
-        yield return new WaitForSecondsRealtime(0.2f);
+        // B: wrist open - circular local map.
+        controller.SetWristOpen(true);
+        yield return new WaitForSecondsRealtime(0.5f);
+        yield return WaitForScreenshot(wristMapPath);
 
-        // Second frame right after the settle: shows 传输完成 矿物 +5.
+        // C: wrist open - node 0 selected as navigation target.
+        controller.TrySelectNavigationTarget(0);
+        yield return new WaitForSecondsRealtime(0.3f);
+        yield return WaitForScreenshot(wristNavPath);
+
+        // D: close wrist, deploy node 0, reopen during wireless transfer.
+        controller.SetWristOpen(false);
+        player.TeleportTo(node0.transform.position + new Vector3(-1.7f, 0f, 1.9f));
+        yield return null;
+        if (!controller.TryDeployNearest())
+        {
+            Debug.LogError("[SurfaceShotProbe] deploy failed");
+            Application.Quit(1);
+            yield break;
+        }
+
+        float transferUntil = Time.realtimeSinceStartup + 14f;
+        while (node0.State != SurfaceResourceNode.NodeState.Transmitting
+               && Time.realtimeSinceStartup < transferUntil)
+        {
+            yield return null;
+        }
+
+        controller.SetWristOpen(true);
+        yield return new WaitForSecondsRealtime(0.45f);
+        yield return WaitForScreenshot(wristTransferPath);
+
+        // E: settlement completes while the wrist stays open.
         float settleUntil = Time.realtimeSinceStartup + 8f;
         while (node0.State != SurfaceResourceNode.NodeState.Depleted
                && Time.realtimeSinceStartup < settleUntil)
@@ -147,38 +171,49 @@ public class SurfaceShotProbe : MonoBehaviour
             yield return null;
         }
 
-        if (node0.State != SurfaceResourceNode.NodeState.Depleted)
-        {
-            Debug.LogError("[SurfaceShotProbe] node0 never settled");
-            Application.Quit(1);
-            yield break;
-        }
+        yield return new WaitForSecondsRealtime(0.5f);
+        yield return WaitForScreenshot(wristSettledPath);
 
-        yield return new WaitForSecondsRealtime(0.35f);
-        string settledPath = Path.Combine(
-            Path.GetDirectoryName(_outputPath) ?? ".",
-            Path.GetFileNameWithoutExtension(_outputPath) + "_settled.png");
-        CaptureTo(settledPath);
-
-        if (session.HarvestedNodeCount != 1 || session.Minerals != 25)
+        if (session.Minerals != 25 || session.HarvestedNodeCount != 1)
         {
             Debug.LogError("[SurfaceShotProbe] settle did not pay +5");
             Application.Quit(1);
             yield break;
         }
 
-        Debug.Log("[SurfaceShotProbe] wrote screenshots: " + _outputPath + " | " + settledPath);
+        Debug.Log("[SurfaceShotProbe] wrote screenshots: " + explorePath + " | "
+                  + wristMapPath + " | " + wristNavPath + " | " + wristTransferPath
+                  + " | " + wristSettledPath);
         Application.Quit(0);
     }
 
-    private void Capture()
+    private string Base(string suffix)
     {
-        CaptureTo(_outputPath);
+        return Path.Combine(Path.GetDirectoryName(_basePath) ?? ".",
+            Path.GetFileNameWithoutExtension(_basePath) + suffix + ".png");
     }
 
-    private static void CaptureTo(string path)
+    private static IEnumerator WaitForScreenshot(string path)
     {
         ScreenCapture.CaptureScreenshot(path);
+        for (int i = 0; i < 600; i++)
+        {
+            if (File.Exists(path) && new FileInfo(path).Length > 20000)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        yield return new WaitForSecondsRealtime(0.15f);
+    }
+
+    private static void FaceToward(SurfacePlayerController player, Vector3 target)
+    {
+        Vector3 delta = target - player.transform.position;
+        float yaw = Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg;
+        player.SetFacing(yaw, 0f);
     }
 
     private static string ParseFlag(string flag)
