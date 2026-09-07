@@ -2,34 +2,106 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>
-/// Simple WASD ground controller for the NEREID-04 survey unit (Phase 06).
+/// First-person WASD + mouse-look surface controller (Phase 06 Revision).
 ///
-/// CharacterController-based; no animation, no physics body. Facing follows
-/// the movement direction. The playfield is clamped so the player cannot
-/// wander infinitely.
+/// CharacterController-based ground movement with world bounds, gravity and
+/// no jump. Horizontal look rotates the invisible body (yaw), vertical look
+/// pitches the attached eye-level camera. No third-person capsule body is
+/// rendered; the CharacterController stays as the invisible collision volume.
+///
+/// Input is centralized here: movement + mouse look only run while
+/// InputEnabled (the wrist terminal mode disables it). The semantic methods
+/// ApplyLook / MoveByInput / SetFacing are public so automation can drive the
+/// exact same paths a human would with WASD / mouse without faking devices.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class SurfacePlayerController : MonoBehaviour
 {
     public float moveSpeed = 4.5f;
     public float boundaryHalfExtent = 16.5f;
+    public float lookSensitivity = 0.12f; // degrees per mouse delta unit
+    public float pitchLimitDegrees = 80f;
+    public float eyeHeight = 1.65f;
 
     private CharacterController _controller;
+    private Camera _eyeCamera;
     private Vector3 _velocity;
+    private float _yawDegrees;
+    private float _pitchDegrees;
+
+    /// <summary>False while the wrist terminal is open (WASD/look frozen).</summary>
+    public bool InputEnabled { get; set; } = true;
 
     public CharacterController Controller => _controller;
-
-    /// <summary>Last horizontal velocity in world space (m/s).</summary>
-    public Vector3 Velocity => _velocity;
+    public float YawDegrees => _yawDegrees;
+    public float PitchDegrees => _pitchDegrees;
+    public Camera EyeCamera => _eyeCamera;
 
     private void Awake()
     {
         _controller = GetComponent<CharacterController>();
+        _eyeCamera = GetComponentInChildren<Camera>(true);
+        if (_eyeCamera == null)
+        {
+            _eyeCamera = Camera.main;
+        }
+
+        if (_eyeCamera != null)
+        {
+            _eyeCamera.transform.localPosition = new Vector3(0f, eyeHeight, 0f);
+        }
     }
 
     private void Update()
     {
-        Vector2 input = ReadMoveInput();
+        if (!InputEnabled)
+        {
+            return;
+        }
+
+        Mouse mouse = Mouse.current;
+        if (mouse != null)
+        {
+            Vector2 delta = mouse.delta.ReadValue();
+            if (delta.sqrMagnitude > 0f)
+            {
+                ApplyLook(delta.x * lookSensitivity, -delta.y * lookSensitivity);
+            }
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        Vector2 input = keyboard == null
+            ? Vector2.zero
+            : new Vector2(
+                (keyboard.dKey.isPressed ? 1f : 0f) - (keyboard.aKey.isPressed ? 1f : 0f),
+                (keyboard.wKey.isPressed ? 1f : 0f) - (keyboard.sKey.isPressed ? 1f : 0f));
+        MoveByInput(input, Time.deltaTime);
+    }
+
+    /// <summary>Applies look deltas in degrees: horizontal on body yaw,
+    /// vertical on eye pitch (clamped to +/-pitchLimitDegrees).</summary>
+    public void ApplyLook(float deltaYaw, float deltaPitch)
+    {
+        _yawDegrees = Mathf.Repeat(_yawDegrees + deltaYaw, 360f);
+        _pitchDegrees = Mathf.Clamp(_pitchDegrees + deltaPitch,
+            -pitchLimitDegrees, pitchLimitDegrees);
+        ApplyRotation();
+    }
+
+    /// <summary>Deterministic facing used by automation/probes (yaw 0 faces
+    /// world +Z, which the map treats as north/up).</summary>
+    public void SetFacing(float yawDegrees, float pitchDegrees)
+    {
+        _yawDegrees = Mathf.Repeat(yawDegrees, 360f);
+        _pitchDegrees = Mathf.Clamp(pitchDegrees,
+            -pitchLimitDegrees, pitchLimitDegrees);
+        ApplyRotation();
+    }
+
+    /// <summary>Movement integration driven by Update with real keyboard
+    /// input; public for semantic automation (no physical key presses).</summary>
+    public void MoveByInput(Vector2 input, float deltaTime)
+    {
         if (input.sqrMagnitude > 1f)
         {
             input.Normalize();
@@ -37,29 +109,21 @@ public class SurfacePlayerController : MonoBehaviour
 
         Vector3 planarMove = new Vector3(input.x, 0f, input.y);
 
-        // Apply simple gravity so the unit stays grounded on slopes.
         if (_controller.isGrounded)
         {
             _velocity.y = -1.5f;
         }
         else
         {
-            _velocity.y += Physics.gravity.y * Time.deltaTime;
+            _velocity.y += Physics.gravity.y * deltaTime;
         }
 
         Vector3 horizontal = planarMove * moveSpeed;
         _velocity.x = horizontal.x;
         _velocity.z = horizontal.z;
 
-        if (planarMove.sqrMagnitude > 0.001f)
-        {
-            // Face movement direction (smooth turn, no erratic spin).
-            Quaternion target = Quaternion.LookRotation(planarMove, Vector3.up);
-            transform.rotation = Quaternion.RotateTowards(transform.rotation, target, 720f * Time.deltaTime);
-        }
-
         Vector3 before = transform.position;
-        _controller.Move(_velocity * Time.deltaTime);
+        _controller.Move(_velocity * deltaTime);
 
         Vector3 after = transform.position;
         after.x = Mathf.Clamp(after.x, -boundaryHalfExtent, boundaryHalfExtent);
@@ -70,18 +134,13 @@ public class SurfacePlayerController : MonoBehaviour
         }
     }
 
-    /// <summary>WASD via the active Input System device.</summary>
-    private static Vector2 ReadMoveInput()
+    private void ApplyRotation()
     {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard == null)
+        transform.rotation = Quaternion.Euler(0f, _yawDegrees, 0f);
+        if (_eyeCamera != null)
         {
-            return Vector2.zero;
+            _eyeCamera.transform.localRotation = Quaternion.Euler(_pitchDegrees, 0f, 0f);
         }
-
-        float x = (keyboard.dKey.isPressed ? 1f : 0f) - (keyboard.aKey.isPressed ? 1f : 0f);
-        float z = (keyboard.wKey.isPressed ? 1f : 0f) - (keyboard.sKey.isPressed ? 1f : 0f);
-        return new Vector2(x, z);
     }
 
     /// <summary>Deterministic placement helper (tests / probes).</summary>

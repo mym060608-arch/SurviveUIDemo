@@ -20,6 +20,7 @@ public static class NereidSurfaceBuilder
     private const string MaterialsFolder = "Assets/_Project/Materials/Surface";
     private const string UxmlPath = "Assets/_Project/UI/UXML/SurfaceHUD.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
+    private const string UssWristPath = "Assets/_Project/UI/USS/SurfaceWrist.uss";
     private const string PanelSettingsPath = "Assets/_Project/UI/Settings/HubPanelSettings.asset";
 
     public static void RunCli()
@@ -104,40 +105,40 @@ public static class NereidSurfaceBuilder
                 harvester, signal);
         }
 
-        // ---- Player ----
+        // ---- Player: invisible first-person body + eye-level camera ----
         var player = new GameObject("Player");
         MoveToScene(scene, player);
-        var capsule = GameObject.CreatePrimitive(PrimitiveType.Capsule);
-        Object.DestroyImmediate(capsule.GetComponent<CapsuleCollider>());
-        capsule.name = "SurveyUnit";
-        capsule.transform.SetParent(player.transform, false);
-        capsule.transform.localPosition = new Vector3(0f, 1f, 0f);
-        var renderer = capsule.GetComponent<Renderer>();
-        renderer.sharedMaterial = CreateMaterialInstance(harvester, "M_Harvester");
         var cc = player.AddComponent<CharacterController>();
-        cc.height = 2f;
-        cc.radius = 0.45f;
-        cc.center = new Vector3(0f, 1f, 0f);
+        cc.height = 1.8f;
+        cc.radius = 0.35f;
+        cc.center = new Vector3(0f, 0.9f, 0f);
         player.transform.position = new Vector3(0f, 0f, 4.8f);
         player.AddComponent<SurfacePlayerController>();
+        player.AddComponent<FirstPersonInteractor>();
 
-        // ---- Gameplay camera (fixed high follow, driven by controller) ----
-        var camGo = new GameObject("GameplayCamera");
-        MoveToScene(scene, camGo);
-        camGo.tag = "MainCamera";
-        var cam = camGo.AddComponent<Camera>();
+        var eyeGo = new GameObject("FirstPersonCamera");
+        eyeGo.transform.SetParent(player.transform, false);
+        eyeGo.tag = "MainCamera";
+        var cam = eyeGo.AddComponent<Camera>();
         cam.clearFlags = CameraClearFlags.SolidColor;
         cam.backgroundColor = new Color(0.68f, 0.71f, 0.74f);
-        cam.fieldOfView = 55f;
+        cam.fieldOfView = 70f;
         cam.nearClipPlane = 0.05f;
         cam.farClipPlane = 220f;
-        cam.transform.position = new Vector3(0f, 10f, -5f);
-        cam.transform.rotation = Quaternion.Euler(45f, 0f, 0f);
+        eyeGo.transform.localPosition = new Vector3(0f, 1.65f, 0f);
+        eyeGo.transform.localRotation = Quaternion.identity;
 
-        // ---- Surface HUD (UI Toolkit overlay) ----
+        // ---- Surface HUD + wrist terminal (UI Toolkit overlay) ----
         // UIDocument.panelSettings does not serialize from this deterministic
         // builder (stays {fileID: 0}); the asset rides on the controller field
         // and is applied to the UIDocument at runtime (OnEnable).
+        var wristUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssWristPath);
+        if (wristUss == null)
+        {
+            Debug.LogError("[NereidSurfaceBuilder] missing wrist uss: " + UssWristPath);
+            return false;
+        }
+
         var hudGo = new GameObject("SurfaceHUD");
         MoveToScene(scene, hudGo);
         var document = hudGo.AddComponent<UIDocument>();
@@ -145,7 +146,9 @@ public static class NereidSurfaceBuilder
         document.sortingOrder = 1;
         var hud = hudGo.AddComponent<SurfaceHudController>();
         hud.hudStyleSheet = uss;
+        hud.wristStyleSheet = wristUss;
         hud.panelSettings = panelSettings;
+        hudGo.AddComponent<SurfaceWristController>();
 
         // ---- Surface coordinator ----
         var controlGo = new GameObject("SurfaceGameController");
@@ -308,6 +311,12 @@ public static class NereidSurfaceBuilder
         component.transferBeam = beam;
         component.depletedBaseMaterial = depleted;
         component.depletedBeaconMaterial = beaconDim;
+
+        // First-person gaze ray needs a trigger volume on the node root.
+        var interactVolume = nodeRoot.AddComponent<SphereCollider>();
+        interactVolume.isTrigger = true;
+        interactVolume.radius = 1.15f;
+        interactVolume.center = new Vector3(0f, 1.15f, 0f);
     }
 
     private static GameObject BuildHarvester(Material body, Material signal)

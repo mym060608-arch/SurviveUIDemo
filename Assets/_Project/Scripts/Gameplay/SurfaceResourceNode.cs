@@ -11,7 +11,7 @@ using UnityEngine;
 /// Completion persists in GameSession (bit mask), so re-entering the scene
 /// restores Depleted nodes and duplicates can never pay out.
 /// </summary>
-public class SurfaceResourceNode : MonoBehaviour
+public class SurfaceResourceNode : MonoBehaviour, IFirstPersonInteractable
 {
     public enum NodeState
     {
@@ -54,6 +54,37 @@ public class SurfaceResourceNode : MonoBehaviour
     public event Action<SurfaceResourceNode, int> OnSettled;
 
     private GameSession Session => GameSession.Instance;
+
+    // ---- IFirstPersonInteractable (Phase 06 Revision) ----
+    // Gaze interaction routes here through FirstPersonInteractor; the
+    // authoritative deploy logic below is untouched.
+
+    public bool CanInteract()
+    {
+        return State == NodeState.Available
+               && Session != null
+               && !Session.IsSurfaceNodeCompleted(nodeId);
+    }
+
+    public string GetInteractionPrompt()
+    {
+        switch (State)
+        {
+            case NodeState.Available:
+                return "E  部署采集器";
+            case NodeState.Harvesting:
+                return "采集中";
+            case NodeState.Transmitting:
+                return "无线传输中";
+            default:
+                return "资源节点已回收";
+        }
+    }
+
+    public void Interact()
+    {
+        TryStartHarvest();
+    }
 
     private void Awake()
     {
