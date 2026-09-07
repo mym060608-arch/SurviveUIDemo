@@ -516,8 +516,8 @@
                             <ui:Label name="ProcessingRefineryLevel" class="meta-value" text="LV.1" />
                         </ui:VisualElement>
                         <ui:VisualElement class="meta-line">
-                            <ui:Label class="meta-key" text="加工效率" />
-                            <ui:Label name="ProcessingEfficiencyValue" class="meta-value" text="100%" />
+                            <ui:Label class="meta-key" text="加工周期" />
+                            <ui:Label name="ProcessingDurationValue" class="meta-value" text="2.0s" />
                         </ui:VisualElement>
                         <ui:VisualElement class="panel-footnote">
                             <ui:VisualElement class="footnote-tick" />
@@ -533,29 +533,189 @@
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <!-- Screen 04: Outpost (Phase 01 placeholder; minimal Chinese translation only) -->
-            <ui:VisualElement name="OutpostScreen" class="screen screen-pad">
-                <ui:Label class="app-title" text="据点" />
-                <ui:Label class="app-subtitle" text="核心模块" />
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="采集模块" />
-                    <ui:Label name="HarvesterLevelValue" class="stat-value" text="采集模块 LV.1" />
+            <!-- Screen 04: Outpost / Module Topology + Upgrade Economy (Phase 05) -->
+            <ui:VisualElement name="OutpostScreen" class="screen outpost-screen">
+                <!-- Top system bar (Phase 02 language) -->
+                <ui:VisualElement class="outpost-topbar">
+                    <ui:VisualElement class="topbar-left">
+                        <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
+                        <ui:VisualElement class="topbar-divider-v" />
+                        <ui:Label class="topbar-role" text="远征控制" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="topbar-right">
+                        <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:Label class="topbar-cell" text="CYCLE 1842" />
+                        <ui:VisualElement class="topbar-cellsep" />
+                        <ui:VisualElement class="topbar-system">
+                            <ui:VisualElement class="status-dot" />
+                            <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="精炼模块" />
-                    <ui:Label name="RefineryLevelValue" class="stat-value" text="精炼模块 LV.1" />
+
+                <!-- Screen identity -->
+                <ui:VisualElement class="outpost-head">
+                    <ui:VisualElement class="outpost-head-main">
+                        <ui:Label class="outpost-title" text="据点" />
+                        <ui:Label class="outpost-subtitle" text="OUTPOST" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="outpost-head-data">
+                        <ui:VisualElement class="mission-cell">
+                            <ui:Label class="mission-cell-key" text="部署节点" />
+                            <ui:Label class="mission-cell-value" text="OUTPOST // NODE-01" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="mission-cell">
+                            <ui:Label class="mission-cell-key" text="对接星球" />
+                            <ui:Label class="mission-cell-value" text="NEREID-04" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="据点" />
-                    <ui:Label name="OutpostLevelValue" class="stat-value" text="据点 LV.1" />
+
+                <!-- Main body: status / topology / module detail -->
+                <ui:VisualElement class="outpost-body">
+                    <!-- LEFT: outpost status -->
+                    <ui:VisualElement name="OutpostStatusPanel" class="outpost-col-left">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="据点状态" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="outpost-status-row">
+                            <ui:Label class="outpost-status-key" text="核心模块" />
+                            <ui:Label name="OutpostLevelValue" class="outpost-status-value" text="LV.1" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="outpost-status-row">
+                            <ui:Label class="outpost-status-key" text="采集模块" />
+                            <ui:Label name="HarvesterLevelValue" class="outpost-status-value" text="LV.1" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="outpost-status-row">
+                            <ui:Label class="outpost-status-key" text="精炼模块" />
+                            <ui:Label name="RefineryLevelValue" class="outpost-status-value" text="LV.1" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:Label class="group-label" text="合金库存" />
+                        <ui:VisualElement class="alloy-line">
+                            <ui:Label name="OutpostAlloyValue" class="alloy-value" text="5" />
+                            <ui:Label class="alloy-unit" text="ALLOY" />
+                        </ui:VisualElement>
+                        <ui:Label class="alloy-hint" text="用于基地模块升级" />
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:VisualElement class="outpost-status-row">
+                            <ui:Label class="outpost-status-key" text="模块上限" />
+                            <ui:Label name="OutpostCapValue" class="outpost-status-value" text="LV.2" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="outpost-status-row">
+                            <ui:Label class="outpost-status-key" text="已部署模块" />
+                            <ui:Label class="outpost-status-value" text="3 / 3" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="outpost-status-row">
+                            <ui:Label class="outpost-status-key" text="系统状态" />
+                            <ui:Label class="outpost-status-value" text="正常" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-footnote">
+                            <ui:VisualElement class="footnote-tick" />
+                            <ui:Label class="footnote-label" text="基地网络 // 稳定" />
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- CENTER: module topology -->
+                    <ui:VisualElement name="OutpostTopology" class="outpost-col-center">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="模块拓扑" />
+                            <ui:VisualElement class="panel-header-rule" />
+                            <ui:VisualElement class="core-sys-dot" />
+                            <ui:Label class="core-sys-label" text="SYSTEM TOPOLOGY" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="topo-stage">
+                            <ui:Button name="CoreModuleNode" class="outpost-node node-core">
+                                <ui:VisualElement class="node-head">
+                                    <ui:VisualElement class="node-mark" />
+                                    <ui:Label class="node-title" text="核心模块" />
+                                    <ui:Label name="CoreNodeLevel" class="node-level" text="LV.1" />
+                                </ui:VisualElement>
+                                <ui:Label class="node-micro" text="SYSTEM CORE" />
+                                <ui:Label name="CoreNodeStatusValue" class="node-status" text="模块上限 LV.2" />
+                            </ui:Button>
+
+                            <ui:VisualElement class="topo-trunk">
+                                <ui:VisualElement class="topo-vline" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="topo-rail" />
+
+                            <ui:VisualElement class="topo-children">
+                                <ui:VisualElement class="topo-child">
+                                    <ui:VisualElement class="topo-vline" />
+                                    <ui:Button name="HarvesterModuleNode" class="outpost-node node-sub">
+                                        <ui:VisualElement class="node-head">
+                                            <ui:VisualElement class="node-mark" />
+                                            <ui:Label class="node-title" text="采集模块" />
+                                            <ui:Label name="HarvesterNodeLevel" class="node-level" text="LV.1" />
+                                        </ui:VisualElement>
+                                        <ui:Label class="node-micro" text="EXTRACTION" />
+                                        <ui:Label name="HarvesterNodeStatusValue" class="node-status" text="采集效率 100%" />
+                                    </ui:Button>
+                                </ui:VisualElement>
+                                <ui:VisualElement class="topo-child">
+                                    <ui:VisualElement class="topo-vline" />
+                                    <ui:Button name="RefineryModuleNode" class="outpost-node node-sub">
+                                        <ui:VisualElement class="node-head">
+                                            <ui:VisualElement class="node-mark" />
+                                            <ui:Label class="node-title" text="精炼模块" />
+                                            <ui:Label name="RefineryNodeLevel" class="node-level" text="LV.1" />
+                                        </ui:VisualElement>
+                                        <ui:Label class="node-micro" text="REFINERY" />
+                                        <ui:Label name="RefineryNodeStatusValue" class="node-status" text="加工周期 2.0s" />
+                                    </ui:Button>
+                                </ui:VisualElement>
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                    </ui:VisualElement>
+
+                    <!-- RIGHT: selected module detail -->
+                    <ui:VisualElement name="OutpostDetailPanel" class="outpost-col-right">
+                        <ui:VisualElement class="panel-header">
+                            <ui:Label class="panel-header-text" text="模块详情" />
+                            <ui:VisualElement class="panel-header-rule" />
+                        </ui:VisualElement>
+
+                        <ui:Label name="ModuleDetailName" class="detail-name" text="精炼模块" />
+                        <ui:Label name="ModuleDetailLevels" class="detail-levels" text="LV.1 → LV.2" />
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:Label name="ModuleDetailEffectTitle" class="detail-effect-title" text="加工周期" />
+                        <ui:VisualElement class="effect-line">
+                            <ui:Label class="effect-key" text="当前" />
+                            <ui:Label name="ModuleCurrentEffectValue" class="effect-value" text="2.0s" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="effect-line">
+                            <ui:Label class="effect-key" text="升级后" />
+                            <ui:Label name="ModuleNextEffectValue" class="effect-value" text="1.6s" />
+                        </ui:VisualElement>
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:VisualElement class="detail-meta-row">
+                            <ui:Label class="detail-meta-key" text="升级需求" />
+                            <ui:Label name="ModuleUpgradeCostValue" class="detail-meta-value" text="3 合金" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="detail-meta-row">
+                            <ui:Label class="detail-meta-key" text="条件" />
+                            <ui:Label name="ModuleUpgradeRequirement" class="detail-meta-value" text="—" />
+                        </ui:VisualElement>
+
+                        <ui:Button name="OutpostUpgradeButton" class="outpost-action" text="升级模块" />
+
+                        <ui:Label class="detail-note" text="合金用于基地模块升级" />
+                    </ui:VisualElement>
                 </ui:VisualElement>
-                <ui:Label class="section-title" text="合金库存" />
-                <ui:VisualElement class="stat-row">
-                    <ui:Label class="stat-name" text="合金" />
-                    <ui:Label name="OutpostAlloyValue" class="stat-value" text="0" />
-                </ui:VisualElement>
-                <ui:Button name="UpgradeRefineryButton" class="button-primary" text="升级精炼模块" />
-                <ui:Label class="dialog-message" text="消耗：3 合金" />
             </ui:VisualElement>
         </ui:VisualElement>
 

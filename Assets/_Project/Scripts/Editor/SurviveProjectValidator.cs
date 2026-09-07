@@ -30,6 +30,7 @@ public static class SurviveProjectValidator
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
     private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
+    private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
     private const string GuidePath = "Docs/UI_LANGUAGE_STYLE.md";
 
     [MenuItem("Tools/SurviveUI/Validate Phase 01 Project")]
@@ -75,6 +76,7 @@ public static class SurviveProjectValidator
         Record(File.Exists(OverviewUssPath), "overview uss exists: " + OverviewUssPath);
         Record(File.Exists(PreparationUssPath), "preparation uss exists: " + PreparationUssPath);
         Record(File.Exists(ProcessingUssPath), "processing uss exists: " + ProcessingUssPath);
+        Record(File.Exists(OutpostUssPath), "outpost uss exists: " + OutpostUssPath);
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
@@ -129,6 +131,12 @@ public static class SurviveProjectValidator
             foreach (string expected in ElementNames.ProcessingStructure)
             {
                 Record(present.Contains(expected), "MainApp.uxml processing structure: " + expected);
+            }
+
+            // Phase 05: Outpost composition keeps its stable structure.
+            foreach (string expected in ElementNames.OutpostStructure)
+            {
+                Record(present.Contains(expected), "MainApp.uxml outpost structure: " + expected);
             }
         }
 

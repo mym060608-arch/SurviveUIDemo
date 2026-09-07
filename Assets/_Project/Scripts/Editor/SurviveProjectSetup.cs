@@ -24,6 +24,7 @@ public static class SurviveProjectSetup
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
     private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
+    private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
     private const string PanelSettingsPath = "Assets/_Project/UI/Settings/HubPanelSettings.asset";
 
     [MenuItem("Tools/SurviveUI/Setup Phase 01 Project")]
@@ -62,6 +63,7 @@ public static class SurviveProjectSetup
         var overviewUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(OverviewUssPath);
         var preparationUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(PreparationUssPath);
         var processingUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(ProcessingUssPath);
+        var outpostUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(OutpostUssPath);
         if (uxml == null)
         {
             Debug.LogError("[SurviveProjectSetup] missing VisualTreeAsset: " + UxmlPath);
@@ -92,8 +94,14 @@ public static class SurviveProjectSetup
             ok = false;
         }
 
+        if (outpostUss == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] missing StyleSheet: " + OutpostUssPath);
+            ok = false;
+        }
+
         ok &= BuildBootScene();
-        ok &= BuildHubScene(uxml, uss, overviewUss, preparationUss, processingUss);
+        ok &= BuildHubScene(uxml, uss, overviewUss, preparationUss, processingUss, outpostUss);
         ok &= SetBuildOrder();
 
         AssetDatabase.SaveAssets();
@@ -168,7 +176,7 @@ public static class SurviveProjectSetup
     }
 
     private static bool BuildHubScene(VisualTreeAsset uxml, StyleSheet uss, StyleSheet overviewUss,
-        StyleSheet preparationUss, StyleSheet processingUss)
+        StyleSheet preparationUss, StyleSheet processingUss, StyleSheet outpostUss)
     {
         if (AssetDatabase.LoadAssetAtPath<SceneAsset>(HubScenePath) != null)
         {
@@ -194,7 +202,7 @@ public static class SurviveProjectSetup
         document.sortingOrder = 0;
 
         var app = ui.AddComponent<AppController>();
-        app.Configure(uss, overviewUss, preparationUss, processingUss);
+        app.Configure(uss, overviewUss, preparationUss, processingUss, outpostUss);
 
         // Standalone smoke probe (inert unless launched with -smokeResult).
         var smoke = new GameObject("StandaloneSmoke");

@@ -1,0 +1,381 @@
+/*
+ * Survive UI Demo - Outpost / Module Topology + Upgrade Economy (Phase 05).
+ * Inherits the Phase 02/03/04 industrial/aerospace language. Chinese-first
+ * copy with restrained spacing; shared primitives reused where possible.
+ */
+
+/* ---------- Screen shell / top system bar ---------- */
+
+.outpost-screen {
+    flex-direction: column;
+}
+
+.outpost-topbar {
+    flex-shrink: 0;
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+/* ---------- Screen identity ---------- */
+
+.outpost-head {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.outpost-head-main {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.outpost-title {
+    font-size: 40px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-right: 20px;
+}
+
+.outpost-subtitle {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7B858F;
+    margin-bottom: 8px;
+}
+
+.outpost-head-data {
+    flex-direction: row;
+    align-items: center;
+}
+
+/* ---------- Main three-column body ---------- */
+
+.outpost-body {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+    padding-top: 26px;
+    padding-bottom: 24px;
+    padding-left: 64px;
+    padding-right: 64px;
+}
+
+.outpost-col-left {
+    width: 322px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-right: 32px;
+    border-right-width: 1px;
+    border-right-color: #DEE2E5;
+}
+
+.outpost-col-center {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    padding-left: 34px;
+    padding-right: 34px;
+}
+
+.outpost-col-right {
+    width: 396px;
+    flex-shrink: 0;
+    flex-direction: column;
+    padding-left: 32px;
+    border-left-width: 1px;
+    border-left-color: #DEE2E5;
+}
+
+/* ---------- Left: status rows ---------- */
+
+.outpost-status-row {
+    flex-direction: row;
+    align-items: center;
+    height: 44px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.outpost-status-key {
+    font-size: 12px;
+    color: #4A525C;
+    margin-right: auto;
+}
+
+.outpost-status-value {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.alloy-line {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.alloy-value {
+    font-size: 46px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.alloy-unit {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #7B858F;
+    margin-left: 10px;
+    margin-bottom: 8px;
+}
+
+.alloy-hint {
+    font-size: 10px;
+    color: #9AA2AA;
+    margin-top: 8px;
+}
+
+/* ---------- Center: topology stage ---------- */
+
+.topo-stage {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.outpost-node {
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: stretch;
+    min-width: 300px;
+    background-color: #FFFFFF;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    border-left-width: 3px;
+    border-left-color: rgba(0, 0, 0, 0);
+    padding-top: 16px;
+    padding-bottom: 14px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.outpost-node:hover {
+    border-color: #BFC6CC;
+}
+
+.outpost-node.node-selected {
+    background-color: #FFFFFF;
+    border-color: #B9CDD1;
+    border-left-color: #0E7F8C;
+}
+
+.node-head {
+    flex-direction: row;
+    align-items: center;
+}
+
+.node-mark {
+    width: 6px;
+    height: 6px;
+    background-color: #C9CFD4;
+    margin-right: 12px;
+}
+
+.outpost-node.node-selected .node-mark {
+    background-color: #0E7F8C;
+}
+
+.node-title {
+    font-size: 19px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-right: auto;
+}
+
+.node-level {
+    font-size: 17px;
+    -unity-font-style: bold;
+    color: #0A616C;
+}
+
+.node-micro {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #9AA2AA;
+    margin-top: 8px;
+    margin-left: 18px;
+}
+
+.node-status {
+    font-size: 12px;
+    color: #4A525C;
+    margin-top: 6px;
+    margin-left: 18px;
+}
+
+/* Core sits on top; children hang from a shared rail. */
+.node-core {
+    min-width: 340px;
+}
+
+.topo-trunk {
+    height: 26px;
+    align-items: center;
+}
+
+.topo-vline {
+    width: 1px;
+    flex-grow: 1;
+    background-color: #C9CFD4;
+}
+
+.topo-rail {
+    width: 68%;
+    height: 1px;
+    background-color: #C9CFD4;
+}
+
+.topo-children {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    align-self: stretch;
+    padding-left: 40px;
+    padding-right: 40px;
+    margin-top: -1px;
+}
+
+.topo-child {
+    flex-direction: column;
+    align-items: center;
+}
+
+.topo-child .topo-vline {
+    height: 22px;
+    flex-grow: 0;
+}
+
+.node-sub {
+    min-width: 300px;
+}
+
+/* Locked look for sub-module next tier (text driven, never color only). */
+.node-sub.node-locked .node-status {
+    color: #0A616C;
+    -unity-font-style: bold;
+}
+
+/* ---------- Right: module detail ---------- */
+
+.detail-name {
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 2px;
+}
+
+.detail-levels {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: #0A616C;
+    margin-top: 8px;
+}
+
+.detail-effect-title {
+    font-size: 11px;
+    color: #7B858F;
+    margin-bottom: 6px;
+}
+
+.effect-line {
+    flex-direction: row;
+    align-items: center;
+    height: 40px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.effect-key {
+    width: 96px;
+    font-size: 12px;
+    color: #4A525C;
+}
+
+.effect-value {
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.detail-meta-row {
+    flex-direction: row;
+    align-items: center;
+    height: 42px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.detail-meta-key {
+    font-size: 12px;
+    color: #4A525C;
+    margin-right: auto;
+}
+
+.detail-meta-value {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.detail-meta-value.meta-accent {
+    color: #0A616C;
+}
+
+.outpost-action {
+    width: 100%;
+    height: 54px;
+    margin-top: 24px;
+    -unity-text-align: middle-center;
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #FFFFFF;
+    background-color: #161B20;
+    border-width: 1px;
+    border-color: #161B20;
+}
+
+.outpost-action:hover {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+}
+
+.outpost-action:active {
+    background-color: #0A616C;
+    border-color: #0A616C;
+}
+
+.outpost-action:disabled {
+    background-color: #B7BDC3;
+    border-color: #A9AFB5;
+    color: #EDEFF1;
+}
+
+.detail-note {
+    font-size: 10px;
+    color: #9AA2AA;
+    margin-top: 14px;
+    -unity-text-align: middle-center;
+}

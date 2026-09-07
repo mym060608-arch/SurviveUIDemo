@@ -89,15 +89,35 @@ public static class ElementNames
     public const string ProcessingStatusLabel = "ProcessingStatusLabel";
     public const string ProcessingInventoryPanel = "ProcessingInventoryPanel";
     public const string ProcessingRefineryLevel = "ProcessingRefineryLevel";
-    public const string ProcessingEfficiencyValue = "ProcessingEfficiencyValue";
+    public const string ProcessingDurationValue = "ProcessingDurationValue";
     public const string ProcessingStartButton = "ProcessingStartButton";
 
-    // Outpost.
+    // Outpost (Phase 05 composition / runtime binding).
     public const string HarvesterLevelValue = "HarvesterLevelValue";
     public const string RefineryLevelValue = "RefineryLevelValue";
     public const string OutpostLevelValue = "OutpostLevelValue";
     public const string OutpostAlloyValue = "OutpostAlloyValue";
-    public const string UpgradeRefineryButton = "UpgradeRefineryButton";
+    public const string OutpostStatusPanel = "OutpostStatusPanel";
+    public const string OutpostTopology = "OutpostTopology";
+    public const string OutpostDetailPanel = "OutpostDetailPanel";
+    public const string CoreModuleNode = "CoreModuleNode";
+    public const string HarvesterModuleNode = "HarvesterModuleNode";
+    public const string RefineryModuleNode = "RefineryModuleNode";
+    public const string CoreNodeLevel = "CoreNodeLevel";
+    public const string HarvesterNodeLevel = "HarvesterNodeLevel";
+    public const string RefineryNodeLevel = "RefineryNodeLevel";
+    public const string CoreNodeStatusValue = "CoreNodeStatusValue";
+    public const string HarvesterNodeStatusValue = "HarvesterNodeStatusValue";
+    public const string RefineryNodeStatusValue = "RefineryNodeStatusValue";
+    public const string OutpostCapValue = "OutpostCapValue";
+    public const string ModuleDetailName = "ModuleDetailName";
+    public const string ModuleDetailLevels = "ModuleDetailLevels";
+    public const string ModuleDetailEffectTitle = "ModuleDetailEffectTitle";
+    public const string ModuleCurrentEffectValue = "ModuleCurrentEffectValue";
+    public const string ModuleNextEffectValue = "ModuleNextEffectValue";
+    public const string ModuleUpgradeCostValue = "ModuleUpgradeCostValue";
+    public const string ModuleUpgradeRequirement = "ModuleUpgradeRequirement";
+    public const string OutpostUpgradeButton = "OutpostUpgradeButton";
 
     /// <summary>Every element the runtime binds; the validator checks each exists in MainApp.uxml.</summary>
     public static readonly string[] All = new[]
@@ -151,12 +171,30 @@ public static class ElementNames
         ProcessingStatusLabel,
         ProcessingActiveBatch,
         ProcessingRefineryLevel,
+        ProcessingDurationValue,
         ProcessingStartButton,
         HarvesterLevelValue,
         RefineryLevelValue,
         OutpostLevelValue,
         OutpostAlloyValue,
-        UpgradeRefineryButton
+        CoreModuleNode,
+        HarvesterModuleNode,
+        RefineryModuleNode,
+        CoreNodeLevel,
+        HarvesterNodeLevel,
+        RefineryNodeLevel,
+        CoreNodeStatusValue,
+        HarvesterNodeStatusValue,
+        RefineryNodeStatusValue,
+        OutpostCapValue,
+        ModuleDetailName,
+        ModuleDetailLevels,
+        ModuleDetailEffectTitle,
+        ModuleCurrentEffectValue,
+        ModuleNextEffectValue,
+        ModuleUpgradeCostValue,
+        ModuleUpgradeRequirement,
+        OutpostUpgradeButton
     };
 
     /// <summary>
@@ -235,6 +273,35 @@ public static class ElementNames
         ProcessingAlloyValue,
         ProcessingRefineryLevel,
         ProcessingStartButton,
+        BottomNav,
+        NavOverview,
+        NavPreparation,
+        NavProcessing,
+        NavOutpost
+    };
+
+    /// <summary>
+    /// Phase 05 Outpost composition elements the structural validator must
+    /// find in MainApp.uxml (stable names, no pixel checks).
+    /// </summary>
+    public static readonly string[] OutpostStructure =
+    {
+        OutpostScreen,
+        OutpostStatusPanel,
+        OutpostAlloyValue,
+        OutpostTopology,
+        CoreModuleNode,
+        HarvesterModuleNode,
+        RefineryModuleNode,
+        OutpostCapValue,
+        OutpostDetailPanel,
+        ModuleDetailName,
+        ModuleDetailLevels,
+        ModuleCurrentEffectValue,
+        ModuleNextEffectValue,
+        ModuleUpgradeCostValue,
+        ModuleUpgradeRequirement,
+        OutpostUpgradeButton,
         BottomNav,
         NavOverview,
         NavPreparation,

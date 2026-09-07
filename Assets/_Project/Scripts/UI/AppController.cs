@@ -34,6 +34,9 @@ public class AppController : MonoBehaviour
     [SerializeField]
     private StyleSheet processingStyleSheet;
 
+    [SerializeField]
+    private StyleSheet outpostStyleSheet;
+
     private UIDocument _document;
     private VisualElement _root;
     private GameSession _session;
@@ -62,6 +65,10 @@ public class AppController : MonoBehaviour
     /// <summary>The authoritative session this controller renders (read-only for tests/tools).</summary>
     public GameSession Session => _session;
 
+    /// <summary>Outpost presentation controller (read-only access for tests;
+    /// state stays in GameSession).</summary>
+    public OutpostScreen OutpostView => _outpost;
+
     public AppScreen CurrentScreen { get; private set; } = AppScreen.Overview;
 
     /// <summary>True once Start() finished binding and showing the first screen.
@@ -88,12 +95,13 @@ public class AppController : MonoBehaviour
 
     /// <summary>Assigns the style sheets; called once by scene authoring tooling.</summary>
     public void Configure(StyleSheet theme, StyleSheet overview, StyleSheet preparation,
-        StyleSheet processing)
+        StyleSheet processing, StyleSheet outpost)
     {
         themeStyleSheet = theme;
         overviewStyleSheet = overview;
         preparationStyleSheet = preparation;
         processingStyleSheet = processing;
+        outpostStyleSheet = outpost;
     }
 
     private void Awake()
@@ -132,6 +140,11 @@ public class AppController : MonoBehaviour
         if (processingStyleSheet != null)
         {
             _root.styleSheets.Add(processingStyleSheet);
+        }
+
+        if (outpostStyleSheet != null)
+        {
+            _root.styleSheets.Add(outpostStyleSheet);
         }
 
         ApplyUiCjkFont();
