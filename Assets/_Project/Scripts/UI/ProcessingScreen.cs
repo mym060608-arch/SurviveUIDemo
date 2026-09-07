@@ -37,6 +37,7 @@ public class ProcessingScreen
     private Label _statusLabel;
     private Label _percentLabel;
     private Label _refineryLevel;
+    private Label _durationValue;
     private Label _activeBatch;
     private VisualElement _progressFill;
     private VisualElement _corePanel;
@@ -63,6 +64,7 @@ public class ProcessingScreen
         _statusLabel = BindLabel(ElementNames.ProcessingStatusLabel);
         _percentLabel = BindLabel(ElementNames.ProcessingProgressPercent);
         _refineryLevel = BindLabel(ElementNames.ProcessingRefineryLevel);
+        _durationValue = BindLabel(ElementNames.ProcessingDurationValue);
         _activeBatch = BindLabel(ElementNames.ProcessingActiveBatch);
         _progressFill = BindElement(ElementNames.ProcessingProgressFill);
         _corePanel = BindElement(ElementNames.ProcessingCorePanel);
@@ -104,6 +106,11 @@ public class ProcessingScreen
         if (_refineryLevel != null)
         {
             _refineryLevel.text = "LV." + _session.RefineryLevel;
+        }
+
+        if (_durationValue != null)
+        {
+            _durationValue.text = _session.RefineryProcessSeconds.ToString("0.0") + "s";
         }
 
         RefreshBatches();

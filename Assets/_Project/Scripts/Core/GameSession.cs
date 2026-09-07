@@ -30,7 +30,26 @@ public class GameSession : MonoBehaviour
     public const int ProcessBatchBase = 5;
     public const int ProcessFuelReward = 2;
     public const int ProcessAlloyReward = 1;
-    public const float ProcessDurationSeconds = 2.0f;
+
+    // Outpost module progression (Phase 05). Demo tier range LV.1..LV.3.
+    public const int MaxModuleLevel = 3;
+
+    /// <summary>Selectable outpost modules (three authoritative levels).</summary>
+    public enum OutpostModule
+    {
+        Core,
+        Harvester,
+        Refinery
+    }
+
+    /// <summary>Clean upgrade outcome semantics (never gameplay via strings).</summary>
+    public enum UpgradeFailureReason
+    {
+        None,
+        MaxLevel,
+        CoreLevelRequired,
+        InsufficientAlloy
+    }
 
     /// <summary>Refinery process lifecycle. Complete keeps the last result
     /// visible until the next start or reset.</summary>
@@ -40,9 +59,6 @@ public class GameSession : MonoBehaviour
         Running,
         Complete
     }
-
-    // Prototype refinery upgrade cost.
-    public const int RefineryUpgradeAlloyCost = 3;
 
     // Expedition loadout (Phase 03). HARVESTER MK-I is mission-required and
     // always carried; BATTERY PACK and SURVEY DRONE are optional.
@@ -67,6 +83,24 @@ public class GameSession : MonoBehaviour
     public int HarvesterLevel { get; private set; }
     public int RefineryLevel { get; private set; }
     public int OutpostLevel { get; private set; }
+
+    // ---- Outpost module effects (Phase 05) ----
+    // Derived authoritative values consumed by the UI and future gameplay.
+
+    /// <summary>Highest tier allowed for subsystems: Core LV.1 -> LV.2 cap,
+    /// Core LV.2+ -> LV.3 cap.</summary>
+    public int SubsystemLevelCap => Mathf.Min(MaxModuleLevel, OutpostLevel + 1);
+
+    /// <summary>Authoritative harvester multiplier (LV.1=1.0, LV.2=1.25,
+    /// LV.3=1.5). Consumed by Phase 06 harvesting gameplay, not faked here.</summary>
+    public float HarvesterEfficiencyMultiplier => 1f + (HarvesterLevel - 1) * 0.25f;
+
+    /// <summary>Harvester multiplier as integer percent (100/125/150).</summary>
+    public int HarvesterEfficiencyPercent => (int)(HarvesterEfficiencyMultiplier * 100f);
+
+    /// <summary>Processing duration derived from RefineryLevel (LV.1=2.0s,
+    /// LV.2=1.6s, LV.3=1.2s). Affects speed only, never the output ratio.</summary>
+    public float RefineryProcessSeconds => Mathf.Max(0.5f, 2.0f - (RefineryLevel - 1) * 0.4f);
 
     // ---- Expedition loadout (Phase 03) ----
     // Single authoritative preparation state. The UI never owns these values;
@@ -180,6 +214,8 @@ public class GameSession : MonoBehaviour
 
     public float ProcessRemainingSeconds { get; private set; }
 
+    private float _runDurationSeconds;
+
     public bool IsProcessing => ProcessState == RefineryProcessState.Running;
 
     /// <summary>0..1 progress of the running batch (0 when not running).</summary>
@@ -187,13 +223,13 @@ public class GameSession : MonoBehaviour
     {
         get
         {
-            if (!IsProcessing)
+            if (!IsProcessing || _runDurationSeconds <= 0f)
             {
                 return 0f;
             }
 
-            float elapsed = ProcessDurationSeconds - ProcessRemainingSeconds;
-            return Mathf.Clamp01(elapsed / ProcessDurationSeconds);
+            float elapsed = _runDurationSeconds - ProcessRemainingSeconds;
+            return Mathf.Clamp01(elapsed / _runDurationSeconds);
         }
     }
 
@@ -246,7 +282,9 @@ public class GameSession : MonoBehaviour
         PendingFuel = FuelGainFor(batchMinerals);
         PendingAlloy = AlloyGainFor(batchMinerals);
         ProcessState = RefineryProcessState.Running;
-        ProcessRemainingSeconds = ProcessDurationSeconds;
+        // Duration is captured at start from the current RefineryLevel.
+        _runDurationSeconds = RefineryProcessSeconds;
+        ProcessRemainingSeconds = _runDurationSeconds;
         NotifyChanged();
         return true;
     }
@@ -285,6 +323,7 @@ public class GameSession : MonoBehaviour
         PendingFuel = 0;
         PendingAlloy = 0;
         ProcessRemainingSeconds = 0f;
+        _runDurationSeconds = 0f;
     }
 
     private bool _initialized;
@@ -365,20 +404,86 @@ public class GameSession : MonoBehaviour
     }
 
     /// <summary>
-    /// Upgrades the Refinery for 3 Alloy.
-    /// Returns false (state untouched) when Alloy &lt; 3.
+    /// Outpost module progression (Phase 05).
+    ///
+    /// Intentional migration from the Phase 01 flat "3 Alloy per refinery
+    /// level" upgrade to deterministic per-module costs (Harvester/Refinery:
+    /// cost = current level * 3; Core: cost = current level * 5), a LV.3 cap
+    /// and a Core prerequisite (subsystems may not exceed Core level + 1).
     /// </summary>
-    public bool TryUpgradeRefinery()
+
+    /// <summary>Authoritative level of the given module.</summary>
+    public int ModuleLevel(OutpostModule module)
     {
-        if (Alloy < RefineryUpgradeAlloyCost)
+        switch (module)
         {
-            return false;
+            case OutpostModule.Core:
+                return OutpostLevel;
+            case OutpostModule.Harvester:
+                return HarvesterLevel;
+            default:
+                return RefineryLevel;
+        }
+    }
+
+    /// <summary>Deterministic Alloy cost to reach the next tier.</summary>
+    public int GetUpgradeCost(OutpostModule module)
+    {
+        int level = ModuleLevel(module);
+        int unit = module == OutpostModule.Core ? 5 : 3;
+        return level * unit;
+    }
+
+    /// <summary>Validation without mutation. Returns the blocking reason, or
+    /// None when the upgrade may proceed.</summary>
+    public UpgradeFailureReason CanUpgrade(OutpostModule module)
+    {
+        int level = ModuleLevel(module);
+        if (level >= MaxModuleLevel)
+        {
+            return UpgradeFailureReason.MaxLevel;
         }
 
-        Alloy -= RefineryUpgradeAlloyCost;
-        RefineryLevel += 1;
+        if (module != OutpostModule.Core && level + 1 > SubsystemLevelCap)
+        {
+            return UpgradeFailureReason.CoreLevelRequired;
+        }
+
+        if (Alloy < GetUpgradeCost(module))
+        {
+            return UpgradeFailureReason.InsufficientAlloy;
+        }
+
+        return UpgradeFailureReason.None;
+    }
+
+    /// <summary>Executes one upgrade transaction when valid: subtracts the
+    /// exact cost once, increments the exact module once, notifies once.
+    /// Returns the failure reason; state is untouched on failure.</summary>
+    public UpgradeFailureReason TryUpgrade(OutpostModule module)
+    {
+        UpgradeFailureReason reason = CanUpgrade(module);
+        if (reason != UpgradeFailureReason.None)
+        {
+            return reason;
+        }
+
+        Alloy -= GetUpgradeCost(module);
+        switch (module)
+        {
+            case OutpostModule.Core:
+                OutpostLevel += 1;
+                break;
+            case OutpostModule.Harvester:
+                HarvesterLevel += 1;
+                break;
+            default:
+                RefineryLevel += 1;
+                break;
+        }
+
         NotifyChanged();
-        return true;
+        return UpgradeFailureReason.None;
     }
 
     private void Update()
