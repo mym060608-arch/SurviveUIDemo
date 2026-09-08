@@ -1,18 +1,27 @@
 using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Wrist terminal (Phase 06 Revision CodeReference architecture).
+/// Wrist terminal (Phase 06 Revision Round 9.2 parallel-cap architecture).
 ///
 /// The wrist UXML renders into a fixed 1280 x 800 RenderTexture shown on a
 /// tilted world plane (FirstPersonCamera -> WristProjectionPivot ->
-/// WristDisplay). All radial geometry - translucent local map, thin health /
-/// satiety arcs and the four thick functional annular sectors - is painted by
-/// a single RadialWristElement triangle mesh (no Painter2D, no tick fields,
-/// no cards, no one-full outer functional ring, no white MapDisc).
+/// WristDisplay). All radial geometry - translucent local map, health /
+/// satiety arcs (inner radius 248 == panel inner radius) and the four
+/// Parallel-Cap Annular Panels - is painted by a single RadialWristElement
+/// triangle mesh (no Painter2D, no tick fields, no cards, no one-full outer
+/// ring, no white MapDisc).
+///
+/// Round 9.2 text architecture: every text row is its OWN horizontal slot
+/// label. SurfaceWristController positions each row from the authoritative
+/// panel cross-section at that row's Y
+/// (RadialWristElement.GetPanelHorizontalRange / TryGetPanelRowCentre), so
+/// the staircase direction and slot bounds emerge from the real parallel-cap
+/// geometry - never from hand-added indentation offsets.
 ///
 /// Coordinates:
 /// - World -> map: single authoritative WristMapCoordinates.WorldToWristMap()
@@ -37,11 +46,66 @@ public class SurfaceWristController : MonoBehaviour
     /// <summary>Hit radius around a node marker used by HitTestNode (CodeReference).</summary>
     public const float NodeHitRadiusPx = 28f;
 
+    /// <summary>Row slot vertical height used for all text rows (px).</summary>
+    public const float RowHeight = 21f;
+
+    /// <summary>Minimum horizontal padding used by row slot bounds (Round 9.2
+    /// requires >= 10 px; 14 is the authored padding).</summary>
+    public const float RowSlotPadding = 14f;
+
     private const float ParallaxYawLimit = 4f;
     private const float ParallaxPitchLimit = 3f;
     private const float ParallaxRollLimit = 0.5f;
     private const float ParallaxDamping = 0.16f;
     private const float CompletionHoldSeconds = 4f;
+
+    /// <summary>One horizontal text slot: its own label, the side of the wrist
+    /// centre its panel lives on, and the row's centre Y in wrist pixels.
+    /// X/width come from the parallel-cap geometry at that Y.</summary>
+    private sealed class TextRow
+    {
+        public readonly string ElementName;
+        public readonly bool LeftSide;
+        public readonly float CenterY;
+        public Label Label;
+
+        public TextRow(string elementName, bool leftSide, float centerY)
+        {
+            ElementName = elementName;
+            LeftSide = leftSide;
+            CenterY = centerY;
+        }
+    }
+
+    /// <summary>Row table (Round 9.2). Upper band panels sit on Y 205..345,
+    /// lower band panels on Y 455..595. Equipment / Navigation panels are on
+    /// the LEFT, State / Harvest on the RIGHT. Rows follow each panel's
+    /// recommended slot Ys; the X of every row is derived from geometry.</summary>
+    private static readonly TextRow[] RowTable =
+    {
+        // Equipment (upper-left, down-left staircase).
+        new TextRow("EquipHeading", true, 238f),
+        new TextRow("EquipHarvester", true, 268f),
+        new TextRow("EquipBattery", true, 296f),
+        new TextRow("EquipDrone", true, 322f),
+
+        // State (upper-right, down-right staircase).
+        new TextRow("StateHeading", false, 238f),
+        new TextRow("ActionState", false, 268f),
+        new TextRow("SignalState", false, 296f),
+        new TextRow("RecoveredState", false, 322f),
+
+        // Navigation (lower-left, down-right staircase).
+        new TextRow("NavHeading", true, 478f),
+        new TextRow("NavTarget", true, 510f),
+        new TextRow("NavDistance", true, 540f),
+
+        // Harvest (lower-right, down-left staircase).
+        new TextRow("HarvestHeading", false, 478f),
+        new TextRow("HarvestNode", false, 508f),
+        new TextRow("HarvestState", false, 536f),
+        new TextRow("HarvestProgress", false, 562f)
+    };
 
     [SerializeField]
     public StyleSheet wristStyleSheet;
@@ -63,23 +127,21 @@ public class SurfaceWristController : MonoBehaviour
 
     private Label _healthLabel;
     private Label _satietyLabel;
-    private Label _equipHarvester;
-    private Label _equipBattery;
-    private Label _equipDrone;
-    private Label _actionState;
-    private Label _recoveredState;
-    private Label _navTarget;
-    private Label _navDistance;
-    private Label _harvestNode;
-    private Label _harvestState;
+    private readonly List<TextRow> _rows = new List<TextRow>();
+    private readonly Dictionary<string, TextRow> _rowByName = new Dictionary<string, TextRow>();
 
-    // Round 9: functional sector content containers are anchored with the
-    // unified polar anchor (no manual left/top anywhere).
-    private VisualElement _equipContent;
-    private VisualElement _navContent;
-    private VisualElement _stateContent;
-    private VisualElement _harvestContent;
-    private bool _anchorLayoutHooked;
+    // Convenience handles to the rows whose text changes live.
+    private TextRow _harvesterRow;
+    private TextRow _batteryRow;
+    private TextRow _droneRow;
+    private TextRow _actionRow;
+    private TextRow _signalRow;
+    private TextRow _recoveredRow;
+    private TextRow _navTargetRow;
+    private TextRow _navDistanceRow;
+    private TextRow _harvestNodeRow;
+    private TextRow _harvestStateRow;
+    private TextRow _harvestProgressRow;
 
     private RadialWristElement _radial;
     private float _lastRadialHealth = -1f;
@@ -199,6 +261,7 @@ public class SurfaceWristController : MonoBehaviour
 
         RefreshSessionData();
         RefreshNavigation();
+        RefreshTextRowLayout();
         SetOpen(false);
     }
 
@@ -306,91 +369,44 @@ public class SurfaceWristController : MonoBehaviour
 
         _healthLabel = _root.Q<Label>("HealthLabel");
         _satietyLabel = _root.Q<Label>("SatietyLabel");
-        _equipHarvester = _root.Q<Label>("EquipHarvester");
-        _equipBattery = _root.Q<Label>("EquipBattery");
-        _equipDrone = _root.Q<Label>("EquipDrone");
-        _actionState = _root.Q<Label>("ActionState");
-        _recoveredState = _root.Q<Label>("RecoveredState");
-        _navTarget = _root.Q<Label>("NavTarget");
-        _navDistance = _root.Q<Label>("NavDistance");
-        _harvestNode = _root.Q<Label>("HarvestNode");
-        _harvestState = _root.Q<Label>("HarvestState");
 
-        _equipContent = _root.Q<VisualElement>("EquipContent");
-        _navContent = _root.Q<VisualElement>("NavContent");
-        _stateContent = _root.Q<VisualElement>("StateContent");
-        _harvestContent = _root.Q<VisualElement>("HarvestContent");
-        HookSectorAnchorLayout();
-
-        _bound = _geometryHost != null && _playerMarker != null;
-    }
-
-    /// <summary>Repositions the four functional sector content containers on
-    /// every resolved layout using the unified polar anchor (Round 9). The
-    /// containers never rely on hand-written left/top values; CSS only fixes
-    /// their width/height so the anchor math stays exact.</summary>
-    private void HookSectorAnchorLayout()
-    {
-        if (_anchorLayoutHooked || _root == null)
+        _rows.Clear();
+        _rowByName.Clear();
+        foreach (TextRow row in RowTable)
         {
-            return;
-        }
-
-        _anchorLayoutHooked = true;
-        _root.RegisterCallback<GeometryChangedEvent>(_ =>
-        {
-            if (!IsWristOpenState())
+            Label label = _root.Q<Label>(row.ElementName);
+            if (label == null)
             {
-                return;
+                continue;
             }
 
-            ApplySectorContentAnchors();
-        });
+            TextRow bound = new TextRow(row.ElementName, row.LeftSide, row.CenterY)
+            {
+                Label = label
+            };
+            _rows.Add(bound);
+            _rowByName[row.ElementName] = bound;
+        }
+
+        _harvesterRow = Row("EquipHarvester");
+        _batteryRow = Row("EquipBattery");
+        _droneRow = Row("EquipDrone");
+        _actionRow = Row("ActionState");
+        _signalRow = Row("SignalState");
+        _recoveredRow = Row("RecoveredState");
+        _navTargetRow = Row("NavTarget");
+        _navDistanceRow = Row("NavDistance");
+        _harvestNodeRow = Row("HarvestNode");
+        _harvestStateRow = Row("HarvestState");
+        _harvestProgressRow = Row("HarvestProgress");
+
+        _bound = _geometryHost != null && _playerMarker != null && _rows.Count > 0;
     }
 
-    /// <summary>Applies polar anchors once each container has a resolved size:
-    /// left = anchor.x - width/2, top = anchor.y - height/2.</summary>
-    public void ApplySectorContentAnchors()
+    private TextRow Row(string name)
     {
-        if (_root == null)
-        {
-            return;
-        }
-
-        AnchorSectorContent(_equipContent,
-            RadialWristElement.EquipmentSectorStartDeg,
-            RadialWristElement.EquipmentSectorEndDeg);
-        AnchorSectorContent(_stateContent,
-            RadialWristElement.StateSectorStartDeg,
-            RadialWristElement.StateSectorEndDeg);
-        AnchorSectorContent(_navContent,
-            RadialWristElement.NavigationSectorStartDeg,
-            RadialWristElement.NavigationSectorEndDeg);
-        AnchorSectorContent(_harvestContent,
-            RadialWristElement.HarvestSectorStartDeg,
-            RadialWristElement.HarvestSectorEndDeg);
-    }
-
-    private static void AnchorSectorContent(
-        VisualElement content,
-        float startDeg,
-        float endDeg)
-    {
-        if (content == null)
-        {
-            return;
-        }
-
-        float width = content.resolvedStyle.width;
-        float height = content.resolvedStyle.height;
-        if (float.IsNaN(width) || float.IsNaN(height) || width <= 1f || height <= 1f)
-        {
-            return; // not laid out yet; the geometry callback retries
-        }
-
-        Vector2 anchor = RadialWristElement.SectorTextAnchor(startDeg, endDeg);
-        content.style.left = anchor.x - width * 0.5f;
-        content.style.top = anchor.y - height * 0.5f;
+        TextRow row;
+        return _rowByName.TryGetValue(name, out row) ? row : null;
     }
 
     /// <summary>Inserts the single RadialWristElement mesh into the geometry
@@ -450,13 +466,53 @@ public class SurfaceWristController : MonoBehaviour
     }
 
     // ====================================================================
+    // Round 9.2 text-row slot layout
+    // ====================================================================
+
+    /// <summary>Lays every text row into its panel's real horizontal
+    /// cross-section at the row's Y: left = minX, width = maxX - minX, so the
+    /// label box exactly spans the padded slot and the middle-centre text sits
+    /// on the geometry-derived centreX. Rows whose panel has no cross-section
+    /// at that Y are hidden (can never happen with the authored bands).</summary>
+    public void RefreshTextRowLayout()
+    {
+        if (_root == null || _rows.Count == 0)
+        {
+            return;
+        }
+
+        foreach (TextRow row in _rows)
+        {
+            if (row.Label == null)
+            {
+                continue;
+            }
+
+            if (!RadialWristElement.TryGetPanelRowCentre(
+                    row.LeftSide, row.CenterY, RowSlotPadding,
+                    out float centreX, out float minX, out float maxX))
+            {
+                row.Label.style.display = DisplayStyle.None;
+                continue;
+            }
+
+            row.Label.style.display = DisplayStyle.Flex;
+            row.Label.style.left = minX;
+            row.Label.style.top = row.CenterY - RowHeight * 0.5f;
+            row.Label.style.width = Mathf.Max(1f, maxX - minX);
+            row.Label.style.height = RowHeight;
+        }
+    }
+
+    // ====================================================================
     // Runtime layout / geometry verification (tests + open logging)
     // ====================================================================
 
     /// <summary>Runtime layout report for the wrist document: resolves the
-    /// geometry host, markers and sector text geometry; returns false when any
-    /// measured geometry is NaN/zero/degenerate or text sits outside its
-    /// intended radial sector (CodeReference section 26).</summary>
+    /// geometry host, markers and every text-row slot; returns false when any
+    /// measured geometry is NaN/zero/degenerate, a text row lies outside its
+    /// panel slot (Round 9.2), or the status tracks are misaligned with the
+    /// panel inner radius.</summary>
     public bool VerifyWristLayoutGeometry(out string report)
     {
         var lines = new StringBuilder();
@@ -491,11 +547,11 @@ public class SurfaceWristController : MonoBehaviour
         if (_radial != null)
         {
             lines.AppendLine("INFO :: radial mapR=" + RadialWristElement.MapRadius
-                             + " statusArcR=" + RadialWristElement.StatusArcRadius
-                             + "x" + RadialWristElement.StatusArcThickness
-                             + " sectorR=" + RadialWristElement.SectorInnerRadius
-                             + ".." + RadialWristElement.SectorOuterRadius
-                             + " textR=" + RadialWristElement.SectorTextRadius
+                             + " panelR=" + RadialWristElement.PanelInnerRadius
+                             + ".." + RadialWristElement.PanelOuterRadius
+                             + " statusR=" + RadialWristElement.StatusInnerRadius
+                             + ".." + RadialWristElement.StatusOuterRadius
+                             + "x" + RadialWristElement.StatusThickness
                              + " health=" + (_radial.HealthFraction01 * 100f).ToString("0")
                              + "% satiety=" + (_radial.SatietyFraction01 * 100f).ToString("0")
                              + "% (center " + RadialWristElement.Center.x + ","
@@ -513,89 +569,107 @@ public class SurfaceWristController : MonoBehaviour
         Check(root.Q<VisualElement>("MapNode2") != null, "MapNode2 marker resolved");
         Check(root.Q<VisualElement>("MapSelectedRing") != null, "MapSelectedRing marker resolved");
 
-        // Status labels sit near the upper/lower status arcs.
+        // Status labels sit near the (now inner) health/satiety arcs.
         Label healthLabel = root.Q<Label>("HealthLabel");
         Label satietyLabel = root.Q<Label>("SatietyLabel");
         if (healthLabel != null && satietyLabel != null)
         {
-            Check(healthLabel.resolvedStyle.top < 180f, "health label near upper arc");
-            Check(satietyLabel.resolvedStyle.top > 560f, "satiety label near lower arc");
+            Check(healthLabel.resolvedStyle.top < 160f, "health label near upper status arc");
+            Check(satietyLabel.resolvedStyle.top > 600f, "satiety label near lower status arc");
         }
 
-        // Round 9.1: sector text is anchored by code through the unified polar
-        // anchor; EVERY one of the four container corners must lie inside the
-        // safe annular band (inner 255 .. outer 400) and inside the sector
-        // angular range minus 3 deg padding (a centre-only check cannot prove
-        // the container does not spill over the sector).
-        ApplySectorContentAnchors();
-        Check(AllCornersInsideSector(root.Q<VisualElement>("EquipContent"),
-            RadialWristElement.EquipmentSectorStartDeg, RadialWristElement.EquipmentSectorEndDeg),
-            "equipment text full bounds inside Equipment sector (135..190)");
-        Check(AllCornersInsideSector(root.Q<VisualElement>("NavContent"),
-            RadialWristElement.NavigationSectorStartDeg, RadialWristElement.NavigationSectorEndDeg),
-            "navigation text full bounds inside Navigation sector (195..235)");
-        Check(AllCornersInsideSector(root.Q<VisualElement>("StateContent"),
-            RadialWristElement.StateSectorStartDeg, RadialWristElement.StateSectorEndDeg),
-            "state text full bounds inside State sector (350..405)");
-        Check(AllCornersInsideSector(root.Q<VisualElement>("HarvestContent"),
-            RadialWristElement.HarvestSectorStartDeg, RadialWristElement.HarvestSectorEndDeg),
-            "harvest text full bounds inside Harvest sector (305..345)");
+        // ---- Round 9.2: status arcs integrated with the panel inner radius.
+        Check(Mathf.Approximately(RadialWristElement.StatusInnerRadius,
+                RadialWristElement.PanelInnerRadius),
+            "status inner radius == panel inner radius ("
+            + RadialWristElement.StatusInnerRadius + ")");
+        Check(RadialWristElement.StatusOuterRadius - RadialWristElement.StatusInnerRadius
+              == RadialWristElement.StatusThickness,
+            "status thickness consistent ("
+            + RadialWristElement.StatusThickness + ")");
+
+        // ---- Round 9.2: every text row sits fully inside its panel slot with
+        // the authored padding (>= 10 px), and the slot is inside the band.
+        RefreshTextRowLayout();
+        bool allRowsOk = true;
+        foreach (TextRow row in _rows)
+        {
+            if (row.Label == null)
+            {
+                allRowsOk = false;
+                continue;
+            }
+
+            bool slotOk = VerifyRowSlot(row.Label, row.LeftSide, row.CenterY,
+                out string rowInfo);
+            lines.AppendLine((slotOk ? "PASS" : "FAIL") + " :: row " + row.ElementName
+                             + " " + rowInfo);
+            allRowsOk &= slotOk;
+        }
+
+        Check(allRowsOk, "all text rows inside their parallel-cap panel slots");
 
         report = lines.ToString();
         return ok;
     }
 
-    /// <summary>Round 9.1 full-bounds text validation: the resolved content
-    /// container's four corners (top-left / top-right / bottom-right /
-    /// bottom-left) must ALL sit in the safe radial band (255..400) and inside
-    /// the sector angular range with 3 deg padding. Wrap (State 350..405) is
-    /// handled through the offset-from-start measurement.</summary>
-    public static bool AllCornersInsideSector(VisualElement content, float startDeg, float endDeg)
+    /// <summary>Round 9.2 authoritative row-slot check: the label's horizontal
+    /// box (left..left+width) must lie fully between the panel's padded inner
+    /// and outer radius bounds at the row Y, and the row Y must be inside the
+    /// panel's horizontal Y band (rows can never reach past the outer radius
+    /// or touch the central map by construction of GetPanelHorizontalRange).
+    /// Returns a small INFO string with the slot numbers.</summary>
+    public static bool VerifyRowSlot(Label label, bool leftSide, float centerY,
+        out string info)
     {
-        if (content == null)
+        info = "";
+        if (label == null)
         {
             return false;
         }
 
-        float left = content.resolvedStyle.left;
-        float top = content.resolvedStyle.top;
-        float width = content.resolvedStyle.width;
-        float height = content.resolvedStyle.height;
+        float left = label.style.left.value.value;
+        float top = label.style.top.value.value;
+        float width = label.style.width.value.value;
+        float height = label.style.height.value.value;
         if (float.IsNaN(left) || float.IsNaN(top) || width <= 1f || height <= 1f)
         {
             return false;
         }
 
-        const float innerSafe = 255f;
-        const float outerSafe = 400f;
-        const float angularPad = 3f;
-        float span = endDeg - startDeg;
+        bool insideBand = RowInsidePanelBand(leftSide, centerY);
+        float pad = RowSlotPadding - 4f; // hard validation floor: >= 10 px
 
-        Vector2[] corners =
-        {
-            new Vector2(left, top),
-            new Vector2(left + width, top),
-            new Vector2(left + width, top + height),
-            new Vector2(left, top + height)
-        };
+        bool rangeOk = RadialWristElement.GetPanelHorizontalRange(
+            leftSide, centerY, RadialWristElement.PanelInnerRadius,
+            RadialWristElement.PanelOuterRadius, pad,
+            out float minX, out float maxX);
 
-        foreach (Vector2 corner in corners)
-        {
-            float radius = Vector2.Distance(corner, RadialWristElement.Center);
-            if (radius < innerSafe - 0.5f || radius > outerSafe + 0.5f)
-            {
-                return false;
-            }
+        bool horizontalInside = rangeOk
+                                && left >= minX - 0.75f
+                                && left + width <= maxX + 0.75f;
 
-            float angle = RadialWristElement.WristAngleDeg(corner);
-            float offset = Mathf.Repeat(angle - startDeg, 360f);
-            if (offset < angularPad - 0.6f || offset > span - angularPad + 0.6f)
-            {
-                return false;
-            }
-        }
+        bool verticalCentred = Mathf.Abs(top + height * 0.5f - centerY) <= 0.75f;
 
-        return true;
+        info = "y=" + centerY.ToString("0")
+               + " box=" + left.ToString("0") + ".." + (left + width).ToString("0")
+               + " slot=" + (rangeOk ? minX.ToString("0") + ".." + maxX.ToString("0") : "<none>")
+               + " band=" + insideBand
+               + " horiz=" + horizontalInside
+               + " vert=" + verticalCentred;
+
+        return insideBand && horizontalInside && verticalCentred;
+    }
+
+    /// <summary>True when the row centre Y falls inside one of the two panel
+    /// bands (upper 205..345 or lower 455..595).</summary>
+    public static bool RowInsidePanelBand(bool leftSide, float centerY)
+    {
+        // Panels are mirrored left/right on the same bands.
+        return (centerY >= RadialWristElement.UpperPanelTopY
+                && centerY <= RadialWristElement.UpperPanelBottomY)
+               || (centerY >= RadialWristElement.LowerPanelTopY
+                   && centerY <= RadialWristElement.LowerPanelBottomY);
     }
 
     private static string RootResolved(VisualElement root)
@@ -641,6 +715,7 @@ public class SurfaceWristController : MonoBehaviour
             RefreshNavigation();
             RefreshMapGeometry();
             RefreshActiveProgress();
+            RefreshTextRowLayout();
             StartCoroutine(LogVisibilityAfterOpen());
         }
         else
@@ -910,8 +985,8 @@ public class SurfaceWristController : MonoBehaviour
                              + (heightFraction * 100f).ToString("0")
                              + "% px=" + ((maxX - minX) * Screen.width).ToString("0")
                              + "x" + ((maxY - minY) * Screen.height).ToString("0")
-                             + " (Round 9 target at 1920x1080: 1180..1280 x 740..810;"
-                             + " narrow-aspect editor frames may overflow)");
+                             + " (Round 9.2: meaningful geometry must fit the screen;"
+                             + " transparent RT edges may extend beyond)");
             // The exact pixel targets are aspect- and resolution-specific, so
             // the runtime check only guards against a degenerate (invisible)
             // projection. The precise 1920x1080 numbers land in the Release
@@ -924,16 +999,24 @@ public class SurfaceWristController : MonoBehaviour
             float widthPx = (maxX - minX) * Screen.width;
             float heightPx = (maxY - minY) * Screen.height;
             float aspectPx = heightPx > 1f ? widthPx / heightPx : 0f;
-            Check(aspectPx >= 1.25f && aspectPx <= 2.0f,
-                "projected aspect ~1.6 (px " + widthPx.ToString("0") + "x"
+            // Round 9.2: the plane is large and close, so corner projections
+            // can overflow numerically near the near clip; the aspect guard
+            // only needs to reject a genuinely edge-on (degenerate) view. A
+            // true edge-on plane projects far below 1.0. The exact 1280:800
+            // plane aspect is independently verified just below, and the pose
+            // collapse guard keeps the tilt from ever becoming edge-on.
+            Check(aspectPx >= 1.0f && aspectPx <= 3.0f,
+                "projected aspect not edge-on (px " + widthPx.ToString("0") + "x"
                 + heightPx.ToString("0") + " aspect " + aspectPx.ToString("0.00") + ")");
             float scaleRatio = Mathf.Abs(scale.x / scale.y - (1280f / 800f));
             Check(scaleRatio < 0.02f,
                 "display local scale keeps 1280:800 aspect (x/y ratio "
                 + (scale.x / scale.y).ToString("0.00") + ")");
 
-            // Round 9.1: authoritative size metric - the ACTUAL drawn radial
-            // geometry (status-arc outer circle), not the transparent plane.
+            // Round 9.2: authoritative size metric - the panel outer radius
+            // (365) is now the outermost drawn radial geometry (status arcs
+            // moved inside, panels define the outer bound). The previous
+            // status-arc-outer metric is obsolete.
             if (ComputeProjectedRadialBounds(out Vector2 radialCentre,
                     out float radialWidthPx, out float radialHeightPx))
             {
@@ -941,8 +1024,8 @@ public class SurfaceWristController : MonoBehaviour
                                  + radialCentre.ToString("0.000")
                                  + " size=" + radialWidthPx.ToString("0")
                                  + "x" + radialHeightPx.ToString("0")
-                                 + " px (Round 9.1 target @1920: centre (0.43..0.46, top"
-                                 + " 55..59%), width 980..1100)");
+                                 + " px (Round 9.2 target @1920: centre x 44..46%,"
+                                 + " top-y 53..56%, width 960..1020, height 820..900)");
             }
         }
 
@@ -1050,11 +1133,11 @@ public class SurfaceWristController : MonoBehaviour
         return heightPx > 0f ? widthPx / heightPx : 0f;
     }
 
-    /// <summary>Round 9.1: projects the actual drawn radial geometry (a circle
-    /// at the status-arc outer radius around the RT centre) onto the screen.
-    /// Returns the projected bounds centre viewport, and the pixel width /
-    /// height at the current Screen resolution. This is the authoritative
-    /// size metric (the transparent RT plane bounds are NOT a size metric).</summary>
+    /// <summary>Round 9.2: projects the outermost drawn radial geometry (a
+    /// circle at PanelOuterRadius = 365 around the RT centre - the panels now
+    /// define the outer bound) onto the screen. Returns the projected bounds
+    /// centre viewport, and the pixel width / height at the current Screen
+    /// resolution. This is the authoritative size metric.</summary>
     public bool ComputeProjectedRadialBounds(
         out Vector2 centreViewport,
         out float widthPx,
@@ -1069,8 +1152,7 @@ public class SurfaceWristController : MonoBehaviour
             return false;
         }
 
-        float rtRadius = RadialWristElement.StatusArcRadius
-                         + RadialWristElement.StatusArcThickness * 0.5f;
+        float rtRadius = RadialWristElement.PanelOuterRadius;
         Transform t = _display.transform;
         float rx = rtRadius / RadialWristElement.DesignWidth * t.localScale.x;
         float ry = rtRadius / RadialWristElement.DesignHeight * t.localScale.y;
@@ -1164,6 +1246,7 @@ public class SurfaceWristController : MonoBehaviour
             SubscribeNodes();
             RefreshSessionData();
             RefreshNavigation();
+            RefreshTextRowLayout();
         }
 
         if (_document == null || !_document.enabled)
@@ -1172,7 +1255,6 @@ public class SurfaceWristController : MonoBehaviour
         }
 
         EnsureStyleSheets();
-        ApplySectorContentAnchors();
         RefreshMapGeometry();
         RefreshActiveProgress();
         UpdateParallaxFromMouse();
@@ -1365,46 +1447,51 @@ public class SurfaceWristController : MonoBehaviour
             _satietyLabel.text = "饱食度 " + _session.PlayerSatiety;
         }
 
-        if (_equipHarvester != null)
+        if (_harvesterRow != null)
         {
-            SetEquipState(_equipHarvester, "采集器 MK-I", false);
+            SetEquipState(_harvesterRow, "采集器 MK-I", false);
         }
 
-        if (_equipBattery != null)
+        if (_batteryRow != null)
         {
-            SetEquipState(_equipBattery, "备用电池", !_session.BatterySelected);
+            SetEquipState(_batteryRow, "备用电池", !_session.BatterySelected);
         }
 
-        if (_equipDrone != null)
+        if (_droneRow != null)
         {
-            SetEquipState(_equipDrone, "勘测无人机", !_session.DroneSelected);
+            SetEquipState(_droneRow, "勘测无人机", !_session.DroneSelected);
         }
 
         SurfaceResourceNode active = _controller != null ? _controller.ActiveNode : null;
-        if (_actionState != null)
+        if (_actionRow != null)
         {
-            _actionState.text = active != null
+            _actionRow.Label.text = active != null
                 ? (active.State == SurfaceResourceNode.NodeState.Harvesting ? "采集中" : "无线传输")
                 : "勘测中";
         }
 
-        if (_recoveredState != null)
+        if (_recoveredRow != null)
         {
-            _recoveredState.text = "回收 " + _session.HarvestedNodeCount
-                                   + "/" + GameSession.SurfaceNodeCount;
+            _recoveredRow.Label.text = "回收 " + _session.HarvestedNodeCount
+                                       + "/" + GameSession.SurfaceNodeCount;
         }
     }
 
-    private static void SetEquipState(Label label, string name, bool off)
+    private static void SetEquipState(TextRow row, string name, bool off)
     {
-        label.text = name;
+        if (row == null || row.Label == null)
+        {
+            return;
+        }
+
+        row.Label.text = name;
         if (off)
         {
-            label.AddToClassList("sector-off");
+            row.Label.AddToClassList("row-off");
         }
         else
         {
-            label.RemoveFromClassList("sector-off");
+            row.Label.RemoveFromClassList("row-off");
         }
     }
 
@@ -1507,11 +1594,16 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
-    // ---- Live active harvest context ----
+    // ---- Live active harvest context (Round 9.2 full-state assignments) ----
 
+    /// <summary>Refresh the harvest sector rows. Every refresh EXPLICITLY
+    /// writes all three labels (node / state / progress) from the current
+    /// state - no partial string replacement - so no '%' can ever survive a
+    /// completion transition.</summary>
     private void RefreshActiveProgress()
     {
-        if (_harvestNode == null || _harvestState == null || _controller == null)
+        if (_harvestNodeRow == null || _harvestStateRow == null
+            || _harvestProgressRow == null || _controller == null)
         {
             return;
         }
@@ -1519,30 +1611,34 @@ public class SurfaceWristController : MonoBehaviour
         SurfaceResourceNode active = _controller.ActiveNode;
         bool showCompletion = active == null && _completedNode != null
                               && Time.time - _completedAt < CompletionHoldSeconds;
+
         if (active != null)
         {
-            _harvestNode.text = ShortNodeName(active.NodeId);
+            // Harvesting or Transmitting: all three rows carry text.
             float progress = 1f - Mathf.Clamp01(active.RemainingSeconds /
                 Mathf.Max(0.001f, active.StageSeconds));
-            string status = active.State == SurfaceResourceNode.NodeState.Harvesting
-                ? "采集中 " + Mathf.RoundToInt(progress * 100f) + "%"
-                : "无线传输 " + Mathf.RoundToInt(progress * 100f) + "%";
-            _harvestState.text = status;
+            _harvestNodeRow.Label.text = ShortNodeName(active.NodeId);
+            _harvestStateRow.Label.text = active.State == SurfaceResourceNode.NodeState.Harvesting
+                ? "采集中"
+                : "无线传输";
+            _harvestProgressRow.Label.text = Mathf.RoundToInt(progress * 100f) + "%";
         }
         else if (showCompletion)
         {
-            _harvestNode.text = ShortNodeName(_completedNode.NodeId);
-            _harvestState.text = "传输完成";
+            _harvestNodeRow.Label.text = ShortNodeName(_completedNode.NodeId);
+            _harvestStateRow.Label.text = "传输完成";
+            _harvestProgressRow.Label.text = ""; // NO residue
         }
         else
         {
-            _harvestNode.text = "—";
-            _harvestState.text = "待机";
+            _harvestNodeRow.Label.text = "";
+            _harvestStateRow.Label.text = "待机";
+            _harvestProgressRow.Label.text = ""; // NO residue
         }
     }
 
-    /// <summary>Compact node label used inside the Harvest sector card,
-    /// e.g. "节点 02" for node id 1 (Round 9.1 shorter copy).</summary>
+    /// <summary>Compact node label used inside the Harvest sector rows,
+    /// e.g. "节点 01" for node id 0.</summary>
     private static string ShortNodeName(int nodeId)
     {
         return "节点 " + (nodeId + 1).ToString("00");
@@ -1555,16 +1651,16 @@ public class SurfaceWristController : MonoBehaviour
             return;
         }
 
-        if (_navTarget != null)
+        if (_navTargetRow != null)
         {
-            _navTarget.text = _controller.IsNavigationActive
+            _navTargetRow.Label.text = _controller.IsNavigationActive
                 ? SurfaceGameController.NodeDisplayName(_controller.NavigationTargetNodeId)
                 : "未设置";
         }
 
-        if (_navDistance != null)
+        if (_navDistanceRow != null)
         {
-            _navDistance.text = _controller.IsNavigationActive
+            _navDistanceRow.Label.text = _controller.IsNavigationActive
                 ? (_controller.NavigationReached
                     ? "目标已到达"
                     : _controller.NavigationDistance.ToString("0.0") + " m")

@@ -1,11 +1,19 @@
 /*
- * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision CodeReference).
+ * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision Round 9.2).
  * Rendered into a fixed 1280x800 RenderTexture and projected onto a tilted
  * world plane. Off-white / ink / teal / hairline language, no neon.
  *
- * IMPORTANT: this sheet is ONLY responsible for text/marker placement.
- * It must NOT draw rings, arcs, functional sectors or a white map disc:
- * every annular shape comes from RadialWristElement triangle meshes.
+ * Round 9.2 IMPORTANT:
+ * 1. USS is ONLY responsible for text/marker placement & typography.
+ *    It must NOT draw rings, arcs, panels or a white map disc: every annular
+ *    shape comes from RadialWristElement triangle meshes.
+ * 2. The four panels are Parallel-Cap Annular Panels drawn by
+ *    RadialWristElement (annulus 248..365 x horizontal bands). USS never
+ *    provides card backgrounds, borders or fills for them.
+ * 3. Text rows are absolutely-positioned horizontal SLOTS. SurfaceWristController
+ *    computes left/top/width of each row from the real panel cross-section at
+ *    that row's Y (GetPanelHorizontalRange); USS only styles the text.
+ *    left/top here are offscreen fallbacks until C# positions the row.
  */
 
 .wrist-root {
@@ -41,6 +49,10 @@
     background-color: rgba(0, 0, 0, 0);
 }
 
+/* ============================================================
+   Status arc value text.
+   ============================================================ */
+
 .radial-value {
     position: absolute;
 
@@ -52,131 +64,79 @@
     -unity-text-align: middle-center;
 }
 
-/* Health label sits just below the upper status arc (arc outer apex ~y1-17,
-   so the label rows stay inside the empty top gap, clearly separated). */
+/* Health value: just above the upper status arc apex (arc band ~y138..152). */
 .health-label {
     left: 540px;
-    top: 34px;
+    top: 94px;
 
     width: 200px;
     height: 32px;
 }
 
-/* Satiety label sits just above the lower status arc (arc inner ~y783). */
+/* Satiety value: just below the lower status arc apex (arc band ~y648..662). */
 .satiety-label {
     left: 540px;
-    top: 734px;
+    top: 674px;
 
     width: 200px;
     height: 32px;
 }
 
 /* ============================================================
-   Functional sector text.
-
-   CRITICAL:
-   1. These have NO card background (geometry comes from
-      RadialWristElement).
-   2. Round 9.1: left/top are NOT authored here. SurfaceWristController
-      positions every container through the unified polar anchor
-      (SectorTextAnchor radius 328) after layout: left = anchor.x -
-      width/2, top = anchor.y - height/2.
-   3. Sizes below keep ALL FOUR container corners inside the safe radial
-      band 255..400 and inside the sector angles minus 3 deg (verified by
-      the full-bounds validator, not just the centre).
-   4. Everything is middle/center aligned, overflow hidden, wrap allowed.
+   Horizontal text rows (Round 9.2).
+   Each row is its own slot. C# overwrites left/top/width after binding;
+   the styles below only define typography & vertical rhythm.
    ============================================================ */
 
-.sector-content {
+.wrist-row {
     position: absolute;
 
-    /* Offscreen fallback until the code polar anchor is applied after the
-       first resolved layout (never a hand-authored on-panel position). */
+    /* Offscreen fallback until the C# row-slot layout applies. */
     left: -2000px;
     top: -2000px;
 
-    background-color: rgba(0, 0, 0, 0);
+    height: 21px;
 
-    border-left-width: 0;
-    border-right-width: 0;
-    border-top-width: 0;
-    border-bottom-width: 0;
-
-    padding-left: 0;
-    padding-right: 0;
-    padding-top: 0;
-    padding-bottom: 0;
-
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-
-    overflow: hidden;
-    white-space: normal;
-
-    /* Equipment / State: 114 x 100 */
-    width: 114px;
-    height: 100px;
-}
-
-/* Mid-angle ~162 deg */
-.equip-content {
-}
-
-/* Mid-angle ~377 / 17 deg */
-.state-content {
-}
-
-/* Mid-angle ~215 deg */
-.nav-content {
-    width: 106px;
-    height: 88px;
-}
-
-/* Mid-angle ~325 deg */
-.harvest-content {
-    width: 106px;
-    height: 88px;
-}
-
-.sector-heading {
-    color: rgb(74, 82, 92);
-
-    font-size: 12px;
-    -unity-font-style: bold;
-
-    -unity-text-align: middle-center;
     white-space: nowrap;
+    -unity-text-align: middle-center;
 
-    margin-bottom: 4px;
-}
-
-.sector-line {
+    /* default body typography */
     color: rgb(22, 27, 32);
-
-    font-size: 11px;
-
-    -unity-text-align: middle-center;
-    white-space: nowrap;
-
-    margin-top: 1px;
-    margin-bottom: 1px;
+    font-size: 12px;
 }
 
-.sector-value {
-    color: rgb(14, 127, 140);
-
-    font-size: 12px;
+/* Heading: 13px bold secondary ink. */
+.row-heading {
+    color: rgb(74, 82, 92);
+    font-size: 13px;
     -unity-font-style: bold;
 }
 
-/* Equipment items that are NOT selected are muted but still listed. */
-.sector-line.sector-off {
+/* Primary dynamic value: 14px bold accent (meaningful values only). */
+.row-value {
+    color: rgb(14, 127, 140);
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+/* Body copy: 12px ink. */
+.row-body {
+    color: rgb(22, 27, 32);
+    font-size: 12px;
+}
+
+/* Equipment entries: body copy; unselected items are muted. */
+.row-equip {
+    color: rgb(22, 27, 32);
+    font-size: 12px;
+}
+
+.row-equip.row-off {
     color: rgb(126, 136, 144);
 }
 
 /* ============================================================
-   Map markers.
+   Map markers (absolute wrist pixels).
    ============================================================ */
 
 .map-node {
@@ -293,13 +253,14 @@
     border-bottom-color: rgb(14, 127, 140);
 }
 
+/* Small identity label (bottom centre, subtle). */
 .wrist-identity {
     position: absolute;
 
-    left: 500px;
-    top: 102px;
+    left: 490px;
+    top: 728px;
 
-    width: 280px;
+    width: 300px;
 
     color: rgb(74, 82, 92);
 

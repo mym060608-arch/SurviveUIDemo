@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Text;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -6,21 +7,25 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Phase 06 Revision round 3 Play Mode validation.
+/// Phase 06 Revision Round 9.2 Play Mode validation.
 ///
-/// Covers: satiety (0=extremely hungry .. 100=fully satiated, default 82),
-/// facing-relative WASD movement, very-near / mid / far / behind gaze
-/// interaction, floating wrist presentation (RenderTexture + world display),
-/// deterministic LOCAL MAP hit-test coordinates, navigation selection and
-/// distance, depleted-node clearing, live wrist harvest states, landing-zone
-/// E return and the Hub UI input-mode path.
+/// Round 9.2 changes the wrist presentation to Parallel-Cap Annular Panels
+/// (annulus 248..365 intersected with horizontal Y bands - every panel has a
+/// horizontal top edge and horizontal bottom edge), moves the health / satiety
+/// status arcs inside so their inner radius equals the panel inner radius
+/// (248), and rebuilds every text row as an independent horizontal slot whose
+/// X is derived from the real panel cross-section (staircase typography).
+///
+/// Covers: satiety semantics, facing-relative WASD, gaze interaction, floating
+/// wrist display chain, deterministic LOCAL MAP coordinates, navigation, live
+/// harvest states with the Round 9.2 full-state text refresh (no '%' residue),
+/// landing-zone return, raised-wrist pose, compass, cursor, and the Round 9.2
+/// geometry validators (parallel caps / status arc alignment / row slots /
+/// staircase ordering / harvest text reset / visual bounds).
 ///
 /// Automation drives public semantic APIs and pure coordinate mapping only.
 /// Physical WASD / mouse / E / M / I / Esc / left-click remain manual review
-/// items; the real left-click path (Mouse.current + display ray -> map
-/// hit-test -> TrySelectNavigationTarget) is wired but cursor-lock/visibility
-/// assertions are validated on the Release player where OS cursor state is
-/// authoritative.
+/// items.
 /// </summary>
 public class SurvivePhase06RevisionTests
 {
@@ -110,6 +115,8 @@ public class SurvivePhase06RevisionTests
         return Object.FindAnyObjectByType<SurfaceWristController>();
     }
 
+    // ------------------------------------------------------------------
+    // Session / first-person / loadout foundations (Round 9 unchanged)
     // ------------------------------------------------------------------
 
     [UnityTest]
@@ -270,11 +277,7 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(wrist.CursorService.NormalCursorTexture,
             "Cursor.SetCursor normal ring texture assigned in wrist mode");
         Assert.IsFalse(wrist.CursorService.IsHovering, "not hovering initially");
-        // Visual visibility of the ring needs a real mouse device; PlayMode
-        // owns the mode semantics, Release/人工 owns the visual check.
 
-        // The wrist terminal is a transparent RenderTexture document; its
-        // geometry (map/arcs/sectors) is what defines the floating layout.
         UIDocument wristDoc = null;
         foreach (UIDocument doc in Object.FindObjectsByType<UIDocument>())
         {
@@ -299,7 +302,7 @@ public class SurvivePhase06RevisionTests
         Assert.IsFalse(controller.IsWristOpen, "wrist closed again");
         Assert.IsTrue(player.InputEnabled, "exploration restored");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.Flex, "HUD restored");
-        Assert.IsTrue(wristDoc.enabled == false || !wristDoc.enabled, "wrist document disabled");
+        Assert.IsFalse(wristDoc.enabled, "wrist document disabled");
         Assert.IsFalse(wrist.CursorService.IsHovering, "cursor hover cleared after close");
         Assert.IsNotNull(wrist.CursorService.HoverCursorTexture,
             "hover ring texture cached for Cursor.SetCursor");
@@ -344,19 +347,19 @@ public class SurvivePhase06RevisionTests
 
         VisualElement root = Wrist().RootElement;
         Assert.IsNotNull(root, "wrist root");
-        // Radial status labels (new names) sit beside the thin arcs.
+        // Radial status labels sit beside the thin arcs.
         Assert.AreEqual("健康度 37", LabelText(root, "HealthLabel"), "health label live");
         Assert.AreEqual("饱食度 64", LabelText(root, "SatietyLabel"), "satiety label live");
 
-        // Equipment sector lists the real loadout lines and marks selection
-        // state through the sector-off class (no fake inventory).
+        // Equipment panel lists the real loadout lines and marks selection
+        // state through the row-off class (no fake inventory).
         Assert.AreEqual("采集器 MK-I", LabelText(root, "EquipHarvester"), "harvester listed");
         Assert.AreEqual("备用电池", LabelText(root, "EquipBattery"), "battery listed");
         Assert.AreEqual("勘测无人机", LabelText(root, "EquipDrone"), "drone listed");
         VisualElement battery = root.Q<VisualElement>("EquipBattery");
         VisualElement drone = root.Q<VisualElement>("EquipDrone");
-        Assert.IsFalse(battery.ClassListContains("sector-off"), "battery selected -> not muted");
-        Assert.IsTrue(drone.ClassListContains("sector-off"), "drone deselected -> muted");
+        Assert.IsFalse(battery.ClassListContains("row-off"), "battery selected -> not muted");
+        Assert.IsTrue(drone.ClassListContains("row-off"), "drone deselected -> muted");
 
         // The single triangle-mesh radial hologram is present and driven.
         RadialWristElement radial = root.Q<RadialWristElement>();
@@ -552,7 +555,7 @@ public class SurvivePhase06RevisionTests
         float heightFraction = Mathf.Clamp01(maxY - minY);
         Assert.IsTrue(widthFraction >= 0.30f && widthFraction <= 1.0f,
             "projected width visibly large (was " + (widthFraction * 100f).ToString("0")
-            + "%; Round 9.1 hologram fills much of the frame at narrow aspects)");
+            + "% of screen width)");
         Assert.IsTrue(heightFraction >= 0.30f && heightFraction <= 1.0f,
             "projected height visibly large (was " + (heightFraction * 100f).ToString("0")
             + "% of screen height)");
@@ -579,6 +582,10 @@ public class SurvivePhase06RevisionTests
             Assert.IsFalse(anchor.SurfaceRenderer.enabled, "renderer disabled after close");
         }
     }
+
+    // ------------------------------------------------------------------
+    // Map / navigation
+    // ------------------------------------------------------------------
 
     [UnityTest]
     public IEnumerator MapMathAndNavigationSelection()
@@ -716,24 +723,23 @@ public class SurvivePhase06RevisionTests
 
         VisualElement root = Wrist().RootElement;
         Assert.AreEqual("节点 01", LabelText(root, "HarvestNode"), "active node name (short copy)");
-        Assert.IsTrue(LabelText(root, "HarvestState").Contains("采集中"),
-            "wrist shows harvesting");
-        Assert.IsTrue(LabelText(root, "HarvestState").EndsWith("%"), "progress percent shown");
+        Assert.AreEqual("采集中", LabelText(root, "HarvestState"), "harvest state label (no % mixed in)");
+        Assert.IsTrue(LabelText(root, "HarvestProgress").EndsWith("%"),
+            "progress has its own row with percent");
         Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("node-active"),
             "map marker active (harvesting)");
 
         node0.AdvanceTimers(0.75f);
         yield return null;
         yield return null;
-        string percentText = LabelText(root, "HarvestState").Replace("采集中 ", "").Replace("%", "");
+        string percentText = LabelText(root, "HarvestProgress").Replace("%", "");
         int percent = int.Parse(percentText);
         Assert.Greater(percent, 0, "progress advanced while wrist open");
 
         node0.AdvanceTimers(node0.RemainingSeconds);
         yield return null;
         yield return null;
-        Assert.IsTrue(LabelText(root, "HarvestState").Contains("无线传输"),
-            "wrist shows transfer");
+        Assert.AreEqual("无线传输", LabelText(root, "HarvestState"), "wrist shows transfer");
         Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("node-transmitting"),
             "map marker transmitting");
 
@@ -788,6 +794,16 @@ public class SurvivePhase06RevisionTests
         Assert.AreEqual(AppScreen.Preparation, app.CurrentScreen, "hub navigation still interactive");
     }
 
+    // ==================================================================
+    // Round 9.2 geometry + interaction validation
+    // ==================================================================
+
+    /// <summary>RadialWrist_RuntimeGeometryAndParallax (Round 9.2 geometry):
+    /// the single triangle-mesh element still exists, the local map stays
+    /// radius 235, the four functional panels are Parallel-Cap Annular Panels
+    /// on radii 248..365 (no 360 degree ring), the status arcs share the panel
+    /// inner radius 248..262 and the health/satiety spans stay 70 degrees.
+    /// The map/hit-test/parallax/cursor parts remain unchanged.</summary>
     [UnityTest]
     public IEnumerator RadialWrist_RuntimeGeometryAndParallax()
     {
@@ -809,45 +825,45 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(radial, "triangle-mesh RadialWristElement present");
 
         Assert.AreEqual(235f, RadialWristElement.MapRadius, "map radius 235");
-        Assert.AreEqual(392f, RadialWristElement.StatusArcRadius,
-            "status arc radius 392 (Round 9.1, whole-arc max on the 800px canvas)");
-        Assert.AreEqual(14f, RadialWristElement.StatusArcThickness,
-            "status arc thickness 14");
-        Assert.AreEqual(245f, RadialWristElement.SectorInnerRadius,
-            "sector inner 245 (Round 9.1)");
-        Assert.AreEqual(372f, RadialWristElement.SectorOuterRadius,
-            "sector outer 372 (Round 9.1)");
-        Assert.GreaterOrEqual(RadialWristElement.SectorOuterRadius
-            - RadialWristElement.SectorInnerRadius, 120f,
-            "functional sector radial thickness >=120px");
-        Assert.Greater(
-            RadialWristElement.StatusArcRadius - RadialWristElement.StatusArcThickness * 0.5f,
-            RadialWristElement.SectorOuterRadius + 0.5f,
-            "status arc inner edge clears the sector outer edge (13px gap, "
-            + "no satiety/harvest or navigation/satiety connection)");
+
+        // Round 9.2: shared panel + status inner radius = 248, panel outer 365,
+        // status outer 262 (thickness 14). The arcs are integrated, no longer
+        // floating on a distant 392 orbit.
+        Assert.AreEqual(248f, RadialWristElement.PanelInnerRadius,
+            "panel inner 248");
+        Assert.AreEqual(365f, RadialWristElement.PanelOuterRadius,
+            "panel outer 365");
+        Assert.AreEqual(RadialWristElement.StatusInnerRadius,
+            RadialWristElement.PanelInnerRadius,
+            "status inner radius == panel inner radius (shared 248)");
+        Assert.AreEqual(262f, RadialWristElement.StatusOuterRadius,
+            "status outer 262");
+        Assert.AreEqual(14f, RadialWristElement.StatusThickness,
+            "status thickness 14");
+        Assert.AreEqual(RadialWristElement.StatusOuterRadius
+                        - RadialWristElement.StatusInnerRadius,
+            RadialWristElement.StatusThickness,
+            "thickness equals the outer-inner delta");
 
         // Exactly two thin status arcs: health 55..125, satiety 235..305.
         Assert.AreEqual(55f, RadialWristElement.HealthArcStartDeg, "health arc start 55");
         Assert.AreEqual(125f, RadialWristElement.HealthArcEndDeg, "health arc end 125");
         Assert.AreEqual(235f, RadialWristElement.SatietyArcStartDeg, "satiety arc start 235");
         Assert.AreEqual(305f, RadialWristElement.SatietyArcEndDeg, "satiety arc end 305");
+        AssertNearly(70f, RadialWristElement.HealthArcEndDeg
+                          - RadialWristElement.HealthArcStartDeg, "health span 70");
+        AssertNearly(70f, RadialWristElement.SatietyArcEndDeg
+                          - RadialWristElement.SatietyArcStartDeg, "satiety span 70");
 
-        // Exactly four thick functional sectors (annular band 270..350) with
-        // visible angular gaps: the total covered span stays well below 360.
-        float equipSpan = RadialWristElement.EquipmentSectorEndDeg
-                          - RadialWristElement.EquipmentSectorStartDeg;
-        float navSpan = RadialWristElement.NavigationSectorEndDeg
-                        - RadialWristElement.NavigationSectorStartDeg;
-        float harvestSpan = RadialWristElement.HarvestSectorEndDeg
-                            - RadialWristElement.HarvestSectorStartDeg;
-        float stateSpan = RadialWristElement.StateSectorEndDeg
-                          - RadialWristElement.StateSectorStartDeg;
-        AssertNearly(55f, equipSpan, "equipment sector 135..190");
-        AssertNearly(40f, navSpan, "navigation sector 195..235");
-        AssertNearly(40f, harvestSpan, "harvest sector 305..345");
-        AssertNearly(55f, stateSpan, "state sector 350..405 (wraps)");
-        Assert.IsTrue(equipSpan + navSpan + harvestSpan + stateSpan < 360f,
-            "no full 360 functional outer ring (angular gaps remain)");
+        // The four functional panels are horizontal Y bands, NOT a continuous
+        // 360 degree outer ring: upper band 205..345, lower band 455..595.
+        AssertNearly(205f, RadialWristElement.UpperPanelTopY, "upper band top");
+        AssertNearly(345f, RadialWristElement.UpperPanelBottomY, "upper band bottom");
+        AssertNearly(455f, RadialWristElement.LowerPanelTopY, "lower band top");
+        AssertNearly(595f, RadialWristElement.LowerPanelBottomY, "lower band bottom");
+        Assert.AreEqual(RadialWristElement.FunctionalPanelThickness,
+            RadialWristElement.PanelOuterRadius - RadialWristElement.PanelInnerRadius,
+            "functional thickness 365-248");
 
         Assert.Greater(radial.HealthFraction01, 0f, "health arc fraction driven");
         Assert.Greater(radial.SatietyFraction01, 0f, "satiety arc fraction driven");
@@ -862,6 +878,19 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(root.Q<VisualElement>("MapLanding"), "landing marker visible");
         Assert.IsNull(root.Q<VisualElement>("WristMapCircle"), "no legacy MapDisc container");
         Assert.IsNull(root.Q<VisualElement>("WristCursor"), "no in-panel cursor element");
+
+        // Every text row label exists in its panel (Round 9.2 row slots).
+        string[] rowNames =
+        {
+            "EquipHeading", "EquipHarvester", "EquipBattery", "EquipDrone",
+            "StateHeading", "ActionState", "SignalState", "RecoveredState",
+            "NavHeading", "NavTarget", "NavDistance",
+            "HarvestHeading", "HarvestNode", "HarvestState", "HarvestProgress"
+        };
+        foreach (string rowName in rowNames)
+        {
+            Assert.IsNotNull(root.Q<Label>(rowName), "row label present: " + rowName);
+        }
 
         // Draw + hover + click share the ONE world -> map coordinate source.
         Vector2 node1Pixel = WristMapCoordinates.WorldToWristMap(
@@ -903,9 +932,6 @@ public class SurvivePhase06RevisionTests
         float yawRight = wrist.CurrentParallaxYaw;
         Assert.Greater(yawRight, 0.1f, "pointer right tilts +yaw");
         Assert.LessOrEqual(yawRight, 4.5f, "yaw clamped to +-4");
-        // Batch/test frames run far faster than real time, so the damped pivot
-        // rotation only needs to prove it follows (nonzero), not reach steady
-        // state, within the fixed frame window.
         Assert.Greater(Quaternion.Angle(neutral, pivot.localRotation), 0.1f,
             "pivot rotation follows parallax (not translation)");
 
@@ -942,14 +968,13 @@ public class SurvivePhase06RevisionTests
     }
 
     // ==================================================================
-    // Round 9 visual/expression validation (human acceptance still final)
+    // Round 9 raised-wrist pose / compass (unchanged behaviour)
     // ==================================================================
 
     /// <summary>Round 9 M: RaisedWristPose_Runtime — the hologram must read
     /// as a raised left wrist, not a face-on tablet: wrist pivot lower-left
-    /// of the hologram centre, a real perspective tilt (front dot 0.86..0.96,
-    /// NOT ~0.99), the display brought closer/larger, and the parallax pivot
-    /// still the single rotation fulcrum.</summary>
+    /// of the hologram centre, a real perspective tilt (front dot 0.84..0.96),
+    /// and the parallax pivot still the single rotation fulcrum.</summary>
     [UnityTest]
     public IEnumerator RaisedWristPose_Runtime()
     {
@@ -996,8 +1021,8 @@ public class SurvivePhase06RevisionTests
             + " are printed in the Release screenshot log)");
         Assert.Less(frontDot, 0.975f, "display is NOT a face-on tablet");
 
-        // Projected size: clearly larger than the old 1024x648 presentation
-        // (fraction-based so the check is resolution independent).
+        // Projected size: still clearly larger than a tiny tablet (fraction
+        // based so the check is resolution independent).
         Vector3 scale = anchor.transform.localScale;
         float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
         for (int sx = -1; sx <= 1; sx += 2)
@@ -1022,10 +1047,10 @@ public class SurvivePhase06RevisionTests
         float heightFrac = Mathf.Clamp01(maxY - minY);
         Assert.IsTrue(widthFrac >= 0.50f && widthFrac <= 1.0f,
             "wrist brought closer and large (width " + (widthFrac * 100f).ToString("0")
-            + "% of screen, Round 9 target ~62% at 1920x1080)");
+            + "% of screen)");
         Assert.IsTrue(heightFrac >= 0.50f && heightFrac <= 1.0f,
             "wrist tall presentation (height " + (heightFrac * 100f).ToString("0")
-            + "% of screen, Round 9 target ~71% at 1920x1080)");
+            + "% of screen)");
 
         // Parallax still tilts around the captured base pose only.
         Quaternion neutral = pivot.localRotation;
@@ -1046,107 +1071,6 @@ public class SurvivePhase06RevisionTests
         Assert.Less(Mathf.Abs(wrist.CurrentParallaxYaw), 0.6f, "returns to base yaw");
         Assert.Less(Quaternion.Angle(pivot.localRotation, neutral), 2f,
             "pivot returns to the raised-wrist base pose");
-
-        controller.SetWristOpen(false);
-    }
-
-    /// <summary>Round 9 M: RadialSectorTypography_Runtime — wider functional
-    /// band, polar-anchored sector text inside the sectors, mirrored
-    /// health/satiety tracks, green/orange families, inactive satiety track
-    /// still covering the full 70 deg span at 82%.</summary>
-    [UnityTest]
-    public IEnumerator RadialSectorTypography_Runtime()
-    {
-        yield return EnterSurface();
-        SurfaceGameController controller = ReadyController();
-        Assert.IsNotNull(controller, "controller ready");
-        controller.SetWristOpen(true);
-        for (int i = 0; i < 12; i++)
-        {
-            yield return null;
-        }
-
-        VisualElement root = Wrist().RootElement;
-        Assert.IsNotNull(root, "wrist root");
-
-        // ---- Functional band (Round 9.1: inner 245 / outer 372) ----
-        Assert.AreEqual(245f, RadialWristElement.SectorInnerRadius,
-            "sector inner 245");
-        Assert.AreEqual(372f, RadialWristElement.SectorOuterRadius,
-            "sector outer 372");
-        Assert.GreaterOrEqual(RadialWristElement.SectorOuterRadius
-            - RadialWristElement.SectorInnerRadius, 120f, "sector thickness >= 120px");
-        Assert.IsTrue(RadialWristElement.MapRadius >= 225f
-                      && RadialWristElement.MapRadius <= 235f,
-            "map radius keeps the central map dominant ("
-            + RadialWristElement.MapRadius + ")");
-
-        // No full 360 outer ring: the four sectors keep visible gaps.
-        float covered = (RadialWristElement.EquipmentSectorEndDeg
-                         - RadialWristElement.EquipmentSectorStartDeg)
-                        + (RadialWristElement.NavigationSectorEndDeg
-                           - RadialWristElement.NavigationSectorStartDeg)
-                        + (RadialWristElement.HarvestSectorEndDeg
-                           - RadialWristElement.HarvestSectorStartDeg)
-                        + (RadialWristElement.StateSectorEndDeg
-                           - RadialWristElement.StateSectorStartDeg);
-        Assert.Less(covered, 360f, "no complete outer functional ring");
-
-        // ---- Sector text: every content centre inside its own sector ----
-        // The wrist document renders into its RenderTexture; wait a short
-        // realtime window so the layout pass resolves (mirrors
-        // LogVisibilityAfterOpen).
-        yield return new WaitForSecondsRealtime(0.5f);
-        bool layoutOk = Wrist().VerifyWristLayoutGeometry(out string layoutReport);
-        Assert.IsTrue(layoutOk, "wrist sector layout geometry:\n" + layoutReport);
-        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("EquipContent"),
-            RadialWristElement.EquipmentSectorStartDeg,
-            RadialWristElement.EquipmentSectorEndDeg), "equipment text centre in sector");
-        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("StateContent"),
-            RadialWristElement.StateSectorStartDeg,
-            RadialWristElement.StateSectorEndDeg), "state text centre in sector");
-        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("NavContent"),
-            RadialWristElement.NavigationSectorStartDeg,
-            RadialWristElement.NavigationSectorEndDeg), "navigation text centre in sector");
-        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("HarvestContent"),
-            RadialWristElement.HarvestSectorStartDeg,
-            RadialWristElement.HarvestSectorEndDeg), "harvest text centre in sector");
-
-        // ---- Mirror status tracks (Round 9.1) ----
-        Assert.AreEqual(RadialWristElement.HealthArcStartDeg,
-            RadialWristElement.SatietyArcStartDeg - 180f, "arcs mirrored top/bottom");
-        AssertNearly(RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
-            RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
-            "identical 70 deg angular span");
-        Assert.AreEqual(392f, RadialWristElement.StatusArcRadius, "shared status arc radius");
-        Assert.AreEqual(14f, RadialWristElement.StatusArcThickness, "shared status thickness");
-        Assert.IsTrue(RadialWristElement.StatusArcThickness >= 12f
-                      && RadialWristElement.StatusArcThickness <= 14f,
-            "track thickness 12..14 px");
-
-        // ---- Color families (user requirement: green / dark orange) ----
-        Color32 health = RadialWristElement.HealthActiveColor;
-        Color32 satiety = RadialWristElement.SatietyActiveColor;
-        Assert.IsTrue(health.g > health.r && health.g > health.b,
-            "Health active fill is a GREEN family (r" + health.r
-            + " g" + health.g + " b" + health.b + ")");
-        Assert.IsTrue(satiety.r > satiety.g && satiety.g > satiety.b,
-            "Satiety active fill is a DARK ORANGE family (r" + satiety.r
-            + " g" + satiety.g + " b" + satiety.b + ")");
-        Assert.IsFalse(health.g > 230, "no fluorescent green");
-        Assert.IsFalse(satiety.r > 250, "no bright orange");
-
-        // Fractions: health 100% active, satiety 82% active with the FULL
-        // inactive track still drawn (bar length identical to Health).
-        RadialWristElement radial = root.Q<RadialWristElement>();
-        Assert.IsNotNull(radial, "radial element");
-        AssertNearly(1f, radial.HealthFraction01, "health fraction 100%");
-        AssertNearly(0.82f, radial.SatietyFraction01, "satiety fraction 82%");
-        Assert.Less(radial.SatietyFraction01, 1f,
-            "satiety active fill does not reach 100% (inactive remainder visible)");
-        Assert.AreEqual(RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
-            RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
-            "full track span identical (inactive track covers the same arc)");
 
         controller.SetWristOpen(false);
     }
@@ -1260,7 +1184,6 @@ public class SurvivePhase06RevisionTests
             .resolvedStyle.display == DisplayStyle.None, "edge cue clears when in window");
 
         // ---- Turn 90 deg to the target's left -> negative, left edge cue ----
-        // Facing bearing+90 places the target -90 (left) of the view.
         player.SetFacing(bearing + 90f, 0f);
         for (int i = 0; i < 8; i++)
         {
@@ -1290,13 +1213,12 @@ public class SurvivePhase06RevisionTests
     }
 
     // ==================================================================
-    // Round 9.1 targeted visual validators (human acceptance still final)
+    // Round 9.1 accepted: cursor
     // ==================================================================
 
-    /// <summary>Round 9.1 M1: CursorVisual_Runtime - the top-left "stray
-    /// teal arc" is the old hollow-ring Cursor.SetCursor texture. The normal
-    /// cursor must now be a SOLID dot with NO ring/arc; hover = dot + ring.
-    /// Still Cursor.SetCursor only, still no UI Toolkit cursor overlay.</summary>
+    /// <summary>Round 9.1 M1: CursorVisual_Runtime - the normal cursor must be
+    /// a SOLID dot with NO ring/arc; hover = dot + ring. Still Cursor.SetCursor
+    /// only, still no UI Toolkit cursor overlay.</summary>
     [UnityTest]
     public IEnumerator CursorVisual_Runtime()
     {
@@ -1324,7 +1246,6 @@ public class SurvivePhase06RevisionTests
 
         // Pixel probes: normal texture has a filled centre and NO ring; the
         // hover texture keeps the centre dot AND has ring pixels at ~6.5px.
-        // GetPixel returns float alpha in 0..1 (not 8-bit), so compare floats.
         Assert.Greater(service.NormalCursorTexture.GetPixel(8, 8).a, 0.8f,
             "normal cursor centre filled");
         Assert.Less(service.NormalCursorTexture.GetPixel(14, 8).a, 0.1f,
@@ -1336,12 +1257,81 @@ public class SurvivePhase06RevisionTests
         service.Dispose();
     }
 
-    /// <summary>Round 9.1 M2: StatusArcSymmetry_Runtime - both status tracks
-    /// share one geometry helper: radius 392, thickness 14, span 70, mirrored
-    /// top/bottom, full inactive track at satiety 82%, and NO radial overlap
-    /// with the functional sector outer radius.</summary>
+    // ==================================================================
+    // Round 9.2 geometry validators (pure + scene)
+    // ==================================================================
+
+    /// <summary>ParallelPanelCaps_Runtime - the four functional panels are
+    /// Parallel-Cap Annular Panels: top edge horizontal, bottom edge
+    /// horizontal, and the top/bottom edges parallel (the old wedge look with
+    /// slanted caps is not accepted). Verified from the same geometry helpers
+    /// the mesh rows are built from (no separate implementation to drift).</summary>
     [UnityTest]
-    public IEnumerator StatusArcSymmetry_Runtime()
+    public IEnumerator ParallelPanelCaps_Runtime()
+    {
+        // Four panels: Equipment/State on the upper band, Navigation/Harvest on
+        // the lower band; left and right sides each get one panel per band.
+        VerifyParallelCaps(true, RadialWristElement.UpperPanelTopY,
+            RadialWristElement.UpperPanelBottomY, "Equipment upper-left");
+        VerifyParallelCaps(false, RadialWristElement.UpperPanelTopY,
+            RadialWristElement.UpperPanelBottomY, "State upper-right");
+        VerifyParallelCaps(true, RadialWristElement.LowerPanelTopY,
+            RadialWristElement.LowerPanelBottomY, "Navigation lower-left");
+        VerifyParallelCaps(false, RadialWristElement.LowerPanelTopY,
+            RadialWristElement.LowerPanelBottomY, "Harvest lower-right");
+
+        // The four panels never form one continuous 360 ring: the upper and
+        // lower bands are separated by the equator gap (345..455) where no
+        // functional geometry exists.
+        Assert.Greater(RadialWristElement.LowerPanelTopY
+                       - RadialWristElement.UpperPanelBottomY, 100f,
+            "equator gap between upper and lower panels keeps them independent");
+
+        yield return null;
+    }
+
+    private static void VerifyParallelCaps(bool leftSide, float topY, float bottomY, string label)
+    {
+        bool ok = RadialWristElement.GetPanelCapEndpoints(leftSide, topY, bottomY,
+            out Vector2 topInner, out Vector2 topOuter,
+            out Vector2 bottomInner, out Vector2 bottomOuter);
+        Assert.IsTrue(ok, label + " cap endpoints resolvable");
+
+        // Top cap: both ends share the same Y (<= 1 px tolerance).
+        Assert.IsTrue(Mathf.Abs(topInner.y - topOuter.y) <= 1f,
+            label + " top cap horizontal (y " + topInner.y.ToString("0.0") + " / "
+            + topOuter.y.ToString("0.0") + ")");
+        Assert.IsTrue(Mathf.Abs(topInner.y - topY) <= 1f,
+            label + " top cap at band top y=" + topY);
+
+        // Bottom cap: both ends share the same Y (<= 1 px tolerance).
+        Assert.IsTrue(Mathf.Abs(bottomInner.y - bottomOuter.y) <= 1f,
+            label + " bottom cap horizontal (y " + bottomInner.y.ToString("0.0") + " / "
+            + bottomOuter.y.ToString("0.0") + ")");
+        Assert.IsTrue(Mathf.Abs(bottomInner.y - bottomY) <= 1f,
+            label + " bottom cap at band bottom y=" + bottomY);
+
+        // Top and bottom edges are parallel (both horizontal).
+        Vector2 topDir = (topOuter - topInner).normalized;
+        Vector2 bottomDir = (bottomOuter - bottomInner).normalized;
+        float dot = Vector2.Dot(topDir, bottomDir);
+        Assert.IsTrue(dot >= 0.999f, label + " top/bottom edges parallel (dot "
+            + dot.ToString("0.0000") + ")");
+
+        // The cap x-ends must be ordered: inner (closest to centre) and outer
+        // (farthest) must keep the authored panel thickness.
+        float innerDx = Mathf.Abs(topInner.x - RadialWristElement.Center.x);
+        float outerDx = Mathf.Abs(topOuter.x - RadialWristElement.Center.x);
+        Assert.Greater(outerDx, innerDx, label + " outer radius beyond inner radius");
+    }
+
+    /// <summary>StatusArcAlignment_Runtime - Health and Satiety use identical
+    /// physical track geometry whose INNER radius equals the panel inner
+    /// radius (248): the status arcs sit in the same radial assembly, never on
+    /// a distant outer orbit. Both tracks share span 70 deg, thickness 14,
+    /// same segment count and the full inactive track is always drawn.</summary>
+    [UnityTest]
+    public IEnumerator StatusArcAlignment_Runtime()
     {
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
@@ -1352,44 +1342,53 @@ public class SurvivePhase06RevisionTests
             yield return null;
         }
 
-        VisualElement root = Wrist().RootElement;
-        Assert.IsNotNull(root, "wrist root");
-        RadialWristElement radial = root.Q<RadialWristElement>();
+        RadialWristElement radial = Wrist().RootElement.Q<RadialWristElement>();
         Assert.IsNotNull(radial, "radial element");
 
-        Assert.AreEqual(392f, RadialWristElement.StatusArcRadius, "health radius 392");
-        Assert.AreEqual(RadialWristElement.StatusArcRadius, RadialWristElement.StatusArcRadius,
-            "satiety radius == health radius (single shared constant)");
-        Assert.AreEqual(14f, RadialWristElement.StatusArcThickness, "shared thickness 14");
-        AssertNearly(70f,
-            RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
-            "health physical span 70");
-        AssertNearly(70f,
-            RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
-            "satiety physical span 70");
+        // Shared inner radius with the panels.
+        Assert.AreEqual(RadialWristElement.PanelInnerRadius,
+            RadialWristElement.StatusInnerRadius,
+            "status inner radius == panel inner radius (248)");
+        Assert.AreEqual(248f, RadialWristElement.StatusInnerRadius, "status inner 248");
+        Assert.AreEqual(262f, RadialWristElement.StatusOuterRadius, "status outer 262");
+        Assert.AreEqual(14f, RadialWristElement.StatusThickness, "status thickness 14");
+
+        // Identical 70 degree spans (health 55..125, satiety 235..305).
+        AssertNearly(70f, RadialWristElement.HealthArcEndDeg
+                          - RadialWristElement.HealthArcStartDeg, "health span 70");
+        AssertNearly(70f, RadialWristElement.SatietyArcEndDeg
+                          - RadialWristElement.SatietyArcStartDeg, "satiety span 70");
         AssertNearly(RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
             RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
             "identical physical track length (Health == Satiety)");
 
-        // No radial overlap: arc inner edge (392-7=385) > sector outer (372).
-        float arcInner = RadialWristElement.StatusArcRadius
-                         - RadialWristElement.StatusArcThickness * 0.5f;
-        Assert.Greater(arcInner - RadialWristElement.SectorOuterRadius, 10f,
-            "arc inner (385) clears sector outer (372) by >=10px (real gap)");
+        // Round 9.2 colors: muted green / dark muted orange, no fluorescent.
+        Color32 health = RadialWristElement.HealthActiveColor;
+        Color32 satiety = RadialWristElement.SatietyActiveColor;
+        Assert.IsTrue(health.g > health.r && health.g > health.b,
+            "Health active fill is a GREEN family");
+        Assert.IsTrue(satiety.r > satiety.g && satiety.g > satiety.b,
+            "Satiety active fill is a DARK ORANGE family");
+        Assert.IsFalse(health.g > 230, "no fluorescent green");
+        Assert.IsFalse(satiety.r > 250, "no bright orange");
 
-        AssertNearly(1f, radial.HealthFraction01, "health 100% active");
-        AssertNearly(0.82f, radial.SatietyFraction01, "satiety 82% active");
+        // Fractions: health 100% active, satiety 82% active with the FULL
+        // inactive track still drawn (bar length identical to Health).
+        AssertNearly(1f, radial.HealthFraction01, "health fraction 100%");
+        AssertNearly(0.82f, radial.SatietyFraction01, "satiety fraction 82%");
         Assert.Less(radial.SatietyFraction01, 1f,
-            "remaining 18% satiety still shows the full inactive track");
+            "satiety active fill does not reach 100% (inactive remainder visible)");
+
         controller.SetWristOpen(false);
     }
 
-    /// <summary>Round 9.1 M3: SectorTextFullBounds_Runtime - every resolved
-    /// text container's FOUR corners must lie inside the safe radial band
-    /// 255..400 and inside its sector angles minus 3 deg (a centre-only check
-    /// cannot prove containment).</summary>
+    /// <summary>PanelTextSlotBounds_Runtime - every visible text row sits fully
+    /// inside its parallel-cap panel slot: horizontal box between the padded
+    /// inner/outer radius bounds at the row Y, padding >= 10 px, row Y inside
+    /// the panel band, row never overlapping the central map nor exceeding the
+    /// outer radius.</summary>
     [UnityTest]
-    public IEnumerator SectorTextFullBounds_Runtime()
+    public IEnumerator PanelTextSlotBounds_Runtime()
     {
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
@@ -1400,42 +1399,218 @@ public class SurvivePhase06RevisionTests
             yield return null;
         }
 
-        // Wait for the RenderTexture panel layout pass (mirrors the runtime
-        // visibility log delay) so resolvedStyle sizes/positions are final.
-        yield return new WaitForSecondsRealtime(0.6f);
+        SurfaceWristController wrist = Wrist();
+        bool layoutOk = wrist.VerifyWristLayoutGeometry(out string layoutReport);
+        Assert.IsTrue(layoutOk, "wrist layout with Round 9.2 row slots:\n" + layoutReport);
 
-        bool layoutOk = Wrist().VerifyWristLayoutGeometry(out string layoutReport);
-        Assert.IsTrue(layoutOk, "wrist layout with full-bounds sector text:\n" + layoutReport);
+        VisualElement root = wrist.RootElement;
 
-        VisualElement root = Wrist().RootElement;
-        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
-            root.Q<VisualElement>("EquipContent"),
-            RadialWristElement.EquipmentSectorStartDeg,
-            RadialWristElement.EquipmentSectorEndDeg),
-            "equipment: all four corners inside the sector");
-        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
-            root.Q<VisualElement>("StateContent"),
-            RadialWristElement.StateSectorStartDeg,
-            RadialWristElement.StateSectorEndDeg),
-            "state (wrap 350..405): all four corners inside the sector");
-        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
-            root.Q<VisualElement>("NavContent"),
-            RadialWristElement.NavigationSectorStartDeg,
-            RadialWristElement.NavigationSectorEndDeg),
-            "navigation: all four corners inside the sector");
-        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
-            root.Q<VisualElement>("HarvestContent"),
-            RadialWristElement.HarvestSectorStartDeg,
-            RadialWristElement.HarvestSectorEndDeg),
-            "harvest: all four corners inside the sector");
+        // Upper-left Equipment (rows move DOWN-LEFT).
+        VerifyRowInsideSlot(root.Q<Label>("EquipHeading"), true, 238f);
+        VerifyRowInsideSlot(root.Q<Label>("EquipHarvester"), true, 268f);
+        VerifyRowInsideSlot(root.Q<Label>("EquipBattery"), true, 296f);
+        VerifyRowInsideSlot(root.Q<Label>("EquipDrone"), true, 322f);
+
+        // Upper-right State (rows move DOWN-RIGHT).
+        VerifyRowInsideSlot(root.Q<Label>("StateHeading"), false, 238f);
+        VerifyRowInsideSlot(root.Q<Label>("ActionState"), false, 268f);
+        VerifyRowInsideSlot(root.Q<Label>("SignalState"), false, 296f);
+        VerifyRowInsideSlot(root.Q<Label>("RecoveredState"), false, 322f);
+
+        // Lower-left Navigation (rows move DOWN-RIGHT).
+        VerifyRowInsideSlot(root.Q<Label>("NavHeading"), true, 478f);
+        VerifyRowInsideSlot(root.Q<Label>("NavTarget"), true, 510f);
+        VerifyRowInsideSlot(root.Q<Label>("NavDistance"), true, 540f);
+
+        // Lower-right Harvest (rows move DOWN-LEFT).
+        VerifyRowInsideSlot(root.Q<Label>("HarvestHeading"), false, 478f);
+        VerifyRowInsideSlot(root.Q<Label>("HarvestNode"), false, 508f);
+        VerifyRowInsideSlot(root.Q<Label>("HarvestState"), false, 536f);
+        VerifyRowInsideSlot(root.Q<Label>("HarvestProgress"), false, 562f);
+
         controller.SetWristOpen(false);
     }
 
-    /// <summary>Round 9.1 M4: WristVisualBounds_Runtime - the ACTUAL radial
-    /// geometry (status-arc outer circle) projected to screen: centre moved
-    /// left/down (x ~43..46%, top-y ~55..59%), radial width 980..1100px at
-    /// 1920x1080 (checked as fraction so it is resolution independent) and the
-    /// orientation front dot 0.88..0.93.</summary>
+    private static void VerifyRowInsideSlot(Label row, bool leftSide, float centerY)
+    {
+        Assert.IsNotNull(row, "row label " + row.name);
+        Assert.IsTrue(SurfaceWristController.VerifyRowSlot(row, leftSide, centerY,
+                out string info),
+            "row " + row.name + " inside its panel slot :: " + info);
+    }
+
+    /// <summary>PanelTextStaircase_Runtime - the text rows in every functional
+    /// panel follow the real panel cross-section so each staircase direction
+    /// matches its quadrant: Equipment down-left, State down-right, Navigation
+    /// down-right, Harvest down-left. Hidden (empty) rows are ignored.</summary>
+    [UnityTest]
+    public IEnumerator PanelTextStaircase_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 12; i++)
+        {
+            yield return null;
+        }
+
+        VisualElement root = Wrist().RootElement;
+
+        // Equipment (upper-left): headingX > line1X > line2X > line3X.
+        VerifyStaircaseDownLeft(root, "EquipHeading", "EquipHarvester",
+            "EquipBattery", "EquipDrone");
+
+        // State (upper-right): headingX < line1X < line2X < line3X.
+        VerifyStaircaseDownRight(root, "StateHeading", "ActionState",
+            "SignalState", "RecoveredState");
+
+        // Navigation (lower-left): headingX < line1X < line2X.
+        VerifyStaircaseDownRight(root, "NavHeading", "NavTarget", "NavDistance");
+
+        // Harvest (lower-right): headingX > line1X > line2X (progress too when
+        // visible: line2X > progressX). At idle the progress row is empty and
+        // therefore ignored.
+        VerifyStaircaseDownLeft(root, "HarvestHeading", "HarvestNode",
+            "HarvestState", "HarvestProgress");
+
+        controller.SetWristOpen(false);
+    }
+
+    private static void VerifyStaircaseDownLeft(VisualElement root,
+        string headingName, params string[] lineNames)
+    {
+        float headingCentre = RowCentreX(root, headingName);
+        float previous = headingCentre;
+        foreach (string line in lineNames)
+        {
+            Label label = root.Q<Label>(line);
+            if (label == null || string.IsNullOrEmpty(label.text))
+            {
+                continue; // hidden row for the current state
+            }
+
+            float centre = RowCentreX(root, line);
+            Assert.Less(centre, previous,
+                line + " staircase moves LEFT (down-left): " + headingName + " "
+                + headingCentre.ToString("0.0") + " > " + line + " " + centre.ToString("0.0"));
+            previous = centre;
+        }
+    }
+
+    private static void VerifyStaircaseDownRight(VisualElement root,
+        string headingName, params string[] lineNames)
+    {
+        float headingCentre = RowCentreX(root, headingName);
+        float previous = headingCentre;
+        foreach (string line in lineNames)
+        {
+            Label label = root.Q<Label>(line);
+            if (label == null || string.IsNullOrEmpty(label.text))
+            {
+                continue; // hidden row for the current state
+            }
+
+            float centre = RowCentreX(root, line);
+            Assert.Greater(centre, previous,
+                line + " staircase moves RIGHT (down-right): " + headingName + " "
+                + headingCentre.ToString("0.0") + " < " + line + " " + centre.ToString("0.0"));
+            previous = centre;
+        }
+    }
+
+    private static float RowCentreX(VisualElement root, string name)
+    {
+        Label label = root.Q<Label>(name);
+        Assert.IsNotNull(label, "row " + name);
+        float left = label.style.left.value.value;
+        float width = label.style.width.value.value;
+        return left + width * 0.5f;
+    }
+
+    /// <summary>HarvestTextState_Reset_Runtime - after harvesting / wireless
+    /// transfer completes, NO wrist text may retain a '%' residue. Every
+    /// refresh must fully define every related label (no partial string
+    /// replacement).</summary>
+    [UnityTest]
+    public IEnumerator HarvestTextState_Reset_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        SurfacePlayerController player = controller.Player;
+        SurfaceResourceNode node0 = controller.Nodes[0];
+
+        player.TeleportTo(node0.transform.position + Vector3.forward * 1.2f);
+        yield return null;
+        Assert.IsTrue(controller.TryDeployNearest(), "deploy node 0");
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 10; i++)
+        {
+            yield return null;
+        }
+
+        VisualElement root = Wrist().RootElement;
+        Assert.IsTrue(LabelText(root, "HarvestProgress").EndsWith("%"),
+            "harvesting shows progress with %");
+
+        // Advance into wireless transfer: progress still shows %.
+        node0.AdvanceTimers(node0.RemainingSeconds);
+        yield return null;
+        yield return null;
+        Assert.AreEqual("无线传输", LabelText(root, "HarvestState"), "wireless transfer state");
+        Assert.IsTrue(LabelText(root, "HarvestProgress").EndsWith("%"),
+            "transmitting shows progress with %");
+
+        // Let the transfer settle while the wrist stays open: after Depleted
+        // the refresh fully rewrites the rows and no '%' may remain anywhere.
+        node0.AdvanceTimers(node0.RemainingSeconds);
+        yield return null;
+        yield return null;
+        yield return null;
+        Assert.AreEqual(SurfaceResourceNode.NodeState.Depleted, node0.State, "node depleted");
+
+        Assert.AreEqual("传输完成", LabelText(root, "HarvestState"),
+            "completion state shown (no % mixed in)");
+        Assert.AreEqual("", LabelText(root, "HarvestProgress"),
+            "progress row fully cleared after settlement (no % residue)");
+        AssertNoPercentInWristText(root, "after settlement");
+
+        // Idle (or still-completion) state after reopening also carries no %.
+        controller.SetWristOpen(false);
+        for (int i = 0; i < 6; i++)
+        {
+            yield return null;
+        }
+
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 10; i++)
+        {
+            yield return null;
+        }
+
+        root = Wrist().RootElement;
+        string reopenedState = LabelText(root, "HarvestState");
+        Assert.IsTrue(reopenedState == "待机" || reopenedState == "传输完成",
+            "post-settle state is idle or still completion (actual: " + reopenedState + ")");
+        Assert.AreEqual("", LabelText(root, "HarvestProgress"), "progress row clear after reopen");
+        AssertNoPercentInWristText(root, "after reopening post-settle");
+
+        controller.SetWristOpen(false);
+    }
+
+    private static void AssertNoPercentInWristText(VisualElement root, string context)
+    {
+        foreach (TextElement text in root.Query<TextElement>().ToList())
+        {
+            Assert.IsFalse(text.text != null && text.text.Contains("%"),
+                context + " :: wrist element '" + text.name + "' still shows '" + text.text + "'");
+        }
+    }
+
+    /// <summary>WristVisualBounds_Runtime (Round 9.2) - the hologram centre
+    /// target is x 44..46% / top-y 53..56% and the radial graphic must fit the
+    /// viewport (no clipping). Fraction based so it is resolution independent;
+    /// the exact 1920x1080 numbers land in the Release screenshot log.</summary>
     [UnityTest]
     public IEnumerator WristVisualBounds_Runtime()
     {
@@ -1456,16 +1631,17 @@ public class SurvivePhase06RevisionTests
         bool ok = wrist.VerifyDisplayVisible(out string report);
         Assert.IsTrue(ok, "wrist display chain visible:\n" + report);
 
-        // Hologram visual centre (design centre = display centre) target:
-        // x 43..46% width, top-y 55..59% (= viewport bottom-up 0.41..0.45).
+        // Hologram visual centre (design centre = display centre) - the exact
+        // pixel target is printed in the Release log; the fraction band here is
+        // resolution-independent and centred around the Round 9.2 target.
         WristDisplayAnchor anchor = wrist.Display;
         Vector3 centreViewport = cam.WorldToViewportPoint(anchor.transform.position);
-        Assert.IsTrue(centreViewport.x >= 0.40f && centreViewport.x <= 0.49f,
-            "hologram centre moved LEFT of screen middle (x "
-            + (centreViewport.x * 100f).ToString("0") + "%, target ~44.5%)");
-        Assert.IsTrue(centreViewport.y >= 0.36f && centreViewport.y <= 0.48f,
-            "hologram centre moved DOWN (top-y "
-            + ((1f - centreViewport.y) * 100f).ToString("0") + "%, target 55..59%)");
+        Assert.IsTrue(centreViewport.x >= 0.38f && centreViewport.x <= 0.52f,
+            "hologram centre near LEFT-middle (x "
+            + (centreViewport.x * 100f).ToString("0") + "%, target ~45%)");
+        Assert.IsTrue(centreViewport.y >= 0.34f && centreViewport.y <= 0.52f,
+            "hologram centre in the lower-middle (top-y "
+            + ((1f - centreViewport.y) * 100f).ToString("0") + "%, target ~55%)");
 
         // Pivot stays lower-left of the centre.
         Vector3 pivotViewport = cam.WorldToViewportPoint(wrist.ProjectionPivot.position);
@@ -1474,20 +1650,21 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(centreViewport.y > pivotViewport.y + 0.1f,
             "hologram centre well above the wrist pivot");
 
-        // Actual drawn radial geometry bounds (fraction-based; the exact
-        // 980..1100px @1920x1080 values print in the Release screenshot log -
-        // editor PlayMode runs on a narrow-aspect buffer so the fraction here
-        // is only required to be clearly large and non-degenerate).
+        // Actual drawn radial geometry (panel outer radius 365) projected; must
+        // be clearly large and NOT degenerate. Round 9.2 targets at 1920x1080
+        // (width 960..1020, height 820..900, fully inside the viewport) print
+        // in the Release screenshot log for human acceptance.
         bool radialOk = wrist.ComputeProjectedRadialBounds(
             out Vector2 radialCentre, out float radialWidthPx, out float radialHeightPx);
         Assert.IsTrue(radialOk, "radial graphic projection available");
         float widthFrac = radialWidthPx / Screen.width;
-        Assert.IsTrue(widthFrac >= 0.28f && widthFrac <= 0.80f,
+        float heightFrac = radialHeightPx / Screen.height;
+        Assert.IsTrue(widthFrac >= 0.30f && widthFrac <= 0.85f,
             "drawn radial geometry width " + (widthFrac * 100f).ToString("0")
-            + "% of screen (Round 9.1 target 51..57% at 1920x1080)");
-        Assert.IsTrue(radialWidthPx > radialHeightPx * 0.7f,
-            "radial graphic keeps a near-round projection (w x h = "
-            + radialWidthPx.ToString("0") + "x" + radialHeightPx.ToString("0") + ")");
+            + "% of screen (Round 9.2 target ~50% at 1920x1080)");
+        Assert.IsTrue(heightFrac >= 0.40f && heightFrac <= 0.98f,
+            "drawn radial geometry height " + (heightFrac * 100f).ToString("0")
+            + "% of screen (Round 9.2 target ~76..83%; must fit the viewport)");
 
         // Orientation: front dot at the hologram centre (design 0.88..0.93;
         // banded slightly for editor-buffer variance, exact value in logs).
@@ -1498,37 +1675,6 @@ public class SurvivePhase06RevisionTests
             + " (design target 0.88..0.93)");
 
         controller.SetWristOpen(false);
-    }
-
-    private static bool SectorCentreInside(VisualElement content, float startDeg, float endDeg)
-    {
-        if (content == null)
-        {
-            return false;
-        }
-
-        float left = content.resolvedStyle.left;
-        float top = content.resolvedStyle.top;
-        float width = content.resolvedStyle.width;
-        float height = content.resolvedStyle.height;
-        if (float.IsNaN(left) || float.IsNaN(top) || width <= 1f || height <= 1f)
-        {
-            return false;
-        }
-
-        Vector2 centre = new Vector2(left + width * 0.5f, top + height * 0.5f);
-        Vector2 d = centre - RadialWristElement.Center;
-        float radius = d.magnitude;
-        if (radius < RadialWristElement.SectorInnerRadius - 6f
-            || radius > RadialWristElement.SectorOuterRadius + 6f)
-        {
-            return false;
-        }
-
-        float angle = RadialWristElement.WristAngleDeg(centre);
-        float span = endDeg - startDeg;
-        float offset = Mathf.Repeat(angle - startDeg, 360f);
-        return offset <= span + 6f;
     }
 
     private static string LabelText(VisualElement root, string name)

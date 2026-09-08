@@ -50,8 +50,9 @@ public static class SurviveProjectValidator
     };
 
     /// <summary>Phase 06 Revision wrist terminal element names the runtime
-    /// binds to (SurfaceWrist.uxml, CodeReference radial architecture: geometry
-    /// host + map marker layer + radial status labels + sector content).</summary>
+    /// binds to (SurfaceWrist.uxml, Round 9.2 parallel-cap architecture:
+    /// geometry host + map marker layer + radial status labels + independent
+    /// text-row slots).</summary>
     private static readonly string[] WristRevisionStructure =
     {
         "WristRoot",
@@ -61,10 +62,10 @@ public static class SurviveProjectValidator
         "MapNode0", "MapNode1", "MapNode2",
         "MapSelectedRing",
         "HealthLabel", "SatietyLabel",
-        "EquipContent", "EquipHarvester", "EquipBattery", "EquipDrone",
-        "StateContent", "ActionState", "SignalState", "RecoveredState",
-        "NavContent", "NavTarget", "NavDistance",
-        "HarvestContent", "HarvestNode", "HarvestState",
+        "EquipHeading", "EquipHarvester", "EquipBattery", "EquipDrone",
+        "StateHeading", "ActionState", "SignalState", "RecoveredState",
+        "NavHeading", "NavTarget", "NavDistance",
+        "HarvestHeading", "HarvestNode", "HarvestState", "HarvestProgress",
         "WristIdentity"
     };
 

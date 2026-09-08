@@ -233,14 +233,16 @@ public static class NereidSurfaceBuilder
         return ok;
     }
 
-    // Camera-relative raised-wrist pose (Round 9.1). Runtime pose aims the
-    // display at the camera with tilt defaults (pitch 10 / yaw -4 / roll 0).
-    // Round 9.1 human target @1920x1080: hologram visual centre x ~44.5% /
-    // top y ~57% (more left + lower than Round 9), wrist pivot further
-    // lower-left (~36% x / ~81% top), drawn radial geometry width 980..1100px.
-    private static readonly Vector3 WristPivotLocalPosition = new Vector3(-0.265f, -0.335f, 0.76f);
-    private static readonly Vector3 WristDisplayLocalOffset = new Vector3(0.18f, 0.3f, 0f);
-    private static readonly Vector3 WristDisplayLocalScale = new Vector3(2.0f, 1.25f, 1f);
+    // Camera-relative raised-wrist pose (Round 9.2). Round 9.2 keeps the
+    // accepted Round 9.1 orientation but applies the required uniform display
+    // scale x0.94 (2.0/1.25 -> 1.88/1.175) so the wrist no longer clips the
+    // screen, and brings the hologram slightly closer (pivot z 0.76 -> 0.69)
+    // so the drawn radial geometry lands in the Round 9.2 pixel target
+    // (width 960..1020, height 820..900 at 1920x1080) with the visual centre
+    // at x ~45% / top-y ~55%.
+    private static readonly Vector3 WristPivotLocalPosition = new Vector3(-0.265f, -0.335f, 0.69f);
+    private static readonly Vector3 WristDisplayLocalOffset = new Vector3(0.21f, 0.31f, 0f);
+    private static readonly Vector3 WristDisplayLocalScale = new Vector3(1.88f, 1.175f, 1f);
 
     private static void BuildLandingPad(Transform parent, Material pad, Material signal)
     {
