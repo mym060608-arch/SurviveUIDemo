@@ -54,6 +54,22 @@ public class SurfaceHudController : MonoBehaviour
     private Label _navName;
     private Label _navDistance;
 
+    // ---- Round 9 compass HUD (screen-space surface layer) ----
+    private CompassTapeElement _compassTape;
+    private VisualElement _compassHost;
+    private VisualElement _compassWaypoint;
+    private VisualElement _compassFocusDot;
+    private Label _compassEdgeLeft;
+    private Label _compassEdgeRight;
+    private VisualElement _compassInfo;
+    private Label _compassInfoText;
+    private bool _compassReady;
+
+    private float _lastCompassYaw = float.NaN;
+    private float _lastCompassRelative = float.NaN;
+    private bool _lastCompassAligned;
+    private bool _lastCompassHasTarget;
+
     private bool _bound;
 
     private void Awake()
@@ -133,10 +149,175 @@ public class SurfaceHudController : MonoBehaviour
         _navName = root.Q<Label>("HudNavName");
         _navDistance = root.Q<Label>("HudNavDistance");
 
+        BindCompass(root);
+
         if (_returnButton != null && _controller != null)
         {
             _returnButton.clicked += _controller.ReturnToHub;
         }
+    }
+
+    // ---- Round 9 compass bind + refresh ----
+
+    /// <summary>True once the compass elements resolved (tests/readouts).</summary>
+    public bool CompassReady => _compassReady;
+
+    /// <summary>Relative bearing of the last compass refresh (deg).</summary>
+    public float LastCompassRelativeDeg => _lastCompassRelative;
+
+    /// <summary>True when the last refresh had the target aligned (+-2 deg).</summary>
+    public bool LastCompassAligned => _lastCompassAligned;
+
+    public bool LastCompassHasTarget => _lastCompassHasTarget;
+
+    public CompassTapeElement CompassTape => _compassTape;
+
+    /// <summary>Finds the fixed compass elements and injects the
+    /// CompassTapeElement exactly once (like the wrist radial element).</summary>
+    private void BindCompass(VisualElement root)
+    {
+        if (_compassReady)
+        {
+            return;
+        }
+
+        _compassHost = root.Q<VisualElement>("CompassTicksHost");
+        _compassWaypoint = root.Q<VisualElement>("CompassWaypoint");
+        _compassFocusDot = root.Q<VisualElement>("CompassFocusDot");
+        _compassEdgeLeft = root.Q<Label>("CompassEdgeLeft");
+        _compassEdgeRight = root.Q<Label>("CompassEdgeRight");
+        _compassInfo = root.Q<VisualElement>("CompassInfo");
+        _compassInfoText = root.Q<Label>("CompassInfoText");
+
+        if (_compassHost == null || _compassFocusDot == null || _compassEdgeLeft == null
+            || _compassEdgeRight == null)
+        {
+            return;
+        }
+
+        _compassHost.Clear();
+        _compassTape = new CompassTapeElement();
+        _compassHost.Add(_compassTape);
+        ApplyCompassFont();
+        _compassReady = true;
+    }
+
+    private void ApplyCompassFont()
+    {
+        if (_cjkFont == null || _compassHost == null)
+        {
+            return;
+        }
+
+        foreach (TextElement text in _compassHost.Query<TextElement>().ToList())
+        {
+            text.style.unityFont = _cjkFont;
+        }
+    }
+
+    /// <summary>Drives the whole compass from the real camera yaw and the
+    /// scene-owned navigation target (frame, focus dot and edge cues never
+    /// move; the tape + waypoint scroll). Called every frame while exploring.</summary>
+    public void RefreshCompass(SurfaceGameController controller)
+    {
+        if (!_compassReady || controller == null || controller.Player == null)
+        {
+            return;
+        }
+
+        SurfacePlayerController player = controller.Player;
+        float cameraYaw = player.YawDegrees;
+        bool hasTarget = controller.IsNavigationActive
+                         && controller.GetNodeById(controller.NavigationTargetNodeId) != null;
+        float rel = 0f;
+        float targetBearing = 0f;
+
+        if (hasTarget)
+        {
+            SurfaceResourceNode node = controller.GetNodeById(controller.NavigationTargetNodeId);
+            targetBearing = CompassTapeElement.TargetBearing(
+                player.transform.position, node.transform.position);
+            rel = CompassTapeElement.RelativeBearing(cameraYaw, targetBearing);
+        }
+
+        bool aligned = hasTarget && Mathf.Abs(rel) <= CompassAlignedDegrees;
+        _lastCompassYaw = cameraYaw;
+        _lastCompassRelative = rel;
+        _lastCompassAligned = aligned;
+        _lastCompassHasTarget = hasTarget;
+
+        // Tape follows the camera yaw (wraps 359/0 cleanly).
+        if (_compassTape != null && !float.IsNaN(_lastCompassYaw))
+        {
+            _compassTape.SetCameraYaw(cameraYaw);
+        }
+
+        // Fixed centre light dot (never moves) + restrained glow on align.
+        if (_compassFocusDot != null)
+        {
+            if (aligned)
+            {
+                _compassFocusDot.AddToClassList("compass-aligned");
+            }
+            else
+            {
+                _compassFocusDot.RemoveFromClassList("compass-aligned");
+            }
+        }
+
+        // Waypoint / edge cues from the signed relative bearing.
+        bool inView = hasTarget && Mathf.Abs(rel) <= CompassTapeElement.VisibleHalfDegrees;
+        if (_compassWaypoint != null)
+        {
+            _compassWaypoint.style.display = inView ? DisplayStyle.Flex : DisplayStyle.None;
+            if (inView)
+            {
+                float x = CompassFrameCentreX + rel * CompassPixelsPerDegree();
+                _compassWaypoint.style.left = x - 6f;
+            }
+        }
+
+        if (_compassEdgeLeft != null && _compassEdgeRight != null)
+        {
+            bool leftEdge = hasTarget && rel < -CompassTapeElement.VisibleHalfDegrees;
+            bool rightEdge = hasTarget && rel > CompassTapeElement.VisibleHalfDegrees;
+            _compassEdgeLeft.style.display = leftEdge ? DisplayStyle.Flex : DisplayStyle.None;
+            _compassEdgeRight.style.display = rightEdge ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+
+        // Minimal restrained nav summary (never duplicates the wrist).
+        if (_compassInfo != null && _compassInfoText != null)
+        {
+            bool show = hasTarget;
+            _compassInfo.style.display = show ? DisplayStyle.Flex : DisplayStyle.None;
+            if (show)
+            {
+                string distance = controller.NavigationReached
+                    ? "已到达"
+                    : controller.NavigationDistance.ToString("0.0") + " m";
+                _compassInfoText.text = "◆ "
+                    + SurfaceGameController.NodeDisplayName(controller.NavigationTargetNodeId)
+                    + "   " + distance;
+            }
+        }
+    }
+
+    /// <summary>Alignment window in degrees (contract 1.5..2).</summary>
+    public const float CompassAlignedDegrees = 2f;
+
+    /// <summary>Compass frame centre x in frame coordinates (design 680px
+    /// wide frame -> centre 340).</summary>
+    private const float CompassFrameCentreX = 340f;
+
+    private float CompassPixelsPerDegree()
+    {
+        if (_compassTape == null)
+        {
+            return 0f;
+        }
+
+        float ppd = _compassTape.PixelsPerDegree;
+        return ppd > 0f ? ppd : 0f;
     }
 
     private static Font _cjkFont;

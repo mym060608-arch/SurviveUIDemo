@@ -365,6 +365,9 @@ public class SurfaceGameController : MonoBehaviour
             return; // the wrist layer is the only interface while open
         }
 
+        // Round 9: real-time compass heading/waypoint refresh (frame fixed).
+        _hud.RefreshCompass(this);
+
         string prompt;
         if (_interactor != null)
         {

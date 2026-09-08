@@ -550,10 +550,12 @@ public class SurvivePhase06RevisionTests
 
         float widthFraction = Mathf.Clamp01(maxX - minX);
         float heightFraction = Mathf.Clamp01(maxY - minY);
-        Assert.IsTrue(widthFraction <= 0.65f && widthFraction > 0.03f,
-            "projected width sane (was " + (widthFraction * 100f).ToString("0") + "%)");
-        Assert.IsTrue(heightFraction <= 0.70f && heightFraction > 0.03f,
-            "projected height sane (was " + (heightFraction * 100f).ToString("0") + "%)");
+        Assert.IsTrue(widthFraction >= 0.30f && widthFraction <= 1.0f,
+            "projected width visibly large (was " + (widthFraction * 100f).ToString("0")
+            + "%; Round 9 target ~62% at 1920x1080 - narrow editor aspects may overflow)");
+        Assert.IsTrue(heightFraction >= 0.30f && heightFraction <= 1.0f,
+            "projected height visibly large (was " + (heightFraction * 100f).ToString("0")
+            + "%; Round 9 target ~71% at 1920x1080)");
 
         // UV orientation: display-right world direction maps to larger u
         // (RT right); display-top world direction maps to larger v (RT top).
@@ -808,9 +810,15 @@ public class SurvivePhase06RevisionTests
 
         Assert.AreEqual(235f, RadialWristElement.MapRadius, "map radius 235");
         Assert.AreEqual(305f, RadialWristElement.ThinArcRadius, "thin arc radius 305");
-        Assert.AreEqual(10f, RadialWristElement.ThinArcThickness, "thin arc thickness 10");
-        Assert.AreEqual(270f, RadialWristElement.SectorInnerRadius, "sector inner 270");
-        Assert.AreEqual(350f, RadialWristElement.SectorOuterRadius, "sector outer 350");
+        Assert.AreEqual(13f, RadialWristElement.ThinArcThickness,
+            "thin arc thickness 13 (Round 9 12..14)");
+        Assert.AreEqual(252f, RadialWristElement.SectorInnerRadius,
+            "sector inner 252 (Round 9 wider band)");
+        Assert.AreEqual(382f, RadialWristElement.SectorOuterRadius,
+            "sector outer 382 (Round 9 wider band)");
+        Assert.GreaterOrEqual(RadialWristElement.SectorOuterRadius
+            - RadialWristElement.SectorInnerRadius, 120f,
+            "functional sector radial thickness >=120px");
 
         // Exactly two thin status arcs: health 55..125, satiety 235..305.
         Assert.AreEqual(55f, RadialWristElement.HealthArcStartDeg, "health arc start 55");
@@ -925,6 +933,386 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(wrist.CursorService.HoverCursorTexture,
             "hover ring texture available for Cursor.SetCursor");
         controller.SetWristOpen(false);
+    }
+
+    // ==================================================================
+    // Round 9 visual/expression validation (human acceptance still final)
+    // ==================================================================
+
+    /// <summary>Round 9 M: RaisedWristPose_Runtime — the hologram must read
+    /// as a raised left wrist, not a face-on tablet: wrist pivot lower-left
+    /// of the hologram centre, a real perspective tilt (front dot 0.86..0.96,
+    /// NOT ~0.99), the display brought closer/larger, and the parallax pivot
+    /// still the single rotation fulcrum.</summary>
+    [UnityTest]
+    public IEnumerator RaisedWristPose_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        SurfaceWristController wrist = Wrist();
+        Assert.IsNotNull(wrist, "wrist controller");
+        SurfacePlayerController player = controller.Player;
+        Camera cam = player.EyeCamera;
+
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 16; i++)
+        {
+            yield return null;
+        }
+
+        bool visible = wrist.VerifyDisplayVisible(out string report);
+        Assert.IsTrue(visible, "wrist display chain visible:\n" + report);
+
+        WristDisplayAnchor anchor = wrist.Display;
+        Transform pivot = wrist.ProjectionPivot;
+        Assert.IsNotNull(anchor, "anchor");
+        Assert.IsNotNull(pivot, "pivot");
+
+        Vector3 pivotViewport = cam.WorldToViewportPoint(pivot.position);
+        Vector3 centreViewport = cam.WorldToViewportPoint(anchor.transform.position);
+        Assert.IsTrue(pivotViewport.z > 0f && pivotViewport.x > 0.25f && pivotViewport.x < 0.5f,
+            "wrist pivot in the LEFT screen half (v=" + pivotViewport.ToString("0.000") + ")");
+        Assert.IsTrue(pivotViewport.y > 0.15f && pivotViewport.y < 0.45f,
+            "wrist pivot in the LOWER screen region (v=" + pivotViewport.ToString("0.000") + ")");
+        Assert.IsTrue(centreViewport.y > pivotViewport.y + 0.04f,
+            "hologram centre is ABOVE the wrist pivot (c=" + centreViewport.ToString("0.000")
+            + " p=" + pivotViewport.ToString("0.000") + ")");
+        Assert.IsTrue(centreViewport.x > pivotViewport.x + 0.01f,
+            "hologram centre is RIGHT of the wrist pivot");
+
+        // Real perspective: base pose is ~18..28 deg off the view axis.
+        Vector3 toCamera = (cam.transform.position - anchor.transform.position).normalized;
+        float frontDot = Vector3.Dot(anchor.FrontNormal, toCamera);
+        Assert.IsTrue(frontDot >= 0.86f && frontDot <= 0.96f,
+            "raised-wrist base pose not camera-facing (front dot "
+            + frontDot.ToString("0.00") + ", target 0.88..0.95)");
+        Assert.Less(frontDot, 0.975f, "display is NOT a face-on tablet");
+
+        // Projected size: clearly larger than the old 1024x648 presentation
+        // (fraction-based so the check is resolution independent).
+        Vector3 scale = anchor.transform.localScale;
+        float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
+        for (int sx = -1; sx <= 1; sx += 2)
+        {
+            for (int sy = -1; sy <= 1; sy += 2)
+            {
+                Vector3 corner = anchor.transform.position
+                                 + anchor.transform.right * (sx * scale.x * 0.5f)
+                                 + anchor.transform.up * (sy * scale.y * 0.5f);
+                Vector3 c = cam.WorldToViewportPoint(corner);
+                if (c.z > 0f)
+                {
+                    minX = Mathf.Min(minX, c.x);
+                    maxX = Mathf.Max(maxX, c.x);
+                    minY = Mathf.Min(minY, c.y);
+                    maxY = Mathf.Max(maxY, c.y);
+                }
+            }
+        }
+
+        float widthFrac = Mathf.Clamp01(maxX - minX);
+        float heightFrac = Mathf.Clamp01(maxY - minY);
+        Assert.IsTrue(widthFrac >= 0.50f && widthFrac <= 1.0f,
+            "wrist brought closer and large (width " + (widthFrac * 100f).ToString("0")
+            + "% of screen, Round 9 target ~62% at 1920x1080)");
+        Assert.IsTrue(heightFrac >= 0.50f && heightFrac <= 1.0f,
+            "wrist tall presentation (height " + (heightFrac * 100f).ToString("0")
+            + "% of screen, Round 9 target ~71% at 1920x1080)");
+
+        // Parallax still tilts around the captured base pose only.
+        Quaternion neutral = pivot.localRotation;
+        wrist.SetParallaxNormalized(0.6f, 0.4f);
+        for (int i = 0; i < 50; i++)
+        {
+            yield return null;
+        }
+
+        Assert.Greater(wrist.CurrentParallaxYaw, 0.05f, "parallax yaw follows pointer");
+        Assert.LessOrEqual(wrist.CurrentParallaxYaw, 4.5f, "parallax yaw clamped");
+        wrist.SetParallaxNormalized(0f, 0f);
+        for (int i = 0; i < 60; i++)
+        {
+            yield return null;
+        }
+
+        Assert.Less(Mathf.Abs(wrist.CurrentParallaxYaw), 0.6f, "returns to base yaw");
+        Assert.Less(Quaternion.Angle(pivot.localRotation, neutral), 2f,
+            "pivot returns to the raised-wrist base pose");
+
+        controller.SetWristOpen(false);
+    }
+
+    /// <summary>Round 9 M: RadialSectorTypography_Runtime — wider functional
+    /// band, polar-anchored sector text inside the sectors, mirrored
+    /// health/satiety tracks, green/orange families, inactive satiety track
+    /// still covering the full 70 deg span at 82%.</summary>
+    [UnityTest]
+    public IEnumerator RadialSectorTypography_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 12; i++)
+        {
+            yield return null;
+        }
+
+        VisualElement root = Wrist().RootElement;
+        Assert.IsNotNull(root, "wrist root");
+
+        // ---- Wider functional band (Round 9 B) ----
+        Assert.IsTrue(RadialWristElement.SectorInnerRadius >= 250f
+                      && RadialWristElement.SectorInnerRadius <= 255f,
+            "sector inner radius 250..255 (actual "
+            + RadialWristElement.SectorInnerRadius + ")");
+        Assert.IsTrue(RadialWristElement.SectorOuterRadius >= 380f
+                      && RadialWristElement.SectorOuterRadius <= 385f,
+            "sector outer radius 380..385 (actual "
+            + RadialWristElement.SectorOuterRadius + ")");
+        Assert.GreaterOrEqual(RadialWristElement.SectorOuterRadius
+            - RadialWristElement.SectorInnerRadius, 120f, "sector thickness >= 120px");
+        Assert.IsTrue(RadialWristElement.MapRadius >= 225f
+                      && RadialWristElement.MapRadius <= 235f,
+            "map radius keeps the central map dominant ("
+            + RadialWristElement.MapRadius + ")");
+
+        // No full 360 outer ring: the four sectors keep visible gaps.
+        float covered = (RadialWristElement.EquipmentSectorEndDeg
+                         - RadialWristElement.EquipmentSectorStartDeg)
+                        + (RadialWristElement.NavigationSectorEndDeg
+                           - RadialWristElement.NavigationSectorStartDeg)
+                        + (RadialWristElement.HarvestSectorEndDeg
+                           - RadialWristElement.HarvestSectorStartDeg)
+                        + (RadialWristElement.StateSectorEndDeg
+                           - RadialWristElement.StateSectorStartDeg);
+        Assert.Less(covered, 360f, "no complete outer functional ring");
+
+        // ---- Sector text: every content centre inside its own sector ----
+        // The wrist document renders into its RenderTexture; wait a short
+        // realtime window so the layout pass resolves (mirrors
+        // LogVisibilityAfterOpen).
+        yield return new WaitForSecondsRealtime(0.5f);
+        bool layoutOk = Wrist().VerifyWristLayoutGeometry(out string layoutReport);
+        Assert.IsTrue(layoutOk, "wrist sector layout geometry:\n" + layoutReport);
+        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("EquipContent"),
+            RadialWristElement.EquipmentSectorStartDeg,
+            RadialWristElement.EquipmentSectorEndDeg), "equipment text centre in sector");
+        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("StateContent"),
+            RadialWristElement.StateSectorStartDeg,
+            RadialWristElement.StateSectorEndDeg), "state text centre in sector");
+        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("NavContent"),
+            RadialWristElement.NavigationSectorStartDeg,
+            RadialWristElement.NavigationSectorEndDeg), "navigation text centre in sector");
+        Assert.IsTrue(SectorCentreInside(root.Q<VisualElement>("HarvestContent"),
+            RadialWristElement.HarvestSectorStartDeg,
+            RadialWristElement.HarvestSectorEndDeg), "harvest text centre in sector");
+
+        // ---- Mirror status tracks (Round 9 D) ----
+        Assert.AreEqual(RadialWristElement.HealthArcStartDeg,
+            RadialWristElement.SatietyArcStartDeg - 180f, "arcs mirrored top/bottom");
+        AssertNearly(RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
+            RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
+            "identical 70 deg angular span");
+        Assert.IsTrue(RadialWristElement.ThinArcThickness >= 12f
+                      && RadialWristElement.ThinArcThickness <= 14f,
+            "track thickness 12..14 px");
+
+        // ---- Color families (Round 9 D user requirement) ----
+        Color32 health = RadialWristElement.HealthActiveColor;
+        Color32 satiety = RadialWristElement.SatietyActiveColor;
+        Assert.IsTrue(health.g > health.r && health.g > health.b,
+            "Health active fill is a GREEN family (r" + health.r
+            + " g" + health.g + " b" + health.b + ")");
+        Assert.IsTrue(satiety.r > satiety.g && satiety.g > satiety.b,
+            "Satiety active fill is a DARK ORANGE family (r" + satiety.r
+            + " g" + satiety.g + " b" + satiety.b + ")");
+        Assert.IsFalse(health.g > 230, "no fluorescent green");
+        Assert.IsFalse(satiety.r > 250, "no bright orange");
+
+        // Fractions: health 100% active, satiety 82% active with the FULL
+        // inactive track still drawn (bar length identical to Health).
+        RadialWristElement radial = root.Q<RadialWristElement>();
+        Assert.IsNotNull(radial, "radial element");
+        AssertNearly(1f, radial.HealthFraction01, "health fraction 100%");
+        AssertNearly(0.82f, radial.SatietyFraction01, "satiety fraction 82%");
+        Assert.Less(radial.SatietyFraction01, 1f,
+            "satiety active fill does not reach 100% (inactive remainder visible)");
+        Assert.AreEqual(RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
+            RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
+            "full track span identical (inactive track covers the same arc)");
+
+        controller.SetWristOpen(false);
+    }
+
+    /// <summary>Round 9 M: CompassHUD_Runtime — pure bearing math, 359/0 wrap,
+    /// frame/target behaviour and real navigation distance remain
+    /// authoritative.</summary>
+    [UnityTest]
+    public IEnumerator CompassHUD_Runtime()
+    {
+        // ---- Pure math first (no scene dependency) ----
+        AssertNearly(0f, CompassTapeElement.Normalize360(360f), "normalize 360 -> 0");
+        AssertNearly(30f, CompassTapeElement.Normalize360(750f), "normalize 750 -> 30");
+        AssertNearly(315f, CompassTapeElement.Normalize360(-45f), "normalize -45 -> 315");
+        AssertNearly(0f, CompassTapeElement.TargetBearing(
+            new Vector3(0f, 0f, 0f), new Vector3(0f, 0f, 10f)), "bearing north +Z = 0");
+        AssertNearly(90f, CompassTapeElement.TargetBearing(
+            new Vector3(0f, 0f, 0f), new Vector3(10f, 0f, 0f)), "bearing east = 90");
+        AssertNearly(270f, CompassTapeElement.TargetBearing(
+            new Vector3(0f, 0f, 0f), new Vector3(-10f, 0f, 0f)), "bearing west = 270");
+        AssertNearly(90f, CompassTapeElement.RelativeBearing(0f, 90f),
+            "target east of facing = positive (right)");
+        AssertNearly(-90f, CompassTapeElement.RelativeBearing(0f, 270f),
+            "target west of facing = negative (left)");
+        AssertNearly(20f, CompassTapeElement.RelativeBearing(350f, 10f),
+            "wrap +: 350 facing, target 10 -> +20 (no jump)");
+        AssertNearly(-20f, CompassTapeElement.RelativeBearing(10f, 350f),
+            "wrap -: 10 facing, target 350 -> -20 (no jump)");
+
+        var tape = new CompassTapeElement();
+        tape.SetCameraYaw(359f);
+        AssertNearly(359f, tape.CameraYawDegrees, "tape yaw 359");
+        Assert.IsTrue(tape.IsVisibleOnTape(2f), "wrap across 0 stays visible (+3)");
+        tape.SetCameraYaw(1f);
+        Assert.IsTrue(tape.IsVisibleOnTape(359f), "wrap across 0 stays visible (-2)");
+        Assert.IsFalse(tape.IsVisibleOnTape(50f), "bearing beyond +-45 outside window");
+
+        // ---- Scene: compass exists on the surface frame ----
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        SurfacePlayerController player = controller.Player;
+        UIDocument hudDoc = HudDocument();
+        Assert.IsNotNull(hudDoc, "hud document exists");
+        SurfaceHudController hud = hudDoc.GetComponent<SurfaceHudController>();
+        Assert.IsNotNull(hud, "hud controller exists");
+
+        VisualElement frame = hudDoc.rootVisualElement.Q<VisualElement>("CompassFrame");
+        Assert.IsNotNull(frame, "CompassFrame present always on Surface");
+        Assert.IsTrue(frame.resolvedStyle.display == DisplayStyle.Flex, "compass frame visible");
+        Assert.IsNotNull(hudDoc.rootVisualElement.Q<VisualElement>("CompassFocusDot"),
+            "fixed centre focus dot present");
+        Assert.IsNotNull(hudDoc.rootVisualElement.Q<Label>("CompassEdgeLeft"), "edge cue L");
+        Assert.IsNotNull(hudDoc.rootVisualElement.Q<Label>("CompassEdgeRight"), "edge cue R");
+        CompassTapeElement injected = hudDoc.rootVisualElement.Q<CompassTapeElement>();
+        Assert.IsNotNull(injected, "CompassTapeElement injected into ticks host");
+        Assert.IsTrue(hud.CompassReady, "hud compass bound");
+
+        // No target: everything neutral (no waypoint, no edge cue, no info).
+        Assert.IsFalse(hud.LastCompassHasTarget, "no target initially");
+        Assert.IsTrue(hudDoc.rootVisualElement.Q<VisualElement>("CompassWaypoint")
+            .resolvedStyle.display == DisplayStyle.None, "waypoint hidden without target");
+
+        // ---- Target east of the player -> positive/right, edge cue ----
+        // Spawn (0,0,4.8) with yaw 0 (north); node 2 sits east (bearing ~114).
+        player.TeleportTo(new Vector3(0f, 0f, 4.8f));
+        yield return null;
+        player.SetFacing(0f, 0f);
+        Assert.IsTrue(controller.TrySelectNavigationTarget(2), "select node 2");
+        for (int i = 0; i < 8; i++)
+        {
+            yield return null;
+        }
+
+        Assert.IsTrue(hud.LastCompassHasTarget, "target present on compass");
+        Assert.Greater(hud.LastCompassRelativeDeg, 30f,
+            "node east of north-facing player is a positive (right) relative bearing");
+        VisualElement waypoint = hudDoc.rootVisualElement.Q<VisualElement>("CompassWaypoint");
+        Assert.IsTrue(waypoint.resolvedStyle.display == DisplayStyle.None,
+            "waypoint out of the visible +-45 window -> hidden");
+        Assert.IsTrue(hudDoc.rootVisualElement.Q<Label>("CompassEdgeRight")
+            .resolvedStyle.display == DisplayStyle.Flex, "right edge cue shown");
+        Assert.IsTrue(hudDoc.rootVisualElement.Q<Label>("CompassEdgeLeft")
+            .resolvedStyle.display == DisplayStyle.None, "no left edge cue");
+        Assert.IsFalse(hud.LastCompassAligned, "not aligned while looking away");
+        Assert.IsFalse(hudDoc.rootVisualElement.Q<VisualElement>("CompassFocusDot")
+            .ClassListContains("compass-aligned"), "focus dot dim");
+
+        string infoText = LabelText(hudDoc.rootVisualElement, "CompassInfoText");
+        Assert.IsTrue(infoText.StartsWith("◆ 资源节点 03"), "restrained info shows name: " + infoText);
+        Assert.IsTrue(infoText.EndsWith(" m"), "info shows the real distance");
+
+        // ---- Face the target: relative 0 -> aligned focus dot ----
+        Vector3 delta = controller.Nodes[2].transform.position - player.transform.position;
+        float bearing = Mathf.Atan2(delta.x, delta.z) * Mathf.Rad2Deg;
+        player.SetFacing(bearing, 0f);
+        for (int i = 0; i < 8; i++)
+        {
+            yield return null;
+        }
+
+        Assert.IsTrue(Mathf.Abs(hud.LastCompassRelativeDeg) <= 2.5f,
+            "facing the node aligns the relative bearing ("
+            + hud.LastCompassRelativeDeg.ToString("0.0") + ")");
+        Assert.IsTrue(hud.LastCompassAligned, "aligned target detected");
+        Assert.IsTrue(hudDoc.rootVisualElement.Q<VisualElement>("CompassFocusDot")
+            .ClassListContains("compass-aligned"), "focus dot highlighted when aligned");
+        Assert.IsTrue(waypoint.resolvedStyle.display == DisplayStyle.Flex,
+            "waypoint visible on the tape when aligned");
+        Assert.IsTrue(hudDoc.rootVisualElement.Q<Label>("CompassEdgeRight")
+            .resolvedStyle.display == DisplayStyle.None, "edge cue clears when in window");
+
+        // ---- Turn 90 deg to the target's left -> negative, left edge cue ----
+        // Facing bearing+90 places the target -90 (left) of the view.
+        player.SetFacing(bearing + 90f, 0f);
+        for (int i = 0; i < 8; i++)
+        {
+            yield return null;
+        }
+
+        Assert.Less(hud.LastCompassRelativeDeg, -45f,
+            "target now far LEFT of the view (negative relative bearing)");
+        Assert.IsTrue(hudDoc.rootVisualElement.Q<Label>("CompassEdgeLeft")
+            .resolvedStyle.display == DisplayStyle.Flex, "left edge cue shown");
+        Assert.IsTrue(waypoint.resolvedStyle.display == DisplayStyle.None,
+            "waypoint hidden again outside the window");
+        Assert.IsFalse(hud.LastCompassAligned, "no longer aligned");
+
+        // ---- Real navigation distance remains authoritative ----
+        float real = Vector3.Distance(player.transform.position,
+            controller.Nodes[2].transform.position);
+        Assert.IsTrue(Mathf.Abs(controller.NavigationDistance - real) < 0.01f,
+            "navigation distance still the real world distance");
+        controller.ClearNavigationTarget();
+        for (int i = 0; i < 6; i++)
+        {
+            yield return null;
+        }
+
+        Assert.IsFalse(hud.LastCompassHasTarget, "target cleared -> neutral compass");
+    }
+
+    private static bool SectorCentreInside(VisualElement content, float startDeg, float endDeg)
+    {
+        if (content == null)
+        {
+            return false;
+        }
+
+        float left = content.resolvedStyle.left;
+        float top = content.resolvedStyle.top;
+        float width = content.resolvedStyle.width;
+        float height = content.resolvedStyle.height;
+        if (float.IsNaN(left) || float.IsNaN(top) || width <= 1f || height <= 1f)
+        {
+            return false;
+        }
+
+        Vector2 centre = new Vector2(left + width * 0.5f, top + height * 0.5f);
+        Vector2 d = centre - RadialWristElement.Center;
+        float radius = d.magnitude;
+        if (radius < RadialWristElement.SectorInnerRadius - 6f
+            || radius > RadialWristElement.SectorOuterRadius + 6f)
+        {
+            return false;
+        }
+
+        float angle = RadialWristElement.WristAngleDeg(centre);
+        float span = endDeg - startDeg;
+        float offset = Mathf.Repeat(angle - startDeg, 360f);
+        return offset <= span + 6f;
     }
 
     private static string LabelText(VisualElement root, string name)

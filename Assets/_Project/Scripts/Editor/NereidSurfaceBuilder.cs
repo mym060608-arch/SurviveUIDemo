@@ -178,10 +178,10 @@ public static class NereidSurfaceBuilder
         wrist.panelSettings = wristPanel;
         wrist.wristStyleSheet = wristUss;
 
-        // Round 8 hologram chain: WristProjectionPivot (camera-relative,
-        // raised-wrist offset) -> WristDisplay (child at origin). The pivot is
-        // the future hand/wrist attachment point; parallax tilts the display
-        // around it at runtime.
+        // Round 9 hologram chain: WristProjectionPivot (camera-relative,
+        // raised-wrist pose) -> WristDisplay (child offset up/right of the
+        // pivot so the hologram "unfolds" from the wrist). The pivot is the
+        // future wrist attachment point; parallax tilts the display around it.
         var pivotGo = new GameObject("WristProjectionPivot");
         pivotGo.transform.SetParent(eyeGo.transform, false);
         pivotGo.transform.localPosition = WristPivotLocalPosition;
@@ -192,7 +192,7 @@ public static class NereidSurfaceBuilder
         Object.DestroyImmediate(displayGo.GetComponent<Collider>());
         displayGo.name = "WristDisplay";
         displayGo.transform.SetParent(pivotGo.transform, false);
-        displayGo.transform.localPosition = Vector3.zero;
+        displayGo.transform.localPosition = WristDisplayLocalOffset;
         displayGo.transform.localRotation = Quaternion.identity;
         displayGo.transform.localScale = WristDisplayLocalScale;
 
@@ -233,12 +233,16 @@ public static class NereidSurfaceBuilder
         return ok;
     }
 
-    // Camera-relative wrist placement (round 8, larger hologram). The runtime
-    // pose is computed from the camera basis each open; these values define the
-    // WristProjectionPivot offset. Physical display ~1.08m wide -> projected
-    // width ~50-60% of the 1920x1080 frame (1280:800 kept).
-    private static readonly Vector3 WristPivotLocalPosition = new Vector3(-0.05f, -0.02f, 0.85f);
-    private static readonly Vector3 WristDisplayLocalScale = new Vector3(1.08f, 0.675f, 1f);
+    // Camera-relative raised-wrist pose (Round 9). The runtime pose orients
+    // the display toward the camera each open with the controller's tilt
+    // defaults (pitch 26 / yaw -6 / roll 4). These values define the
+    // WristProjectionPivot offset (lower-left "wrist" region of the screen)
+    // and the display child offset up/right of the pivot. Projected targets
+    // at 1920x1080: wrist pivot ~ (0.35..0.43, 0.24..0.34 viewport bottom-up),
+    // hologram centre ~ screen centre, overall plane bounds ~1230x770 px.
+    private static readonly Vector3 WristPivotLocalPosition = new Vector3(-0.186f, -0.2f, 0.68f);
+    private static readonly Vector3 WristDisplayLocalOffset = new Vector3(0.22f, 0.2f, 0f);
+    private static readonly Vector3 WristDisplayLocalScale = new Vector3(0.86f, 0.5375f, 1f);
 
     private static void BuildLandingPad(Transform parent, Material pad, Material signal)
     {

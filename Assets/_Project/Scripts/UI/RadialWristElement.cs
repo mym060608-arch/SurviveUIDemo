@@ -27,10 +27,18 @@ public sealed class RadialWristElement : VisualElement
     public const float MapRadius = 235f;
 
     public const float ThinArcRadius = 305f;
-    public const float ThinArcThickness = 10f;
+    public const float ThinArcThickness = 13f;
 
-    public const float SectorInnerRadius = 270f;
-    public const float SectorOuterRadius = 350f;
+    // Round 9 wider functional band (inner ~250..255, outer ~380..385):
+    // the four annular sectors gain radial depth so the sector text and the
+    // health/satiety tracks live inside a clearly separated outer ring area.
+    public const float SectorInnerRadius = 252f;
+    public const float SectorOuterRadius = 382f;
+
+    /// <summary>Polar text anchor radius for the four functional sectors.
+    /// Every sector content container is centred at this radius so text can
+    /// never drift toward the map or off the panel edge.</summary>
+    public const float SectorTextRadius = 318f;
 
     // Exact CodeReference angular extents (degrees, 0 = right / +y-up space).
     public const float HealthArcStartDeg = 55f;
@@ -55,9 +63,6 @@ public sealed class RadialWristElement : VisualElement
     // Colors (translucent hologram palette; the central map is never white).
     // --------------------------------------------------------------------
 
-    private static readonly Color32 Accent =
-        new Color32(14, 127, 140, 230);
-
     private static readonly Color32 AccentWeak =
         new Color32(14, 127, 140, 72);
 
@@ -76,6 +81,15 @@ public sealed class RadialWristElement : VisualElement
 
     private static readonly Color32 InactiveArc =
         new Color32(145, 156, 162, 58);
+
+    // Round 9 user requirement (overrides the old single-teal accent for the
+    // two personal status tracks): Health = muted green, Satiety = dark muted
+    // orange. No fluorescent green / bright orange.
+    public static readonly Color32 HealthActiveColor =
+        new Color32(0x5E, 0xAD, 0x68, 235);
+
+    public static readonly Color32 SatietyActiveColor =
+        new Color32(0xA9, 0x63, 0x2F, 235);
 
     // --------------------------------------------------------------------
 
@@ -140,16 +154,20 @@ public sealed class RadialWristElement : VisualElement
             VeryWeakHairline, 1f);
 
         // ================================================================
-        // 2. HEALTH - ONE THIN UPPER ARC ONLY
+        // 2. HEALTH - ONE THIN UPPER ARC ONLY (muted green active fill)
         // ================================================================
 
-        DrawProgressArc(ctx, HealthArcStartDeg, HealthArcEndDeg, _health01);
+        DrawProgressArc(ctx, HealthArcStartDeg, HealthArcEndDeg, _health01,
+            HealthActiveColor);
 
         // ================================================================
-        // 3. SATIETY - ONE THIN LOWER ARC ONLY
+        // 3. SATIETY - ONE THIN LOWER ARC ONLY (dark muted orange active
+        // fill; the full inactive track stays visible underneath so the
+        // perceived bar length always matches the Health track)
         // ================================================================
 
-        DrawProgressArc(ctx, SatietyArcStartDeg, SatietyArcEndDeg, _satiety01);
+        DrawProgressArc(ctx, SatietyArcStartDeg, SatietyArcEndDeg, _satiety01,
+            SatietyActiveColor);
 
         // ================================================================
         // 4. FOUR THICK FUNCTIONAL SECTORS (with visible angular gaps)
@@ -169,20 +187,23 @@ public sealed class RadialWristElement : VisualElement
         MeshGenerationContext ctx,
         float startDeg,
         float endDeg,
-        float value01)
+        float value01,
+        Color32 activeColor)
     {
         float halfThickness = ThinArcThickness * 0.5f;
 
         float inner = ThinArcRadius - halfThickness;
         float outer = ThinArcRadius + halfThickness;
 
-        // Inactive track.
+        // Inactive track: ALWAYS the complete arc span, so the perceived full
+        // bar length is identical for Health and Satiety (Round 9) even when
+        // the satiety active fraction is only 82%.
         DrawRingSector(ctx, Center, inner, outer, startDeg, endDeg, InactiveArc, 32);
 
         // Active progress.
         float activeEnd = Mathf.Lerp(startDeg, endDeg, Mathf.Clamp01(value01));
 
-        DrawRingSector(ctx, Center, inner, outer, startDeg, activeEnd, Accent, 32);
+        DrawRingSector(ctx, Center, inner, outer, startDeg, activeEnd, activeColor, 32);
     }
 
     // ====================================================================
@@ -253,6 +274,19 @@ public sealed class RadialWristElement : VisualElement
         }
 
         return angle;
+    }
+
+    /// <summary>Round 9 unified polar anchor for functional sector content.
+    /// Text containers are positioned with:
+    /// left = anchor.x - width/2  /  top = anchor.y - height/2
+    /// (never hand-tuned left/top that can drift outside the sector).</summary>
+    public static Vector2 SectorTextAnchor(
+        float startDeg,
+        float endDeg)
+    {
+        float midDeg = (startDeg + endDeg) * 0.5f;
+
+        return Polar(Center, SectorTextRadius, midDeg);
     }
 
     // ====================================================================

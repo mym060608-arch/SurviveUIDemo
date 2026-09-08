@@ -114,6 +114,7 @@ public class SurfaceShotProbe : MonoBehaviour
         }
 
         string explorePath = Base("_fp_explore");
+        string compassNavPath = Base("_fp_compass_nav");
         string wristMapPath = Base("_wrist_map");
         string wristNavPath = Base("_wrist_nav");
         string wristTransferPath = Base("_wrist_transfer");
@@ -130,6 +131,19 @@ public class SurfaceShotProbe : MonoBehaviour
             Application.Quit(1);
             yield break;
         }
+
+        // A2 (Round 9): compass HUD engaged - select node 0 while exploring;
+        // the player already faces it, so the fixed centre light dot lights up
+        // and the restrained target summary appears under the compass frame.
+        if (!controller.TrySelectNavigationTarget(0))
+        {
+            Debug.LogError("[SurfaceShotProbe] compass nav selection failed");
+            Application.Quit(1);
+            yield break;
+        }
+
+        yield return new WaitForSecondsRealtime(0.5f);
+        yield return WaitForScreenshot(compassNavPath);
 
         // B: wrist open - circular local map.
         controller.SetWristOpen(true);

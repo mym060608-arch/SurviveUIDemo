@@ -261,3 +261,168 @@
 .hud-xh-ring.ring-blocked {
     border-color: #5A6570;
 }
+
+/* ============================================================
+   Round 9 screen-space compass HUD (top centre, exploration only).
+   Industrial aerospace: translucent thin field, hairline border,
+   restrained marks. The CompassTapeElement draws the tick tape and
+   its own cardinal/degree text marks; the focus dot and edge cues
+   are fixed elements owned by the controller.
+   ============================================================ */
+
+.compass-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 120px;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.compass-frame {
+    position: absolute;
+    left: 50%;
+    top: 26px;
+    margin-left: -340px;
+    width: 680px;
+    height: 58px;
+    background-color: rgba(22, 27, 32, 0.36);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(184, 196, 204, 0.5);
+    border-right-color: rgba(184, 196, 204, 0.5);
+    border-top-color: rgba(184, 196, 204, 0.5);
+    border-bottom-color: rgba(184, 196, 204, 0.5);
+}
+
+/* The tape viewport: the CompassTapeElement fills this clip and scrolls
+   with the camera yaw; the frame itself never moves. */
+.compass-ticks-host {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 2px;
+    bottom: 2px;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* Fixed centre light dot: the "current facing / aim reference". Never
+   translates with the tape. Dim by default; bright teal + restrained
+   ring when the navigation target is aligned (Round 9 H/G). */
+.compass-focus-dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -3px;
+    margin-top: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgba(205, 214, 220, 0.32);
+}
+
+.compass-focus-dot.compass-aligned {
+    background-color: #0E7F8C;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(14, 127, 140, 0.55);
+    border-right-color: rgba(14, 127, 140, 0.55);
+    border-top-color: rgba(14, 127, 140, 0.55);
+    border-bottom-color: rgba(14, 127, 140, 0.55);
+}
+
+/* Navigation target waypoint mark: teal diamond; positioned on the tape by
+   the controller at x = tapeCentreX + relativeBearing * pixelsPerDegree. */
+.compass-waypoint {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -6px;
+    margin-top: -6px;
+    width: 12px;
+    height: 12px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(20, 150, 168, 0.95);
+    border-right-color: rgba(20, 150, 168, 0.95);
+    border-top-color: rgba(20, 150, 168, 0.95);
+    border-bottom-color: rgba(20, 150, 168, 0.95);
+    rotate: 45deg;
+    display: none;
+}
+
+/* Edge cues when the target bearing lies outside the visible +-45 window. */
+.compass-edge {
+    position: absolute;
+    top: 50%;
+    margin-top: -11px;
+    width: 24px;
+    height: 22px;
+    -unity-text-align: middle-center;
+    color: rgba(205, 214, 220, 0.85);
+    font-size: 16px;
+    -unity-font-style: bold;
+    display: none;
+}
+
+.compass-edge-left {
+    left: 2px;
+}
+
+.compass-edge-right {
+    right: 2px;
+}
+
+/* Minimal navigation summary below the frame (Round 9 J, restrained). */
+.compass-info {
+    position: absolute;
+    left: 50%;
+    top: 88px;
+    margin-left: -200px;
+    width: 400px;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0);
+    display: none;
+}
+
+.compass-info-text {
+    -unity-text-align: middle-center;
+    color: rgba(228, 234, 238, 0.92);
+    font-size: 13px;
+    -unity-font-style: bold;
+    white-space: nowrap;
+}
+
+/* CompassTapeElement-generated text marks (USS classes read by C#). */
+.compass-mark-letter {
+    position: absolute;
+    top: 0px;
+    width: 36px;
+    height: 18px;
+    margin-left: -18px;
+    -unity-text-align: middle-center;
+    color: rgba(222, 229, 234, 0.9);
+    font-size: 13px;
+    -unity-font-style: bold;
+    display: none;
+}
+
+.compass-mark-degree {
+    position: absolute;
+    top: 36px;
+    width: 34px;
+    height: 14px;
+    margin-left: -17px;
+    -unity-text-align: middle-center;
+    color: rgba(205, 214, 220, 0.6);
+    font-size: 9px;
+    display: none;
+}

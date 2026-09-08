@@ -52,6 +52,23 @@
                 <ui:VisualElement name="HudCrosshairDot" class="hud-xh-dot" />
                 <ui:VisualElement name="HudCrosshairRing" class="hud-xh-ring" />
             </ui:VisualElement>
+
+            <!-- Round 9: screen-space compass HUD. Frame always present while
+                 exploring; only ticks / waypoint / edge cues update with the
+                 camera yaw. CompassTicksHost receives the CompassTapeElement
+                 (triangle-mesh ticks + cardinal/degree text marks) from C#. -->
+            <ui:VisualElement name="SurfaceCompassHUD" class="compass-root">
+                <ui:VisualElement name="CompassFrame" class="compass-frame">
+                    <ui:VisualElement name="CompassTicksHost" class="compass-ticks-host" />
+                    <ui:VisualElement name="CompassWaypoint" class="compass-waypoint" />
+                    <ui:VisualElement name="CompassFocusDot" class="compass-focus-dot" />
+                    <ui:Label name="CompassEdgeLeft" class="compass-edge compass-edge-left" text="◀" />
+                    <ui:Label name="CompassEdgeRight" class="compass-edge compass-edge-right" text="▶" />
+                </ui:VisualElement>
+                <ui:VisualElement name="CompassInfo" class="compass-info">
+                    <ui:Label name="CompassInfoText" class="compass-info-text" text="" />
+                </ui:VisualElement>
+            </ui:VisualElement>
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

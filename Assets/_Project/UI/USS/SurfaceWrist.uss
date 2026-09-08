@@ -52,19 +52,21 @@
     -unity-text-align: middle-center;
 }
 
+/* Health label sits just above the upper thin arc (arc band top ~89-101px). */
 .health-label {
-    left: 545px;
-    top: 56px;
+    left: 535px;
+    top: 42px;
 
-    width: 190px;
+    width: 210px;
     height: 32px;
 }
 
+/* Satiety label sits just below the lower thin arc (arc band bottom ~699-712px). */
 .satiety-label {
-    left: 545px;
-    top: 710px;
+    left: 535px;
+    top: 720px;
 
-    width: 190px;
+    width: 210px;
     height: 32px;
 }
 
@@ -72,12 +74,24 @@
    Functional sector text.
 
    CRITICAL:
-   These have NO card background.
-   Geometry comes from RadialWristElement.
+   1. These have NO card background (geometry comes from
+      RadialWristElement).
+   2. Round 9: left/top are NOT authored here. SurfaceWristController
+      positions every container through the unified polar anchor
+      (SectorTextAnchor) after layout: left = anchor.x - width/2,
+      top = anchor.y - height/2.
+   3. Width/height below follow Round 9 (equipment/state 165-180 x
+      90-105; navigation/harvest 150-170 x 80-95) so glyphs stay
+      inside their sector.
    ============================================================ */
 
 .sector-content {
     position: absolute;
+
+    /* Offscreen fallback until the code polar anchor is applied after the
+       first resolved layout (never a hand-authored on-panel position). */
+    left: -2000px;
+    top: -2000px;
 
     background-color: rgba(0, 0, 0, 0);
 
@@ -90,65 +104,56 @@
     padding-right: 0;
     padding-top: 0;
     padding-bottom: 0;
+
+    /* container size fixed so the anchor math has exact centre */
+    width: 176px;
+    height: 100px;
 }
 
 /* Mid-angle ~162 deg */
 .equip-content {
-    left: 238px;
-    top: 240px;
-
-    width: 220px;
-    height: 112px;
 }
 
-/* Mid-angle ~17 deg */
+/* Mid-angle ~377 / 17 deg */
 .state-content {
-    left: 822px;
-    top: 240px;
-
-    width: 220px;
-    height: 112px;
 }
 
 /* Mid-angle ~215 deg */
 .nav-content {
-    left: 260px;
-    top: 520px;
-
-    width: 220px;
-    height: 105px;
+    width: 164px;
+    height: 88px;
 }
 
 /* Mid-angle ~325 deg */
 .harvest-content {
-    left: 800px;
-    top: 520px;
-
-    width: 220px;
-    height: 105px;
+    width: 164px;
+    height: 88px;
 }
 
 .sector-heading {
     color: rgb(74, 82, 92);
 
-    font-size: 12px;
+    font-size: 13px;
     -unity-font-style: bold;
 
-    margin-bottom: 7px;
+    margin-bottom: 6px;
 }
 
 .sector-line {
     color: rgb(22, 27, 32);
 
-    font-size: 12px;
+    font-size: 13px;
 
     margin-top: 2px;
     margin-bottom: 2px;
+
+    white-space: nowrap;
 }
 
 .sector-value {
     color: rgb(14, 127, 140);
 
+    font-size: 14px;
     -unity-font-style: bold;
 }
 
