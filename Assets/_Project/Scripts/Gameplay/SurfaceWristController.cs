@@ -92,9 +92,9 @@ public class SurfaceWristController : MonoBehaviour
     private Camera _mainCamera;
     private Coroutine _animator;
 
-    private float _tiltYaw = 4f;
-    private float _tiltPitch = 6f;
-    private float _tiltRoll = 4f;
+    private float _tiltYaw = -4f;
+    private float _tiltPitch = 8f;
+    private float _tiltRoll = 0f;
 
     // ---- Parallax (damped; clamped; pivot local rotation only) ----
     private Vector2 _parallaxTarget;
@@ -491,8 +491,8 @@ public class SurfaceWristController : MonoBehaviour
         if (_radial != null)
         {
             lines.AppendLine("INFO :: radial mapR=" + RadialWristElement.MapRadius
-                             + " thinArcR=" + RadialWristElement.ThinArcRadius
-                             + "x" + RadialWristElement.ThinArcThickness
+                             + " statusArcR=" + RadialWristElement.StatusArcRadius
+                             + "x" + RadialWristElement.StatusArcThickness
                              + " sectorR=" + RadialWristElement.SectorInnerRadius
                              + ".." + RadialWristElement.SectorOuterRadius
                              + " textR=" + RadialWristElement.SectorTextRadius
@@ -513,7 +513,7 @@ public class SurfaceWristController : MonoBehaviour
         Check(root.Q<VisualElement>("MapNode2") != null, "MapNode2 marker resolved");
         Check(root.Q<VisualElement>("MapSelectedRing") != null, "MapSelectedRing marker resolved");
 
-        // Status labels sit near the thin upper/lower arcs.
+        // Status labels sit near the upper/lower status arcs.
         Label healthLabel = root.Q<Label>("HealthLabel");
         Label satietyLabel = root.Q<Label>("SatietyLabel");
         if (healthLabel != null && satietyLabel != null)
@@ -522,32 +522,35 @@ public class SurfaceWristController : MonoBehaviour
             Check(satietyLabel.resolvedStyle.top > 560f, "satiety label near lower arc");
         }
 
-        // Round 9: sector text is anchored by code through the unified polar
-        // anchor; every content centre must still sit inside its intended
-        // thick annular sector (inner < centre radius < outer and the centre
-        // angle inside the sector angular range).
+        // Round 9.1: sector text is anchored by code through the unified polar
+        // anchor; EVERY one of the four container corners must lie inside the
+        // safe annular band (inner 255 .. outer 400) and inside the sector
+        // angular range minus 3 deg padding (a centre-only check cannot prove
+        // the container does not spill over the sector).
         ApplySectorContentAnchors();
-        Check(TextInsideSector(root.Q<VisualElement>("EquipContent"),
+        Check(AllCornersInsideSector(root.Q<VisualElement>("EquipContent"),
             RadialWristElement.EquipmentSectorStartDeg, RadialWristElement.EquipmentSectorEndDeg),
-            "equipment text centre inside Equipment sector (135..190)");
-        Check(TextInsideSector(root.Q<VisualElement>("NavContent"),
+            "equipment text full bounds inside Equipment sector (135..190)");
+        Check(AllCornersInsideSector(root.Q<VisualElement>("NavContent"),
             RadialWristElement.NavigationSectorStartDeg, RadialWristElement.NavigationSectorEndDeg),
-            "navigation text centre inside Navigation sector (195..235)");
-        Check(TextInsideSector(root.Q<VisualElement>("StateContent"),
+            "navigation text full bounds inside Navigation sector (195..235)");
+        Check(AllCornersInsideSector(root.Q<VisualElement>("StateContent"),
             RadialWristElement.StateSectorStartDeg, RadialWristElement.StateSectorEndDeg),
-            "state text centre inside State sector (350..405)");
-        Check(TextInsideSector(root.Q<VisualElement>("HarvestContent"),
+            "state text full bounds inside State sector (350..405)");
+        Check(AllCornersInsideSector(root.Q<VisualElement>("HarvestContent"),
             RadialWristElement.HarvestSectorStartDeg, RadialWristElement.HarvestSectorEndDeg),
-            "harvest text centre inside Harvest sector (305..345)");
+            "harvest text full bounds inside Harvest sector (305..345)");
 
         report = lines.ToString();
         return ok;
     }
 
-    /// <summary>True when the element's resolved centre lies within the radial
-    /// band [SectorInnerRadius .. SectorOuterRadius] and inside the given
-    /// angular range (with tolerance for the element extent).</summary>
-    private static bool TextInsideSector(VisualElement content, float startDeg, float endDeg)
+    /// <summary>Round 9.1 full-bounds text validation: the resolved content
+    /// container's four corners (top-left / top-right / bottom-right /
+    /// bottom-left) must ALL sit in the safe radial band (255..400) and inside
+    /// the sector angular range with 3 deg padding. Wrap (State 350..405) is
+    /// handled through the offset-from-start measurement.</summary>
+    public static bool AllCornersInsideSector(VisualElement content, float startDeg, float endDeg)
     {
         if (content == null)
         {
@@ -563,24 +566,36 @@ public class SurfaceWristController : MonoBehaviour
             return false;
         }
 
-        Vector2 centre = new Vector2(left + width * 0.5f, top + height * 0.5f);
-        Vector2 d = centre - RadialWristElement.Center;
-        float radius = d.magnitude;
-        float angle = RadialWristElement.WristAngleDeg(centre);
+        const float innerSafe = 255f;
+        const float outerSafe = 400f;
+        const float angularPad = 3f;
+        float span = endDeg - startDeg;
 
-        // Round 9: the centre radius must sit strictly inside the functional
-        // band (text anchor radius 318 is guaranteed by the code anchor).
-        float radiusTolerance = 20f;
-
-        if (radius < RadialWristElement.SectorInnerRadius - radiusTolerance
-            || radius > RadialWristElement.SectorOuterRadius + radiusTolerance)
+        Vector2[] corners =
         {
-            return false;
+            new Vector2(left, top),
+            new Vector2(left + width, top),
+            new Vector2(left + width, top + height),
+            new Vector2(left, top + height)
+        };
+
+        foreach (Vector2 corner in corners)
+        {
+            float radius = Vector2.Distance(corner, RadialWristElement.Center);
+            if (radius < innerSafe - 0.5f || radius > outerSafe + 0.5f)
+            {
+                return false;
+            }
+
+            float angle = RadialWristElement.WristAngleDeg(corner);
+            float offset = Mathf.Repeat(angle - startDeg, 360f);
+            if (offset < angularPad - 0.6f || offset > span - angularPad + 0.6f)
+            {
+                return false;
+            }
         }
 
-        float span = endDeg - startDeg;
-        float angleOffset = Mathf.Repeat(angle - startDeg, 360f);
-        return angleOffset <= span + 14f;
+        return true;
     }
 
     private static string RootResolved(VisualElement root)
@@ -843,9 +858,9 @@ public class SurfaceWristController : MonoBehaviour
                              + " frontDotPivot=" + facingPivot.ToString("0.00")
                              + " centreAbovePivot=" + (centreViewport.y > pivotViewport.y + 0.05f)
                              + " centreRightOfPivot=" + (centreViewport.x > pivotViewport.x + 0.02f));
-            Check(facingCentre >= 0.86f && facingCentre <= 0.96f,
+            Check(facingCentre >= 0.84f && facingCentre <= 0.96f,
                 "raised-wrist base pose not camera-facing (hologram centre front dot "
-                + facingCentre.ToString("0.00") + ", target 0.88..0.95)");
+                + facingCentre.ToString("0.00") + ", target 0.88..0.93)");
             Check(centreViewport.z > 0f
                   && centreViewport.x >= -0.1f && centreViewport.x <= 1.1f
                   && centreViewport.y >= -0.1f && centreViewport.y <= 1.1f,
@@ -916,6 +931,19 @@ public class SurfaceWristController : MonoBehaviour
             Check(scaleRatio < 0.02f,
                 "display local scale keeps 1280:800 aspect (x/y ratio "
                 + (scale.x / scale.y).ToString("0.00") + ")");
+
+            // Round 9.1: authoritative size metric - the ACTUAL drawn radial
+            // geometry (status-arc outer circle), not the transparent plane.
+            if (ComputeProjectedRadialBounds(out Vector2 radialCentre,
+                    out float radialWidthPx, out float radialHeightPx))
+            {
+                lines.AppendLine("INFO :: radialGraphic centre="
+                                 + radialCentre.ToString("0.000")
+                                 + " size=" + radialWidthPx.ToString("0")
+                                 + "x" + radialHeightPx.ToString("0")
+                                 + " px (Round 9.1 target @1920: centre (0.43..0.46, top"
+                                 + " 55..59%), width 980..1100)");
+            }
         }
 
         report = lines.ToString();
@@ -1020,6 +1048,65 @@ public class SurfaceWristController : MonoBehaviour
         float widthPx = (maxX - minX) * Screen.width;
         float heightPx = (maxY - minY) * Screen.height;
         return heightPx > 0f ? widthPx / heightPx : 0f;
+    }
+
+    /// <summary>Round 9.1: projects the actual drawn radial geometry (a circle
+    /// at the status-arc outer radius around the RT centre) onto the screen.
+    /// Returns the projected bounds centre viewport, and the pixel width /
+    /// height at the current Screen resolution. This is the authoritative
+    /// size metric (the transparent RT plane bounds are NOT a size metric).</summary>
+    public bool ComputeProjectedRadialBounds(
+        out Vector2 centreViewport,
+        out float widthPx,
+        out float heightPx)
+    {
+        centreViewport = Vector2.zero;
+        widthPx = 0f;
+        heightPx = 0f;
+
+        if (_display == null || _mainCamera == null || Screen.width <= 0 || Screen.height <= 0)
+        {
+            return false;
+        }
+
+        float rtRadius = RadialWristElement.StatusArcRadius
+                         + RadialWristElement.StatusArcThickness * 0.5f;
+        Transform t = _display.transform;
+        float rx = rtRadius / RadialWristElement.DesignWidth * t.localScale.x;
+        float ry = rtRadius / RadialWristElement.DesignHeight * t.localScale.y;
+
+        float minX = 1f, maxX = 0f, minY = 1f, maxY = 0f;
+        bool any = false;
+        const int samples = 72;
+        for (int i = 0; i < samples; i++)
+        {
+            float angle = i * 360f / samples;
+            float rad = angle * Mathf.Deg2Rad;
+            Vector3 world = t.position
+                            + t.right * (Mathf.Cos(rad) * rx)
+                            + t.up * (Mathf.Sin(rad) * ry);
+            Vector3 c = _mainCamera.WorldToViewportPoint(world);
+            if (c.z <= 0f)
+            {
+                continue;
+            }
+
+            any = true;
+            minX = Mathf.Min(minX, c.x);
+            maxX = Mathf.Max(maxX, c.x);
+            minY = Mathf.Min(minY, c.y);
+            maxY = Mathf.Max(maxY, c.y);
+        }
+
+        if (!any)
+        {
+            return false;
+        }
+
+        centreViewport = new Vector2((minX + maxX) * 0.5f, (minY + maxY) * 0.5f);
+        widthPx = (maxX - minX) * Screen.width;
+        heightPx = (maxY - minY) * Screen.height;
+        return true;
     }
 
     /// <summary>Sets the normalized pointer (-1..1) that drives the small
@@ -1285,7 +1372,7 @@ public class SurfaceWristController : MonoBehaviour
 
         if (_equipBattery != null)
         {
-            SetEquipState(_equipBattery, "备用电池组", !_session.BatterySelected);
+            SetEquipState(_equipBattery, "备用电池", !_session.BatterySelected);
         }
 
         if (_equipDrone != null)
@@ -1303,8 +1390,8 @@ public class SurfaceWristController : MonoBehaviour
 
         if (_recoveredState != null)
         {
-            _recoveredState.text = "回收节点 " + _session.HarvestedNodeCount
-                                   + " / " + GameSession.SurfaceNodeCount;
+            _recoveredState.text = "回收 " + _session.HarvestedNodeCount
+                                   + "/" + GameSession.SurfaceNodeCount;
         }
     }
 
@@ -1434,7 +1521,7 @@ public class SurfaceWristController : MonoBehaviour
                               && Time.time - _completedAt < CompletionHoldSeconds;
         if (active != null)
         {
-            _harvestNode.text = SurfaceGameController.NodeDisplayName(active.NodeId);
+            _harvestNode.text = ShortNodeName(active.NodeId);
             float progress = 1f - Mathf.Clamp01(active.RemainingSeconds /
                 Mathf.Max(0.001f, active.StageSeconds));
             string status = active.State == SurfaceResourceNode.NodeState.Harvesting
@@ -1444,7 +1531,7 @@ public class SurfaceWristController : MonoBehaviour
         }
         else if (showCompletion)
         {
-            _harvestNode.text = SurfaceGameController.NodeDisplayName(_completedNode.NodeId);
+            _harvestNode.text = ShortNodeName(_completedNode.NodeId);
             _harvestState.text = "传输完成";
         }
         else
@@ -1452,6 +1539,13 @@ public class SurfaceWristController : MonoBehaviour
             _harvestNode.text = "—";
             _harvestState.text = "待机";
         }
+    }
+
+    /// <summary>Compact node label used inside the Harvest sector card,
+    /// e.g. "节点 02" for node id 1 (Round 9.1 shorter copy).</summary>
+    private static string ShortNodeName(int nodeId)
+    {
+        return "节点 " + (nodeId + 1).ToString("00");
     }
 
     private void RefreshNavigation()

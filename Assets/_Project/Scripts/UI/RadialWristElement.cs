@@ -26,19 +26,22 @@ public sealed class RadialWristElement : VisualElement
 
     public const float MapRadius = 235f;
 
-    public const float ThinArcRadius = 305f;
-    public const float ThinArcThickness = 13f;
+    // Status arcs sit OUTSIDE the functional ring (Round 9.1). The 1280x800
+    // logical canvas only allows a whole ring up to ~399px radius (apex
+    // y = 400 - radius), so the arcs use the maximum whole-ring radius 392
+    // and the functional ring stops at 372 -> a real 13px radial gap
+    // (arcInner 385 - ringOuter 372) between status arcs and the sectors.
+    public const float StatusArcRadius = 392f;
+    public const float StatusArcThickness = 14f;
 
-    // Round 9 wider functional band (inner ~250..255, outer ~380..385):
-    // the four annular sectors gain radial depth so the sector text and the
-    // health/satiety tracks live inside a clearly separated outer ring area.
-    public const float SectorInnerRadius = 252f;
-    public const float SectorOuterRadius = 382f;
+    public const float SectorInnerRadius = 245f;
+    public const float SectorOuterRadius = 372f;
 
     /// <summary>Polar text anchor radius for the four functional sectors.
-    /// Every sector content container is centred at this radius so text can
-    /// never drift toward the map or off the panel edge.</summary>
-    public const float SectorTextRadius = 318f;
+    /// Text container boxes are sized so ALL FOUR CORNERS stay inside the
+    /// safe annular band (inner 255 .. outer 400) and inside the sector
+    /// angular range minus 3 deg padding.</summary>
+    public const float SectorTextRadius = 328f;
 
     // Exact CodeReference angular extents (degrees, 0 = right / +y-up space).
     public const float HealthArcStartDeg = 55f;
@@ -154,20 +157,16 @@ public sealed class RadialWristElement : VisualElement
             VeryWeakHairline, 1f);
 
         // ================================================================
-        // 2. HEALTH - ONE THIN UPPER ARC ONLY (muted green active fill)
+        // 2 + 3. STATUS TRACKS - one shared helper, drawn OUTSIDE the
+        // functional ring (Round 9.1). Health upper / Satiety lower, exactly
+        // mirrored: same radius 392, same thickness 14, same 70 deg span.
+        // Satiety active fill stays at 82% while its full inactive track
+        // keeps the perceived bar length identical to Health.
         // ================================================================
 
-        DrawProgressArc(ctx, HealthArcStartDeg, HealthArcEndDeg, _health01,
-            HealthActiveColor);
+        DrawStatusTrack(ctx, HealthArcStartDeg, _health01, HealthActiveColor);
 
-        // ================================================================
-        // 3. SATIETY - ONE THIN LOWER ARC ONLY (dark muted orange active
-        // fill; the full inactive track stays visible underneath so the
-        // perceived bar length always matches the Health track)
-        // ================================================================
-
-        DrawProgressArc(ctx, SatietyArcStartDeg, SatietyArcEndDeg, _satiety01,
-            SatietyActiveColor);
+        DrawStatusTrack(ctx, SatietyArcStartDeg, _satiety01, SatietyActiveColor);
 
         // ================================================================
         // 4. FOUR THICK FUNCTIONAL SECTORS (with visible angular gaps)
@@ -183,27 +182,31 @@ public sealed class RadialWristElement : VisualElement
     // Status arcs
     // ====================================================================
 
-    private static void DrawProgressArc(
+    /// <summary>One mirrored status track (Health upper / Satiety lower).
+    /// Geometry is shared so both tracks can never diverge: 70 deg span at
+    /// StatusArcRadius with StatusArcThickness. The inactive track always
+    /// covers the FULL span; the active fill only runs to the current value.
+    /// Both tracks end BEFORE the functional ring region starts (13px gap),
+    /// so no status arc ever touches a sector boundary.</summary>
+    private static void DrawStatusTrack(
         MeshGenerationContext ctx,
         float startDeg,
-        float endDeg,
         float value01,
         Color32 activeColor)
     {
-        float halfThickness = ThinArcThickness * 0.5f;
+        const float spanDeg = 70f;
+        float endDeg = startDeg + spanDeg;
+        float halfThickness = StatusArcThickness * 0.5f;
 
-        float inner = ThinArcRadius - halfThickness;
-        float outer = ThinArcRadius + halfThickness;
+        float inner = StatusArcRadius - halfThickness;
+        float outer = StatusArcRadius + halfThickness;
 
-        // Inactive track: ALWAYS the complete arc span, so the perceived full
-        // bar length is identical for Health and Satiety (Round 9) even when
-        // the satiety active fraction is only 82%.
-        DrawRingSector(ctx, Center, inner, outer, startDeg, endDeg, InactiveArc, 32);
+        // Inactive track: ALWAYS the complete 70 deg span.
+        DrawRingSector(ctx, Center, inner, outer, startDeg, endDeg, InactiveArc, 40);
 
-        // Active progress.
+        // Active progress fill (health 100% / satiety 82%).
         float activeEnd = Mathf.Lerp(startDeg, endDeg, Mathf.Clamp01(value01));
-
-        DrawRingSector(ctx, Center, inner, outer, startDeg, activeEnd, activeColor, 32);
+        DrawRingSector(ctx, Center, inner, outer, startDeg, activeEnd, activeColor, 40);
     }
 
     // ====================================================================

@@ -52,21 +52,22 @@
     -unity-text-align: middle-center;
 }
 
-/* Health label sits just above the upper thin arc (arc band top ~89-101px). */
+/* Health label sits just below the upper status arc (arc outer apex ~y1-17,
+   so the label rows stay inside the empty top gap, clearly separated). */
 .health-label {
-    left: 535px;
-    top: 42px;
+    left: 540px;
+    top: 34px;
 
-    width: 210px;
+    width: 200px;
     height: 32px;
 }
 
-/* Satiety label sits just below the lower thin arc (arc band bottom ~699-712px). */
+/* Satiety label sits just above the lower status arc (arc inner ~y783). */
 .satiety-label {
-    left: 535px;
-    top: 720px;
+    left: 540px;
+    top: 734px;
 
-    width: 210px;
+    width: 200px;
     height: 32px;
 }
 
@@ -76,13 +77,14 @@
    CRITICAL:
    1. These have NO card background (geometry comes from
       RadialWristElement).
-   2. Round 9: left/top are NOT authored here. SurfaceWristController
+   2. Round 9.1: left/top are NOT authored here. SurfaceWristController
       positions every container through the unified polar anchor
-      (SectorTextAnchor) after layout: left = anchor.x - width/2,
-      top = anchor.y - height/2.
-   3. Width/height below follow Round 9 (equipment/state 165-180 x
-      90-105; navigation/harvest 150-170 x 80-95) so glyphs stay
-      inside their sector.
+      (SectorTextAnchor radius 328) after layout: left = anchor.x -
+      width/2, top = anchor.y - height/2.
+   3. Sizes below keep ALL FOUR container corners inside the safe radial
+      band 255..400 and inside the sector angles minus 3 deg (verified by
+      the full-bounds validator, not just the centre).
+   4. Everything is middle/center aligned, overflow hidden, wrap allowed.
    ============================================================ */
 
 .sector-content {
@@ -105,8 +107,15 @@
     padding-top: 0;
     padding-bottom: 0;
 
-    /* container size fixed so the anchor math has exact centre */
-    width: 176px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+
+    overflow: hidden;
+    white-space: normal;
+
+    /* Equipment / State: 114 x 100 */
+    width: 114px;
     height: 100px;
 }
 
@@ -120,40 +129,44 @@
 
 /* Mid-angle ~215 deg */
 .nav-content {
-    width: 164px;
+    width: 106px;
     height: 88px;
 }
 
 /* Mid-angle ~325 deg */
 .harvest-content {
-    width: 164px;
+    width: 106px;
     height: 88px;
 }
 
 .sector-heading {
     color: rgb(74, 82, 92);
 
-    font-size: 13px;
+    font-size: 12px;
     -unity-font-style: bold;
 
-    margin-bottom: 6px;
+    -unity-text-align: middle-center;
+    white-space: nowrap;
+
+    margin-bottom: 4px;
 }
 
 .sector-line {
     color: rgb(22, 27, 32);
 
-    font-size: 13px;
+    font-size: 11px;
 
-    margin-top: 2px;
-    margin-bottom: 2px;
-
+    -unity-text-align: middle-center;
     white-space: nowrap;
+
+    margin-top: 1px;
+    margin-bottom: 1px;
 }
 
 .sector-value {
     color: rgb(14, 127, 140);
 
-    font-size: 14px;
+    font-size: 12px;
     -unity-font-style: bold;
 }
 

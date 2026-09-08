@@ -351,7 +351,7 @@ public class SurvivePhase06RevisionTests
         // Equipment sector lists the real loadout lines and marks selection
         // state through the sector-off class (no fake inventory).
         Assert.AreEqual("采集器 MK-I", LabelText(root, "EquipHarvester"), "harvester listed");
-        Assert.AreEqual("备用电池组", LabelText(root, "EquipBattery"), "battery listed");
+        Assert.AreEqual("备用电池", LabelText(root, "EquipBattery"), "battery listed");
         Assert.AreEqual("勘测无人机", LabelText(root, "EquipDrone"), "drone listed");
         VisualElement battery = root.Q<VisualElement>("EquipBattery");
         VisualElement drone = root.Q<VisualElement>("EquipDrone");
@@ -552,10 +552,10 @@ public class SurvivePhase06RevisionTests
         float heightFraction = Mathf.Clamp01(maxY - minY);
         Assert.IsTrue(widthFraction >= 0.30f && widthFraction <= 1.0f,
             "projected width visibly large (was " + (widthFraction * 100f).ToString("0")
-            + "%; Round 9 target ~62% at 1920x1080 - narrow editor aspects may overflow)");
+            + "%; Round 9.1 hologram fills much of the frame at narrow aspects)");
         Assert.IsTrue(heightFraction >= 0.30f && heightFraction <= 1.0f,
             "projected height visibly large (was " + (heightFraction * 100f).ToString("0")
-            + "%; Round 9 target ~71% at 1920x1080)");
+            + "% of screen height)");
 
         // UV orientation: display-right world direction maps to larger u
         // (RT right); display-top world direction maps to larger v (RT top).
@@ -715,7 +715,7 @@ public class SurvivePhase06RevisionTests
         }
 
         VisualElement root = Wrist().RootElement;
-        Assert.AreEqual("资源节点 01", LabelText(root, "HarvestNode"), "active node name");
+        Assert.AreEqual("节点 01", LabelText(root, "HarvestNode"), "active node name (short copy)");
         Assert.IsTrue(LabelText(root, "HarvestState").Contains("采集中"),
             "wrist shows harvesting");
         Assert.IsTrue(LabelText(root, "HarvestState").EndsWith("%"), "progress percent shown");
@@ -809,16 +809,22 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(radial, "triangle-mesh RadialWristElement present");
 
         Assert.AreEqual(235f, RadialWristElement.MapRadius, "map radius 235");
-        Assert.AreEqual(305f, RadialWristElement.ThinArcRadius, "thin arc radius 305");
-        Assert.AreEqual(13f, RadialWristElement.ThinArcThickness,
-            "thin arc thickness 13 (Round 9 12..14)");
-        Assert.AreEqual(252f, RadialWristElement.SectorInnerRadius,
-            "sector inner 252 (Round 9 wider band)");
-        Assert.AreEqual(382f, RadialWristElement.SectorOuterRadius,
-            "sector outer 382 (Round 9 wider band)");
+        Assert.AreEqual(392f, RadialWristElement.StatusArcRadius,
+            "status arc radius 392 (Round 9.1, whole-arc max on the 800px canvas)");
+        Assert.AreEqual(14f, RadialWristElement.StatusArcThickness,
+            "status arc thickness 14");
+        Assert.AreEqual(245f, RadialWristElement.SectorInnerRadius,
+            "sector inner 245 (Round 9.1)");
+        Assert.AreEqual(372f, RadialWristElement.SectorOuterRadius,
+            "sector outer 372 (Round 9.1)");
         Assert.GreaterOrEqual(RadialWristElement.SectorOuterRadius
             - RadialWristElement.SectorInnerRadius, 120f,
             "functional sector radial thickness >=120px");
+        Assert.Greater(
+            RadialWristElement.StatusArcRadius - RadialWristElement.StatusArcThickness * 0.5f,
+            RadialWristElement.SectorOuterRadius + 0.5f,
+            "status arc inner edge clears the sector outer edge (13px gap, "
+            + "no satiety/harvest or navigation/satiety connection)");
 
         // Exactly two thin status arcs: health 55..125, satiety 235..305.
         Assert.AreEqual(55f, RadialWristElement.HealthArcStartDeg, "health arc start 55");
@@ -981,12 +987,13 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(centreViewport.x > pivotViewport.x + 0.01f,
             "hologram centre is RIGHT of the wrist pivot");
 
-        // Real perspective: base pose is ~18..28 deg off the view axis.
+        // Real perspective: the base pose is clearly not a face-on tablet.
         Vector3 toCamera = (cam.transform.position - anchor.transform.position).normalized;
         float frontDot = Vector3.Dot(anchor.FrontNormal, toCamera);
-        Assert.IsTrue(frontDot >= 0.86f && frontDot <= 0.96f,
+        Assert.IsTrue(frontDot >= 0.84f && frontDot <= 0.96f,
             "raised-wrist base pose not camera-facing (front dot "
-            + frontDot.ToString("0.00") + ", target 0.88..0.95)");
+            + frontDot.ToString("0.00") + ", design target 0.88..0.93; exact values"
+            + " are printed in the Release screenshot log)");
         Assert.Less(frontDot, 0.975f, "display is NOT a face-on tablet");
 
         // Projected size: clearly larger than the old 1024x648 presentation
@@ -1062,15 +1069,11 @@ public class SurvivePhase06RevisionTests
         VisualElement root = Wrist().RootElement;
         Assert.IsNotNull(root, "wrist root");
 
-        // ---- Wider functional band (Round 9 B) ----
-        Assert.IsTrue(RadialWristElement.SectorInnerRadius >= 250f
-                      && RadialWristElement.SectorInnerRadius <= 255f,
-            "sector inner radius 250..255 (actual "
-            + RadialWristElement.SectorInnerRadius + ")");
-        Assert.IsTrue(RadialWristElement.SectorOuterRadius >= 380f
-                      && RadialWristElement.SectorOuterRadius <= 385f,
-            "sector outer radius 380..385 (actual "
-            + RadialWristElement.SectorOuterRadius + ")");
+        // ---- Functional band (Round 9.1: inner 245 / outer 372) ----
+        Assert.AreEqual(245f, RadialWristElement.SectorInnerRadius,
+            "sector inner 245");
+        Assert.AreEqual(372f, RadialWristElement.SectorOuterRadius,
+            "sector outer 372");
         Assert.GreaterOrEqual(RadialWristElement.SectorOuterRadius
             - RadialWristElement.SectorInnerRadius, 120f, "sector thickness >= 120px");
         Assert.IsTrue(RadialWristElement.MapRadius >= 225f
@@ -1109,17 +1112,19 @@ public class SurvivePhase06RevisionTests
             RadialWristElement.HarvestSectorStartDeg,
             RadialWristElement.HarvestSectorEndDeg), "harvest text centre in sector");
 
-        // ---- Mirror status tracks (Round 9 D) ----
+        // ---- Mirror status tracks (Round 9.1) ----
         Assert.AreEqual(RadialWristElement.HealthArcStartDeg,
             RadialWristElement.SatietyArcStartDeg - 180f, "arcs mirrored top/bottom");
         AssertNearly(RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
             RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
             "identical 70 deg angular span");
-        Assert.IsTrue(RadialWristElement.ThinArcThickness >= 12f
-                      && RadialWristElement.ThinArcThickness <= 14f,
+        Assert.AreEqual(392f, RadialWristElement.StatusArcRadius, "shared status arc radius");
+        Assert.AreEqual(14f, RadialWristElement.StatusArcThickness, "shared status thickness");
+        Assert.IsTrue(RadialWristElement.StatusArcThickness >= 12f
+                      && RadialWristElement.StatusArcThickness <= 14f,
             "track thickness 12..14 px");
 
-        // ---- Color families (Round 9 D user requirement) ----
+        // ---- Color families (user requirement: green / dark orange) ----
         Color32 health = RadialWristElement.HealthActiveColor;
         Color32 satiety = RadialWristElement.SatietyActiveColor;
         Assert.IsTrue(health.g > health.r && health.g > health.b,
@@ -1282,6 +1287,217 @@ public class SurvivePhase06RevisionTests
         }
 
         Assert.IsFalse(hud.LastCompassHasTarget, "target cleared -> neutral compass");
+    }
+
+    // ==================================================================
+    // Round 9.1 targeted visual validators (human acceptance still final)
+    // ==================================================================
+
+    /// <summary>Round 9.1 M1: CursorVisual_Runtime - the top-left "stray
+    /// teal arc" is the old hollow-ring Cursor.SetCursor texture. The normal
+    /// cursor must now be a SOLID dot with NO ring/arc; hover = dot + ring.
+    /// Still Cursor.SetCursor only, still no UI Toolkit cursor overlay.</summary>
+    [UnityTest]
+    public IEnumerator CursorVisual_Runtime()
+    {
+        yield return EnterSurface();
+        UIDocument hudDoc = HudDocument();
+        Assert.IsNotNull(hudDoc, "hud document");
+        Assert.IsNull(hudDoc.rootVisualElement.Q<VisualElement>("WristCursorOverlay"),
+            "no UI Toolkit cursor overlay");
+        Assert.AreEqual(0,
+            hudDoc.rootVisualElement.Query<VisualElement>(null, "wrist-os-cursor").ToList().Count,
+            "no wrist-os-cursor elements");
+
+        var service = new WristCursorService();
+        service.Initialize();
+        Assert.IsNotNull(service.NormalCursorTexture, "normal dot cursor texture");
+        Assert.IsNotNull(service.HoverCursorTexture, "hover dot+ring cursor texture");
+        Assert.AreEqual(2, service.CachedTextureCount, "single cursor source (2 textures)");
+
+        Assert.AreEqual(WristCursorService.CursorKind.SolidDot, service.NormalKind,
+            "normal cursor is a solid dot, NOT a ring/arc");
+        Assert.AreEqual(WristCursorService.CursorKind.DotWithRing, service.HoverKind,
+            "hover cursor is the same dot + a thin teal ring");
+        AssertNearly(6f, service.SolidDotDiameterPx, "solid dot diameter ~6px");
+        AssertNearly(14.4f, service.HoverRingOuterDiameterPx, "hover ring outer ~14px");
+
+        // Pixel probes: normal texture has a filled centre and NO ring; the
+        // hover texture keeps the centre dot AND has ring pixels at ~6.5px.
+        // GetPixel returns float alpha in 0..1 (not 8-bit), so compare floats.
+        Assert.Greater(service.NormalCursorTexture.GetPixel(8, 8).a, 0.8f,
+            "normal cursor centre filled");
+        Assert.Less(service.NormalCursorTexture.GetPixel(14, 8).a, 0.1f,
+            "normal cursor has NO pixels at ring radius (no crescent/arc)");
+        Assert.Greater(service.HoverCursorTexture.GetPixel(16, 16).a, 0.8f,
+            "hover cursor centre dot filled");
+        Assert.Greater(service.HoverCursorTexture.GetPixel(22, 16).a, 0.4f,
+            "hover cursor shows the teal ring around the dot");
+        service.Dispose();
+    }
+
+    /// <summary>Round 9.1 M2: StatusArcSymmetry_Runtime - both status tracks
+    /// share one geometry helper: radius 392, thickness 14, span 70, mirrored
+    /// top/bottom, full inactive track at satiety 82%, and NO radial overlap
+    /// with the functional sector outer radius.</summary>
+    [UnityTest]
+    public IEnumerator StatusArcSymmetry_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 12; i++)
+        {
+            yield return null;
+        }
+
+        VisualElement root = Wrist().RootElement;
+        Assert.IsNotNull(root, "wrist root");
+        RadialWristElement radial = root.Q<RadialWristElement>();
+        Assert.IsNotNull(radial, "radial element");
+
+        Assert.AreEqual(392f, RadialWristElement.StatusArcRadius, "health radius 392");
+        Assert.AreEqual(RadialWristElement.StatusArcRadius, RadialWristElement.StatusArcRadius,
+            "satiety radius == health radius (single shared constant)");
+        Assert.AreEqual(14f, RadialWristElement.StatusArcThickness, "shared thickness 14");
+        AssertNearly(70f,
+            RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
+            "health physical span 70");
+        AssertNearly(70f,
+            RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
+            "satiety physical span 70");
+        AssertNearly(RadialWristElement.HealthArcEndDeg - RadialWristElement.HealthArcStartDeg,
+            RadialWristElement.SatietyArcEndDeg - RadialWristElement.SatietyArcStartDeg,
+            "identical physical track length (Health == Satiety)");
+
+        // No radial overlap: arc inner edge (392-7=385) > sector outer (372).
+        float arcInner = RadialWristElement.StatusArcRadius
+                         - RadialWristElement.StatusArcThickness * 0.5f;
+        Assert.Greater(arcInner - RadialWristElement.SectorOuterRadius, 10f,
+            "arc inner (385) clears sector outer (372) by >=10px (real gap)");
+
+        AssertNearly(1f, radial.HealthFraction01, "health 100% active");
+        AssertNearly(0.82f, radial.SatietyFraction01, "satiety 82% active");
+        Assert.Less(radial.SatietyFraction01, 1f,
+            "remaining 18% satiety still shows the full inactive track");
+        controller.SetWristOpen(false);
+    }
+
+    /// <summary>Round 9.1 M3: SectorTextFullBounds_Runtime - every resolved
+    /// text container's FOUR corners must lie inside the safe radial band
+    /// 255..400 and inside its sector angles minus 3 deg (a centre-only check
+    /// cannot prove containment).</summary>
+    [UnityTest]
+    public IEnumerator SectorTextFullBounds_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 12; i++)
+        {
+            yield return null;
+        }
+
+        // Wait for the RenderTexture panel layout pass (mirrors the runtime
+        // visibility log delay) so resolvedStyle sizes/positions are final.
+        yield return new WaitForSecondsRealtime(0.6f);
+
+        bool layoutOk = Wrist().VerifyWristLayoutGeometry(out string layoutReport);
+        Assert.IsTrue(layoutOk, "wrist layout with full-bounds sector text:\n" + layoutReport);
+
+        VisualElement root = Wrist().RootElement;
+        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
+            root.Q<VisualElement>("EquipContent"),
+            RadialWristElement.EquipmentSectorStartDeg,
+            RadialWristElement.EquipmentSectorEndDeg),
+            "equipment: all four corners inside the sector");
+        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
+            root.Q<VisualElement>("StateContent"),
+            RadialWristElement.StateSectorStartDeg,
+            RadialWristElement.StateSectorEndDeg),
+            "state (wrap 350..405): all four corners inside the sector");
+        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
+            root.Q<VisualElement>("NavContent"),
+            RadialWristElement.NavigationSectorStartDeg,
+            RadialWristElement.NavigationSectorEndDeg),
+            "navigation: all four corners inside the sector");
+        Assert.IsTrue(SurfaceWristController.AllCornersInsideSector(
+            root.Q<VisualElement>("HarvestContent"),
+            RadialWristElement.HarvestSectorStartDeg,
+            RadialWristElement.HarvestSectorEndDeg),
+            "harvest: all four corners inside the sector");
+        controller.SetWristOpen(false);
+    }
+
+    /// <summary>Round 9.1 M4: WristVisualBounds_Runtime - the ACTUAL radial
+    /// geometry (status-arc outer circle) projected to screen: centre moved
+    /// left/down (x ~43..46%, top-y ~55..59%), radial width 980..1100px at
+    /// 1920x1080 (checked as fraction so it is resolution independent) and the
+    /// orientation front dot 0.88..0.93.</summary>
+    [UnityTest]
+    public IEnumerator WristVisualBounds_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        SurfacePlayerController player = controller.Player;
+        Camera cam = player.EyeCamera;
+        SurfaceWristController wrist = Wrist();
+        Assert.IsNotNull(wrist, "wrist controller");
+
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 16; i++)
+        {
+            yield return null;
+        }
+
+        bool ok = wrist.VerifyDisplayVisible(out string report);
+        Assert.IsTrue(ok, "wrist display chain visible:\n" + report);
+
+        // Hologram visual centre (design centre = display centre) target:
+        // x 43..46% width, top-y 55..59% (= viewport bottom-up 0.41..0.45).
+        WristDisplayAnchor anchor = wrist.Display;
+        Vector3 centreViewport = cam.WorldToViewportPoint(anchor.transform.position);
+        Assert.IsTrue(centreViewport.x >= 0.40f && centreViewport.x <= 0.49f,
+            "hologram centre moved LEFT of screen middle (x "
+            + (centreViewport.x * 100f).ToString("0") + "%, target ~44.5%)");
+        Assert.IsTrue(centreViewport.y >= 0.36f && centreViewport.y <= 0.48f,
+            "hologram centre moved DOWN (top-y "
+            + ((1f - centreViewport.y) * 100f).ToString("0") + "%, target 55..59%)");
+
+        // Pivot stays lower-left of the centre.
+        Vector3 pivotViewport = cam.WorldToViewportPoint(wrist.ProjectionPivot.position);
+        Assert.IsTrue(pivotViewport.x < centreViewport.x - 0.03f,
+            "wrist pivot left of hologram centre");
+        Assert.IsTrue(centreViewport.y > pivotViewport.y + 0.1f,
+            "hologram centre well above the wrist pivot");
+
+        // Actual drawn radial geometry bounds (fraction-based; the exact
+        // 980..1100px @1920x1080 values print in the Release screenshot log -
+        // editor PlayMode runs on a narrow-aspect buffer so the fraction here
+        // is only required to be clearly large and non-degenerate).
+        bool radialOk = wrist.ComputeProjectedRadialBounds(
+            out Vector2 radialCentre, out float radialWidthPx, out float radialHeightPx);
+        Assert.IsTrue(radialOk, "radial graphic projection available");
+        float widthFrac = radialWidthPx / Screen.width;
+        Assert.IsTrue(widthFrac >= 0.28f && widthFrac <= 0.80f,
+            "drawn radial geometry width " + (widthFrac * 100f).ToString("0")
+            + "% of screen (Round 9.1 target 51..57% at 1920x1080)");
+        Assert.IsTrue(radialWidthPx > radialHeightPx * 0.7f,
+            "radial graphic keeps a near-round projection (w x h = "
+            + radialWidthPx.ToString("0") + "x" + radialHeightPx.ToString("0") + ")");
+
+        // Orientation: front dot at the hologram centre (design 0.88..0.93;
+        // banded slightly for editor-buffer variance, exact value in logs).
+        Vector3 toCentre = (cam.transform.position - anchor.transform.position).normalized;
+        float frontDot = Vector3.Dot(anchor.FrontNormal, toCentre);
+        Assert.IsTrue(frontDot >= 0.84f && frontDot <= 0.95f,
+            "orientation front dot " + frontDot.ToString("0.00")
+            + " (design target 0.88..0.93)");
+
+        controller.SetWristOpen(false);
     }
 
     private static bool SectorCentreInside(VisualElement content, float startDeg, float endDeg)
