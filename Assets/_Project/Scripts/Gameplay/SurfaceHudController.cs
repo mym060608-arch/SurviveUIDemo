@@ -54,10 +54,6 @@ public class SurfaceHudController : MonoBehaviour
     private Label _navName;
     private Label _navDistance;
 
-    private VisualElement _overlayCursor;
-    private bool _cursorEnabled;
-    private bool _cursorHover;
-
     private bool _bound;
 
     private void Awake()
@@ -136,12 +132,6 @@ public class SurfaceHudController : MonoBehaviour
         _navBlock = root.Q<VisualElement>("HudNavBlock");
         _navName = root.Q<Label>("HudNavName");
         _navDistance = root.Q<Label>("HudNavDistance");
-        _overlayCursor = root.Q<VisualElement>("WristCursorOverlay");
-        if (_overlayCursor != null)
-        {
-            _overlayCursor.pickingMode = PickingMode.Ignore;
-            _overlayCursor.style.display = DisplayStyle.None;
-        }
 
         if (_returnButton != null && _controller != null)
         {
@@ -214,80 +204,12 @@ public class SurfaceHudController : MonoBehaviour
         }
     }
 
-    // ---- Wrist-mode screen-space dot cursor overlay (round 6) ----
-
-    /// <summary>Enables/disables the overlay dot cursor. It lives on the
-    /// screen-space HUD document (never in the wrist RenderTexture) and only
-    /// mirrors the real mouse position; picking is ignored so it never blocks
-    /// the wrist display hit-test.</summary>
-    public void SetWristCursorEnabled(bool enabled)
-    {
-        _cursorEnabled = enabled;
-        if (!enabled && _overlayCursor != null)
-        {
-            _overlayCursor.style.display = DisplayStyle.None;
-        }
-
-        _cursorHover = false;
-    }
-
-    /// <summary>Driven every frame while WristMode is open: reads the real
-    /// Mouse.current position (bottom-left origin) and maps it to the panel's
-    /// top-left origin with the Y flip.</summary>
-    public void TickWristCursor(bool hoverNode)
-    {
-        if (!_cursorEnabled || _overlayCursor == null)
-        {
-            return;
-        }
-
-        if (_root == null)
-        {
-            return;
-        }
-
-        Mouse mouse = Mouse.current;
-        if (mouse == null)
-        {
-            _overlayCursor.style.display = DisplayStyle.None;
-            return;
-        }
-
-        _overlayCursor.style.display = DisplayStyle.Flex;
-        Vector2 screen = mouse.position.ReadValue();
-        Rect rootBounds = _root.worldBound;
-        if (rootBounds.width < 10f)
-        {
-            return;
-        }
-
-        float localX = screen.x - rootBounds.xMin - 6f;
-        float localY = rootBounds.yMax - screen.y - 6f;
-        _overlayCursor.style.left = localX;
-        _overlayCursor.style.top = localY;
-
-        if (hoverNode != _cursorHover)
-        {
-            _cursorHover = hoverNode;
-            if (hoverNode)
-            {
-                _overlayCursor.AddToClassList("over-node");
-            }
-            else
-            {
-                _overlayCursor.RemoveFromClassList("over-node");
-            }
-        }
-    }
-
-    /// <summary>Whether the dot cursor is currently shown (tests).</summary>
-    public bool IsWristCursorVisible =>
-        _cursorEnabled && _overlayCursor != null
-        && _overlayCursor.style.display == DisplayStyle.Flex;
-
-    /// <summary>Whether the dot cursor mode is armed while WristMode is open
-    /// (tests; visibility also needs a real mouse device).</summary>
-    public bool IsWristCursorEnabled => _cursorEnabled;
+    // ---- Wrist-mode cursor policy (CodeReference) ----
+    //
+    // The wrist-mode pointer is NOT a UI Toolkit overlay: SurfaceWristController
+    // owns WristCursorService which assigns a runtime ring cursor through
+    // Cursor.SetCursor. The HUD only hides its normal layer while the wrist is
+    // open.
 
     public void SetPrompt(string text)
     {

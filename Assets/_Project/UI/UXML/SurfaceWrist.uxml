@@ -1,88 +1,68 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <!-- Wrist terminal rendered to a RenderTexture (1280x800) and displayed
-         on a tilted world plane. Fixed logical pixels, world visible around. -->
+    <!--
+    Wrist terminal (Phase 06 Revision CodeReference architecture).
+
+    Radial geometry is NOT built from dozens of VisualElements: RadialWristElement
+    (injected by C# into RadialGeometryHost) paints the full triangle-mesh
+    hologram - translucent local map, thin health/satiety arcs, four thick
+    functional annular sectors. This UXML only hosts the geometry plus content
+    overlays: map markers (absolute wrist pixels) and sector text.
+
+    No rectangular cards, no tick rings, no white map disc, no custom cursor
+    VisualElement (the wrist cursor is Cursor.SetCursor runtime texture).
+    -->
     <ui:VisualElement name="WristRoot" class="wrist-root">
-        <ui:Label class="wrist-brand" text="NEREID-04 · 地表勘测" />
 
-        <!-- Map-anchored ring containers (ticks built at runtime) -->
-        <ui:VisualElement name="WristSatietyRing" class="wrist-ring ring-satiety" />
-        <ui:VisualElement name="WristHealthRing" class="wrist-ring ring-health" />
+        <!-- RadialWristElement is created by C# and inserted here.
+             This avoids Unity-version issues with custom UXML factories. -->
+        <ui:VisualElement name="RadialGeometryHost" class="radial-geometry-host" />
 
-        <!-- Ring chips in the small gaps above/below the map -->
-        <ui:VisualElement class="ring-chip chip-health">
-            <ui:Label class="ring-chip-caption" text="健康度" />
-            <ui:Label name="WristHealthValue" class="ring-chip-value" text="100" />
-        </ui:VisualElement>
-        <ui:VisualElement class="ring-chip chip-satiety">
-            <ui:Label class="ring-chip-caption" text="饱食度" />
-            <ui:Label name="WristSatietyValue" class="ring-chip-value" text="82" />
-        </ui:VisualElement>
-
-        <!-- Circular local map (absolute visual centre of the wrist) -->
-        <ui:VisualElement name="WristMapCircle" class="wrist-map-circle">
-            <ui:Label name="MapLanding" class="map-marker map-landing" text="▣" />
+        <!-- Full RT overlay. Markers use ABSOLUTE WRIST PIXEL coordinates. -->
+        <ui:VisualElement name="MapMarkerLayer" class="map-marker-layer">
             <ui:Label name="MapPlayer" class="map-player" text="▲" />
-            <ui:VisualElement name="MapNavRing" class="map-nav-ring" />
-            <ui:VisualElement name="MapNode0" class="map-marker-btn"><ui:Label class="map-marker-label" text="1" /></ui:VisualElement>
-            <ui:VisualElement name="MapNode1" class="map-marker-btn"><ui:Label class="map-marker-label" text="2" /></ui:VisualElement>
-            <ui:VisualElement name="MapNode2" class="map-marker-btn"><ui:Label class="map-marker-label" text="3" /></ui:VisualElement>
+            <ui:VisualElement name="MapLanding" class="map-landing" />
+            <ui:VisualElement name="MapNode0" class="map-node" />
+            <ui:VisualElement name="MapNode1" class="map-node" />
+            <ui:VisualElement name="MapNode2" class="map-node" />
+            <ui:VisualElement name="MapSelectedRing" class="map-selected-ring" />
         </ui:VisualElement>
 
-        <!-- Floating corner modules (detached, tight to the map) -->
-        <ui:VisualElement class="wrist-card card-equip">
-            <ui:Label class="wrist-title" text="当前装备" />
-            <ui:VisualElement name="WristEquipHarvester" class="wrist-row">
-                <ui:Label class="wrist-row-name" text="采集器 MK-I" />
-                <ui:Label name="WristEquipHarvesterState" class="wrist-row-state" text="已装备" />
-            </ui:VisualElement>
-            <ui:VisualElement name="WristEquipBattery" class="wrist-row">
-                <ui:Label class="wrist-row-name" text="备用电池组" />
-                <ui:Label name="WristEquipBatteryState" class="wrist-row-state" text="未选择" />
-            </ui:VisualElement>
-            <ui:VisualElement name="WristEquipDrone" class="wrist-row">
-                <ui:Label class="wrist-row-name" text="勘测无人机" />
-                <ui:Label name="WristEquipDroneState" class="wrist-row-state" text="未选择" />
-            </ui:VisualElement>
+        <!-- Status labels (value text sits near the thin arcs). -->
+        <ui:Label name="HealthLabel" text="健康度 100" class="radial-value health-label" />
+        <ui:Label name="SatietyLabel" text="饱食度 82" class="radial-value satiety-label" />
+
+        <!-- Upper-left: Equipment -->
+        <ui:VisualElement name="EquipContent" class="sector-content equip-content">
+            <ui:Label text="当前装备" class="sector-heading" />
+            <ui:Label name="EquipHarvester" text="采集器 MK-I" class="sector-line" />
+            <ui:Label name="EquipBattery" text="备用电池组" class="sector-line" />
+            <ui:Label name="EquipDrone" text="勘测无人机" class="sector-line" />
         </ui:VisualElement>
 
-        <ui:VisualElement class="wrist-card card-status">
-            <ui:Label class="wrist-title" text="当前状态" />
-            <ui:VisualElement class="wrist-row">
-                <ui:Label class="wrist-row-name" text="行动状态" />
-                <ui:Label name="WristActionState" class="wrist-row-state" text="探索中" />
-            </ui:VisualElement>
-            <ui:VisualElement class="wrist-row">
-                <ui:Label class="wrist-row-name" text="信号" />
-                <ui:Label class="wrist-row-state" text="在线" />
-            </ui:VisualElement>
-            <ui:VisualElement class="wrist-row">
-                <ui:Label class="wrist-row-name" text="回收节点" />
-                <ui:Label name="WristNodeCount" class="wrist-row-state" text="0 / 3" />
-            </ui:VisualElement>
-            <ui:VisualElement class="wrist-row">
-                <ui:Label class="wrist-row-name" text="载荷" />
-                <ui:Label name="WristCargoValue" class="wrist-row-state" text="45 / 100 KG" />
-            </ui:VisualElement>
+        <!-- Upper-right: State -->
+        <ui:VisualElement name="StateContent" class="sector-content state-content">
+            <ui:Label text="当前状态" class="sector-heading" />
+            <ui:Label name="ActionState" text="勘测中" class="sector-line" />
+            <ui:Label name="SignalState" text="信号在线" class="sector-line" />
+            <ui:Label name="RecoveredState" text="回收节点 0 / 3" class="sector-line" />
         </ui:VisualElement>
 
-        <ui:VisualElement class="wrist-card card-nav">
-            <ui:Label class="wrist-title" text="当前导航" />
-            <ui:Label name="WristNavName" class="wrist-nav-name" text="未设置" />
-            <ui:Label name="WristNavDistance" class="wrist-nav-distance" text="" />
+        <!-- Lower-left: Navigation -->
+        <ui:VisualElement name="NavContent" class="sector-content nav-content">
+            <ui:Label text="当前导航" class="sector-heading" />
+            <ui:Label name="NavTarget" text="未设置" class="sector-line sector-value" />
+            <ui:Label name="NavDistance" text="" class="sector-line" />
         </ui:VisualElement>
 
-        <ui:VisualElement class="wrist-card card-active">
-            <ui:Label class="wrist-title" text="采集状态" />
-            <ui:Label name="WristActiveNode" class="wrist-active-node" text="—" />
-            <ui:VisualElement class="wrist-active-line">
-                <ui:Label name="WristActiveState" class="wrist-active-state" text="待机" />
-                <ui:Label name="WristActivePercent" class="wrist-active-percent" text="" />
-            </ui:VisualElement>
+        <!-- Lower-right: Harvest -->
+        <ui:VisualElement name="HarvestContent" class="sector-content harvest-content">
+            <ui:Label text="采集状态" class="sector-heading" />
+            <ui:Label name="HarvestNode" text="" class="sector-line" />
+            <ui:Label name="HarvestState" text="待机" class="sector-line sector-value" />
         </ui:VisualElement>
 
-        <ui:Label class="wrist-footer" text="点击节点设置导航  ·  Esc / M / I 关闭" />
+        <!-- Small identity label -->
+        <ui:Label name="WristIdentity" text="NEREID-04 · 地表勘测" class="wrist-identity" />
 
-        <!-- Project-native dot cursor (drawn on the wrist display) -->
-        <ui:VisualElement name="WristCursor" class="wrist-cursor" />
     </ui:VisualElement>
 </ui:UXML>

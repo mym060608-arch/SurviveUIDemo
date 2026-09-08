@@ -53,9 +53,5 @@
                 <ui:VisualElement name="HudCrosshairRing" class="hud-xh-ring" />
             </ui:VisualElement>
         </ui:VisualElement>
-
-        <!-- Wrist-mode custom dot cursor (screen-space overlay, above HUD;
-             picking ignored so it never blocks the world display hit-test) -->
-        <ui:VisualElement name="WristCursorOverlay" class="wrist-os-cursor" />
     </ui:VisualElement>
 </ui:UXML>

@@ -50,23 +50,34 @@ public static class SurviveProjectValidator
     };
 
     /// <summary>Phase 06 Revision wrist terminal element names the runtime
-    /// binds to (SurfaceWrist.uxml, rendered to its own RenderTexture).</summary>
+    /// binds to (SurfaceWrist.uxml, CodeReference radial architecture: geometry
+    /// host + map marker layer + radial status labels + sector content).</summary>
     private static readonly string[] WristRevisionStructure =
     {
         "WristRoot",
-        "WristNodeCount",
-        "WristHealthValue", "WristSatietyValue",
-        "WristHealthRing", "WristSatietyRing",
-        "WristEquipHarvester", "WristEquipHarvesterState",
-        "WristEquipBattery", "WristEquipBatteryState",
-        "WristEquipDrone", "WristEquipDroneState",
-        "WristCargoValue",
-        "WristMapCircle", "MapLanding", "MapPlayer", "MapNavRing",
+        "RadialGeometryHost",
+        "MapMarkerLayer",
+        "MapPlayer", "MapLanding",
         "MapNode0", "MapNode1", "MapNode2",
-        "WristNavName", "WristNavDistance",
-        "WristActionState",
-        "WristActiveNode", "WristActiveState", "WristActivePercent",
-        "WristCursor"
+        "MapSelectedRing",
+        "HealthLabel", "SatietyLabel",
+        "EquipContent", "EquipHarvester", "EquipBattery", "EquipDrone",
+        "StateContent", "ActionState", "SignalState", "RecoveredState",
+        "NavContent", "NavTarget", "NavDistance",
+        "HarvestContent", "HarvestNode", "HarvestState",
+        "WristIdentity"
+    };
+
+    /// <summary>Legacy wrist element names that must NOT come back: the wrist
+    /// cursor is Cursor.SetCursor-driven and radial geometry is triangle-mesh
+    /// based (no tick rings / MapDisc / overlay elements).</summary>
+    private static readonly string[] WristLegacyForbidden =
+    {
+        "WristCursor",
+        "WristMapCircle",
+        "WristHealthRing",
+        "WristSatietyRing",
+        "WristCursorOverlay"
     };
 
     [MenuItem("Tools/SurviveUI/Validate Phase 01 Project")]
@@ -207,6 +218,9 @@ public static class SurviveProjectValidator
                 Record(surfacePresent.Contains(expected),
                     "SurfaceHUD.uxml revision structure: " + expected);
             }
+
+            Record(!surfacePresent.Contains("WristCursorOverlay"),
+                "SurfaceHUD.uxml has no legacy WristCursorOverlay (cursor = Cursor.SetCursor)");
         }
 
         // ---- SurfaceWrist.uxml coverage (floating wrist terminal) ----
@@ -228,6 +242,12 @@ public static class SurviveProjectValidator
             {
                 Record(wristPresent.Contains(expected),
                     "SurfaceWrist.uxml revision structure: " + expected);
+            }
+
+            foreach (string forbidden in WristLegacyForbidden)
+            {
+                Record(!wristPresent.Contains(forbidden),
+                    "SurfaceWrist.uxml contains no legacy element: " + forbidden);
             }
         }
 

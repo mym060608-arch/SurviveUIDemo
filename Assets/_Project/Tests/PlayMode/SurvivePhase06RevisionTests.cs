@@ -243,8 +243,6 @@ public class SurvivePhase06RevisionTests
 
         VisualElement hudLayer = hudDoc.rootVisualElement.Q<VisualElement>("HudLayer");
         Assert.IsNotNull(hudLayer, "HudLayer exists");
-        SurfaceHudController hud = hudDoc.GetComponent<SurfaceHudController>();
-        Assert.IsNotNull(hud, "hud controller on the hud document");
 
         Assert.IsFalse(controller.IsWristOpen, "wrist closed initially");
         Assert.IsTrue(player.InputEnabled, "movement enabled while closed");
@@ -259,15 +257,24 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(controller.IsWristOpen, "wrist open after toggle");
         Assert.IsFalse(player.InputEnabled, "WASD/look frozen while open");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.None, "normal HUD hidden");
-        Assert.IsTrue(hudDoc.rootVisualElement.Q<VisualElement>("WristCursorOverlay") != null,
-            "overlay cursor element present on the screen-space HUD");
-        Assert.IsTrue(hud.IsWristCursorEnabled, "overlay cursor enabled while open");
-        // Visual visibility of the dot needs a real mouse device; PlayMode
+
+        // CodeReference cursor architecture: no UI Toolkit cursor overlay
+        // exists anywhere; the wrist-mode pointer is a Cursor.SetCursor ring
+        // texture owned by the wrist controller's WristCursorService.
+        Assert.IsNull(hudDoc.rootVisualElement.Q<VisualElement>("WristCursorOverlay"),
+            "no legacy WristCursorOverlay element in the screen-space HUD");
+        Assert.AreEqual(0,
+            hudDoc.rootVisualElement.Query<VisualElement>(null, "wrist-os-cursor").ToList().Count,
+            "no wrist-os-cursor elements (no overlay, no trail)");
+        Assert.IsNotNull(wrist.CursorService, "wrist cursor service present");
+        Assert.IsNotNull(wrist.CursorService.NormalCursorTexture,
+            "Cursor.SetCursor normal ring texture assigned in wrist mode");
+        Assert.IsFalse(wrist.CursorService.IsHovering, "not hovering initially");
+        // Visual visibility of the ring needs a real mouse device; PlayMode
         // owns the mode semantics, Release/人工 owns the visual check.
-        hud.TickWristCursor(false);
 
         // The wrist terminal is a transparent RenderTexture document; its
-        // geometry (map/rings/cards) is what defines the floating layout.
+        // geometry (map/arcs/sectors) is what defines the floating layout.
         UIDocument wristDoc = null;
         foreach (UIDocument doc in Object.FindObjectsByType<UIDocument>())
         {
@@ -293,7 +300,9 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(player.InputEnabled, "exploration restored");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.Flex, "HUD restored");
         Assert.IsTrue(wristDoc.enabled == false || !wristDoc.enabled, "wrist document disabled");
-        Assert.IsFalse(hud.IsWristCursorEnabled, "overlay cursor disabled when wrist closed");
+        Assert.IsFalse(wrist.CursorService.IsHovering, "cursor hover cleared after close");
+        Assert.IsNotNull(wrist.CursorService.HoverCursorTexture,
+            "hover ring texture cached for Cursor.SetCursor");
     }
 
     [UnityTest]
@@ -335,18 +344,26 @@ public class SurvivePhase06RevisionTests
 
         VisualElement root = Wrist().RootElement;
         Assert.IsNotNull(root, "wrist root");
-        Assert.AreEqual("37", LabelText(root, "WristHealthValue"), "wrist health live");
-        Assert.AreEqual("64", LabelText(root, "WristSatietyValue"), "wrist satiety live");
-        Assert.AreEqual("已装备", LabelText(root, "WristEquipHarvesterState"), "harvester equipped");
-        Assert.AreEqual("已选择", LabelText(root, "WristEquipBatteryState"), "battery selected shown");
-        Assert.AreEqual("未选择", LabelText(root, "WristEquipDroneState"), "drone deselected shown");
-        Assert.IsTrue(LabelText(root, "WristCargoValue").Contains("70 / 100 KG"), "cargo weight real");
+        // Radial status labels (new names) sit beside the thin arcs.
+        Assert.AreEqual("健康度 37", LabelText(root, "HealthLabel"), "health label live");
+        Assert.AreEqual("饱食度 64", LabelText(root, "SatietyLabel"), "satiety label live");
 
-        // Round 8: arcs/labels driven by the radial hologram backdrop.
+        // Equipment sector lists the real loadout lines and marks selection
+        // state through the sector-off class (no fake inventory).
+        Assert.AreEqual("采集器 MK-I", LabelText(root, "EquipHarvester"), "harvester listed");
+        Assert.AreEqual("备用电池组", LabelText(root, "EquipBattery"), "battery listed");
+        Assert.AreEqual("勘测无人机", LabelText(root, "EquipDrone"), "drone listed");
+        VisualElement battery = root.Q<VisualElement>("EquipBattery");
+        VisualElement drone = root.Q<VisualElement>("EquipDrone");
+        Assert.IsFalse(battery.ClassListContains("sector-off"), "battery selected -> not muted");
+        Assert.IsTrue(drone.ClassListContains("sector-off"), "drone deselected -> muted");
+
+        // The single triangle-mesh radial hologram is present and driven.
         RadialWristElement radial = root.Q<RadialWristElement>();
-        Assert.IsNotNull(radial, "radial hologram backdrop present");
+        Assert.IsNotNull(radial, "RadialWristElement present");
         Assert.Greater(radial.HealthFraction01, 0f, "health arc fraction driven");
         Assert.Greater(radial.SatietyFraction01, 0f, "satiety arc fraction driven");
+        Assert.IsNull(root.Q<VisualElement>("WristMapCircle"), "no legacy MapDisc container");
         controller.SetWristOpen(false);
     }
 
@@ -421,10 +438,10 @@ public class SurvivePhase06RevisionTests
         SurfaceWristController wrist = Wrist();
         Assert.IsNotNull(wrist, "wrist controller");
 
-        // Marker logical centre for a known world node on the fixed canvas.
+        // Marker logical centre for a known world node: the single shared
+        // world -> wrist-map source returns absolute wrist pixels.
         SurfaceResourceNode node1 = controller.Nodes[1];
-        Vector2 fraction1 = SurfaceGameController.MapFraction(node1.transform.position);
-        Vector2 node1Pixel = MapPixel(fraction1);
+        Vector2 node1Pixel = WristMapCoordinates.WorldToWristMap(node1.transform.position);
 
         // Direct hit at the marker centre resolves to that node.
         int hit = wrist.HitTestNode(node1Pixel);
@@ -437,22 +454,14 @@ public class SurvivePhase06RevisionTests
         // A corner of the wrist canvas far from any marker resolves to none.
         Assert.AreEqual(-1, wrist.HitTestNode(new Vector2(30f, 30f)), "corner has no node");
 
-        // The player/landing centre also resolves to none (no node there).
-        Assert.AreEqual(-1, wrist.HitTestNode(MapPixel(Vector2.zero)), "map centre has no node");
+        // The player/landing centre (world origin) also resolves to none.
+        Vector2 originPixel = WristMapCoordinates.WorldToWristMap(Vector3.zero);
+        Assert.AreEqual(-1, wrist.HitTestNode(originPixel), "map centre has no node");
 
-        // Orientation sanity: node 0 is left/up of node 1 on the map.
+        // Orientation sanity: node 0 is west of node 1 on the map.
         SurfaceResourceNode node0 = controller.Nodes[0];
-        Vector2 f0 = SurfaceGameController.MapFraction(node0.transform.position);
-        Assert.Less(f0.x, fraction1.x, "node0 west of node1");
-    }
-
-    private static Vector2 MapPixel(Vector2 fraction)
-    {
-        return new Vector2(
-            SurfaceWristController.MapLeft + SurfaceWristController.MapSize * 0.5f
-                + fraction.x * SurfaceWristController.MapRadiusPx,
-            SurfaceWristController.MapTop + SurfaceWristController.MapSize * 0.5f
-                - fraction.y * SurfaceWristController.MapRadiusPx);
+        Vector2 p0 = WristMapCoordinates.WorldToWristMap(node0.transform.position);
+        Assert.Less(p0.x, node1Pixel.x, "node0 west of node1");
     }
 
     [UnityTest]
@@ -572,13 +581,15 @@ public class SurvivePhase06RevisionTests
     [UnityTest]
     public IEnumerator MapMathAndNavigationSelection()
     {
-        Vector2 center = SurfaceGameController.MapFraction(Vector3.zero);
-        AssertNearly(0f, center.x, "map center x");
-        AssertNearly(0f, center.y, "map center y");
+        // World origin maps to the wrist design centre through the single
+        // authoritative world -> wrist-map source.
+        Vector2 center = WristMapCoordinates.WorldToWristMap(Vector3.zero);
+        AssertNearly(RadialWristElement.Center.x, center.x, "map center x");
+        AssertNearly(RadialWristElement.Center.y, center.y, "map center y");
 
-        Vector2 nodeA = SurfaceGameController.MapFraction(new Vector3(-7f, 0f, 2.5f));
-        AssertNearly(-7f / SurfaceGameController.MapHalfExtent, nodeA.x, "node fraction x");
-        AssertNearly(2.5f / SurfaceGameController.MapHalfExtent, nodeA.y, "node fraction z");
+        Vector2 nodeA = WristMapCoordinates.WorldToWristMap(new Vector3(-7f, 0f, 2.5f));
+        Assert.Less(nodeA.x, center.x, "node x west of centre");
+        Assert.Less(nodeA.y, center.y, "node z (north) above centre");
 
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
@@ -596,18 +607,21 @@ public class SurvivePhase06RevisionTests
         Assert.IsNotNull(root, "wrist root");
 
         // The wrist document renders into its own RenderTexture; batch mode
-        // provides no layout pass for it, so containment is verified from the
-        // deterministic style coordinates (the same math as LocalMap hit-test).
-        Vector2 mapLocalCenter = new Vector2(SurfaceWristController.MapSize * 0.5f,
-            SurfaceWristController.MapSize * 0.5f);
+        // provides no layout pass for it, so containment and shared-source
+        // equivalence are verified from the deterministic style coordinates
+        // (the same math as the wrist hit-test).
         for (int i = 0; i < 3; i++)
         {
             VisualElement marker = root.Q<VisualElement>("MapNode" + i);
             Assert.IsNotNull(marker, "map marker " + i);
             Vector2 markerCenter = new Vector2(
-                marker.style.left.value.value + 17f, marker.style.top.value.value + 17f);
-            float distance = Vector2.Distance(markerCenter, mapLocalCenter);
-            Assert.IsTrue(distance <= SurfaceWristController.MapRadiusPx + 1f,
+                marker.style.left.value.value, marker.style.top.value.value);
+            Vector2 expected = WristMapCoordinates.WorldToWristMap(
+                controller.Nodes[i].transform.position);
+            AssertNearly(expected.x, markerCenter.x, "marker " + i + " x from shared source");
+            AssertNearly(expected.y, markerCenter.y, "marker " + i + " y from shared source");
+            float distance = Vector2.Distance(markerCenter, RadialWristElement.Center);
+            Assert.IsTrue(distance <= WristMapCoordinates.UsableMapRadius + 1f,
                 "marker " + i + " stays inside circle (d=" + distance.ToString("0.0") + ")");
         }
 
@@ -644,11 +658,11 @@ public class SurvivePhase06RevisionTests
         }
 
         root = Wrist().RootElement;
-        Assert.AreEqual("资源节点 02", LabelText(root, "WristNavName"), "wrist nav name");
-        VisualElement ring = root.Q<VisualElement>("MapNavRing");
-        Assert.IsTrue(ring.resolvedStyle.display == DisplayStyle.Flex, "nav ring visible");
+        Assert.AreEqual("资源节点 02", LabelText(root, "NavTarget"), "wrist nav name");
+        VisualElement ring = root.Q<VisualElement>("MapSelectedRing");
+        Assert.IsTrue(ring.resolvedStyle.display == DisplayStyle.Flex, "selected ring visible");
         VisualElement marker1 = root.Q<VisualElement>("MapNode1");
-        Assert.IsTrue(marker1.ClassListContains("marker-selected"), "selected marker class");
+        Assert.IsTrue(marker1.ClassListContains("node-selected"), "selected marker class");
         controller.SetWristOpen(false);
         controller.ClearNavigationTarget();
         Assert.IsFalse(controller.IsNavigationActive, "nav cleared");
@@ -699,24 +713,26 @@ public class SurvivePhase06RevisionTests
         }
 
         VisualElement root = Wrist().RootElement;
-        Assert.AreEqual("资源节点 01", LabelText(root, "WristActiveNode"), "active node name");
-        Assert.AreEqual("采集中", LabelText(root, "WristActiveState"), "wrist shows harvesting");
-        Assert.IsTrue(LabelText(root, "WristActivePercent").EndsWith("%"), "progress percent shown");
-        Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("marker-harvesting"),
-            "map marker harvesting");
+        Assert.AreEqual("资源节点 01", LabelText(root, "HarvestNode"), "active node name");
+        Assert.IsTrue(LabelText(root, "HarvestState").Contains("采集中"),
+            "wrist shows harvesting");
+        Assert.IsTrue(LabelText(root, "HarvestState").EndsWith("%"), "progress percent shown");
+        Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("node-active"),
+            "map marker active (harvesting)");
 
         node0.AdvanceTimers(0.75f);
         yield return null;
         yield return null;
-        string percentText = LabelText(root, "WristActivePercent").Replace("%", "");
+        string percentText = LabelText(root, "HarvestState").Replace("采集中 ", "").Replace("%", "");
         int percent = int.Parse(percentText);
         Assert.Greater(percent, 0, "progress advanced while wrist open");
 
         node0.AdvanceTimers(node0.RemainingSeconds);
         yield return null;
         yield return null;
-        Assert.AreEqual("无线传输中", LabelText(root, "WristActiveState"), "wrist shows transfer");
-        Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("marker-transmitting"),
+        Assert.IsTrue(LabelText(root, "HarvestState").Contains("无线传输"),
+            "wrist shows transfer");
+        Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("node-transmitting"),
             "map marker transmitting");
 
         node0.AdvanceTimers(node0.RemainingSeconds);
@@ -725,7 +741,7 @@ public class SurvivePhase06RevisionTests
         yield return null;
         Assert.AreEqual(SurfaceResourceNode.NodeState.Depleted, node0.State, "depleted");
         Assert.AreEqual(25, session.Minerals, "settled +5 while wrist open");
-        Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("marker-depleted"),
+        Assert.IsTrue(root.Q<VisualElement>("MapNode0").ClassListContains("node-depleted"),
             "map marker depleted");
         controller.SetWristOpen(false);
     }
@@ -785,14 +801,44 @@ public class SurvivePhase06RevisionTests
         }
 
         VisualElement root = wrist.RootElement;
+
+        // ---- CodeReference radial geometry (single triangle-mesh element) ----
         RadialWristElement radial = root.Q<RadialWristElement>();
-        Assert.IsNotNull(radial, "single radial backdrop exists");
-        Assert.Greater(radial.HealthFraction01, 0f, "health arc active");
-        Assert.Greater(radial.SatietyFraction01, 0f, "satiety arc active");
-        Assert.Greater(RadialWristElement.RingOuter, RadialWristElement.RingInner,
-            "annular band sane");
-        Assert.Less(RadialWristElement.MapRadius, RadialWristElement.RingInner,
-            "map inside the ring band");
+        Assert.IsNotNull(radial, "triangle-mesh RadialWristElement present");
+
+        Assert.AreEqual(235f, RadialWristElement.MapRadius, "map radius 235");
+        Assert.AreEqual(305f, RadialWristElement.ThinArcRadius, "thin arc radius 305");
+        Assert.AreEqual(10f, RadialWristElement.ThinArcThickness, "thin arc thickness 10");
+        Assert.AreEqual(270f, RadialWristElement.SectorInnerRadius, "sector inner 270");
+        Assert.AreEqual(350f, RadialWristElement.SectorOuterRadius, "sector outer 350");
+
+        // Exactly two thin status arcs: health 55..125, satiety 235..305.
+        Assert.AreEqual(55f, RadialWristElement.HealthArcStartDeg, "health arc start 55");
+        Assert.AreEqual(125f, RadialWristElement.HealthArcEndDeg, "health arc end 125");
+        Assert.AreEqual(235f, RadialWristElement.SatietyArcStartDeg, "satiety arc start 235");
+        Assert.AreEqual(305f, RadialWristElement.SatietyArcEndDeg, "satiety arc end 305");
+
+        // Exactly four thick functional sectors (annular band 270..350) with
+        // visible angular gaps: the total covered span stays well below 360.
+        float equipSpan = RadialWristElement.EquipmentSectorEndDeg
+                          - RadialWristElement.EquipmentSectorStartDeg;
+        float navSpan = RadialWristElement.NavigationSectorEndDeg
+                        - RadialWristElement.NavigationSectorStartDeg;
+        float harvestSpan = RadialWristElement.HarvestSectorEndDeg
+                            - RadialWristElement.HarvestSectorStartDeg;
+        float stateSpan = RadialWristElement.StateSectorEndDeg
+                          - RadialWristElement.StateSectorStartDeg;
+        AssertNearly(55f, equipSpan, "equipment sector 135..190");
+        AssertNearly(40f, navSpan, "navigation sector 195..235");
+        AssertNearly(40f, harvestSpan, "harvest sector 305..345");
+        AssertNearly(55f, stateSpan, "state sector 350..405 (wraps)");
+        Assert.IsTrue(equipSpan + navSpan + harvestSpan + stateSpan < 360f,
+            "no full 360 functional outer ring (angular gaps remain)");
+
+        Assert.Greater(radial.HealthFraction01, 0f, "health arc fraction driven");
+        Assert.Greater(radial.SatietyFraction01, 0f, "satiety arc fraction driven");
+
+        // Map content: player, landing and the 3 node markers.
         Assert.IsNotNull(root.Q<VisualElement>("MapPlayer"), "player marker visible");
         for (int i = 0; i < 3; i++)
         {
@@ -800,9 +846,40 @@ public class SurvivePhase06RevisionTests
         }
 
         Assert.IsNotNull(root.Q<VisualElement>("MapLanding"), "landing marker visible");
+        Assert.IsNull(root.Q<VisualElement>("WristMapCircle"), "no legacy MapDisc container");
+        Assert.IsNull(root.Q<VisualElement>("WristCursor"), "no in-panel cursor element");
 
-        // Parallax semantics: pointer right tilts +yaw, pointer up +pitch, both
-        // clamped; centring returns the pose (damped, not instant).
+        // Draw + hover + click share the ONE world -> map coordinate source.
+        Vector2 node1Pixel = WristMapCoordinates.WorldToWristMap(
+            controller.Nodes[1].transform.position);
+        VisualElement node1Marker = root.Q<VisualElement>("MapNode1");
+        AssertNearly(node1Pixel.x, node1Marker.style.left.value.value,
+            "node draw x from shared source");
+        AssertNearly(node1Pixel.y, node1Marker.style.top.value.value,
+            "node draw y from shared source");
+        Assert.AreEqual(1, wrist.HitTestNode(node1Pixel), "click hit-test uses shared source");
+
+        // UV -> wrist pixel performs exactly ONE Y inversion.
+        Vector2 topLeft = SurfaceWristController.UVToWristPixel(new Vector2(0f, 1f));
+        AssertNearly(0f, topLeft.x, "uv left -> x 0");
+        AssertNearly(0f, topLeft.y, "uv top (v=1) -> y 0 (single inversion)");
+        Vector2 bottomRight = SurfaceWristController.UVToWristPixel(new Vector2(1f, 0f));
+        AssertNearly(SurfaceWristController.UiWidth, bottomRight.x, "uv right -> x 1280");
+        AssertNearly(SurfaceWristController.UiHeight, bottomRight.y,
+            "uv bottom (v=0) -> y 800");
+
+        // Parallax: rotates the WristProjectionPivot around its captured base;
+        // pointer right tilts +yaw, pointer top +pitch; both clamped; centring
+        // returns the pose (damped, not instant).
+        Transform pivot = wrist.ProjectionPivot;
+        Assert.IsNotNull(pivot, "WristProjectionPivot present");
+        wrist.SetParallaxNormalized(0f, 0f);
+        for (int i = 0; i < 30; i++)
+        {
+            yield return null;
+        }
+
+        Quaternion neutral = pivot.localRotation;
         wrist.SetParallaxNormalized(1f, 0f);
         for (int i = 0; i < 50; i++)
         {
@@ -812,6 +889,12 @@ public class SurvivePhase06RevisionTests
         float yawRight = wrist.CurrentParallaxYaw;
         Assert.Greater(yawRight, 0.1f, "pointer right tilts +yaw");
         Assert.LessOrEqual(yawRight, 4.5f, "yaw clamped to +-4");
+        // Batch/test frames run far faster than real time, so the damped pivot
+        // rotation only needs to prove it follows (nonzero), not reach steady
+        // state, within the fixed frame window.
+        Assert.Greater(Quaternion.Angle(neutral, pivot.localRotation), 0.1f,
+            "pivot rotation follows parallax (not translation)");
+
         wrist.SetParallaxNormalized(0f, 1f);
         for (int i = 0; i < 50; i++)
         {
@@ -827,13 +910,20 @@ public class SurvivePhase06RevisionTests
         }
 
         Assert.Less(Mathf.Abs(wrist.CurrentParallaxYaw), 0.6f, "centre returns yaw");
+        Assert.Less(Quaternion.Angle(pivot.localRotation, neutral), 2f,
+            "pivot returns near base pose");
 
-        // Exactly one screen-space cursor element exists (no trail buildup).
+        // Cursor architecture: no UI Toolkit cursor element anywhere; the ring
+        // cursor is assigned through Cursor.SetCursor (runtime textures).
         UIDocument hudDoc = HudDocument();
         Assert.IsNotNull(hudDoc, "hud doc");
-        Assert.AreEqual(1,
+        Assert.IsNull(hudDoc.rootVisualElement.Q<VisualElement>("WristCursorOverlay"),
+            "no overlay cursor element in the screen-space HUD");
+        Assert.AreEqual(0,
             hudDoc.rootVisualElement.Query<VisualElement>(null, "wrist-os-cursor").ToList().Count,
-            "custom cursor instance count == 1");
+            "no wrist-os-cursor elements (no cursor trail)");
+        Assert.IsNotNull(wrist.CursorService.HoverCursorTexture,
+            "hover ring texture available for Cursor.SetCursor");
         controller.SetWristOpen(false);
     }
 

@@ -8,16 +8,13 @@ using UnityEngine.SceneManagement;
 /// (Phase 06 + Revision).
 ///
 /// Owns: the node registry, wrist terminal mode (M / I / Esc), scene-owned
-/// navigation target state, map coordinate math, world input gating, HUD
-/// refresh and the legacy semantic helpers. Resource settlement stays in
-/// GameSession; gaze interaction happens through FirstPersonInteractor.
+/// navigation target state, world input gating, HUD refresh and the legacy
+/// semantic helpers. Resource settlement stays in GameSession; gaze
+/// interaction happens through FirstPersonInteractor. Wrist map coordinates
+/// live in the single authoritative WristMapCoordinates source.
 /// </summary>
 public class SurfaceGameController : MonoBehaviour
 {
-    // World-space half extent used to normalize XZ into the circular map.
-    // Player bounds are +/-16.5, nodes stay well inside +/-17.
-    public const float MapHalfExtent = 17f;
-
     // Legacy proximity helper range (semantic tests/probes only).
     public float interactRangeFallback = 3.0f;
 
@@ -124,36 +121,10 @@ public class SurfaceGameController : MonoBehaviour
         }
 
         RefreshNavigationDistance();
-        TickWristCursorOverlay();
         RefreshHudDynamic();
         if (_wrist != null)
         {
             _wrist.Tick();
-        }
-    }
-
-    private bool _cursorOverlayActive;
-
-    /// <summary>Drives the screen-space dot cursor while WristMode is open and
-    /// hides it otherwise (never two cursors; OS cursor stays hidden).</summary>
-    private void TickWristCursorOverlay()
-    {
-        if (_hud == null)
-        {
-            return;
-        }
-
-        bool shouldShow = _isWristOpen;
-        if (shouldShow != _cursorOverlayActive)
-        {
-            _cursorOverlayActive = shouldShow;
-            _hud.SetWristCursorEnabled(shouldShow);
-        }
-
-        if (shouldShow)
-        {
-            int hover = _wrist != null ? _wrist.HitTestFromScreenMouse() : -1;
-            _hud.TickWristCursor(hover >= 0);
         }
     }
 
@@ -244,21 +215,37 @@ public class SurfaceGameController : MonoBehaviour
         }
     }
 
-    // Explicit input-mode semantics (see round-3 blocker 3):
-    // - SurfaceFirstPersonMode: locked + hidden OS cursor, mouse look on;
-    // - WristMode: unlocked + hidden OS cursor, dot pointer on the display;
+    // Explicit input-mode cursor semantics (CodeReference):
+    // - SurfaceFirstPersonMode: locked + hidden OS cursor (mouse look);
+    // - WristMode: unlocked + visible with the runtime ring cursor assigned
+    //   through Cursor.SetCursor by WristCursorService (owned by the wrist
+    //   controller; no UI Toolkit cursor overlay anywhere);
     // - HubUiMode (AppController): unlocked + visible for the 2D Hub.
 
     public void ApplySurfaceFirstPersonMode()
     {
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
+        if (_wrist != null)
+        {
+            _wrist.ExitToSurfaceCursor();
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+        }
     }
 
     public void ApplyWristMode()
     {
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = false;
+        if (_wrist != null)
+        {
+            _wrist.EnterWristCursor();
+        }
+        else
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
     }
 
     // ---- Navigation (scene-owned, wrist clickable) ----
@@ -308,15 +295,6 @@ public class SurfaceGameController : MonoBehaviour
     public static string NodeDisplayName(int nodeId)
     {
         return "资源节点 " + (nodeId + 1).ToString("00");
-    }
-
-    /// <summary>World XZ -> normalized [-1..1] map fractions (deterministic,
-    /// shared with the wrist map and its tests).</summary>
-    public static Vector2 MapFraction(Vector3 worldPosition)
-    {
-        return new Vector2(
-            Mathf.Clamp(worldPosition.x / MapHalfExtent, -1f, 1f),
-            Mathf.Clamp(worldPosition.z / MapHalfExtent, -1f, 1f));
     }
 
     private void RefreshNavigationDistance()

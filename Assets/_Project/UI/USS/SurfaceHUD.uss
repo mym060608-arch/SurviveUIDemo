@@ -261,22 +261,3 @@
 .hud-xh-ring.ring-blocked {
     border-color: #5A6570;
 }
-
-/* ---------- Wrist-mode dot cursor (screen-space overlay) ---------- */
-
-.wrist-os-cursor {
-    position: absolute;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    border-width: 1px;
-    border-color: #7B858F;
-    background-color: rgba(233, 235, 237, 0.85);
-    display: none;
-}
-
-.wrist-os-cursor.over-node {
-    border-color: #0E7F8C;
-    border-width: 2px;
-    background-color: rgba(14, 127, 140, 0.55);
-}
