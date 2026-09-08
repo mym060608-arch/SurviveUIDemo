@@ -31,6 +31,8 @@
 }
 
 /* ---------- Circular local map (visual centre of the wrist) ---------- */
+/* Round 8: disc/rings/arcs are painted by RadialWristElement; this container
+   only groups the markers above that translucent paint layer. */
 
 .wrist-map-circle {
     position: absolute;
@@ -40,9 +42,8 @@
     height: 500px;
     border-radius: 50%;
     overflow: hidden;
-    background-color: rgba(226, 230, 233, 0.92);
-    border-width: 1px;
-    border-color: #9AA3AC;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
 }
 
 .map-marker {
@@ -157,83 +158,86 @@
     background-color: #0E7F8C;
 }
 
-/* ---------- Ring chips: caption + value above/below the map ---------- */
+/* ---------- Ring containers (legacy; arcs are painted by RadialWristElement) */
+
+.wrist-ring {
+    display: none;
+}
+
+/* ---------- Health/Satiety value readouts (floating, radial positions) ----- */
 
 .ring-chip {
     position: absolute;
     flex-direction: row;
     align-items: center;
-    width: 150px;
-    height: 26px;
-    background-color: rgba(233, 235, 237, 0.82);
-    border-width: 1px;
-    border-color: #C9CFD4;
-    padding: 0 10px;
+    width: 170px;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0);
+    padding: 0 4px;
 }
 
 .chip-health {
-    left: 565px;
-    top: 108px;
+    left: 555px;
+    top: 42px;
 }
 
 .chip-satiety {
-    left: 565px;
-    top: 668px;
+    left: 555px;
+    top: 734px;
 }
 
 .ring-chip-caption {
-    font-size: 11px;
-    color: #4A525C;
+    font-size: 12px;
+    color: #7B858F;
     letter-spacing: 0;
     margin-right: auto;
 }
 
 .ring-chip-value {
-    font-size: 16px;
+    font-size: 18px;
     -unity-font-style: bold;
     color: #161B20;
 }
 
-/* ---------- Detached corner modules ---------- */
+/* ---------- Radial sector content (no rectangles; floats on the arcs) ------ */
 
 .wrist-card {
     position: absolute;
-    width: 232px;
-    background-color: rgba(233, 235, 237, 0.82);
-    border-width: 1px;
-    border-color: #C9CFD4;
-    padding: 8px 12px;
+    width: auto;
+    max-width: 210px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    padding: 0;
 }
 
 .wrist-title {
-    font-size: 11px;
+    font-size: 10px;
     -unity-font-style: bold;
     letter-spacing: 1px;
-    color: #161B20;
-    border-bottom-width: 1px;
-    border-bottom-color: #C9CFD4;
-    padding-bottom: 3px;
-    margin-bottom: 3px;
+    color: #4A525C;
+    padding-bottom: 2px;
+    margin-bottom: 1px;
+    border-bottom-width: 0;
 }
 
 .card-equip {
-    left: 12px;
-    top: 150px;
+    left: 225px;
+    top: 178px;
 }
 
 .card-status {
-    right: 12px;
-    top: 150px;
+    left: 865px;
+    top: 178px;
 }
 
 .card-nav {
-    left: 12px;
-    bottom: 40px;
+    left: 225px;
+    top: 545px;
 }
 
 .card-active {
-    right: 12px;
-    bottom: 40px;
+    left: 865px;
+    top: 545px;
 }
 
 .wrist-row {

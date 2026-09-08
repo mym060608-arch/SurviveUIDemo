@@ -79,8 +79,17 @@ public class SurvivePhase06ShotTests
             yield return null;
         }
 
-        UIDocument hudDocument = Object.FindAnyObjectByType<UIDocument>();
-        Assert.IsNotNull(hudDocument, "HUD document");
+        UIDocument hudDocument = null;
+        foreach (UIDocument doc in Object.FindObjectsByType<UIDocument>())
+        {
+            if (doc.visualTreeAsset != null && doc.visualTreeAsset.name == "SurfaceHUD")
+            {
+                hudDocument = doc;
+                break;
+            }
+        }
+
+        Assert.IsNotNull(hudDocument, "HUD document (screen-space SurfaceHUD)");
         PanelSettings panel = hudDocument.panelSettings;
         Assert.IsNotNull(panel, "HUD panel settings");
         Camera cam = Camera.main;

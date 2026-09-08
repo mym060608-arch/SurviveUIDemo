@@ -75,6 +75,17 @@ public class SurfaceWristController : MonoBehaviour
     private readonly List<VisualElement> _healthTicks = new List<VisualElement>();
     private bool _ticksBuilt;
 
+    // Round 8: single custom-drawn radial backdrop (replaces tick fields).
+    private RadialWristElement _radial;
+    private Quaternion _basePose = Quaternion.identity;
+    private float _parallaxYaw;
+    private float _parallaxPitch;
+    private float _parallaxRoll;
+    private const float ParallaxDamping = 0.16f;
+    private const float ParallaxYawLimit = 4f;
+    private const float ParallaxPitchLimit = 3f;
+    private const float ParallaxRollLimit = 0.5f;
+
     private SurfaceGameController _controller;
     private GameSession _session;
     private SurfaceResourceNode _completedNode;
@@ -285,28 +296,26 @@ public class SurfaceWristController : MonoBehaviour
                 "LocalMap stays square/aspect ~1");
         }
 
-        VisualElement healthRing = root.Q<VisualElement>("WristHealthRing");
-        VisualElement satietyRing = root.Q<VisualElement>("WristSatietyRing");
-        Check(healthRing != null && HealthRingWidth(healthRing) > 300f,
-            "Health ring region >300px");
-        Check(satietyRing != null && HealthRingWidth(satietyRing) > 300f,
-            "Satiety ring region >300px");
-        if (map != null && healthRing != null && satietyRing != null)
+        // Round 8: the radial backdrop paints the translucent disc, distance
+        // rings, health/satiety arcs and sector outlines; geometry is defined
+        // by its constants and driven fractions.
+        EnsureRadialBackdrop();
+        Check(_radial != null, "RadialWristElement backdrop present (single instance)");
+        if (_radial != null)
         {
-            Check(!float.IsNaN(healthRing.resolvedStyle.width) && healthRing.resolvedStyle.width > 0f,
-                "Health ring not 0x0");
-            Check(!float.IsNaN(satietyRing.resolvedStyle.width) && satietyRing.resolvedStyle.width > 0f,
-                "Satiety ring not 0x0");
-            lines.AppendLine("INFO :: healthRing " + Resolved(healthRing));
-            lines.AppendLine("INFO :: satietyRing " + Resolved(satietyRing));
-            lines.AppendLine("INFO :: map top=" + map.resolvedStyle.top.ToString("0")
-                             + " health top=" + healthRing.resolvedStyle.top.ToString("0")
-                             + " satiety top=" + satietyRing.resolvedStyle.top.ToString("0"));
+            lines.AppendLine("INFO :: radial mapR=" + RadialWristElement.MapRadius
+                             + " ringInner=" + RadialWristElement.RingInner
+                             + " ringOuter=" + RadialWristElement.RingOuter
+                             + " health=" + (_radial.HealthFraction01 * 100f).ToString("0")
+                             + "% satiety=" + (_radial.SatietyFraction01 * 100f).ToString("0")
+                             + "% (center 640,400)");
+            Check(_radial.HealthFraction01 > 0f, "Health arc fraction driven");
+            Check(_radial.SatietyFraction01 > 0f, "Satiety arc fraction driven");
         }
 
-        // Four floating panels at their sketch quadrants (style coordinates).
-        string[] panelNames = { "WristEquipHarvester", "WristCargoValue", "WristNavName", "WristActiveState" };
-        lines.AppendLine("INFO :: panels resolved: " + Resolved(root.Q<VisualElement>("WristEquipHarvester"))
+        // Four sector content groups (transparent floating text rows).
+        lines.AppendLine("INFO :: sector groups resolved: "
+                         + Resolved(root.Q<VisualElement>("WristEquipHarvester"))
                          + " | " + Resolved(root.Q<VisualElement>("WristNavName"))
                          + " | " + Resolved(root.Q<VisualElement>("WristCargoValue"))
                          + " | " + Resolved(root.Q<VisualElement>("WristActiveState")));
@@ -358,6 +367,7 @@ public class SurfaceWristController : MonoBehaviour
         _root = _document.rootVisualElement;
         EnsureStyleSheets();
         ApplyUiCjkFont();
+        EnsureRadialBackdrop();
 
         _mapCircle = _root.Q<VisualElement>("WristMapCircle");
         _mapPlayer = _root.Q<VisualElement>("MapPlayer");
@@ -385,8 +395,40 @@ public class SurfaceWristController : MonoBehaviour
             _markers[i] = _root.Q<VisualElement>("MapNode" + i);
         }
 
-        BuildRingTicks();
         _bound = _mapCircle != null;
+    }
+
+    /// <summary>Inserts the single custom-drawn radial hologram backdrop at the
+    /// bottom of the wrist document (exactly one instance, behind markers).</summary>
+    private void EnsureRadialBackdrop()
+    {
+        if (_root == null)
+        {
+            return;
+        }
+
+        if (_radial != null && _radial.parent == _root)
+        {
+            return;
+        }
+
+        foreach (VisualElement child in _root.Children())
+        {
+            if (child is RadialWristElement existing)
+            {
+                _radial = existing;
+                return;
+            }
+        }
+
+        _radial = new RadialWristElement();
+        _radial.pickingMode = PickingMode.Ignore;
+        _radial.style.position = Position.Absolute;
+        _radial.style.left = 0f;
+        _radial.style.top = 0f;
+        _radial.style.width = UiWidth;
+        _radial.style.height = UiHeight;
+        _root.Insert(0, _radial);
     }
 
     private static Font _cjkFont;
@@ -438,12 +480,63 @@ public class SurfaceWristController : MonoBehaviour
             return;
         }
 
-        EnsureRingTicksCurrent();
+        EnsureStyleSheets();
         RefreshMapGeometry();
-        RefreshRingPositions();
         RefreshActiveProgress();
+        UpdateParallaxFromMouse();
         ProcessHardwarePointer();
     }
+
+    // ---- Cursor parallax (round 8) ----
+
+    /// <summary>Sets the normalized pointer (-1..1) that drives the small
+    /// hologram tilt around the wrist pivot; tests may call it directly.</summary>
+    public void SetParallaxNormalized(float x, float y)
+    {
+        _parallaxTarget = new Vector2(Mathf.Clamp(x, -1f, 1f),
+            Mathf.Clamp(y, -1f, 1f));
+    }
+
+    private Vector2 _parallaxTarget;
+
+    /// <summary>Drives the display tilt with smoothed damping: pointer right ->
+    /// +yaw, pointer up -> +pitch (clamped). Hit-tests always run against the
+    /// live display transform, so no chasing/drift.</summary>
+    private void UpdateParallaxFromMouse()
+    {
+        if (_display == null || _mainCamera == null)
+        {
+            return;
+        }
+
+        Mouse mouse = Mouse.current;
+        if (mouse == null)
+        {
+            // No hardware mouse (tests/headless): keep the manually-set target
+            // (SetParallaxNormalized) so semantic tests can drive the tilt.
+        }
+        else
+        {
+            Vector2 pos = mouse.position.ReadValue();
+            float nx = Mathf.Clamp((pos.x / Mathf.Max(1, Screen.width) - 0.5f) * 2f, -1f, 1f);
+            float ny = Mathf.Clamp((pos.y / Mathf.Max(1, Screen.height) - 0.5f) * 2f, -1f, 1f);
+            SetParallaxNormalized(nx, ny);
+        }
+
+        float t = Mathf.Clamp01(Time.deltaTime / ParallaxDamping);
+        float targetYaw = _parallaxTarget.x * ParallaxYawLimit;
+        float targetPitch = _parallaxTarget.y * ParallaxPitchLimit;
+        float targetRoll = _parallaxTarget.x * ParallaxRollLimit;
+        _parallaxYaw = Mathf.Lerp(_parallaxYaw, targetYaw, t);
+        _parallaxPitch = Mathf.Lerp(_parallaxPitch, targetPitch, t);
+        _parallaxRoll = Mathf.Lerp(_parallaxRoll, targetRoll, t);
+        _display.transform.rotation = _basePose
+                                      * Quaternion.Euler(_parallaxPitch,
+                                          _parallaxYaw, _parallaxRoll);
+    }
+
+    public float CurrentParallaxYaw => _parallaxYaw;
+    public float CurrentParallaxPitch => _parallaxPitch;
 
     // ---- Runtime pose: front-facing basis + light tilt (round 6) ----
 
@@ -499,6 +592,10 @@ public class SurfaceWristController : MonoBehaviour
         _tiltYaw = safeYaw;
         _tiltPitch = safePitch;
         _tiltRoll = safeRoll;
+        _basePose = display.rotation;
+        _parallaxYaw = 0f;
+        _parallaxPitch = 0f;
+        _parallaxRoll = 0f;
         Debug.Log("[WristVisibility] tilt yaw=" + _tiltYaw + " pitch=" + _tiltPitch
                   + " roll=" + _tiltRoll + " aspect="
                   + ComputeProjectedAspectPx().ToString("0.00"));
@@ -992,8 +1089,12 @@ public class SurfaceWristController : MonoBehaviour
             return;
         }
 
-        ApplyRingFraction(_healthTicks, _session.PlayerHealth / 100f);
-        ApplyRingFraction(_satietyTicks, _session.PlayerSatiety / 100f);
+        // Round 8: health/satiety arcs are painted by the radial backdrop.
+        if (_radial != null)
+        {
+            _radial.Redraw(_session.PlayerHealth / 100f,
+                _session.PlayerSatiety / 100f);
+        }
     }
 
     private static void ApplyRingFraction(List<VisualElement> ticks, float fraction01)

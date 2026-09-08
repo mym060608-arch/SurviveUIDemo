@@ -178,16 +178,22 @@ public static class NereidSurfaceBuilder
         wrist.panelSettings = wristPanel;
         wrist.wristStyleSheet = wristUss;
 
-        // Tilted display plane anchored to the eye camera (camera-relative).
-        // Round 5: smaller "raised left wrist" size; base orientation keeps
-        // the readable front toward the camera (Unity Quad front = -Z), then a
-        // small tilt is applied - no near-180 yaw, so the UI is never mirrored.
+        // Round 8 hologram chain: WristProjectionPivot (camera-relative,
+        // raised-wrist offset) -> WristDisplay (child at origin). The pivot is
+        // the future hand/wrist attachment point; parallax tilts the display
+        // around it at runtime.
+        var pivotGo = new GameObject("WristProjectionPivot");
+        pivotGo.transform.SetParent(eyeGo.transform, false);
+        pivotGo.transform.localPosition = WristPivotLocalPosition;
+        pivotGo.transform.localRotation = Quaternion.identity;
+        pivotGo.transform.localScale = Vector3.one;
+
         var displayGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
         Object.DestroyImmediate(displayGo.GetComponent<Collider>());
         displayGo.name = "WristDisplay";
-        displayGo.transform.SetParent(eyeGo.transform, false);
-        displayGo.transform.localPosition = WristDisplayLocalPosition;
-        displayGo.transform.localRotation = Quaternion.Euler(WristDisplayLocalRotation);
+        displayGo.transform.SetParent(pivotGo.transform, false);
+        displayGo.transform.localPosition = Vector3.zero;
+        displayGo.transform.localRotation = Quaternion.identity;
         displayGo.transform.localScale = WristDisplayLocalScale;
 
         Shader wristShader = Shader.Find("Survive/WristDisplayUnlit");
@@ -227,13 +233,12 @@ public static class NereidSurfaceBuilder
         return ok;
     }
 
-    // Camera-relative wrist placement. The runtime pose is computed from the
-    // camera basis each open (see SurfaceWristController.PoseDisplayFacingCamera);
-    // these values only define the display centre offset. Physical size
-    // ~0.70m wide (1280x800 -> height 0.4375).
-    private static readonly Vector3 WristDisplayLocalPosition = new Vector3(-0.13f, -0.06f, 0.82f);
-    private static readonly Vector3 WristDisplayLocalRotation = Vector3.zero; // runtime-aligned
-    private static readonly Vector3 WristDisplayLocalScale = new Vector3(0.70f, 0.4375f, 1f);
+    // Camera-relative wrist placement (round 8, larger hologram). The runtime
+    // pose is computed from the camera basis each open; these values define the
+    // WristProjectionPivot offset. Physical display ~1.08m wide -> projected
+    // width ~50-60% of the 1920x1080 frame (1280:800 kept).
+    private static readonly Vector3 WristPivotLocalPosition = new Vector3(-0.05f, -0.02f, 0.85f);
+    private static readonly Vector3 WristDisplayLocalScale = new Vector3(1.08f, 0.675f, 1f);
 
     private static void BuildLandingPad(Transform parent, Material pad, Material signal)
     {

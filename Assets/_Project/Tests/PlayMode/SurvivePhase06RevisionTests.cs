@@ -342,22 +342,11 @@ public class SurvivePhase06RevisionTests
         Assert.AreEqual("未选择", LabelText(root, "WristEquipDroneState"), "drone deselected shown");
         Assert.IsTrue(LabelText(root, "WristCargoValue").Contains("70 / 100 KG"), "cargo weight real");
 
-        VisualElement healthRing = root.Q<VisualElement>("WristHealthRing");
-        VisualElement satietyRing = root.Q<VisualElement>("WristSatietyRing");
-        Assert.IsNotNull(healthRing, "health ring exists");
-        Assert.IsNotNull(satietyRing, "satiety ring exists");
-
-        // Ring segments are appended when the document tree is bound; wait a
-        // bounded number of frames for the bind/layout to complete.
-        for (int i = 0; i < 60 && healthRing.childCount == 0; i++)
-        {
-            yield return null;
-            healthRing = root.Q<VisualElement>("WristHealthRing");
-            satietyRing = root.Q<VisualElement>("WristSatietyRing");
-        }
-
-        Assert.Greater(healthRing.childCount, 0, "health ring has segments");
-        Assert.AreEqual(healthRing.childCount, satietyRing.childCount, "both rings sized equal");
+        // Round 8: arcs/labels driven by the radial hologram backdrop.
+        RadialWristElement radial = root.Q<RadialWristElement>();
+        Assert.IsNotNull(radial, "radial hologram backdrop present");
+        Assert.Greater(radial.HealthFraction01, 0f, "health arc fraction driven");
+        Assert.Greater(radial.SatietyFraction01, 0f, "satiety arc fraction driven");
         controller.SetWristOpen(false);
     }
 
@@ -779,6 +768,73 @@ public class SurvivePhase06RevisionTests
         yield return null;
         yield return null;
         Assert.AreEqual(AppScreen.Preparation, app.CurrentScreen, "hub navigation still interactive");
+    }
+
+    [UnityTest]
+    public IEnumerator RadialWrist_RuntimeGeometryAndParallax()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        SurfaceWristController wrist = Wrist();
+        Assert.IsNotNull(wrist, "wrist controller");
+
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 16; i++)
+        {
+            yield return null;
+        }
+
+        VisualElement root = wrist.RootElement;
+        RadialWristElement radial = root.Q<RadialWristElement>();
+        Assert.IsNotNull(radial, "single radial backdrop exists");
+        Assert.Greater(radial.HealthFraction01, 0f, "health arc active");
+        Assert.Greater(radial.SatietyFraction01, 0f, "satiety arc active");
+        Assert.Greater(RadialWristElement.RingOuter, RadialWristElement.RingInner,
+            "annular band sane");
+        Assert.Less(RadialWristElement.MapRadius, RadialWristElement.RingInner,
+            "map inside the ring band");
+        Assert.IsNotNull(root.Q<VisualElement>("MapPlayer"), "player marker visible");
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.IsNotNull(root.Q<VisualElement>("MapNode" + i), "node marker " + i);
+        }
+
+        Assert.IsNotNull(root.Q<VisualElement>("MapLanding"), "landing marker visible");
+
+        // Parallax semantics: pointer right tilts +yaw, pointer up +pitch, both
+        // clamped; centring returns the pose (damped, not instant).
+        wrist.SetParallaxNormalized(1f, 0f);
+        for (int i = 0; i < 50; i++)
+        {
+            yield return null;
+        }
+
+        float yawRight = wrist.CurrentParallaxYaw;
+        Assert.Greater(yawRight, 0.1f, "pointer right tilts +yaw");
+        Assert.LessOrEqual(yawRight, 4.5f, "yaw clamped to +-4");
+        wrist.SetParallaxNormalized(0f, 1f);
+        for (int i = 0; i < 50; i++)
+        {
+            yield return null;
+        }
+
+        Assert.Greater(wrist.CurrentParallaxPitch, 0.1f, "pointer top tilts +pitch");
+        Assert.LessOrEqual(wrist.CurrentParallaxPitch, 3.5f, "pitch clamped to +-3");
+        wrist.SetParallaxNormalized(0f, 0f);
+        for (int i = 0; i < 60; i++)
+        {
+            yield return null;
+        }
+
+        Assert.Less(Mathf.Abs(wrist.CurrentParallaxYaw), 0.6f, "centre returns yaw");
+
+        // Exactly one screen-space cursor element exists (no trail buildup).
+        UIDocument hudDoc = HudDocument();
+        Assert.IsNotNull(hudDoc, "hud doc");
+        Assert.AreEqual(1,
+            hudDoc.rootVisualElement.Query<VisualElement>(null, "wrist-os-cursor").ToList().Count,
+            "custom cursor instance count == 1");
+        controller.SetWristOpen(false);
     }
 
     private static string LabelText(VisualElement root, string name)
