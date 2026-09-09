@@ -33,3 +33,5 @@ Desktop.ini
 sysinfo.txt
 *.tmp
 *.bak
+# Unity automated test results
+/TestResults-*.xml
