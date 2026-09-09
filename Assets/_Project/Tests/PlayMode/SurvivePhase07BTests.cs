@@ -350,9 +350,23 @@ public class SurvivePhase07BTests
         for (int c = 0; c < controller.Consoles.Count; c++)
         {
             yield return ApproachConsole(controller, c);
+            // Let the CharacterController settle on the floor after the teleport
+            // so the captured pose matches the pose the focus controller lerps
+            // back to (a fresh teleport's capsule settle can shift the eye by
+            // ~0.08 m on regenerated scenes).
+            yield return WaitSeconds(0.25f);
             Vector3 capturePos = eye.transform.position;
             Quaternion captureRot = eye.transform.rotation;
-            yield return EnterConsole(controller, c);
+
+            // Gaze + E without re-teleporting: the capture above must be the
+            // exact pre-focus view the controller returns to.
+            FirstPersonInteractor interactor = controller.Interactor;
+            interactor.RefreshTarget();
+            Assert.IsTrue(ReferenceEquals(interactor.CurrentTarget,
+                controller.Consoles[c]) && interactor.HasValidTarget,
+                "console " + (c + 1) + " is the gaze target");
+            Assert.IsTrue(interactor.TryInteract(),
+                "E enters console " + (c + 1) + " focus");
             yield return WaitFocused(focus);
 
             WorldConsoleSurface surface =

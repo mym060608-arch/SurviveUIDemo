@@ -145,6 +145,7 @@ public class SurfaceWristController : MonoBehaviour
     private TextRow _harvestProgressRow;
 
     private RadialWristElement _radial;
+    private ShipSchematicVisual _shipSchematic;
     private float _lastRadialHealth = -1f;
     private float _lastRadialSatiety = -1f;
 
@@ -367,8 +368,12 @@ public class SurfaceWristController : MonoBehaviour
 
         _root = _document.rootVisualElement;
         EnsureStyleSheets();
-        ApplyUiCjkFont();
+        // Radial mesh first, then (ship mode) the deck schematic, then fonts
+        // so every text element - including schematic chips - gets the CJK
+        // runtime font in one pass.
         EnsureRadialVisual();
+        EnsureShipSchematicVisual();
+        ApplyUiCjkFont();
 
         _geometryHost = _root.Q<VisualElement>("RadialGeometryHost");
         _playerMarker = _root.Q<Label>("MapPlayer");
@@ -447,6 +452,56 @@ public class SurfaceWristController : MonoBehaviour
 
         _radial = new RadialWristElement();
         host.Add(_radial);
+    }
+
+    /// <summary>Phase 07B.1 ship schematic host: in ship mode the radial
+    /// element suppresses surface-map decorations and this deck-plan element
+    /// (hull hairlines + zone chips + player marker) is added right AFTER the
+    /// radial mesh so the plan reads on top of the translucent map disc.
+    /// Surface mode keeps no schematic element at all.</summary>
+    private void EnsureShipSchematicVisual()
+    {
+        if (_root == null || _document == null
+            || _document.rootVisualElement == null)
+        {
+            return;
+        }
+
+        VisualElement host = _root.Q<VisualElement>("RadialGeometryHost");
+        if (host == null)
+        {
+            return;
+        }
+
+        if (_radial != null)
+        {
+            _radial.ShipSchematicMode = IsShipMode;
+            _radial.MarkDirtyRepaint();
+        }
+
+        if (!IsShipMode)
+        {
+            if (_shipSchematic != null && _shipSchematic.parent == host)
+            {
+                _shipSchematic.RemoveFromHierarchy();
+            }
+
+            _shipSchematic = null;
+            return;
+        }
+
+        if (_shipSchematic != null && _shipSchematic.parent == host)
+        {
+            return;
+        }
+
+        if (_shipSchematic != null)
+        {
+            _shipSchematic.RemoveFromHierarchy();
+        }
+
+        _shipSchematic = new ShipSchematicVisual();
+        host.Add(_shipSchematic);
     }
 
     private static Font _cjkFont;
@@ -1773,6 +1828,32 @@ public class SurfaceWristController : MonoBehaviour
         marker.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
 
+    /// <summary>Phase 07B.1: moves the deck-schematic player marker to the
+    /// real ship position/yaw (only while the wrist is open; the wrist Tick
+    /// drives this through RefreshMapGeometry).</summary>
+    private void UpdateShipSchematicPlayer()
+    {
+        if (_shipSchematic == null || _controller == null
+            || _controller.Player == null)
+        {
+            return;
+        }
+
+        _shipSchematic.SetPlayer(_controller.Player.transform.position,
+            _controller.Player.YawDegrees);
+    }
+
+    /// <summary>The live ship schematic element (null on surface). Exposed for
+    /// Phase 07B.1 acceptance so tests can read nodes/marker without rendering
+    /// introspection.</summary>
+    public ShipSchematicVisual ShipSchematic => _shipSchematic;
+
+    /// <summary>True while the ship schematic element is attached to the wrist
+    /// document (ship mode acceptance).</summary>
+    public bool HasShipSchematic =>
+        _shipSchematic != null && _shipSchematic.parent != null
+        && _shipSchematic.parent.name == "RadialGeometryHost";
+
     /// <summary>
     /// Ship wrist presentation (Phase 07B contract 59-65):
     /// - central map keeps its circular technical interface, footer shows
@@ -1857,8 +1938,10 @@ public class SurfaceWristController : MonoBehaviour
         if (ReturnMode == WristReturnMode.ShipExplore)
         {
             // Ship mode: no surface map markers at all (no fake player/node
-            // positions); the circular technical interface stays drawn.
+            // positions); the deck schematic + live player marker render the
+            // ARK-07 interior plan instead of the surface node scatter map.
             HideSurfaceMarkers();
+            UpdateShipSchematicPlayer();
             return;
         }
 

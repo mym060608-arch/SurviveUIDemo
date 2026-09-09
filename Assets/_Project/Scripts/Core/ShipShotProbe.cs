@@ -1,7 +1,11 @@
 using System.Collections;
 using System.IO;
+using System.Text;
 using UnityEngine;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 /// <summary>
 /// Clean ship-interior graybox screenshot probe (Phase 07 Checkpoint A).
@@ -21,15 +25,27 @@ public class ShipShotProbe : MonoBehaviour
 {
     private const string Flag = "-shipShot";
     private const string Flag07B = "-ship07BShot";
+    private const string Flag07B1 = "-ship07B1Shot";
 
     private string _basePath;
     private string _base07BPath;
+    private bool _run07B1;
     private bool _active;
 
     private void Awake()
     {
         _basePath = ParseFlag(Flag);
         _base07BPath = ParseFlag(Flag07B);
+        string b1Path = ParseFlag(Flag07B1);
+        if (!string.IsNullOrEmpty(b1Path))
+        {
+            // Phase 07B.1 evidence run writes its frames into the folder and
+            // its PASS/FAIL result into phase07b1_result.txt inside it.
+            _run07B1 = true;
+            _base07BPath = b1Path;
+            Directory.CreateDirectory(b1Path);
+        }
+
         _active = !string.IsNullOrEmpty(_basePath) || !string.IsNullOrEmpty(_base07BPath);
         if (!_active)
         {
@@ -58,6 +74,12 @@ public class ShipShotProbe : MonoBehaviour
 
     private IEnumerator Run()
     {
+        if (_run07B1)
+        {
+            yield return Run07B1();
+            yield break;
+        }
+
         if (!string.IsNullOrEmpty(_base07BPath))
         {
             yield return Run07B();
@@ -196,6 +218,470 @@ public class ShipShotProbe : MonoBehaviour
 
         Debug.Log("[Ship07BShot] wrote phase07b frames to: " + _base07BPath);
         Application.Quit(0);
+    }
+
+    // ====================================================================
+    // Phase 07B.1 evidence run (-ship07B1Shot <dir>)
+    // Re-shoots the real Release frames, proves the console RenderTextures
+    // carry actual pixels (idle AND focus), reports the camera/DOF chain that
+    // makes focus blur real, clicks a console button through the genuine
+    // world-pointer pipeline and records the GameSession change, then verifies
+    // the ship wrist schematic + map mode. Writes phase07b1_result.txt.
+    // ====================================================================
+
+    private readonly StringBuilder _b1Report = new StringBuilder();
+    private int _b1Failures;
+
+    private void B1Check(string label, bool ok)
+    {
+        _b1Report.AppendLine((ok ? "PASS" : "FAIL") + " :: " + label);
+        if (!ok)
+        {
+            _b1Failures++;
+        }
+    }
+
+    private void B1Log(string line)
+    {
+        _b1Report.AppendLine("INFO :: " + line);
+    }
+
+    private IEnumerator Run07B1()
+    {
+        _b1Report.AppendLine("=== PHASE 07B.1 EVIDENCE RUN ===");
+        GameSession session = GameSession.Ensure();
+        session.ResetSession();
+
+        ShipGameController controller = null;
+        for (int i = 0; i < 1800; i++)
+        {
+            controller = Object.FindAnyObjectByType<ShipGameController>();
+            if (controller != null && controller.IsReady
+                && controller.Consoles.Count == 4 && controller.Player != null)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        if (controller == null || !controller.IsReady || controller.Player == null)
+        {
+            B1Check("ship interior ready", false);
+            Finish07B1();
+            yield break;
+        }
+
+        B1Check("ship interior ready", true);
+        SurfacePlayerController player = controller.Player;
+        Screen.SetResolution(1920, 1080, false);
+        yield return WaitReal(0.9f);
+
+        string[] idleSuffixes =
+        {
+            "frame_console_overview_idle",
+            "frame_console_preparation_idle",
+            "frame_console_processing_idle",
+            "frame_console_outpost_idle"
+        };
+        string[] focusSuffixes =
+        {
+            "frame_console_overview_focus",
+            "frame_console_preparation_focus",
+            "frame_console_processing_focus",
+            "frame_console_outpost_focus"
+        };
+
+        ShipConsoleFocusController focus =
+            Object.FindAnyObjectByType<ShipConsoleFocusController>();
+        for (int c = 0; c < 4; c++)
+        {
+            WorldConsoleSurface surface =
+                controller.Consoles[c].GetComponent<WorldConsoleSurface>();
+            yield return Approach(player, controller, c);
+            yield return WaitReal(0.6f);
+            yield return WaitConsoleUiReady(surface);
+            yield return WaitReal(0.3f);
+            B1SampleAndCheck(surface, "console " + (c + 1) + " IDLE screen content", true);
+
+            if (!string.IsNullOrEmpty(_base07BPath))
+            {
+                yield return Capture07B(idleSuffixes[c]);
+                if (c == 0)
+                {
+                    yield return Capture07B("frame_console_blur_compare_idle");
+                }
+            }
+
+            // E enters focus through the real interactor.
+            bool entered = false;
+            for (int t = 0; t < 400 && !entered; t++)
+            {
+                controller.Interactor.RefreshTarget();
+                if (ReferenceEquals(controller.Interactor.CurrentTarget,
+                        controller.Consoles[c]) && controller.Interactor.HasValidTarget)
+                {
+                    entered = controller.Interactor.TryInteract();
+                }
+
+                if (!entered)
+                {
+                    yield return null;
+                }
+            }
+
+            B1Check("console " + (c + 1) + " E entered focus", entered);
+            if (c == 0 && !string.IsNullOrEmpty(_base07BPath))
+            {
+                yield return WaitReal(0.13f);
+                yield return Capture07B("frame_console_transition_mid");
+            }
+
+            for (int t = 0; t < 600 && (focus == null || focus.State
+                     != ShipConsoleFocusController.ShipConsoleFocusState.ShipConsoleFocus); t++)
+            {
+                yield return null;
+            }
+
+            if (c == 0 && focus != null)
+            {
+                DofFocusDiag(focus, player);
+            }
+
+            yield return WaitReal(0.45f);
+            B1SampleAndCheck(surface, "console " + (c + 1) + " FOCUS screen content", true);
+
+            if (!string.IsNullOrEmpty(_base07BPath))
+            {
+                yield return Capture07B(focusSuffixes[c]);
+                if (c == 0)
+                {
+                    yield return Capture07B("frame_console_blur_compare_focus");
+                }
+            }
+
+            if (c == 0 && focus != null && focus.BlurVolume != null)
+            {
+                // Same-pose A/B evidence for the blur: hold the focused camera
+                // still and only drop the DOF weight to 0, so the two frames
+                // differ solely by the depth-of-field effect (identical
+                // framing/content). frame_console_overview_focus above is the
+                // weight=1 twin of this frame.
+                focus.BlurVolume.weight = 0f;
+                yield return WaitReal(0.2f);
+                if (!string.IsNullOrEmpty(_base07BPath))
+                {
+                    yield return Capture07B("frame_console_blur_samepose_off");
+                }
+
+                focus.BlurVolume.weight = 1f;
+                yield return WaitReal(0.2f);
+                B1Check("DOF weight restored to 1 after same-pose capture",
+                    Mathf.Abs(focus.BlurWeight - 1f) < 0.05f);
+            }
+
+            if (focus != null)
+            {
+                focus.RequestExit();
+                yield return WaitReal(0.9f);
+            }
+        }
+
+        // ---- Real world-pointer click proof on Preparation console 02 ----
+        session.ResetSession();
+        bool batteryBefore = session.BatterySelected;
+        bool loadoutBefore = session.LoadoutConfirmed;
+        B1Log("pointer-click before battery=" + batteryBefore
+              + " loadoutConfirmed=" + loadoutBefore);
+
+        yield return Approach(player, controller, 1);
+        bool prepFocused = false;
+        for (int t = 0; t < 400 && !prepFocused; t++)
+        {
+            controller.Interactor.RefreshTarget();
+            if (ReferenceEquals(controller.Interactor.CurrentTarget, controller.Consoles[1])
+                && controller.Interactor.HasValidTarget)
+            {
+                prepFocused = controller.Interactor.TryInteract();
+            }
+
+            if (!prepFocused)
+            {
+                yield return null;
+            }
+        }
+
+        B1Check("preparation console focused for clicks", prepFocused);
+        WorldConsoleSurface prepSurface =
+            controller.Consoles[1].GetComponent<WorldConsoleSurface>();
+        yield return WaitConsoleUiReady(prepSurface);
+        yield return WaitReal(0.4f);
+        B1SampleAndCheck(prepSurface, "preparation FOCUS screen content before click", true);
+
+        Button battery = FindConsoleButton(prepSurface, ElementNames.BatteryRowButton);
+        B1Check("battery row button resolved", battery != null);
+        if (battery != null)
+        {
+            yield return ClickWorldButton(player, prepSurface, battery);
+        }
+
+        yield return null;
+        B1Check("pointer click changed GameSession (battery selected)",
+            session.BatterySelected && !batteryBefore);
+
+        Button confirm = FindConsoleButton(prepSurface, ElementNames.ConfirmLoadoutButton);
+        B1Check("confirm loadout button resolved", confirm != null);
+        if (confirm != null)
+        {
+            yield return ClickWorldButton(player, prepSurface, confirm);
+        }
+
+        yield return null;
+        B1Check("pointer click changed GameSession (loadout confirmed)",
+            session.LoadoutConfirmed && !loadoutBefore);
+        B1Log("pointer-click after battery=" + session.BatterySelected
+              + " loadoutConfirmed=" + session.LoadoutConfirmed
+              + " (GameSession mutated by the real click)");
+        if (focus != null)
+        {
+            focus.RequestExit();
+            yield return WaitReal(0.9f);
+        }
+
+        // ---- Ship wrist schematic + map-mode evidence ----
+        player.TeleportTo(new Vector3(0f, 0f, 3.6f));
+        player.SetFacing(180f, 0f);
+        yield return null;
+        session.RecordSurfaceTarget(1);
+        controller.SetWristOpen(true);
+        yield return WaitReal(1.3f);
+
+        SurfaceWristController wrist = controller.Wrist;
+        B1Check("ship wrist bound", wrist != null);
+        if (wrist != null)
+        {
+            B1Log("wrist returnMode=" + wrist.ReturnMode + " isShipMode="
+                  + wrist.IsShipMode + " schematicAttached=" + wrist.HasShipSchematic);
+            B1Check("ship wrist is ship mode", wrist.IsShipMode);
+            B1Check("ship wrist schematic visual attached", wrist.HasShipSchematic);
+            if (wrist.RootElement != null)
+            {
+                VisualElement mapPlayer = wrist.RootElement.Q<VisualElement>("MapPlayer");
+                B1Check("ship wrist hides surface player marker (no scatter map)",
+                    mapPlayer == null || mapPlayer.style.display == DisplayStyle.None);
+                for (int i = 0; i < ShipSchematicLayout.Nodes.Length; i++)
+                {
+                    ShipSchematicNode node = ShipSchematicLayout.Nodes[i];
+                    Label zh = wrist.RootElement.Q<Label>("ShipZoneLabel_" + node.Code);
+                    Label meta = wrist.RootElement.Q<Label>("ShipZoneMeta_" + node.Code);
+                    B1Check("schematic node " + node.Code + " labelled " + node.Zh,
+                        zh != null && !string.IsNullOrEmpty(zh.text)
+                        && meta != null && !string.IsNullOrEmpty(meta.text));
+                }
+            }
+
+            B1Check("schematic hull outline fits map disc",
+                ShipSchematicLayout.HullFitsMapDisc(RadialWristElement.MapRadius, 2f));
+            B1Check("schematic five nodes fit map disc",
+                ShipSchematicLayout.NodesFitMapDisc(RadialWristElement.MapRadius, 55f, 2f));
+            bool markerOk = false;
+            if (wrist.ShipSchematic != null
+                && wrist.ShipSchematic.TryGetPlayerCentre(out Vector2 playerPx))
+            {
+                markerOk = ShipSchematicLayout.IsPixelInsideMapDisc(playerPx,
+                    RadialWristElement.MapRadius, 0f);
+            }
+
+            B1Check("schematic live player marker inside map disc", markerOk);
+        }
+
+        if (!string.IsNullOrEmpty(_base07BPath))
+        {
+            yield return Capture07B("frame_ship_wrist_schematic");
+        }
+
+        controller.SetWristOpen(false);
+        yield return WaitReal(0.6f);
+        Finish07B1();
+    }
+
+    private void B1SampleAndCheck(WorldConsoleSurface surface, string label,
+        bool expectVisible)
+    {
+        bool visible = surface.SampleScreenContent(out float ratio, out string summary);
+        Debug.Log("[07B1] " + summary);
+        B1Log(summary);
+        B1Check(label + " visible on RenderTexture", expectVisible == visible);
+    }
+
+    /// <summary>Camera post-processing + focus DOF chain report while a
+    /// console is focused. Proves the blur is not just a volume weight but a
+    /// chain URP actually executes (renderPostProcessing + authored Gaussian
+    /// far ramp).</summary>
+    private void DofFocusDiag(ShipConsoleFocusController focus,
+        SurfacePlayerController player)
+    {
+        Camera eye = focus != null ? focus.EyeCamera : null;
+        if (eye == null && player != null)
+        {
+            eye = player.EyeCamera;
+        }
+
+        if (eye == null)
+        {
+            eye = Camera.main;
+        }
+
+        UniversalAdditionalCameraData data = eye != null
+            ? eye.GetComponent<UniversalAdditionalCameraData>()
+            : null;
+        B1Log("camera=" + (eye != null ? eye.name : "<null>")
+              + " hasUniversalData=" + (data != null)
+              + " renderPostProcessing=" + (data != null && data.renderPostProcessing)
+              + " volumeLayerMask="
+              + (data != null ? data.volumeLayerMask.value.ToString() : "-")
+              + " antialiasing=" + (eye != null ? eye.allowMSAA.ToString() : "-"));
+        B1Check("camera post-processing enabled (URP executes DOF)",
+            data != null && data.renderPostProcessing);
+
+        Volume volume = focus != null ? focus.BlurVolume : null;
+        B1Check("focus DOF volume present", volume != null);
+        if (volume == null)
+        {
+            B1Check("DOF component in focus profile", false);
+            B1Check("DOF weight high while focused", false);
+            return;
+        }
+
+        DepthOfField dof = null;
+        bool dofOk = volume.profile != null
+                     && volume.profile.TryGet<DepthOfField>(out dof);
+        B1Check("DOF component in focus profile", dofOk);
+        if (dofOk && dof != null)
+        {
+            B1Log("dof mode=" + dof.mode.value + " override=" + dof.mode.overrideState
+                  + " focusDistance=" + dof.focusDistance.value
+                  + " aperture=" + dof.aperture.value
+                  + " focalLength=" + dof.focalLength.value
+                  + " volumeWeight=" + volume.weight);
+            B1Check("DOF mode Bokeh with override",
+                dof.mode.overrideState && dof.mode.value == DepthOfFieldMode.Bokeh);
+            B1Check("DOF focus on the console plane (0.72 m)",
+                Mathf.Abs(dof.focusDistance.value - 0.72f) < 0.01f);
+            B1Check("DOF strong aperture/focal (1.2/160)",
+                Mathf.Abs(dof.aperture.value - 1.2f) < 0.01f
+                && Mathf.Abs(dof.focalLength.value - 160f) < 0.01f);
+            B1Check("DOF volume weight high while focused", volume.weight > 0.85f);
+        }
+    }
+
+    private static IEnumerator WaitConsoleUiReady(WorldConsoleSurface surface)
+    {
+        for (int f = 0; f < 600 && (surface.Document == null
+             || surface.Document.rootVisualElement == null
+             || surface.Document.rootVisualElement.childCount == 0); f++)
+        {
+            yield return null;
+        }
+
+        yield return null;
+        yield return null;
+    }
+
+    private static Button FindConsoleButton(WorldConsoleSurface surface, string name)
+    {
+        return surface.Document != null && surface.Document.rootVisualElement != null
+            ? surface.Document.rootVisualElement.Q<Button>(name)
+            : null;
+    }
+
+    private IEnumerator ClickWorldButton(SurfacePlayerController player,
+        WorldConsoleSurface surface, VisualElement element)
+    {
+        Camera eye = player != null ? player.EyeCamera : Camera.main;
+        WorldUiPointerRouter router =
+            Object.FindAnyObjectByType<WorldUiPointerRouter>();
+        if (router == null)
+        {
+            B1Log("click failed: no world pointer router");
+            yield break;
+        }
+
+        Vector2 viewport;
+        if (!TryElementViewport(surface, eye, element, out viewport))
+        {
+            B1Log("click failed: element not mappable to viewport");
+            yield break;
+        }
+
+        bool dispatched = router.TryClickViewportPoint(viewport);
+        B1Log("pointer dispatch ok=" + dispatched + " viewport=" + viewport);
+        yield return null;
+        yield return null;
+        yield return null;
+    }
+
+    /// <summary>UI element centre -> focused eye viewport fraction through the
+    /// screen quad (shared with the PlayMode tests).</summary>
+    private static bool TryElementViewport(WorldConsoleSurface surface,
+        Camera camera, VisualElement element, out Vector2 viewport)
+    {
+        viewport = Vector2.zero;
+        if (surface == null || camera == null || element == null
+            || surface.ScreenQuad == null || surface.Document == null)
+        {
+            return false;
+        }
+
+        Rect bounds = element.worldBound;
+        if (bounds.width < 1f || bounds.height < 1f)
+        {
+            bounds = new Rect(element.resolvedStyle.left, element.resolvedStyle.top,
+                element.resolvedStyle.width, element.resolvedStyle.height);
+        }
+
+        if (bounds.width < 1f || bounds.height < 1f || float.IsNaN(bounds.center.x)
+            || float.IsNaN(bounds.center.y))
+        {
+            return false;
+        }
+
+        float layoutW = Mathf.Max(1f, WorldConsoleSurface.UiWidth);
+        float layoutH = Mathf.Max(1f, WorldConsoleSurface.UiHeight);
+        float u = Mathf.Clamp01(bounds.center.x / layoutW);
+        float vUp = 1f - Mathf.Clamp01(bounds.center.y / layoutH);
+
+        Transform quad = surface.ScreenQuad;
+        Vector3 scale = quad.lossyScale;
+        Vector3 world = quad.position
+                        + quad.right * ((u - 0.5f) * scale.x)
+                        + quad.up * ((vUp - 0.5f) * scale.y);
+        Vector3 vp = camera.WorldToViewportPoint(world);
+        if (vp.z <= 0f)
+        {
+            return false;
+        }
+
+        viewport = new Vector2(vp.x, vp.y);
+        return true;
+    }
+
+    private void Finish07B1()
+    {
+        _b1Report.AppendLine(_b1Failures == 0 ? "RESULT: SUCCESS" : "RESULT: FAILED");
+        string path = Path.Combine(_base07BPath ?? ".", "phase07b1_result.txt");
+        try
+        {
+            File.WriteAllText(path, _b1Report.ToString());
+            Debug.Log("[07B1] wrote result: " + path);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("[07B1] cannot write result: " + e);
+        }
+
+        Debug.Log("[07B1] report:\n" + _b1Report);
+        Application.Quit(_b1Failures == 0 ? 0 : 1);
     }
 
     private IEnumerator Approach(SurfacePlayerController player, ShipGameController controller,

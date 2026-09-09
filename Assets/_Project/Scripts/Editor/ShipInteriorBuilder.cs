@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -149,7 +150,8 @@ public static class ShipInteriorBuilder
 
         var consolesRoot = new GameObject("ShipConsoles");
         BuildConsoles(consolesRoot.transform, consoleLight, consoleDark, glow,
-            appUxml, appTheme, overviewUss, preparationUss, processingUss, outpostUss);
+            appUxml, panelSettings, appTheme, overviewUss, preparationUss,
+            processingUss, outpostUss);
 
         var airlockRoot = new GameObject("ShipAirlock");
         BuildAirlock(airlockRoot.transform, airlock, dark, glow);
@@ -181,6 +183,15 @@ public static class ShipInteriorBuilder
         cam.farClipPlane = 60f;
         eyeGo.transform.localPosition = new Vector3(0f, 1.65f, 0f);
         eyeGo.transform.localRotation = Quaternion.identity;
+
+        // Phase 07B.1 blur fix: URP post-processing must be enabled on the
+        // eye camera and reach the console-focus volume layer. A code-created
+        // Camera alone serializes no UniversalAdditionalCameraData, so URP
+        // lazily auto-adds one with URP defaults (renderPostProcessing=false,
+        // volumeLayerMask=Default) and the DOF volume never executes.
+        var cameraData = eyeGo.AddComponent<UniversalAdditionalCameraData>();
+        cameraData.renderPostProcessing = true;
+        cameraData.volumeLayerMask = ~0;
 
         // ---- Ship HUD (screen-space UI Toolkit overlay) ----
         var hudGo = new GameObject("ShipHUD");
@@ -235,11 +246,20 @@ public static class ShipInteriorBuilder
         var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
         profile.name = "ConsoleFocusProfile";
         var dof = profile.Add<UnityEngine.Rendering.Universal.DepthOfField>(true);
-        dof.mode.Override(UnityEngine.Rendering.Universal.DepthOfFieldMode.Gaussian);
-        dof.gaussianStart.Override(1.15f);   // focus plane (console distance)
-        dof.gaussianEnd.Override(2.6f);      // full softness reached beyond
-        dof.gaussianMaxRadius.Override(1.0f);
-        dof.highQualitySampling.Override(false);
+        // Phase 07B.1 blur fix. URP Gaussian far blur proved imperceptible on
+        // the console view even at its clamped max radius (1.5 half-res px),
+        // so we use the physical Bokeh mode: focusDistance sits exactly on the
+        // console screen plane (the authored focus anchor is
+        // FocusDistanceForScreen(1.24m) = 0.71 m in front of the screen), a
+        // small aperture + long focal length produce a clearly visible far
+        // falloff on the hull/corridor while the terminal text stays sharp.
+        dof.mode.Override(UnityEngine.Rendering.Universal.DepthOfFieldMode.Bokeh);
+        dof.focusDistance.Override(0.72f);  // console screen plane (anchor 0.71 m)
+        dof.aperture.Override(1.2f);        // very small f-number => clearly visible DOF
+        dof.focalLength.Override(160f);     // long lens => strong CoC growth off-plane
+        dof.bladeCount.Override(6);
+        dof.bladeCurvature.Override(1f);
+        dof.bladeRotation.Override(0f);
         volume.sharedProfile = profile;
         // The scene owns the profile instance; volume weight is animated by
         // ShipConsoleFocusController at runtime (0 in ShipExplore).
@@ -486,8 +506,8 @@ public static class ShipInteriorBuilder
 
     private static void BuildConsoles(Transform root, Material consoleLight,
         Material consoleDark, Material glow, VisualTreeAsset appUxml,
-        StyleSheet theme, StyleSheet overviewUss, StyleSheet preparationUss,
-        StyleSheet processingUss, StyleSheet outpostUss)
+        PanelSettings panelSettingsBase, StyleSheet theme, StyleSheet overviewUss,
+        StyleSheet preparationUss, StyleSheet processingUss, StyleSheet outpostUss)
     {
         BuildConsole(root, 1, "总览", new Vector3(0f, 0f, 10.05f), 180f);
         BuildConsole(root, 2, "出发准备", new Vector3(-4.95f, 0f, 3.4f), 90f);
@@ -561,8 +581,8 @@ public static class ShipInteriorBuilder
             // ---- Surface / interactable wiring ----
             var surface = console.AddComponent<WorldConsoleSurface>();
             surface.Configure(id, screen.GetComponent<Renderer>(), screen.transform,
-                screenCollider, anchorGo.transform, appUxml, theme,
-                overviewUss, preparationUss, processingUss, outpostUss);
+                screenCollider, anchorGo.transform, appUxml, panelSettingsBase,
+                theme, overviewUss, preparationUss, processingUss, outpostUss);
 
             var interactable = console.AddComponent<ShipConsoleInteractable>();
             interactable.Configure(id, zhName);

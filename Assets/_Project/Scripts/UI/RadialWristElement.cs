@@ -108,6 +108,15 @@ public sealed class RadialWristElement : VisualElement
     private float _health01 = 1f;
     private float _satiety01 = 0.82f;
 
+    /// <summary>
+    /// Phase 07B.1: when true the central map is a SHIP schematic host - the
+    /// generic surface-map decorations (distance rings + reference cross) are
+    /// suppressed and ShipSchematicVisual draws the deck plan inside the same
+    /// circular frame. The disc fill + boundary stay so the wrist keeps its
+    /// round technical interface in both modes.
+    /// </summary>
+    public bool ShipSchematicMode { get; set; }
+
     public RadialWristElement()
     {
         pickingMode = PickingMode.Ignore;
@@ -152,20 +161,24 @@ public sealed class RadialWristElement : VisualElement
         DrawRingSector(ctx, Center, MapRadius - 1.5f, MapRadius,
             0f, 360f, Hairline, 96);
 
-        // Distance rings.
-        DrawRingSector(ctx, Center, 78f, 79f, 0f, 360f, VeryWeakHairline, 64);
-        DrawRingSector(ctx, Center, 156f, 157f, 0f, 360f, VeryWeakHairline, 96);
+        if (!ShipSchematicMode)
+        {
+            // Surface-map decorations only: distance rings + reference cross.
+            // Ship mode leaves the disc clean for the deck schematic.
+            DrawRingSector(ctx, Center, 78f, 79f, 0f, 360f, VeryWeakHairline, 64);
+            DrawRingSector(ctx, Center, 156f, 157f, 0f, 360f, VeryWeakHairline, 96);
 
-        // Very subtle map cross reference.
-        DrawLine(ctx,
-            new Vector2(Center.x - 175f, Center.y),
-            new Vector2(Center.x + 175f, Center.y),
-            VeryWeakHairline, 1f);
+            // Very subtle map cross reference.
+            DrawLine(ctx,
+                new Vector2(Center.x - 175f, Center.y),
+                new Vector2(Center.x + 175f, Center.y),
+                VeryWeakHairline, 1f);
 
-        DrawLine(ctx,
-            new Vector2(Center.x, Center.y - 175f),
-            new Vector2(Center.x, Center.y + 175f),
-            VeryWeakHairline, 1f);
+            DrawLine(ctx,
+                new Vector2(Center.x, Center.y - 175f),
+                new Vector2(Center.x, Center.y + 175f),
+                VeryWeakHairline, 1f);
+        }
 
         // ================================================================
         // 2 + 3. STATUS TRACKS - ONE shared helper at the SAME inner radius

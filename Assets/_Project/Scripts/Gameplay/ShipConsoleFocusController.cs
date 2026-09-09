@@ -93,13 +93,44 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void OnEnable()
     {
-        _ship = Object.FindAnyObjectByType<ShipGameController>();
-        _player = Object.FindAnyObjectByType<SurfacePlayerController>();
-        _eyeCamera = _player != null ? _player.EyeCamera : Camera.main;
-        _blurVolume = Object.FindAnyObjectByType<Volume>();
+        ResolveReferences();
         if (_blurVolume != null)
         {
             _blurVolume.weight = 0f;
+        }
+    }
+
+    /// <summary>
+    /// Re-resolves the player / eye camera / DOF volume. Scene-object enable
+    /// order is not guaranteed across regenerated scenes, so a single OnEnable
+    /// cache may capture a null reference before another object's Awake ran.
+    /// Every entry path re-runs this, which is safe after the scene is ready.
+    /// </summary>
+    private void ResolveReferences()
+    {
+        if (_ship == null)
+        {
+            _ship = Object.FindAnyObjectByType<ShipGameController>();
+        }
+
+        if (_player == null)
+        {
+            _player = Object.FindAnyObjectByType<SurfacePlayerController>();
+        }
+
+        if (_eyeCamera == null && _player != null)
+        {
+            _eyeCamera = _player.EyeCamera;
+        }
+
+        if (_eyeCamera == null)
+        {
+            _eyeCamera = Camera.main;
+        }
+
+        if (_blurVolume == null)
+        {
+            _blurVolume = Object.FindAnyObjectByType<Volume>();
         }
     }
 
@@ -151,6 +182,11 @@ public class ShipConsoleFocusController : MonoBehaviour
             return false;
         }
 
+        // Scene enable order is not deterministic across regenerated scenes:
+        // re-resolve the player/eye/volume cache so E never fails because an
+        // OnEnable-time lookup ran before another object's Awake.
+        ResolveReferences();
+
         WorldConsoleSurface surface = console != null
             ? console.GetComponent<WorldConsoleSurface>()
             : null;
@@ -158,7 +194,10 @@ public class ShipConsoleFocusController : MonoBehaviour
         {
             Debug.LogWarning("[ShipConsoleFocus] console " + (console != null
                              ? console.ConsoleId.ToString() : "?")
-                             + " has no ready surface/anchor");
+                             + " focus request rejected: surface=" + (surface != null)
+                             + " anchor=" + (surface != null && surface.FocusAnchor != null)
+                             + " eyeCamera=" + (_eyeCamera != null)
+                             + " player=" + (_player != null));
             return false;
         }
 
