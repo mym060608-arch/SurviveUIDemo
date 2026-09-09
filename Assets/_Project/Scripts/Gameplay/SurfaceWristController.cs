@@ -127,6 +127,7 @@ public class SurfaceWristController : MonoBehaviour
 
     private Label _healthLabel;
     private Label _satietyLabel;
+    private Label _identityLabel;
     private readonly List<TextRow> _rows = new List<TextRow>();
     private readonly Dictionary<string, TextRow> _rowByName = new Dictionary<string, TextRow>();
 
@@ -168,7 +169,7 @@ public class SurfaceWristController : MonoBehaviour
     private WristCursorService _cursorService;
 
     // ---- State bindings ----
-    private SurfaceGameController _controller;
+    private IWristContext _controller;
     private GameSession _session;
     private SurfaceResourceNode _completedNode;
     private float _completedAt;
@@ -190,6 +191,11 @@ public class SurfaceWristController : MonoBehaviour
 
     /// <summary>Cursor authority while the wrist terminal is open.</summary>
     public WristCursorService CursorService => _cursorService;
+
+    /// <summary>Phase 07B: the source mode this wrist instance was opened from.
+    /// Ship contexts answer ShipExplore, surface contexts SurfaceFirstPerson.</summary>
+    public WristReturnMode ReturnMode =>
+        _controller != null ? _controller.WristSourceMode : WristReturnMode.SurfaceFirstPerson;
 
     public float CurrentParallaxYaw => _parallaxYaw;
     public float CurrentParallaxPitch => _parallaxPitch;
@@ -239,8 +245,9 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
-    /// <summary>Binds the wrist view to the authoritative surface controller.</summary>
-    public void Bind(SurfaceGameController controller)
+    /// <summary>Binds the wrist view to the authoritative context (surface or
+    /// ship controller - Phase 07B). Content adapts to WristSourceMode.</summary>
+    public void Bind(IWristContext controller)
     {
         _controller = controller;
         _session = GameSession.Instance;
@@ -261,6 +268,11 @@ public class SurfaceWristController : MonoBehaviour
 
         RefreshSessionData();
         RefreshNavigation();
+        if (ReturnMode == WristReturnMode.ShipExplore)
+        {
+            RefreshShipContent();
+        }
+
         RefreshTextRowLayout();
         SetOpen(false);
     }
@@ -369,6 +381,7 @@ public class SurfaceWristController : MonoBehaviour
 
         _healthLabel = _root.Q<Label>("HealthLabel");
         _satietyLabel = _root.Q<Label>("SatietyLabel");
+        _identityLabel = _root.Q<Label>("WristIdentity");
 
         _rows.Clear();
         _rowByName.Clear();
@@ -1713,13 +1726,109 @@ public class SurfaceWristController : MonoBehaviour
         {
             _actionRow.Label.text = active != null
                 ? (active.State == SurfaceResourceNode.NodeState.Harvesting ? "采集中" : "无线传输")
-                : "勘测中";
+                : (ReturnMode == WristReturnMode.ShipExplore ? "舰内" : "勘测中");
         }
 
         if (_recoveredRow != null)
         {
             _recoveredRow.Label.text = "回收 " + _session.HarvestedNodeCount
                                        + "/" + GameSession.SurfaceNodeCount;
+        }
+
+        if (ReturnMode == WristReturnMode.ShipExplore)
+        {
+            RefreshShipContent();
+        }
+    }
+
+    // ====================================================================
+    // Phase 07B ship-mode content (same wrist document, ship context only)
+    // ====================================================================
+
+    /// <summary>True while this wrist instance is bound inside the walkable
+    /// ship (content mode: 舰内, no fake surface distance or markers).</summary>
+    public bool IsShipMode => ReturnMode == WristReturnMode.ShipExplore;
+
+    /// <summary>Hides every surface map marker. The ship player is not on the
+    /// NEREID map, so no surface player/node markers may be drawn.</summary>
+    private void HideSurfaceMarkers()
+    {
+        SetMarkerVisibility(_playerMarker, false);
+        SetMarkerVisibility(_landingMarker, false);
+        for (int i = 0; i < _nodeMarkers.Length; i++)
+        {
+            SetMarkerVisibility(_nodeMarkers[i], false);
+        }
+
+        SetMarkerVisibility(_selectedRing, false);
+    }
+
+    private static void SetMarkerVisibility(VisualElement marker, bool visible)
+    {
+        if (marker == null)
+        {
+            return;
+        }
+
+        marker.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+    }
+
+    /// <summary>
+    /// Ship wrist presentation (Phase 07B contract 59-65):
+    /// - central map keeps its circular technical interface, footer shows
+    ///   ARK-07 · 舰内模式,
+    /// - state rows: 舰内 / 信号在线 (authored), persisted recovery count,
+    /// - navigation: 地表目标已记录 only when a NEREID target was recorded
+    ///   this session - never a fake live distance,
+    /// - harvest region reads 地表采集待命 (no player is physically
+    ///   harvesting inside the ship).
+    /// </summary>
+    public void RefreshShipContent()
+    {
+        if (_session == null)
+        {
+            return;
+        }
+
+        HideSurfaceMarkers();
+
+        if (_identityLabel != null)
+        {
+            _identityLabel.text = "ARK-07 · 舰内模式";
+        }
+
+        if (_actionRow != null)
+        {
+            _actionRow.Label.text = "舰内";
+        }
+
+        int recorded = _session.RecordedSurfaceTargetNodeId;
+        bool hasMemory = recorded >= 0;
+        if (_navTargetRow != null)
+        {
+            _navTargetRow.Label.text = hasMemory
+                ? SurfaceGameController.NodeDisplayName(recorded)
+                : "未设置";
+        }
+
+        if (_navDistanceRow != null)
+        {
+            _navDistanceRow.Label.text = hasMemory ? "地表目标已记录" : "";
+        }
+
+        if (_harvestNodeRow != null)
+        {
+            _harvestNodeRow.Label.text = "";
+        }
+
+        if (_harvestStateRow != null)
+        {
+            _harvestStateRow.Label.text = "地表采集待命";
+        }
+
+        if (_harvestProgressRow != null)
+        {
+            _harvestProgressRow.Label.text = "";
         }
     }
 
@@ -1745,6 +1854,14 @@ public class SurfaceWristController : MonoBehaviour
 
     private void RefreshMapGeometry()
     {
+        if (ReturnMode == WristReturnMode.ShipExplore)
+        {
+            // Ship mode: no surface map markers at all (no fake player/node
+            // positions); the circular technical interface stays drawn.
+            HideSurfaceMarkers();
+            return;
+        }
+
         if (_controller == null || _controller.Player == null || _root == null)
         {
             return;
@@ -1848,6 +1965,12 @@ public class SurfaceWristController : MonoBehaviour
     /// completion transition.</summary>
     private void RefreshActiveProgress()
     {
+        if (ReturnMode == WristReturnMode.ShipExplore)
+        {
+            RefreshShipContent();
+            return;
+        }
+
         if (_harvestNodeRow == null || _harvestStateRow == null
             || _harvestProgressRow == null || _controller == null)
         {
@@ -1892,6 +2015,12 @@ public class SurfaceWristController : MonoBehaviour
 
     private void RefreshNavigation()
     {
+        if (ReturnMode == WristReturnMode.ShipExplore)
+        {
+            RefreshShipContent();
+            return;
+        }
+
         if (_controller == null)
         {
             return;

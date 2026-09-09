@@ -32,6 +32,7 @@ public class ShipHudController : MonoBehaviour
     private UIDocument _document;
     private VisualElement _root;
     private bool _bound;
+    private bool _suppressed;
 
     private Label _zoneName;
     private Label _zoneMeta;
@@ -87,6 +88,35 @@ public class ShipHudController : MonoBehaviour
         _bound = true;
     }
 
+    /// <summary>Hides the exploration HUD chrome (prompt / crosshair / zone)
+    /// while the wrist terminal or a focused console is open; a later false
+    /// restores the normal dynamic refresh.</summary>
+    public void SetUiSuppressed(bool suppressed)
+    {
+        _suppressed = suppressed;
+        EnsureBound();
+        if (suppressed)
+        {
+            if (_prompt != null)
+            {
+                _prompt.style.display = DisplayStyle.None;
+            }
+
+            if (_crosshairDot != null)
+            {
+                _crosshairDot.RemoveFromClassList("ship-dot-valid");
+                _crosshairDot.RemoveFromClassList("ship-dot-blocked");
+            }
+
+            if (_crosshairRing != null)
+            {
+                _crosshairRing.RemoveFromClassList("ship-ring-visible");
+                _crosshairRing.RemoveFromClassList("ship-ring-valid");
+                _crosshairRing.RemoveFromClassList("ship-ring-blocked");
+            }
+        }
+    }
+
     /// <summary>Chinese-first compartment tag; empty Chinese name hides it.</summary>
     public void SetZoneTag(string zhName, string meta)
     {
@@ -96,7 +126,7 @@ public class ShipHudController : MonoBehaviour
             return;
         }
 
-        bool visible = !string.IsNullOrEmpty(zhName);
+        bool visible = !_suppressed && !string.IsNullOrEmpty(zhName);
         _zoneChip.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
         if (visible)
         {
@@ -111,6 +141,12 @@ public class ShipHudController : MonoBehaviour
         EnsureBound();
         if (_prompt == null)
         {
+            return;
+        }
+
+        if (_suppressed)
+        {
+            _prompt.style.display = DisplayStyle.None;
             return;
         }
 
@@ -134,6 +170,11 @@ public class ShipHudController : MonoBehaviour
         _crosshairRing.RemoveFromClassList("ship-ring-visible");
         _crosshairRing.RemoveFromClassList("ship-ring-valid");
         _crosshairRing.RemoveFromClassList("ship-ring-blocked");
+
+        if (_suppressed)
+        {
+            return;
+        }
 
         switch (state)
         {

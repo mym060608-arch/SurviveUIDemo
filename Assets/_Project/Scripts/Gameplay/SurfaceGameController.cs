@@ -13,7 +13,7 @@ using UnityEngine.SceneManagement;
 /// interaction happens through FirstPersonInteractor. Wrist map coordinates
 /// live in the single authoritative WristMapCoordinates source.
 /// </summary>
-public class SurfaceGameController : MonoBehaviour
+public class SurfaceGameController : MonoBehaviour, IWristContext
 {
     // Legacy proximity helper range (semantic tests/probes only).
     public float interactRangeFallback = 3.0f;
@@ -40,6 +40,9 @@ public class SurfaceGameController : MonoBehaviour
     public SurfacePlayerController Player => _player;
 
     public bool IsWristOpen => _isWristOpen;
+
+    /// <summary>Phase 07B: the surface is the wrist's original return source.</summary>
+    public WristReturnMode WristSourceMode => WristReturnMode.SurfaceFirstPerson;
 
     /// <summary>Scene-owned navigation target (-1 = none). Not persistence
     /// state; it never lives in GameSession.</summary>
@@ -267,6 +270,13 @@ public class SurfaceGameController : MonoBehaviour
 
         _navigationTargetNodeId = nodeId;
         NavigationChanged?.Invoke();
+
+        // Phase 07B: remember the choice for the ship wrist (地表目标已记录).
+        if (GameSession.Instance != null)
+        {
+            GameSession.Instance.RecordSurfaceTarget(nodeId);
+        }
+
         return true;
     }
 

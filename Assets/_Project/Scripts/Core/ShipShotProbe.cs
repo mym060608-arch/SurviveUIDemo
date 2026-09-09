@@ -20,14 +20,17 @@ using UnityEngine.SceneManagement;
 public class ShipShotProbe : MonoBehaviour
 {
     private const string Flag = "-shipShot";
+    private const string Flag07B = "-ship07BShot";
 
     private string _basePath;
+    private string _base07BPath;
     private bool _active;
 
     private void Awake()
     {
         _basePath = ParseFlag(Flag);
-        _active = !string.IsNullOrEmpty(_basePath);
+        _base07BPath = ParseFlag(Flag07B);
+        _active = !string.IsNullOrEmpty(_basePath) || !string.IsNullOrEmpty(_base07BPath);
         if (!_active)
         {
             enabled = false;
@@ -48,12 +51,226 @@ public class ShipShotProbe : MonoBehaviour
 
     private static IEnumerator Watchdog()
     {
-        yield return new WaitForSecondsRealtime(240f);
+        yield return new WaitForSecondsRealtime(300f);
         Debug.LogError("[ShipShotProbe] watchdog timeout");
         Application.Quit(2);
     }
 
     private IEnumerator Run()
+    {
+        if (!string.IsNullOrEmpty(_base07BPath))
+        {
+            yield return Run07B();
+            yield break;
+        }
+
+        yield return RunShipViews();
+    }
+
+    // ====================================================================
+    // Phase 07B evidence set (door open/closed, idle + focused consoles,
+    // transition mid frame, ship wrist + recorded surface target)
+    // ====================================================================
+
+    private IEnumerator Run07B()
+    {
+        GameSession session = GameSession.Ensure();
+        session.ResetSession();
+
+        ShipGameController controller = null;
+        for (int i = 0; i < 1800; i++)
+        {
+            controller = Object.FindAnyObjectByType<ShipGameController>();
+            if (controller != null && controller.IsReady
+                && controller.Consoles.Count == 4 && controller.Player != null)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        if (controller == null || !controller.IsReady || controller.Player == null)
+        {
+            Debug.LogError("[Ship07BShot] ship interior never ready");
+            Application.Quit(1);
+            yield break;
+        }
+
+        Screen.SetResolution(1920, 1080, false);
+        SurfacePlayerController player = controller.Player;
+        yield return new WaitForSecondsRealtime(0.8f);
+
+        // ---- Door frames (bridge door D1, front view) ----
+        ShipDoorInteractable door = controller.Doors[0];
+        if (!door.IsOpen)
+        {
+            door.RequestOpen();
+        }
+
+        yield return WaitReal(2.5f);
+        player.TeleportTo(new Vector3(0f, 0f, 4.9f));
+        player.SetFacing(0f, 0f);
+        door.RequestClose();
+        yield return WaitUntilDoor(door, ShipDoorInteractable.ShipDoorState.Closed, 8f);
+        yield return WaitReal(0.4f);
+        yield return Capture07B("frame_ship_door_closed");
+        door.RequestOpen();
+        yield return WaitUntilDoor(door, ShipDoorInteractable.ShipDoorState.Open, 8f);
+        yield return WaitReal(0.4f);
+        yield return Capture07B("frame_ship_door_open");
+
+        // ---- Idle + focused frames per console (always-on UI) ----
+        string[] idleSuffixes =
+        {
+            "frame_console_overview_idle",
+            "frame_console_preparation_idle",
+            "frame_console_processing_idle",
+            "frame_console_outpost_idle"
+        };
+        string[] focusSuffixes =
+        {
+            "frame_console_overview_focus",
+            "frame_console_preparation_focus",
+            "frame_console_processing_focus",
+            "frame_console_outpost_focus"
+        };
+
+        for (int c = 0; c < 4; c++)
+        {
+            yield return Approach(player, controller, c);
+            yield return WaitReal(0.5f);
+            yield return Capture07B(idleSuffixes[c]);
+
+            // E enters focus through the real interactor.
+            bool entered = false;
+            for (int t = 0; t < 400 && !entered; t++)
+            {
+                controller.Interactor.RefreshTarget();
+                if (ReferenceEquals(controller.Interactor.CurrentTarget, controller.Consoles[c])
+                    && controller.Interactor.HasValidTarget)
+                {
+                    entered = controller.Interactor.TryInteract();
+                }
+
+                if (!entered)
+                {
+                    yield return null;
+                }
+            }
+
+            if (c == 0)
+            {
+                // Mid-transition evidence on the first console.
+                yield return WaitReal(0.13f);
+                yield return Capture07B("frame_console_transition_mid");
+            }
+
+            ShipConsoleFocusController focus =
+                Object.FindAnyObjectByType<ShipConsoleFocusController>();
+            for (int t = 0; t < 600 && (focus == null || focus.State
+                     != ShipConsoleFocusController.ShipConsoleFocusState.ShipConsoleFocus); t++)
+            {
+                yield return null;
+            }
+
+            yield return WaitReal(0.5f);
+            yield return Capture07B(focusSuffixes[c]);
+            if (focus != null)
+            {
+                focus.RequestExit();
+                yield return WaitReal(0.9f);
+            }
+        }
+
+        // ---- Ship wrist with a recorded surface target memory ----
+        player.TeleportTo(new Vector3(0f, 0f, 3.6f));
+        player.SetFacing(180f, 0f);
+        yield return null;
+        session.RecordSurfaceTarget(1);
+        controller.SetWristOpen(true);
+        yield return WaitReal(1.2f);
+        yield return Capture07B("frame_ship_wrist_target_memory");
+        controller.SetWristOpen(false);
+        yield return WaitReal(0.6f);
+
+        Debug.Log("[Ship07BShot] wrote phase07b frames to: " + _base07BPath);
+        Application.Quit(0);
+    }
+
+    private IEnumerator Approach(SurfacePlayerController player, ShipGameController controller,
+        int index)
+    {
+        ShipConsoleInteractable console = controller.Consoles[index];
+        Vector3 dir = ConsoleScreenDir(index);
+        Vector3 position = console.transform.position + dir * 1.7f;
+        player.TeleportTo(position);
+        float yaw = Mathf.Atan2(-dir.x, -dir.z) * Mathf.Rad2Deg;
+        player.SetFacing(yaw, 0f);
+        yield return null;
+        yield return null;
+    }
+
+    private static Vector3 ConsoleScreenDir(int index)
+    {
+        switch (index)
+        {
+            case 0:
+                return new Vector3(0f, 0f, -1f);
+            case 1:
+                return new Vector3(1f, 0f, 0f);
+            case 2:
+                return new Vector3(-1f, 0f, 0f);
+            default:
+                return new Vector3(0f, 0f, 1f);
+        }
+    }
+
+    private IEnumerator WaitUntilDoor(ShipDoorInteractable door,
+        ShipDoorInteractable.ShipDoorState target, float seconds)
+    {
+        float deadline = Time.realtimeSinceStartup + seconds;
+        while (door.State != target && Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+        }
+    }
+
+    private static IEnumerator WaitReal(float seconds)
+    {
+        float deadline = Time.realtimeSinceStartup + seconds;
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+        }
+    }
+
+    private IEnumerator CaptureAt(SurfacePlayerController player, string suffix,
+        Vector3 position, float yaw)
+    {
+        player.TeleportTo(position);
+        player.SetFacing(yaw, 0f);
+        yield return new WaitForSecondsRealtime(0.6f);
+        yield return WaitForScreenshot(Base(suffix));
+    }
+
+    private IEnumerator Capture07B(string suffix)
+    {
+        yield return WaitForScreenshot(Base07B(suffix));
+    }
+
+    private string Base07B(string suffix)
+    {
+        // -ship07BShot takes the OUTPUT FOLDER; every frame is written with
+        // the exact contract filename (e.g. frame_ship_door_closed.png).
+        return Path.Combine(_base07BPath, suffix + ".png");
+    }
+
+    // ====================================================================
+    // Phase 07A view set (kept for regression evidence)
+    // ====================================================================
+
+    private IEnumerator RunShipViews()
     {
         // Phase 07A.1: the probe does NOT load any scene - normal boot itself
         // enters 03_ShipInterior. This run therefore proves the real

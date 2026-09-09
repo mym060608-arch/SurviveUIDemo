@@ -75,6 +75,128 @@ public class ShipDoorInteractable : MonoBehaviour, IFirstPersonInteractable
 
     public bool IsOpen => State == ShipDoorState.Open;
 
+    /// <summary>Solid blocker collider (enabled while effectively shut).</summary>
+    public Collider BlockerCollider => _blocker;
+
+    /// <summary>Doorway local-space X span (min, max) that the leaves cover
+    /// while closed; leaves slide outside it while open.</summary>
+    public Vector2 DoorwayLocalSpanX => new Vector2(
+        Mathf.Min(_localSpanStart.x, _localSpanEnd.x),
+        Mathf.Max(_localSpanStart.x, _localSpanEnd.x));
+
+    /// <summary>
+    /// Phase 07B deterministic closed-door geometry check: the leaf front
+    /// planes must sit strictly inside (recessed from) the header/frame front
+    /// planes by >= 0.015 m and must never be coplanar with the surrounding
+    /// trim. Measured from the real child renderer bounds in door-local space.
+    /// </summary>
+    public bool VerifyClosedGeometry(out float leafToFrameSeparationM,
+        out string report)
+    {
+        var sb = new System.Text.StringBuilder();
+        leafToFrameSeparationM = -1f;
+        Renderer header = FindChildRenderer("Frame_Header");
+        Renderer panelL = _panelLeft != null ? _panelLeft.GetComponentInChildren<Renderer>() : null;
+        Renderer panelR = _panelRight != null ? _panelRight.GetComponentInChildren<Renderer>() : null;
+        if (header == null || panelL == null || panelR == null)
+        {
+            report = "missing header/panel renderers (header=" + (header != null)
+                     + " panelL=" + (panelL != null) + " panelR=" + (panelR != null) + ")";
+            return false;
+        }
+
+        Bounds h = LocalBoundsOf(header);
+        Bounds l = LocalBoundsOf(panelL);
+        Bounds r = LocalBoundsOf(panelR);
+
+        // Planes are perpendicular to the door-local Z axis (wall normal).
+        float leafMaxZ = Mathf.Max(l.max.z, r.max.z);
+        float leafMinZ = Mathf.Min(l.min.z, r.min.z);
+        float frameMaxZ = h.max.z;
+        float frameMinZ = h.min.z;
+        sb.AppendLine("INFO :: leaf z " + leafMinZ.ToString("0.000") + ".."
+                      + leafMaxZ.ToString("0.000") + " header z "
+                      + frameMinZ.ToString("0.000") + ".." + frameMaxZ.ToString("0.000"));
+        float sep = Mathf.Min(frameMaxZ - leafMaxZ, leafMinZ - frameMinZ);
+        leafToFrameSeparationM = sep;
+        sb.AppendLine("INFO :: leaf/frame surface separation " + sep.ToString("0.000") + " m");
+
+        bool ok = sep >= 0.015f && leafMaxZ < frameMaxZ - 0.0149f
+                  && leafMinZ > frameMinZ + 0.0149f;
+        sb.AppendLine((ok ? "PASS" : "FAIL") + " :: closed leaf recessed >= 0.015 m from frame planes");
+        report = sb.ToString();
+        return ok;
+    }
+
+    /// <summary>
+    /// Phase 07B open-door check: with the door fully open both leaves must be
+    /// entirely outside the doorway span in door-local X (never overlapping
+    /// the walkway or any frame volume), and the solid blocker must be off.
+    /// </summary>
+    public bool VerifyOpenClearance(out string report)
+    {
+        var sb = new System.Text.StringBuilder();
+        bool ok = true;
+        Renderer panelL = _panelLeft != null ? _panelLeft.GetComponentInChildren<Renderer>() : null;
+        Renderer panelR = _panelRight != null ? _panelRight.GetComponentInChildren<Renderer>() : null;
+        if (panelL == null || panelR == null)
+        {
+            report = "missing panel renderers";
+            return false;
+        }
+
+        bool blockerOff = _blocker == null || !_blocker.enabled;
+        sb.AppendLine((blockerOff ? "PASS" : "FAIL")
+                      + " :: solid blocker disabled while open (enabled="
+                      + (_blocker != null && _blocker.enabled) + ")");
+        ok &= blockerOff;
+
+        Vector2 span = DoorwayLocalSpanX;
+        Bounds l = LocalBoundsOf(panelL);
+        Bounds r = LocalBoundsOf(panelR);
+        bool leftClear = l.max.x <= span.x + 0.001f;
+        bool rightClear = r.min.x >= span.y - 0.001f;
+        sb.AppendLine("INFO :: span x " + span.x.ToString("0.000") + ".."
+                      + span.y.ToString("0.000") + " leafL x " + l.min.x.ToString("0.000")
+                      + ".." + l.max.x.ToString("0.000") + " leafR x " + r.min.x.ToString("0.000")
+                      + ".." + r.max.x.ToString("0.000"));
+        sb.AppendLine((leftClear ? "PASS" : "FAIL") + " :: left leaf outside doorway span");
+        sb.AppendLine((rightClear ? "PASS" : "FAIL") + " :: right leaf outside doorway span");
+        ok &= leftClear && rightClear;
+        report = sb.ToString();
+        return ok;
+    }
+
+    /// <summary>Renderer bounds of a named child converted to door-local space.</summary>
+    private Bounds LocalBoundsOf(Renderer renderer)
+    {
+        Bounds world = renderer.bounds;
+        Vector3 min = transform.InverseTransformPoint(world.min);
+        Vector3 max = transform.InverseTransformPoint(world.max);
+        Vector3 center = (min + max) * 0.5f;
+        Vector3 size = max - min;
+        return new Bounds(center, new Vector3(Mathf.Abs(size.x), Mathf.Abs(size.y),
+            Mathf.Abs(size.z)));
+    }
+
+    private Renderer FindChildRenderer(string childName)
+    {
+        Transform child = null;
+        foreach (Transform t in transform)
+        {
+            if (t.name == childName)
+            {
+                child = t;
+                break;
+            }
+        }
+
+        return child != null ? child.GetComponentInChildren<Renderer>() : null;
+    }
+
+    /// <summary>Doorway half width (gapWidth / 2) in door-local metres.</summary>
+    public float DoorHalfWidth { get; private set; } = 0.9f;
+
     /// <summary>Builder configuration (scene authoring only).</summary>
     public void Configure(int doorId, Vector3 localSpanStart, Vector3 localSpanEnd,
         Transform panelLeft, Transform panelRight, Collider blocker,

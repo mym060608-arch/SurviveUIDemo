@@ -141,6 +141,26 @@ public class GameSession : MonoBehaviour
 
     private int _harvestedNodeMask;
 
+    /// <summary>
+    /// Phase 07B wrist memory: the last NEREID surface navigation target the
+    /// player actually selected (0..2), or -1 when none was chosen this
+    /// session. Read-only presentation memory so the ship wrist can say
+    /// 地表目标已记录 without inventing a live surface distance.
+    /// </summary>
+    public int RecordedSurfaceTargetNodeId { get; private set; } = -1;
+
+    /// <summary>Records a surface navigation selection (authority: the
+    /// surface controller). Rejected when out of range.</summary>
+    public void RecordSurfaceTarget(int nodeId)
+    {
+        if (nodeId < 0 || nodeId >= SurfaceNodeCount)
+        {
+            return;
+        }
+
+        RecordedSurfaceTargetNodeId = nodeId;
+    }
+
     /// <summary>Number of surface nodes completed this session.</summary>
     public int HarvestedNodeCount
     {
@@ -475,6 +495,7 @@ public class GameSession : MonoBehaviour
         PlayerHealth = DefaultPlayerHealth;
         PlayerSatiety = DefaultPlayerSatiety;
         _harvestedNodeMask = 0;
+        RecordedSurfaceTargetNodeId = -1;
         ResetProcessing();
         NotifyChanged();
     }

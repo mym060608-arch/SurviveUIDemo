@@ -2,7 +2,9 @@
     "name": "Survive.Editor",
     "rootNamespace": "",
     "references": [
-        "Survive.Runtime"
+        "Survive.Runtime",
+        "Unity.RenderPipelines.Core.Runtime",
+        "Unity.RenderPipelines.Universal.Runtime"
     ],
     "includePlatforms": [
         "Editor"

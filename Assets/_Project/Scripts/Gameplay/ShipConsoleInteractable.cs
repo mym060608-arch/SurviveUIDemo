@@ -45,9 +45,23 @@ public class ShipConsoleInteractable : MonoBehaviour, IFirstPersonInteractable
 
     public void Interact()
     {
-        // Phase 07A contract: physical consoles are non-interactive placeholders.
-        // Real world-space console interaction mode lands in checkpoint 07B.
-        Debug.Log("[ShipConsoleInteractable] console " + _consoleId.ToString("00")
-                  + " " + _zhName + " placeholder - ShipConsole mode arrives in 07B");
+        // Phase 07B: E on a physical terminal enters the smooth console
+        // focus mode. The real interaction then runs through the focused
+        // console's world-space UI (pointer router -> UI Toolkit events).
+        ShipConsoleFocusController focus =
+            Object.FindAnyObjectByType<ShipConsoleFocusController>();
+        if (focus == null)
+        {
+            Debug.LogWarning("[ShipConsoleInteractable] no focus controller "
+                             + "in scene - console " + _consoleId.ToString("00")
+                             + " ignored E");
+            return;
+        }
+
+        if (!focus.RequestEnter(this))
+        {
+            Debug.Log("[ShipConsoleInteractable] console " + _consoleId.ToString("00")
+                      + " focus request rejected (another mode active)");
+        }
     }
 }
