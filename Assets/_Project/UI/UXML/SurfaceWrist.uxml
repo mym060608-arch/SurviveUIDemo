@@ -73,7 +73,8 @@
         <ui:Label name="HarvestState" text="待机" class="wrist-row row-value" />
         <ui:Label name="HarvestProgress" text="" class="wrist-row row-value" />
 
-        <!-- Small identity label (subtle, bottom centre). -->
+        <!-- Radial header / identity label: planet + mission context between
+             the health status arc and the central map (Round 9.2.1). -->
         <ui:Label name="WristIdentity" text="NEREID-04 · 地表勘测" class="wrist-identity" />
 
     </ui:VisualElement>

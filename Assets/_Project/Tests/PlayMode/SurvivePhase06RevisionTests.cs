@@ -1677,6 +1677,51 @@ public class SurvivePhase06RevisionTests
         controller.SetWristOpen(false);
     }
 
+    // ==================================================================
+    // Round 9.2.1 WristIdentity radial header
+    // ==================================================================
+
+    /// <summary>WristIdentityBounds_Runtime (Round 9.2.1) - the radial header
+    /// label "NEREID-04 · 地表勘测" must stay inside the wrist RenderTexture,
+    /// must not overlap the HealthLabel, must not sit deep over the central
+    /// map, and its four corners must project inside the viewport (exact
+    /// 1920x1080 numbers print in the Release screenshot log).</summary>
+    [UnityTest]
+    public IEnumerator WristIdentityBounds_Runtime()
+    {
+        yield return EnterSurface();
+        SurfaceGameController controller = ReadyController();
+        Assert.IsNotNull(controller, "controller ready");
+        controller.SetWristOpen(true);
+        for (int i = 0; i < 12; i++)
+        {
+            yield return null;
+        }
+
+        // Wait for the RenderTexture panel layout pass (mirrors the runtime
+        // visibility log delay) so resolvedStyle sizes/positions are final.
+        yield return new WaitForSecondsRealtime(0.5f);
+
+        SurfaceWristController wrist = Wrist();
+        Assert.IsNotNull(wrist, "wrist controller");
+        bool ok = wrist.VerifyWristIdentityBounds(out string report);
+        Assert.IsTrue(ok, "wrist identity radial header bounds:\n" + report);
+
+        // Deterministic resolved position (USS-positioned, no inline style):
+        // identity must be a top radial header (between health arc and map),
+        // never at the RT bottom (the previous clipped location).
+        VisualElement root = wrist.RootElement;
+        Label identity = root.Q<Label>("WristIdentity");
+        Assert.IsNotNull(identity, "identity label present");
+        float top = identity.resolvedStyle.top;
+        Assert.IsFalse(float.IsNaN(top), "identity resolved top available");
+        Assert.IsTrue(top > 100f && top < 200f,
+            "identity is a top radial header (resolved top=" + top.ToString("0")
+            + ", expected ~130) - NOT at the clipped RT bottom");
+
+        controller.SetWristOpen(false);
+    }
+
     private static string LabelText(VisualElement root, string name)
     {
         Label label = root.Q<Label>(name);

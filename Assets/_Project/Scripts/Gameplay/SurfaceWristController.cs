@@ -672,6 +672,207 @@ public class SurfaceWristController : MonoBehaviour
                    && centerY <= RadialWristElement.LowerPanelBottomY);
     }
 
+    // ====================================================================
+    // Round 9.2.1 WristIdentity bounds (radial header)
+    // ====================================================================
+
+    /// <summary>Round 9.2.1: verifies the WristIdentity radial header.
+    /// The label must:
+    ///   - resolve fully inside the 1280x800 wrist RenderTexture;
+    ///   - NOT overlap the HealthLabel bounds;
+    ///   - NOT sit deep over the central map circle (all four corners stay
+    ///     outside MapRadius - it floats between the health arc and map top);
+    ///   - project to the screen inside the viewport on all four corners.
+    /// The projection uses the SAME wrist-pixel -> display-plane -> camera
+    /// mapping as ComputeProjectedRadialBounds (no separate coordinate math).</summary>
+    public bool VerifyWristIdentityBounds(out string report)
+    {
+        var lines = new StringBuilder();
+        bool ok = true;
+
+        void Check(bool pass, string label)
+        {
+            lines.AppendLine((pass ? "PASS" : "FAIL") + " :: " + label);
+            ok &= pass;
+        }
+
+        if (_document == null || _document.rootVisualElement == null)
+        {
+            report = "FAIL :: wrist document root missing\n";
+            return false;
+        }
+
+        Label identity = _document.rootVisualElement.Q<Label>("WristIdentity");
+        Label health = _document.rootVisualElement.Q<Label>("HealthLabel");
+        Check(identity != null, "WristIdentity element resolved");
+        Check(health != null, "HealthLabel element resolved");
+        if (identity == null || health == null)
+        {
+            report = lines.ToString();
+            return ok;
+        }
+
+        // 1) Resolved rect of the identity label inside the 1280x800 canvas.
+        Rect idRect = ResolvedRectOf(identity);
+        Rect healthRect = ResolvedRectOf(health);
+        lines.AppendLine("INFO :: identity rect=" + idRect.x.ToString("0") + ","
+                         + idRect.y.ToString("0") + " " + idRect.width.ToString("0") + "x"
+                         + idRect.height.ToString("0")
+                         + " (expected ~500,130 280x18) health rect="
+                         + healthRect.x.ToString("0") + "," + healthRect.y.ToString("0") + " "
+                         + healthRect.width.ToString("0") + "x" + healthRect.height.ToString("0"));
+
+        bool rectValid = idRect.width > 1f && idRect.height > 1f
+                         && !float.IsNaN(idRect.x) && !float.IsNaN(idRect.y);
+        Check(rectValid, "identity resolved rect is valid");
+
+        bool insideCanvas = rectValid
+                            && idRect.x >= -0.75f
+                            && idRect.y >= -0.75f
+                            && idRect.x + idRect.width <= UiWidth + 0.75f
+                            && idRect.y + idRect.height <= UiHeight + 0.75f;
+        Check(insideCanvas, "identity rect fully inside the 1280x800 RenderTexture");
+
+        // 2) No overlap with the HealthLabel bounds.
+        bool noOverlap = !RectsOverlap(idRect, healthRect);
+        Check(noOverlap, "identity does not overlap HealthLabel bounds");
+
+        // 3) Not deep over the central map circle: all four corners stay
+        // outside the MapRadius disc (it sits above the map, not on it).
+        bool outsideMap = true;
+        float minCornerDistance = float.MaxValue;
+        Vector2[] corners =
+        {
+            new Vector2(idRect.x, idRect.y),
+            new Vector2(idRect.x + idRect.width, idRect.y),
+            new Vector2(idRect.x + idRect.width, idRect.y + idRect.height),
+            new Vector2(idRect.x, idRect.y + idRect.height)
+        };
+        foreach (Vector2 corner in corners)
+        {
+            float distance = Vector2.Distance(corner, RadialWristElement.Center);
+            minCornerDistance = Mathf.Min(minCornerDistance, distance);
+            if (distance < RadialWristElement.MapRadius - 1.5f)
+            {
+                outsideMap = false;
+            }
+        }
+
+        lines.AppendLine("INFO :: identity min corner distance to map centre="
+                         + minCornerDistance.ToString("0.0") + " (map radius "
+                         + RadialWristElement.MapRadius + ")");
+        Check(outsideMap, "identity corners stay outside the central map disc");
+
+        // 4) Projected corners inside the current viewport (fraction 0..1).
+        EnsureDisplayReference();
+        if (_mainCamera == null && Camera.main != null)
+        {
+            _mainCamera = Camera.main;
+        }
+
+        if (_display == null || _mainCamera == null || Screen.width <= 0 || Screen.height <= 0)
+        {
+            Check(false, "display/camera available for projection");
+        }
+        else
+        {
+            bool allInViewport = true;
+            float minVx = 1f, maxVx = 0f, minVy = 1f, maxVy = 0f;
+            foreach (Vector2 corner in corners)
+            {
+                if (!TryProjectWristPixelToViewport(corner, out Vector3 vp))
+                {
+                    allInViewport = false;
+                    continue;
+                }
+
+                minVx = Mathf.Min(minVx, vp.x);
+                maxVx = Mathf.Max(maxVx, vp.x);
+                minVy = Mathf.Min(minVy, vp.y);
+                maxVy = Mathf.Max(maxVy, vp.y);
+                const float epsilon = 0.006f;
+                if (vp.x < -epsilon || vp.x > 1f + epsilon
+                    || vp.y < -epsilon || vp.y > 1f + epsilon)
+                {
+                    allInViewport = false;
+                }
+            }
+
+            lines.AppendLine("INFO :: identity projected viewport x="
+                             + minVx.ToString("0.000") + ".." + maxVx.ToString("0.000")
+                             + " y=" + minVy.ToString("0.000") + ".." + maxVy.ToString("0.000")
+                             + " screen=" + (minVx * Screen.width).ToString("0") + ".."
+                             + (maxVx * Screen.width).ToString("0") + "x"
+                             + (minVy * Screen.height).ToString("0") + ".."
+                             + (maxVy * Screen.height).ToString("0")
+                             + " @ " + Screen.width + "x" + Screen.height);
+            Check(allInViewport, "all four identity corners inside the viewport");
+        }
+
+        report = lines.ToString();
+        return ok;
+    }
+
+    /// <summary>Resolved layout rect of a wrist element (falls back to the
+    /// inline style values when the RT panel has not laid out yet).</summary>
+    public static Rect ResolvedRectOf(VisualElement element)
+    {
+        if (element == null)
+        {
+            return Rect.zero;
+        }
+
+        float left = float.IsNaN(element.resolvedStyle.left)
+            ? (element.style.left.value.value)
+            : element.resolvedStyle.left;
+        float top = float.IsNaN(element.resolvedStyle.top)
+            ? (element.style.top.value.value)
+            : element.resolvedStyle.top;
+        float width = float.IsNaN(element.resolvedStyle.width)
+            ? (element.style.width.value.value)
+            : element.resolvedStyle.width;
+        float height = float.IsNaN(element.resolvedStyle.height)
+            ? (element.style.height.value.value)
+            : element.resolvedStyle.height;
+
+        return new Rect(left, top, width, height);
+    }
+
+    private static bool RectsOverlap(Rect a, Rect b)
+    {
+        if (a.width <= 0f || a.height <= 0f || b.width <= 0f || b.height <= 0f)
+        {
+            return false;
+        }
+
+        return a.x < b.x + b.width
+               && a.x + a.width > b.x
+               && a.y < b.y + b.height
+               && a.y + a.height > b.y;
+    }
+
+    /// <summary>Maps one wrist pixel (design-space, UI y down) onto the world
+    /// wrist plane, then to viewport coordinates (0..1). Uses the exact same
+    /// display transform convention as ComputeProjectedRadialBounds.</summary>
+    public bool TryProjectWristPixelToViewport(Vector2 wristPixel, out Vector3 viewport)
+    {
+        viewport = Vector3.zero;
+        if (_display == null || _mainCamera == null)
+        {
+            return false;
+        }
+
+        Transform t = _display.transform;
+        Vector3 scale = t.localScale;
+        float localX = wristPixel.x / UiWidth - 0.5f;
+        float localY = 0.5f - wristPixel.y / UiHeight;
+        Vector3 world = t.position
+                        + t.right * (localX * scale.x)
+                        + t.up * (localY * scale.y);
+        viewport = _mainCamera.WorldToViewportPoint(world);
+        return viewport.z > 0f;
+    }
+
     private static string RootResolved(VisualElement root)
     {
         return root.resolvedStyle.width.ToString("0") + "x"
@@ -808,6 +1009,19 @@ public class SurfaceWristController : MonoBehaviour
         else
         {
             Debug.LogError("[WristLayout] FAIL\n" + layoutReport);
+        }
+
+        // Round 9.2.1: identity label bounds (RT + projection). Printed on
+        // every wrist open so the Release screenshot log carries the exact
+        // 1920x1080 projected corners for human acceptance.
+        bool identityOk = VerifyWristIdentityBounds(out string identityReport);
+        if (identityOk)
+        {
+            Debug.Log("[WristIdentity] OK\n" + identityReport);
+        }
+        else
+        {
+            Debug.LogError("[WristIdentity] FAIL\n" + identityReport);
         }
     }
 

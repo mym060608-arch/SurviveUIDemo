@@ -253,18 +253,24 @@
     border-bottom-color: rgb(14, 127, 140);
 }
 
-/* Small identity label (bottom centre, subtle). */
+/* Radial header / identity label (Round 9.2.1): sits between the health
+   status arc (radius 248..262, apex ~y138..152) and the central map top
+   (radius 235, apex ~y165), centred on x=640. It is NOT part of the sector
+   staircase and must never be pushed to the RT bottom (the raised-wrist
+   projection clips it there). */
 .wrist-identity {
     position: absolute;
 
-    left: 490px;
-    top: 728px;
+    left: 500px;
+    top: 130px;
 
-    width: 300px;
+    width: 280px;
+    height: 18px;
 
     color: rgb(74, 82, 92);
 
     font-size: 11px;
 
+    white-space: nowrap;
     -unity-text-align: middle-center;
 }
