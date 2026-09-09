@@ -31,17 +31,26 @@ public static class SurviveBuildCLI
             Directory.CreateDirectory(Path.GetDirectoryName(resultPath));
 
             var scenes = EditorBuildSettings.scenes;
-            if (scenes == null || scenes.Length != 3)
+            if (scenes == null || scenes.Length < 3)
             {
-                throw new Exception("build settings must contain exactly 3 scenes");
+                throw new Exception("build settings must contain at least 3 scenes");
             }
 
-            string[] scenePaths =
+            // Build every enabled scene in order (Phase 07 adds 03_ShipInterior
+            // at index 3; runtime shot/flow probes load it from the player).
+            var scenePaths = new System.Collections.Generic.List<string>();
+            foreach (var scene in scenes)
             {
-                scenes[0].path,
-                scenes[1].path,
-                scenes[2].path
-            };
+                if (scene != null && scene.enabled)
+                {
+                    scenePaths.Add(scene.path);
+                }
+            }
+
+            if (scenePaths.Count < 3)
+            {
+                throw new Exception("fewer than 3 enabled build scenes");
+            }
 
             string exePath = buildPath + "/SurviveUIDemo.exe";
 
@@ -54,7 +63,7 @@ public static class SurviveBuildCLI
 
             var options = new BuildPlayerOptions
             {
-                scenes = scenePaths,
+                scenes = scenePaths.ToArray(),
                 locationPathName = exePath,
                 target = BuildTarget.StandaloneWindows64,
                 options = buildOptions

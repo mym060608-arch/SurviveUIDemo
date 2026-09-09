@@ -49,6 +49,10 @@ public class GameSession : MonoBehaviour
     public const float SurfaceWirelessTransferSeconds = 0.75f;
     public const string SurfaceSceneName = "02_NereidSurface";
 
+    // Walkable ship interior (Phase 07). ShipInterior authors no GameSession;
+    // this persistent object stays authoritative across scene transitions.
+    public const string ShipInteriorSceneName = "03_ShipInterior";
+
     /// <summary>Selectable outpost modules (three authoritative levels).</summary>
     public enum OutpostModule
     {

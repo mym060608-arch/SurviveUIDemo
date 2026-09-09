@@ -28,6 +28,7 @@ public static class SurviveProjectValidator
     private const string BootScenePath = "Assets/_Project/Scenes/00_Boot.unity";
     private const string HubScenePath = "Assets/_Project/Scenes/01_Hub.unity";
     private const string SurfaceScenePath = "Assets/_Project/Scenes/02_NereidSurface.unity";
+    private const string ShipScenePath = "Assets/_Project/Scenes/03_ShipInterior.unity";
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
@@ -38,7 +39,19 @@ public static class SurviveProjectValidator
     private const string SurfaceHudUssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
     private const string SurfaceWristUxmlPath = "Assets/_Project/UI/UXML/SurfaceWrist.uxml";
     private const string SurfaceWristUssPath = "Assets/_Project/UI/USS/SurfaceWrist.uss";
+    private const string ShipHudUxmlPath = "Assets/_Project/UI/UXML/ShipHUD.uxml";
+    private const string ShipHudUssPath = "Assets/_Project/UI/USS/ShipHUD.uss";
     private const string GuidePath = "Docs/UI_LANGUAGE_STYLE.md";
+
+    /// <summary>Phase 07 ship interior HUD element names the runtime binds to.</summary>
+    private static readonly string[] ShipHudStructure =
+    {
+        "ShipHudRoot",
+        "ShipZoneChip", "ShipZoneName", "ShipZoneMeta",
+        "ShipTitle",
+        "ShipCrosshairDot", "ShipCrosshairRing",
+        "ShipPrompt"
+    };
 
     /// <summary>Phase 06 Revision normal exploration HUD element names
     /// (screen-space SurfaceHUD.uxml).</summary>
@@ -120,6 +133,7 @@ public static class SurviveProjectValidator
         Record(File.Exists(BootScenePath), "scene exists: " + BootScenePath);
         Record(File.Exists(HubScenePath), "scene exists: " + HubScenePath);
         Record(File.Exists(SurfaceScenePath), "scene exists: " + SurfaceScenePath);
+        Record(File.Exists(ShipScenePath), "scene exists: " + ShipScenePath);
         Record(File.Exists(UxmlPath), "uxml exists: " + UxmlPath);
         Record(File.Exists(UssPath), "uss exists: " + UssPath);
         Record(File.Exists(OverviewUssPath), "overview uss exists: " + OverviewUssPath);
@@ -130,11 +144,13 @@ public static class SurviveProjectValidator
         Record(File.Exists(SurfaceHudUssPath), "surface HUD uss exists: " + SurfaceHudUssPath);
         Record(File.Exists(SurfaceWristUxmlPath), "surface wrist uxml exists: " + SurfaceWristUxmlPath);
         Record(File.Exists(SurfaceWristUssPath), "surface wrist uss exists: " + SurfaceWristUssPath);
+        Record(File.Exists(ShipHudUxmlPath), "ship HUD uxml exists: " + ShipHudUxmlPath);
+        Record(File.Exists(ShipHudUssPath), "ship HUD uss exists: " + ShipHudUssPath);
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
-        Record(buildScenes.Length == 3,
-            "build contains exactly 3 scenes (found " + buildScenes.Length + ")");
+        Record(buildScenes.Length == 4,
+            "build contains exactly 4 scenes (found " + buildScenes.Length + ")");
         if (buildScenes.Length >= 1)
         {
             Record(buildScenes[0].path == BootScenePath && buildScenes[0].enabled,
@@ -151,6 +167,12 @@ public static class SurviveProjectValidator
         {
             Record(buildScenes[2].path == SurfaceScenePath && buildScenes[2].enabled,
                 "build[2] = 02_NereidSurface enabled (actual: " + buildScenes[2].path + ")");
+        }
+
+        if (buildScenes.Length >= 4)
+        {
+            Record(buildScenes[3].path == ShipScenePath && buildScenes[3].enabled,
+                "build[3] = 03_ShipInterior enabled (actual: " + buildScenes[3].path + ")");
         }
 
         // ---- MainApp.uxml coverage ----
@@ -249,6 +271,27 @@ public static class SurviveProjectValidator
             {
                 Record(!wristPresent.Contains(forbidden),
                     "SurfaceWrist.uxml contains no legacy element: " + forbidden);
+            }
+        }
+
+        // ---- ShipHUD.uxml coverage (Phase 07 minimal interior HUD) ----
+        var shipUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(ShipHudUxmlPath);
+        Record(shipUxml != null, "ShipHUD.uxml imports as VisualTreeAsset");
+        if (shipUxml != null)
+        {
+            HashSet<string> shipPresent = new HashSet<string>();
+            TemplateContainer shipTemplate = shipUxml.Instantiate();
+            shipTemplate.Query<VisualElement>().ForEach(element =>
+            {
+                if (!string.IsNullOrEmpty(element.name))
+                {
+                    shipPresent.Add(element.name);
+                }
+            });
+
+            foreach (string expected in ShipHudStructure)
+            {
+                Record(shipPresent.Contains(expected), "ShipHUD.uxml structure: " + expected);
             }
         }
 
@@ -390,6 +433,99 @@ public static class SurviveProjectValidator
 
             Record(nodeIds.Count == 3 && new HashSet<int>(nodeIds).Count == 3,
                 "surface node ids unique (found " + nodeIds.Count + " distinct)");
+        }
+
+        // ---- 03_ShipInterior scene content (Phase 07) ----
+        if (File.Exists(ShipScenePath))
+        {
+            EditorSceneManager.OpenScene(ShipScenePath, OpenSceneMode.Single);
+            Record(CountInScene<GameSession>() == 0,
+                "03_ShipInterior authors no GameSession instance (found "
+                + CountInScene<GameSession>() + ")");
+            Record(CountInScene<SurfacePlayerController>() == 1,
+                "03_ShipInterior has exactly one first-person player controller (found "
+                + CountInScene<SurfacePlayerController>() + ")");
+            Record(CountInScene<FirstPersonInteractor>() == 1,
+                "03_ShipInterior has exactly one FirstPersonInteractor (found "
+                + CountInScene<FirstPersonInteractor>() + ")");
+            Record(CountInScene<ShipGameController>() == 1,
+                "03_ShipInterior has exactly one ShipGameController (found "
+                + CountInScene<ShipGameController>() + ")");
+            Record(CountInScene<ShipHudController>() == 1,
+                "03_ShipInterior has exactly one ShipHudController (found "
+                + CountInScene<ShipHudController>() + ")");
+            Record(CountInScene<UIDocument>() == 1,
+                "03_ShipInterior has exactly one UIDocument (found "
+                + CountInScene<UIDocument>() + ")");
+            Record(CountInScene<ShipConsoleInteractable>() == 4,
+                "03_ShipInterior has exactly 4 console interactables (found "
+                + CountInScene<ShipConsoleInteractable>() + ")");
+            Record(CountInScene<ShipDoorInteractable>() == 3,
+                "03_ShipInterior has exactly 3 sliding door interactables (found "
+                + CountInScene<ShipDoorInteractable>() + ")");
+            Record(CountInScene<ShipAirlockInteractable>() == 1,
+                "03_ShipInterior has exactly one airlock interactable (found "
+                + CountInScene<ShipAirlockInteractable>() + ")");
+            Record(CountInScene<ShipSpawnMarker>() == 2,
+                "03_ShipInterior has exactly 2 spawn markers (found "
+                + CountInScene<ShipSpawnMarker>() + ")");
+
+            // Console identities must be the four production screens in order.
+            var consoleIds = new List<int>();
+            Scene shipActive = SceneManager.GetActiveScene();
+            foreach (GameObject root in shipActive.GetRootGameObjects())
+            {
+                foreach (ShipConsoleInteractable console in
+                         root.GetComponentsInChildren<ShipConsoleInteractable>(true))
+                {
+                    consoleIds.Add(console.ConsoleId);
+                }
+            }
+
+            consoleIds.Sort();
+            Record(consoleIds.Count == 4 && consoleIds[0] == 1 && consoleIds[1] == 2
+                   && consoleIds[2] == 3 && consoleIds[3] == 4,
+                "ship console ids are 1..4 (found " + string.Join(",", consoleIds) + ")");
+
+            // First-person presentation: eye camera child of the player body.
+            SurfacePlayerController shipPlayer = FirstInScene<SurfacePlayerController>();
+            bool shipCameraUnderPlayer = false;
+            bool shipSawCamera = false;
+            if (shipPlayer != null)
+            {
+                foreach (Camera c in shipPlayer.GetComponentsInChildren<Camera>(true))
+                {
+                    shipSawCamera = true;
+                    shipCameraUnderPlayer = true;
+                    Record(c.transform.localPosition.y > 1.4f && c.transform.localPosition.y < 1.9f,
+                        "ship eye camera at eye height (y="
+                        + c.transform.localPosition.y.ToString("0.00") + ")");
+                }
+            }
+
+            Record(shipSawCamera && shipCameraUnderPlayer,
+                "ship camera is child of Player (first person)");
+
+            // Ship HUD UIDocument binding.
+            Scene shipDocScene = SceneManager.GetActiveScene();
+            bool shipHudDoc = false;
+            foreach (GameObject root in shipDocScene.GetRootGameObjects())
+            {
+                foreach (UIDocument doc in root.GetComponentsInChildren<UIDocument>(true))
+                {
+                    string name = doc.visualTreeAsset != null ? doc.visualTreeAsset.name : "<null>";
+                    if (name == "ShipHUD")
+                    {
+                        shipHudDoc = true;
+                        ShipHudController hud = doc.GetComponent<ShipHudController>();
+                        bool panelOk = doc.panelSettings != null
+                            || (hud != null && hud.panelSettings != null);
+                        Record(panelOk, "ship HUD PanelSettings assigned");
+                    }
+                }
+            }
+
+            Record(shipHudDoc, "ship UIDocument bound to ShipHUD.uxml");
         }
 
         bool ok = failures == 0;

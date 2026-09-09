@@ -1,0 +1,24 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- ARK-07 walkable interior HUD (Phase 07 Checkpoint A).
+         Chinese-first compartment tag (top-left), restrained prompt
+         (bottom-centre) and centre crosshair. -->
+    <ui:VisualElement name="ShipHudRoot" class="ship-hud-root">
+        <!-- Compartment tag (top-left): Chinese primary + English metadata -->
+        <ui:VisualElement name="ShipZoneChip" class="ship-zone-chip">
+            <ui:Label name="ShipZoneName" class="ship-zone-name" text="中央通道" />
+            <ui:Label name="ShipZoneMeta" class="ship-zone-meta" text="SPINE" />
+        </ui:VisualElement>
+
+        <!-- Ship identity metadata (top-right, restrained English) -->
+        <ui:Label name="ShipTitle" class="ship-title" text="SHIP // ARK-07" />
+
+        <!-- Centre interaction crosshair (neutral dot + optional ring) -->
+        <ui:VisualElement class="ship-crosshair-wrap">
+            <ui:VisualElement name="ShipCrosshairDot" class="ship-xh-dot" />
+            <ui:VisualElement name="ShipCrosshairRing" class="ship-xh-ring" />
+        </ui:VisualElement>
+
+        <!-- Gaze interaction prompt (bottom centre) -->
+        <ui:Label name="ShipPrompt" class="ship-prompt" text="" />
+    </ui:VisualElement>
+</ui:UXML>

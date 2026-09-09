@@ -103,6 +103,7 @@ public static class SurviveProjectSetup
         ok &= BuildBootScene();
         ok &= BuildHubScene(uxml, uss, overviewUss, preparationUss, processingUss, outpostUss);
         ok &= NereidSurfaceBuilder.BuildSurface();
+        ok &= ShipInteriorBuilder.BuildShipInterior();
         ok &= SetBuildOrder();
 
         AssetDatabase.SaveAssets();
@@ -175,6 +176,11 @@ public static class SurviveProjectSetup
         var shotProbe = new GameObject("SurfaceShotProbe");
         SceneManager.MoveGameObjectToScene(shotProbe, scene);
         shotProbe.AddComponent<SurfaceShotProbe>();
+
+        // Phase 07 ship graybox screenshot probe (inert unless -shipShot).
+        var shipShotProbe = new GameObject("ShipShotProbe");
+        SceneManager.MoveGameObjectToScene(shipShotProbe, scene);
+        shipShotProbe.AddComponent<ShipShotProbe>();
 
         if (!EditorSceneManager.SaveScene(scene, BootScenePath))
         {
@@ -257,26 +263,29 @@ public static class SurviveProjectSetup
     private static bool SetBuildOrder()
     {
         string surfacePath = "Assets/_Project/Scenes/02_NereidSurface.unity";
+        string shipPath = "Assets/_Project/Scenes/03_ShipInterior.unity";
         var scenes = new[]
         {
             new EditorBuildSettingsScene(BootScenePath, true),
             new EditorBuildSettingsScene(HubScenePath, true),
-            new EditorBuildSettingsScene(surfacePath, true)
+            new EditorBuildSettingsScene(surfacePath, true),
+            new EditorBuildSettingsScene(shipPath, true)
         };
 
         EditorBuildSettings.scenes = scenes;
 
         var current = EditorBuildSettings.scenes;
-        bool ok = current != null && current.Length == 3
+        bool ok = current != null && current.Length == 4
                   && current[0].path == BootScenePath && current[1].path == HubScenePath
-                  && current[2].path == surfacePath;
+                  && current[2].path == surfacePath && current[3].path == shipPath;
         if (!ok)
         {
             Debug.LogError("[SurviveProjectSetup] build order not applied");
         }
         else
         {
-            Debug.Log("[SurviveProjectSetup] build order set: 0=00_Boot 1=01_Hub 2=02_NereidSurface");
+            Debug.Log("[SurviveProjectSetup] build order set: "
+                      + "0=00_Boot 1=01_Hub 2=02_NereidSurface 3=03_ShipInterior");
         }
 
         return ok;
