@@ -55,7 +55,10 @@ public class SurvivePhase06RevisionTests
     private static IEnumerator EnterSurface()
     {
         GameSession.Ensure().ResetSession();
-        SceneManager.LoadScene("00_Boot");
+        // Phase 07A.1: the wrist/loadout suites need the Hub-side confirmation
+        // ceremony, so they enter the legacy Hub explicitly (normal boot now
+        // goes to the walkable ship interior).
+        SceneManager.LoadScene(BootController.HubSceneName);
         yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
 
         AppController app = null;
@@ -313,7 +316,8 @@ public class SurvivePhase06RevisionTests
     {
         GameSession session = GameSession.Ensure();
         session.ResetSession();
-        SceneManager.LoadScene("00_Boot");
+        // Phase 07A.1: legacy Hub suites load the Hub explicitly.
+        SceneManager.LoadScene(BootController.HubSceneName);
         yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
 
         AppController app = null;
@@ -774,24 +778,44 @@ public class SurvivePhase06RevisionTests
         Assert.AreEqual("E  返回舰船", controller.Interactor.ResolvePrompt(), "landing prompt text");
 
         Assert.IsTrue(controller.Interactor.TryInteract(), "E return accepted");
-        yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
-        Assert.AreEqual(BootController.HubSceneName, ActiveSceneName(), "back on the Hub");
+        // Phase 07A.1: the landing return now enters the physical ship
+        // interior at the FromSurface spawn instead of the legacy 2D Hub.
+        yield return WaitUntil(() => ActiveSceneName() == GameSession.ShipInteriorSceneName);
+        Assert.AreEqual(GameSession.ShipInteriorSceneName, ActiveSceneName(),
+            "returned to the ship interior");
 
-        AppController app = null;
+        ShipGameController ship = null;
         yield return WaitUntil(() =>
         {
-            app = Object.FindAnyObjectByType<AppController>();
-            return app != null && app.IsReady;
+            ship = Object.FindAnyObjectByType<ShipGameController>();
+            return ship != null && ship.IsReady && ship.Player != null;
         });
-        Assert.IsNotNull(app, "hub UI ready after landing return");
+        Assert.IsNotNull(ship, "ShipGameController ready after landing return");
+        Assert.IsNotNull(ship.Player, "ship player ready");
 
-        // HubUiMode semantics: the hub explicitly restores the cursor and the
-        // 2D screen remains interactive (navigation reaches another screen).
-        app.ApplyHubUiMode();
-        app.ShowScreen(AppScreen.Preparation);
-        yield return null;
-        yield return null;
-        Assert.AreEqual(AppScreen.Preparation, app.CurrentScreen, "hub navigation still interactive");
+        ShipSpawnMarker surfaceMarker = null;
+        foreach (ShipSpawnMarker marker in Object.FindObjectsByType<ShipSpawnMarker>())
+        {
+            if (marker.MarkerId == ShipSpawnMarker.FromSurfaceId)
+            {
+                surfaceMarker = marker;
+            }
+        }
+
+        Assert.IsNotNull(surfaceMarker, "FromSurface marker exists");
+        Vector3 returned = ship.Player.transform.position;
+        AssertNearly(surfaceMarker.transform.position.x, returned.x, "from-surface spawn x");
+        AssertNearly(surfaceMarker.transform.position.z, returned.z, "from-surface spawn z");
+        Assert.AreEqual("气闸舱", ShipGameController.ResolveZoneZh(returned),
+            "player spawned inside the airlock");
+        Assert.AreEqual(0f, ship.Player.YawDegrees, "player faces into the ship");
+
+        // ShipExplore input restored (movement/E interaction enabled; cursor
+        // semantics are asserted by the standalone routing probe because the
+        // editor Test Runner owns the OS cursor).
+        Assert.IsTrue(ship.Player.InputEnabled, "movement enabled after return");
+        Assert.IsNotNull(ship.Interactor, "world E interaction enabled after return");
+        Assert.AreEqual(4, ship.Consoles.Count, "ship registries intact after return");
     }
 
     // ==================================================================

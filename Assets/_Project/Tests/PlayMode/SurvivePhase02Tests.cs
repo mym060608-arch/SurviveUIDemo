@@ -41,9 +41,10 @@ public class SurvivePhase02Tests
         // Deterministic precondition.
         GameSession.Ensure().ResetSession();
 
-        SceneManager.LoadScene("00_Boot");
+        // Phase 07A.1: legacy Hub suites load the Hub explicitly (normal boot
+        // destination is now the walkable ship interior).
+        SceneManager.LoadScene(BootController.HubSceneName);
         yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
-        Assert.AreEqual(BootController.HubSceneName, ActiveSceneName(), "Boot must reach Hub");
 
         AppController app = null;
         yield return WaitUntil(() =>

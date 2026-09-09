@@ -1,13 +1,15 @@
 using UnityEngine;
 
 /// <summary>
-/// Physical airlock / EVA deployment station placeholder (Phase 07 Checkpoint A).
+/// Physical airlock / EVA deployment station (Phase 07A.1).
 ///
 /// An IFirstPersonInteractable on the aft airlock bulkhead offering the
-/// Chinese-first prompt 前往 NEREID-04 地表. In 07A it is a placeholder only:
-/// pressing E records a notice. The real airlock -&gt; surface scene transition
-/// is checkpoint 07C scope and uses the existing mission/loadout authority
-/// (GameSession) without duplicating preparation rules.
+/// Chinese-first prompt 前往 NEREID-04 地表. Pressing E routes through the
+/// single SceneRouting helper into the existing NEREID-04 surface scene and
+/// its authoritative GameSession state - no second expedition/loadout state
+/// is created. The surface scene itself does not gate on the loadout
+/// confirmation flag (confirmation only gates the legacy Hub CTA ceremony;
+/// physical confirmation arrives with the interactive consoles in 07B).
 /// </summary>
 public class ShipAirlockInteractable : MonoBehaviour, IFirstPersonInteractable
 {
@@ -26,9 +28,6 @@ public class ShipAirlockInteractable : MonoBehaviour, IFirstPersonInteractable
 
     public void Interact()
     {
-        // Phase 07A contract: airlock is an interactable placeholder. The
-        // real airlock -> surface transition arrives in checkpoint 07C.
-        Debug.Log("[ShipAirlockInteractable] deployment placeholder - "
-                  + "airlock -> NEREID-04 transition arrives in 07C");
+        SceneRouting.EnterSurface();
     }
 }

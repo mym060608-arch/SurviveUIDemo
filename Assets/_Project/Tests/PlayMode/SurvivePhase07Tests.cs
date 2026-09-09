@@ -50,9 +50,11 @@ public class SurvivePhase07Tests
         return SceneManager.GetActiveScene().name;
     }
 
-    /// <summary>Loads the ship scene by name and waits for the active scene.</summary>
+    /// <summary>Loads the ship scene by name (Default entry) and waits for
+    /// the active scene.</summary>
     private static IEnumerator LoadShipScene()
     {
+        SceneRouting.RequestShipEntry(SceneRouting.ShipEntry.Default);
         SceneManager.LoadScene(GameSession.ShipInteriorSceneName);
         yield return WaitUntil(() => ActiveSceneName() == GameSession.ShipInteriorSceneName);
     }

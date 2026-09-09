@@ -182,6 +182,11 @@ public static class SurviveProjectSetup
         SceneManager.MoveGameObjectToScene(shipShotProbe, scene);
         shipShotProbe.AddComponent<ShipShotProbe>();
 
+        // Phase 07A.1 normal human-runtime routing probe (inert unless -shipFlow).
+        var shipFlowProbe = new GameObject("ShipFlowProbe");
+        SceneManager.MoveGameObjectToScene(shipFlowProbe, scene);
+        shipFlowProbe.AddComponent<ShipFlowProbe>();
+
         if (!EditorSceneManager.SaveScene(scene, BootScenePath))
         {
             Debug.LogError("[SurviveProjectSetup] failed to save " + BootScenePath);

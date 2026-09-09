@@ -147,7 +147,8 @@ public class SurvivePhase05Tests
     public IEnumerator BootToHub_OutpostChineseJourney_EconomyAndProcessingIntegration()
     {
         GameSession.Ensure().ResetSession();
-        SceneManager.LoadScene("00_Boot");
+        // Phase 07A.1: legacy Hub suites load the Hub explicitly.
+        SceneManager.LoadScene(BootController.HubSceneName);
         yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
 
         AppController app = null;

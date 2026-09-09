@@ -13,13 +13,15 @@ using UnityEngine.UIElements;
 /// and reports through it. This suite drives real public APIs:
 /// - pure session rules (mask, yields, reset),
 /// - the deterministic node state machine (fixed-time AdvanceTimers),
-/// - the real cross-scene expedition loop Boot -> Hub -> surface (real-time
-///   settle) -> Hub preservation, then a second re-entry proving persistence.
+/// - the real cross-scene expedition loop Hub -> surface (real-time settle)
+///   -> Hub preservation, then a second re-entry proving persistence.
 ///
+/// Phase 07A.1: the legacy Hub is entered explicitly (normal Boot now routes
+/// into the walkable ship interior, validated by the Phase07 routing suite).
 /// Semantic automation uses the public gameplay APIs (TryDeployNearest /
-/// TeleportTo / ReturnToHub) exactly like AutoSurfaceFlowProbe; it never
-/// fakes physical key presses (see the Manual Input Review in the report).
-/// Single Boot -> Hub load per test, suite runs via its own -testFilter.
+/// TeleportTo) exactly like AutoSurfaceFlowProbe; it never fakes physical key
+/// presses (see the Manual Input Review in the report).
+/// Single Hub load per test, suite runs via its own -testFilter.
 /// </summary>
 public class SurvivePhase06Tests
 {
@@ -190,7 +192,9 @@ public class SurvivePhase06Tests
     public IEnumerator BootToHubSurface_ExpeditionLoop_RealTimeSettle()
     {
         GameSession.Ensure().ResetSession();
-        SceneManager.LoadScene("00_Boot");
+        // Phase 07A.1: this regression suite validates the Hub UI journey, so
+        // it enters the legacy Hub explicitly (normal boot now goes to ship).
+        SceneManager.LoadScene(BootController.HubSceneName);
         yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
 
         AppController app = null;
@@ -291,8 +295,11 @@ public class SurvivePhase06Tests
         Label result = hudRoot.Q<Label>("HudResult");
         Assert.AreEqual("传输完成  矿物 +5", result.text, "transfer result line shown");
 
-        // Persistence: leave for the Hub and verify the shared value survives.
-        controller.ReturnToHub();
+        // Persistence: leave the surface for the legacy Hub (explicit load)
+        // and verify the shared value survives. The human return path now
+        // goes to the ship interior and is covered by the Phase07 routing
+        // suite instead.
+        SceneManager.LoadScene(BootController.HubSceneName);
         yield return WaitUntil(() => ActiveSceneName() == BootController.HubSceneName);
         app = null;
         yield return WaitUntil(() =>

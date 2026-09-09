@@ -161,7 +161,7 @@ public class SurfaceGameController : MonoBehaviour
         // R return-to-ship shortcut stays available in exploration mode.
         if (keyboard.rKey.wasPressedThisFrame)
         {
-            ReturnToHub();
+            ReturnToShip();
         }
     }
 
@@ -453,15 +453,17 @@ public class SurfaceGameController : MonoBehaviour
         return _nearest.TryStartHarvest();
     }
 
-    /// <summary>Back to the Hub (no Reset); GameSession stays authoritative.</summary>
-    public void ReturnToHub()
+    /// <summary>Returns to the walkable ship interior (FromSurface spawn) with
+    /// the session untouched. Phase 07A.1: the surface landing return now
+    /// leads to the physical ship instead of the legacy 2D Hub.</summary>
+    public void ReturnToShip()
     {
         if (_isWristOpen)
         {
             return;
         }
 
-        SceneManager.LoadScene(BootController.HubSceneName);
+        SceneRouting.EnterShipInterior(SceneRouting.ShipEntry.FromSurface);
     }
 
     private void UpdateNearest()

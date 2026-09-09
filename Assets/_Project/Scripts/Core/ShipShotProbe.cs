@@ -55,8 +55,10 @@ public class ShipShotProbe : MonoBehaviour
 
     private IEnumerator Run()
     {
+        // Phase 07A.1: the probe does NOT load any scene - normal boot itself
+        // enters 03_ShipInterior. This run therefore proves the real
+        // standalone launch route (Boot -> ShipInterior -> ShipExplore).
         GameSession.Ensure();
-        SceneManager.LoadScene(GameSession.ShipInteriorSceneName);
 
         ShipGameController controller = null;
         for (int i = 0; i < 1800; i++)

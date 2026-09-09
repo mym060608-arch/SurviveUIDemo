@@ -55,6 +55,12 @@ public class SurfaceShotProbe : MonoBehaviour
 
     private IEnumerator Run()
     {
+        // Phase 07A.1: normal boot now enters the ship interior. This probe
+        // needs the Hub-side loadout confirmation ceremony, so it enters the
+        // legacy Hub explicitly before continuing its surface journey.
+        GameSession.Ensure();
+        SceneManager.LoadScene(BootController.HubSceneName);
+
         GameSession session = GameSession.Instance;
         AppController app = null;
         for (int i = 0; i < 1200; i++)

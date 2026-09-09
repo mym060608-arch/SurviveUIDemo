@@ -10,9 +10,11 @@ using UnityEngine.UIElements;
 ///
 /// Inert unless launched with  -autoSurface &lt;absolute path&gt;. Drives the
 /// authoritative public gameplay APIs (never fake key presses):
-/// Hub(confirmed) -> 02_NereidSurface -> deploy Node 0 -> harvest + wireless
-/// transfer settle -> 返回舰船 -> Hub preserved Minerals. Writes a result
-/// file and quits. Lives in 00_Boot so it survives scene transitions.
+/// Hub(confirmed, loaded explicitly) -> 02_NereidSurface -> deploy Node 0 ->
+/// harvest + wireless transfer settle -> 返回舰船 -> Hub preserved Minerals.
+/// Writes a result file and quits. Lives in 00_Boot so it survives scene
+/// transitions. Normal human boot now enters the ship interior; this probe
+/// explicitly enters the legacy Hub because it validates Hub-side values.
 /// </summary>
 public class AutoSurfaceFlowProbe : MonoBehaviour
 {
@@ -52,7 +54,10 @@ public class AutoSurfaceFlowProbe : MonoBehaviour
 
     private IEnumerator RunFlow()
     {
-        // Stage A: reach Hub (Boot auto-loads it) with a clean session.
+        // Stage A: reach the legacy Hub explicitly (normal boot now enters
+        // the ship interior; this probe needs Hub-side values).
+        GameSession.Ensure();
+        SceneManager.LoadScene(BootController.HubSceneName);
         AppController app = null;
         for (int i = 0; i < 1200; i++)
         {
@@ -168,8 +173,10 @@ public class AutoSurfaceFlowProbe : MonoBehaviour
         Check("second settle rejected", !session.TryCompleteSurfaceNode(0, 5));
         Check("minerals unchanged on rejected settle", session.Minerals == 25);
 
-        // Stage E: return to Hub and verify preserved Minerals.
-        controller.ReturnToHub();
+        // Stage E: return to the legacy Hub (explicit automation route) and
+        // verify preserved Minerals. The human return path now leads to the
+        // ship interior and is covered by ShipFlowProbe / Phase07 routing tests.
+        SceneRouting.EnterHub();
         for (int i = 0; i < 1200; i++)
         {
             app = Object.FindAnyObjectByType<AppController>();

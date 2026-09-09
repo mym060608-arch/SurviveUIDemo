@@ -1,12 +1,14 @@
 using UnityEngine;
 
 /// <summary>
-/// Landing / return-zone world interaction (Phase 06 Revision round 2).
+/// Landing / return-zone world interaction (Phase 06 Revision round 2,
+/// Phase 07A.1 routing).
 ///
 /// The landing pad is a normal IFirstPersonInteractable: looking at the pad
-/// area and pressing E calls the existing ReturnToHub path. This makes E the
-/// primary return interaction (R remains as a secondary shortcut). Standing
-/// anywhere at the pad never creates a dead end: return is always offered.
+/// area and pressing E calls the existing surface return path, which now
+/// routes into the walkable ship interior (FromSurface spawn) instead of the
+/// legacy 2D Hub. R remains a secondary shortcut. Standing anywhere at the
+/// pad never creates a dead end: return is always offered.
 /// </summary>
 public class LandingReturnInteractable : MonoBehaviour, IFirstPersonInteractable
 {
@@ -38,7 +40,7 @@ public class LandingReturnInteractable : MonoBehaviour, IFirstPersonInteractable
             Object.FindAnyObjectByType<SurfaceGameController>();
         if (controller != null)
         {
-            controller.ReturnToHub();
+            controller.ReturnToShip();
         }
     }
 

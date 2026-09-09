@@ -38,7 +38,8 @@ public class SurvivePhase05ShotTests
     public IEnumerator CleanOutpost_DefaultAndUpgraded_ThreeResolutions()
     {
         GameSession.Ensure().ResetSession();
-        SceneManager.LoadScene("00_Boot");
+        // Phase 07A.1: legacy Hub suites load the Hub explicitly.
+        SceneManager.LoadScene(BootController.HubSceneName);
         yield return WaitUntil(() => SceneManager.GetActiveScene().name == BootController.HubSceneName);
 
         AppController app = null;

@@ -71,7 +71,16 @@ public class ShipGameController : MonoBehaviour
 
         _airlock = Object.FindAnyObjectByType<ShipAirlockInteractable>();
 
-        ApplySpawn(ShipSpawnMarker.DefaultId);
+        // Consume the routing reason (Default for normal boot, FromSurface for
+        // the landing return) and place the player on the matching marker.
+        // Consumption restores the reason to Default so a later scene load
+        // never re-uses a stale spawn.
+        SceneRouting.ShipEntry entry = SceneRouting.ConsumeShipEntry();
+        string markerId = entry == SceneRouting.ShipEntry.FromSurface
+            ? ShipSpawnMarker.FromSurfaceId
+            : ShipSpawnMarker.DefaultId;
+        ApplySpawn(markerId);
+
         ApplyShipExploreMode();
         if (_hud != null)
         {
@@ -79,6 +88,8 @@ public class ShipGameController : MonoBehaviour
         }
 
         _ready = true;
+        Debug.Log("[ShipGameController] ShipExplore ready entry=" + entry
+                  + " spawn=" + markerId + " scene=" + gameObject.scene.name);
     }
 
     private void Update()

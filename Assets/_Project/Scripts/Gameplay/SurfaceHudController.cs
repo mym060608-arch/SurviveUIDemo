@@ -153,7 +153,8 @@ public class SurfaceHudController : MonoBehaviour
 
         if (_returnButton != null && _controller != null)
         {
-            _returnButton.clicked += _controller.ReturnToHub;
+            // 返回舰船 now routes into the physical ship interior (07A.1).
+            _returnButton.clicked += _controller.ReturnToShip;
         }
     }
 
