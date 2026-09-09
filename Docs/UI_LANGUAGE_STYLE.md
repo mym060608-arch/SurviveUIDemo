@@ -1827,3 +1827,49 @@ OFL 许可），在最终资产阶段统一嵌入。
 中文缺字 / 方框风险会在“字体验证检查”中以人工视觉审核为准。
 
 此记录将随后续 Phase 保持更新，直到正式字体落地。
+
+---
+
+# 62. Wrist Terminal Terms (Phase 06 Revision)
+
+Field/personal terminal canonical terms. Chinese remains the primary player
+language; English stays as secondary metadata only.
+
+```text
+腕部终端
+WRIST TERMINAL
+
+地表地图
+LOCAL MAP
+
+健康度
+饱食度
+当前装备
+携带状态
+载荷
+当前导航
+导航目标
+资源节点
+目标已到达
+未设置
+采集中
+无线传输
+传输完成
+采集器 MK-I
+备用电池组
+勘测无人机
+已装备
+已选择
+未选择
+0 = 极度饥饿 · 100 = 完全饱腹
+```
+
+Semantics notes:
+
+- 饱食度 (PlayerSatiety) higher = better: 0 = 极度饥饿, 100 = 完全饱腹;
+  the default is a normal high value (82). Never display satiety as hunger
+  (lower-is-worse) on the wrist.
+- Normal exploration HUD shows only: crosshair, interaction prompt,
+  navigation readout, temporary harvest/transfer feedback, return action.
+- Wrist shows: map, personal status, equipment, cargo, mission/node count.
+- 腕部终端 must never be presented as a miniature of the four ship screens.

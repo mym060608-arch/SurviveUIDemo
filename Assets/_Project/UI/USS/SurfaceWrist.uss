@@ -1,0 +1,279 @@
+/*
+ * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision Round 9.2).
+ * Rendered into a fixed 1280x800 RenderTexture and projected onto a tilted
+ * world plane. Off-white / ink / teal / hairline language, no neon.
+ *
+ * Round 9.2 IMPORTANT:
+ * 1. USS is ONLY responsible for text/marker placement & typography.
+ *    It must NOT draw rings, arcs, panels or a white map disc: every annular
+ *    shape comes from RadialWristElement triangle meshes.
+ * 2. The four panels are Parallel-Cap Annular Panels drawn by
+ *    RadialWristElement (annulus 248..365 x horizontal bands). USS never
+ *    provides card backgrounds, borders or fills for them.
+ * 3. Text rows are absolutely-positioned horizontal SLOTS. SurfaceWristController
+ *    computes left/top/width of each row from the real panel cross-section at
+ *    that row's Y (GetPanelHorizontalRange); USS only styles the text.
+ *    left/top here are offscreen fallbacks until C# positions the row.
+ */
+
+.wrist-root {
+    position: relative;
+
+    width: 1280px;
+    height: 800px;
+
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.radial-geometry-host {
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 1280px;
+    height: 800px;
+
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.map-marker-layer {
+    position: absolute;
+
+    left: 0;
+    top: 0;
+
+    width: 1280px;
+    height: 800px;
+
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* ============================================================
+   Status arc value text.
+   ============================================================ */
+
+.radial-value {
+    position: absolute;
+
+    color: rgb(22, 27, 32);
+
+    font-size: 17px;
+    -unity-font-style: bold;
+
+    -unity-text-align: middle-center;
+}
+
+/* Health value: just above the upper status arc apex (arc band ~y138..152). */
+.health-label {
+    left: 540px;
+    top: 94px;
+
+    width: 200px;
+    height: 32px;
+}
+
+/* Satiety value: just below the lower status arc apex (arc band ~y648..662). */
+.satiety-label {
+    left: 540px;
+    top: 674px;
+
+    width: 200px;
+    height: 32px;
+}
+
+/* ============================================================
+   Horizontal text rows (Round 9.2).
+   Each row is its own slot. C# overwrites left/top/width after binding;
+   the styles below only define typography & vertical rhythm.
+   ============================================================ */
+
+.wrist-row {
+    position: absolute;
+
+    /* Offscreen fallback until the C# row-slot layout applies. */
+    left: -2000px;
+    top: -2000px;
+
+    height: 21px;
+
+    white-space: nowrap;
+    -unity-text-align: middle-center;
+
+    /* default body typography */
+    color: rgb(22, 27, 32);
+    font-size: 12px;
+}
+
+/* Heading: 13px bold secondary ink. */
+.row-heading {
+    color: rgb(74, 82, 92);
+    font-size: 13px;
+    -unity-font-style: bold;
+}
+
+/* Primary dynamic value: 14px bold accent (meaningful values only). */
+.row-value {
+    color: rgb(14, 127, 140);
+    font-size: 14px;
+    -unity-font-style: bold;
+}
+
+/* Body copy: 12px ink. */
+.row-body {
+    color: rgb(22, 27, 32);
+    font-size: 12px;
+}
+
+/* Equipment entries: body copy; unselected items are muted. */
+.row-equip {
+    color: rgb(22, 27, 32);
+    font-size: 12px;
+}
+
+.row-equip.row-off {
+    color: rgb(126, 136, 144);
+}
+
+/* ============================================================
+   Map markers (absolute wrist pixels).
+   ============================================================ */
+
+.map-node {
+    position: absolute;
+
+    width: 24px;
+    height: 24px;
+
+    margin-left: -12px;
+    margin-top: -12px;
+
+    background-color: rgb(22, 27, 32);
+
+    border-radius: 12px;
+}
+
+.map-node.node-depleted {
+    background-color: rgba(22, 27, 32, 0);
+
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+
+    border-left-color: rgb(110, 122, 130);
+    border-right-color: rgb(110, 122, 130);
+    border-top-color: rgb(110, 122, 130);
+    border-bottom-color: rgb(110, 122, 130);
+}
+
+.map-node.node-active {
+    background-color: rgb(14, 127, 140);
+}
+
+.map-node.node-transmitting {
+    background-color: rgb(10, 97, 108);
+}
+
+.map-node.node-selected {
+    border-left-width: 3px;
+    border-right-width: 3px;
+    border-top-width: 3px;
+    border-bottom-width: 3px;
+
+    border-left-color: rgb(14, 127, 140);
+    border-right-color: rgb(14, 127, 140);
+    border-top-color: rgb(14, 127, 140);
+    border-bottom-color: rgb(14, 127, 140);
+}
+
+/* Player marker: native triangle glyph (points north at yaw 0); C# rotates
+   it by player yaw so the marker always shows facing. */
+.map-player {
+    position: absolute;
+
+    width: 22px;
+    height: 22px;
+
+    margin-left: -11px;
+    margin-top: -11px;
+
+    -unity-text-align: middle-center;
+
+    color: rgb(14, 127, 140);
+
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+/* Landing/return point: thin outlined square. */
+.map-landing {
+    position: absolute;
+
+    width: 18px;
+    height: 18px;
+
+    margin-left: -9px;
+    margin-top: -9px;
+
+    background-color: rgba(0, 0, 0, 0);
+
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+
+    border-left-color: rgb(74, 82, 92);
+    border-right-color: rgb(74, 82, 92);
+    border-top-color: rgb(74, 82, 92);
+    border-bottom-color: rgb(74, 82, 92);
+}
+
+.map-selected-ring {
+    position: absolute;
+
+    width: 36px;
+    height: 36px;
+
+    margin-left: -18px;
+    margin-top: -18px;
+
+    background-color: rgba(0, 0, 0, 0);
+
+    border-radius: 18px;
+
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+
+    border-left-color: rgb(14, 127, 140);
+    border-right-color: rgb(14, 127, 140);
+    border-top-color: rgb(14, 127, 140);
+    border-bottom-color: rgb(14, 127, 140);
+}
+
+/* Map footer / identity label (Round 9.2.2): "NEREID-04 · 地表勘测" lives
+   INSIDE the central Local Map, lower half, below the map centre - it no
+   longer floats between the health arc and the map. Centred at x=640 with a
+   very light MapFill-like translucent backing so the vertical map crosshair
+   (x=640, y up to ~575) does not cut through the glyphs. Deliberately
+   restrained: no card, no border, no teal, no bold. */
+.wrist-identity {
+    position: absolute;
+
+    left: 534px;
+    top: 560px;
+
+    width: 212px;
+    height: 20px;
+
+    background-color: rgba(185, 198, 204, 0.13);
+
+    color: rgb(74, 82, 92);
+
+    font-size: 10px;
+
+    white-space: nowrap;
+    -unity-text-align: middle-center;
+}

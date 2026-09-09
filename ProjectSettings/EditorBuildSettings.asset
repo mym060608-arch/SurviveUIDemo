@@ -11,5 +11,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Project/Scenes/01_Hub.unity
     guid: 45cb6669df3ee6d468cdf5f4872f0209
+  - enabled: 1
+    path: Assets/_Project/Scenes/02_NereidSurface.unity
+    guid: bab7c56c4afa9c44b87df922cb996771
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

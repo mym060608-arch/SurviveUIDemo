@@ -1,0 +1,428 @@
+/*
+ * Survive UI Demo - NEREID-04 surface HUD (Phase 06).
+ * Chinese-first, inherits the off-white/ink/teal/hairline language but stays
+ * light so the 3D world remains the primary visual. Phase 06 Revision adds
+ * the first-person layer (crosshair, navigation readout) and the wrist
+ * terminal layer (styles live in SurfaceWrist.uss).
+ */
+
+.hud-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* Normal exploration content is grouped so the wrist can hide it wholesale. */
+.hud-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+/* ---------- Context card (top-left) ---------- */
+
+.hud-card {
+    position: absolute;
+    background-color: rgba(237, 239, 241, 0.92);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding: 14px 18px;
+}
+
+.hud-context {
+    left: 24px;
+    top: 24px;
+    min-width: 240px;
+}
+
+.hud-context-line {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.hud-title {
+    font-size: 20px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-right: 10px;
+}
+
+.hud-subtitle {
+    font-size: 10px;
+    letter-spacing: 0;
+    color: #7B858F;
+}
+
+.hud-rule {
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-top: 10px;
+    margin-bottom: 8px;
+}
+
+.hud-row {
+    flex-direction: row;
+    align-items: center;
+    height: 26px;
+}
+
+.hud-row-key {
+    font-size: 12px;
+    color: #4A525C;
+    margin-right: auto;
+}
+
+.hud-row-value {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+/* ---------- Active node status (left, mid) ---------- */
+
+.hud-status {
+    left: 24px;
+    top: 210px;
+    min-width: 220px;
+    display: none;
+}
+
+.hud-status-label {
+    font-size: 10px;
+    color: #7B858F;
+    margin-bottom: 4px;
+}
+
+.hud-status-line {
+    flex-direction: row;
+    align-items: center;
+}
+
+.hud-status-text {
+    font-size: 14px;
+    -unity-font-style: bold;
+    color: #0A616C;
+    margin-right: auto;
+}
+
+.hud-status-percent {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #0A616C;
+}
+
+/* ---------- Navigation readout (left, above the prompt) ---------- */
+
+.hud-nav {
+    position: absolute;
+    left: 24px;
+    bottom: 110px;
+    min-width: 220px;
+    background-color: rgba(237, 239, 241, 0.9);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    padding: 10px 16px;
+    display: none;
+}
+
+.hud-nav-name {
+    font-size: 13px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.hud-nav-distance {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #0E7F8C;
+    margin-top: 2px;
+}
+
+/* ---------- Interaction prompt (bottom center) ---------- */
+
+.hud-prompt {
+    position: absolute;
+    left: 50%;
+    bottom: 28px;
+    margin-left: -160px;
+    width: 320px;
+    height: 44px;
+    -unity-text-align: middle-center;
+    font-size: 18px;
+    -unity-font-style: bold;
+    color: #FFFFFF;
+    letter-spacing: 0;
+    /* subtle readable chip over the world */
+    background-color: rgba(22, 27, 32, 0.72);
+    padding-top: 10px;
+}
+
+/* ---------- Transfer result (center) ---------- */
+
+.hud-result {
+    position: absolute;
+    left: 50%;
+    top: 44%;
+    margin-left: -180px;
+    width: 360px;
+    height: 52px;
+    -unity-text-align: middle-center;
+    font-size: 24px;
+    -unity-font-style: bold;
+    color: #0A616C;
+    background-color: rgba(237, 239, 241, 0.92);
+    padding-top: 10px;
+    border-width: 1px;
+    border-color: #B9CDD1;
+    display: none;
+}
+
+/* ---------- Return action (top-right) ---------- */
+
+.hud-return {
+    position: absolute;
+    right: 24px;
+    top: 24px;
+    width: 150px;
+    height: 46px;
+    -unity-text-align: middle-center;
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #FFFFFF;
+    background-color: #161B20;
+    border-width: 1px;
+    border-color: #161B20;
+}
+
+.hud-return:hover {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+}
+
+.hud-return:active {
+    background-color: #0A616C;
+    border-color: #0A616C;
+}
+
+/* ---------- Center crosshair (first-person, Phase 06 Revision) ---------- */
+
+.hud-crosshair-wrap {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.hud-xh-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: rgba(22, 27, 32, 0.88);
+}
+
+.hud-xh-dot.dot-valid {
+    background-color: #0E7F8C;
+}
+
+.hud-xh-dot.dot-blocked {
+    background-color: #5A6570;
+}
+
+.hud-xh-ring {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -10px;
+    margin-top: -10px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border-width: 1px;
+    border-color: transparent;
+    display: none;
+}
+
+.hud-xh-ring.ring-visible {
+    display: block;
+}
+
+.hud-xh-ring.ring-valid {
+    border-color: #0E7F8C;
+}
+
+.hud-xh-ring.ring-blocked {
+    border-color: #5A6570;
+}
+
+/* ============================================================
+   Round 9 screen-space compass HUD (top centre, exploration only).
+   Industrial aerospace: translucent thin field, hairline border,
+   restrained marks. The CompassTapeElement draws the tick tape and
+   its own cardinal/degree text marks; the focus dot and edge cues
+   are fixed elements owned by the controller.
+   ============================================================ */
+
+.compass-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 120px;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.compass-frame {
+    position: absolute;
+    left: 50%;
+    top: 26px;
+    margin-left: -340px;
+    width: 680px;
+    height: 58px;
+    background-color: rgba(22, 27, 32, 0.36);
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-color: rgba(184, 196, 204, 0.5);
+    border-right-color: rgba(184, 196, 204, 0.5);
+    border-top-color: rgba(184, 196, 204, 0.5);
+    border-bottom-color: rgba(184, 196, 204, 0.5);
+}
+
+/* The tape viewport: the CompassTapeElement fills this clip and scrolls
+   with the camera yaw; the frame itself never moves. */
+.compass-ticks-host {
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    top: 2px;
+    bottom: 2px;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+/* Fixed centre light dot: the "current facing / aim reference". Never
+   translates with the tape. Dim by default; bright teal + restrained
+   ring when the navigation target is aligned (Round 9 H/G). */
+.compass-focus-dot {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -3px;
+    margin-top: -3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background-color: rgba(205, 214, 220, 0.32);
+}
+
+.compass-focus-dot.compass-aligned {
+    background-color: #0E7F8C;
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(14, 127, 140, 0.55);
+    border-right-color: rgba(14, 127, 140, 0.55);
+    border-top-color: rgba(14, 127, 140, 0.55);
+    border-bottom-color: rgba(14, 127, 140, 0.55);
+}
+
+/* Navigation target waypoint mark: teal diamond; positioned on the tape by
+   the controller at x = tapeCentreX + relativeBearing * pixelsPerDegree. */
+.compass-waypoint {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    margin-left: -6px;
+    margin-top: -6px;
+    width: 12px;
+    height: 12px;
+    background-color: rgba(0, 0, 0, 0);
+    border-left-width: 2px;
+    border-right-width: 2px;
+    border-top-width: 2px;
+    border-bottom-width: 2px;
+    border-left-color: rgba(20, 150, 168, 0.95);
+    border-right-color: rgba(20, 150, 168, 0.95);
+    border-top-color: rgba(20, 150, 168, 0.95);
+    border-bottom-color: rgba(20, 150, 168, 0.95);
+    rotate: 45deg;
+    display: none;
+}
+
+/* Edge cues when the target bearing lies outside the visible +-45 window. */
+.compass-edge {
+    position: absolute;
+    top: 50%;
+    margin-top: -11px;
+    width: 24px;
+    height: 22px;
+    -unity-text-align: middle-center;
+    color: rgba(205, 214, 220, 0.85);
+    font-size: 16px;
+    -unity-font-style: bold;
+    display: none;
+}
+
+.compass-edge-left {
+    left: 2px;
+}
+
+.compass-edge-right {
+    right: 2px;
+}
+
+/* Minimal navigation summary below the frame (Round 9 J, restrained). */
+.compass-info {
+    position: absolute;
+    left: 50%;
+    top: 88px;
+    margin-left: -200px;
+    width: 400px;
+    height: 24px;
+    background-color: rgba(0, 0, 0, 0);
+    display: none;
+}
+
+.compass-info-text {
+    -unity-text-align: middle-center;
+    color: rgba(228, 234, 238, 0.92);
+    font-size: 13px;
+    -unity-font-style: bold;
+    white-space: nowrap;
+}
+
+/* CompassTapeElement-generated text marks (USS classes read by C#). */
+.compass-mark-letter {
+    position: absolute;
+    top: 0px;
+    width: 36px;
+    height: 18px;
+    margin-left: -18px;
+    -unity-text-align: middle-center;
+    color: rgba(222, 229, 234, 0.9);
+    font-size: 13px;
+    -unity-font-style: bold;
+    display: none;
+}
+
+.compass-mark-degree {
+    position: absolute;
+    top: 36px;
+    width: 34px;
+    height: 14px;
+    margin-left: -17px;
+    -unity-text-align: middle-center;
+    color: rgba(205, 214, 220, 0.6);
+    font-size: 9px;
+    display: none;
+}

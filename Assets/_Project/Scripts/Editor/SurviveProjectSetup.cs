@@ -102,6 +102,7 @@ public static class SurviveProjectSetup
 
         ok &= BuildBootScene();
         ok &= BuildHubScene(uxml, uss, overviewUss, preparationUss, processingUss, outpostUss);
+        ok &= NereidSurfaceBuilder.BuildSurface();
         ok &= SetBuildOrder();
 
         AssetDatabase.SaveAssets();
@@ -164,6 +165,16 @@ public static class SurviveProjectSetup
         var bootstrap = new GameObject("Bootstrap");
         SceneManager.MoveGameObjectToScene(bootstrap, scene);
         bootstrap.AddComponent<BootController>();
+
+        // Cross-scene surface automation probe (inert unless -autoSurface).
+        var probe = new GameObject("AutoSurfaceFlowProbe");
+        SceneManager.MoveGameObjectToScene(probe, scene);
+        probe.AddComponent<AutoSurfaceFlowProbe>();
+
+        // Clean combined gameplay screenshot probe (inert unless -surfaceShot).
+        var shotProbe = new GameObject("SurfaceShotProbe");
+        SceneManager.MoveGameObjectToScene(shotProbe, scene);
+        shotProbe.AddComponent<SurfaceShotProbe>();
 
         if (!EditorSceneManager.SaveScene(scene, BootScenePath))
         {
@@ -245,24 +256,27 @@ public static class SurviveProjectSetup
 
     private static bool SetBuildOrder()
     {
+        string surfacePath = "Assets/_Project/Scenes/02_NereidSurface.unity";
         var scenes = new[]
         {
             new EditorBuildSettingsScene(BootScenePath, true),
-            new EditorBuildSettingsScene(HubScenePath, true)
+            new EditorBuildSettingsScene(HubScenePath, true),
+            new EditorBuildSettingsScene(surfacePath, true)
         };
 
         EditorBuildSettings.scenes = scenes;
 
         var current = EditorBuildSettings.scenes;
-        bool ok = current != null && current.Length == 2
-                  && current[0].path == BootScenePath && current[1].path == HubScenePath;
+        bool ok = current != null && current.Length == 3
+                  && current[0].path == BootScenePath && current[1].path == HubScenePath
+                  && current[2].path == surfacePath;
         if (!ok)
         {
             Debug.LogError("[SurviveProjectSetup] build order not applied");
         }
         else
         {
-            Debug.Log("[SurviveProjectSetup] build order set: 0=00_Boot 1=01_Hub");
+            Debug.Log("[SurviveProjectSetup] build order set: 0=00_Boot 1=01_Hub 2=02_NereidSurface");
         }
 
         return ok;

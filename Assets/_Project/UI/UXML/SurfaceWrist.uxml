@@ -1,0 +1,81 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!--
+    Wrist terminal (Phase 06 Revision Round 9.2 parallel-cap architecture).
+
+    Radial geometry is NOT built from dozens of VisualElements: RadialWristElement
+    (injected by C# into RadialGeometryHost) paints the full triangle-mesh
+    hologram - translucent local map, health/satiety status arcs (inner radius
+    248 == panel inner radius), and the four Parallel-Cap Annular Panels
+    (annulus 248..365 intersected with horizontal Y bands; top/bottom edges are
+    horizontal caps and therefore parallel).
+
+    This UXML only hosts the geometry plus content overlays:
+    - map markers (absolute wrist pixels)
+    - the four horizontal text-slot groups. EVERY text row is its OWN
+      absolutely-positioned label/slot; SurfaceWristController computes each
+      row's left/top/width from the authoritative panel cross-section
+      (RadialWristElement.GetPanelHorizontalRange) so the staircase follows the
+      real geometry - no hand-added indentation, no rectangle-card containers.
+
+    No rectangular cards, no tick rings, no white map disc, no custom cursor
+    VisualElement (the wrist cursor is Cursor.SetCursor runtime texture).
+    -->
+    <ui:VisualElement name="WristRoot" class="wrist-root">
+
+        <!-- RadialWristElement is created by C# and inserted here.
+             This avoids Unity-version issues with custom UXML factories. -->
+        <ui:VisualElement name="RadialGeometryHost" class="radial-geometry-host" />
+
+        <!-- Full RT overlay. Markers use ABSOLUTE WRIST PIXEL coordinates. -->
+        <ui:VisualElement name="MapMarkerLayer" class="map-marker-layer">
+            <ui:Label name="MapPlayer" class="map-player" text="▲" />
+            <ui:VisualElement name="MapLanding" class="map-landing" />
+            <ui:VisualElement name="MapNode0" class="map-node" />
+            <ui:VisualElement name="MapNode1" class="map-node" />
+            <ui:VisualElement name="MapNode2" class="map-node" />
+            <ui:VisualElement name="MapSelectedRing" class="map-selected-ring" />
+        </ui:VisualElement>
+
+        <!-- Status values (text sits near the health/satiety arcs). -->
+        <ui:Label name="HealthLabel" text="健康度 100" class="radial-value health-label" />
+        <ui:Label name="SatietyLabel" text="饱食度 82" class="radial-value satiety-label" />
+
+        <!-- ============================================================
+             Horizontal text slots (Round 9.2).
+             Every label is a single row: heading / line1..lineN each sit in
+             their OWN slot computed from the panel cross-section at its Y.
+             Classes only style the text; C# owns left/top/width so every row
+             stays inside its panel with the required padding.
+             ============================================================ -->
+
+        <!-- Upper-left panel: Equipment (down-left staircase). -->
+        <ui:Label name="EquipHeading" text="当前装备" class="wrist-row row-heading" />
+        <ui:Label name="EquipHarvester" text="采集器 MK-I" class="wrist-row row-equip" />
+        <ui:Label name="EquipBattery" text="备用电池" class="wrist-row row-equip" />
+        <ui:Label name="EquipDrone" text="勘测无人机" class="wrist-row row-equip" />
+
+        <!-- Upper-right panel: State (down-right staircase). -->
+        <ui:Label name="StateHeading" text="当前状态" class="wrist-row row-heading" />
+        <ui:Label name="ActionState" text="勘测中" class="wrist-row row-value" />
+        <ui:Label name="SignalState" text="信号在线" class="wrist-row row-body" />
+        <ui:Label name="RecoveredState" text="回收 0 / 3" class="wrist-row row-body" />
+
+        <!-- Lower-left panel: Navigation (down-right staircase). -->
+        <ui:Label name="NavHeading" text="当前导航" class="wrist-row row-heading" />
+        <ui:Label name="NavTarget" text="未设置" class="wrist-row row-value" />
+        <ui:Label name="NavDistance" text="" class="wrist-row row-body" />
+
+        <!-- Lower-right panel: Harvest (down-left staircase).
+             Row1 = node, Row2 = state, Row3 = progress (explicitly cleared
+             outside Harvesting/Transmitting so no '%' residue can remain). -->
+        <ui:Label name="HarvestHeading" text="采集状态" class="wrist-row row-heading" />
+        <ui:Label name="HarvestNode" text="" class="wrist-row row-body" />
+        <ui:Label name="HarvestState" text="待机" class="wrist-row row-value" />
+        <ui:Label name="HarvestProgress" text="" class="wrist-row row-value" />
+
+        <!-- Map footer / identity label: planet + mission context INSIDE the
+             central Local Map, lower half (Round 9.2.2). -->
+        <ui:Label name="WristIdentity" text="NEREID-04 · 地表勘测" class="wrist-identity" />
+
+    </ui:VisualElement>
+</ui:UXML>
