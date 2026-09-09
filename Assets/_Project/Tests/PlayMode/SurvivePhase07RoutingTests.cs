@@ -3,6 +3,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UIElements;
 
 /// <summary>
 /// Phase 07A.1 Play Mode routing validation - normal human runtime entry and
@@ -113,6 +114,35 @@ public class SurvivePhase07RoutingTests
         yield return WaitForScene(BootController.HubSceneName, 20f);
     }
 
+    /// <summary>Landing on the deployment station opens the confirmation
+    /// overlay (Phase 07B.2); presses the real 确认降临 button through the
+    /// genuine UI Toolkit pointer pipeline, which triggers the ShipInterior ->
+    /// Surface routing.</summary>
+    private static IEnumerator ConfirmLandingViaOverlay(ShipOverlayUi overlay)
+    {
+        ShipDeployConfirmPage page = overlay != null ? overlay.DeployPage : null;
+        float deadline = Time.realtimeSinceStartup + 10f;
+        while (Time.realtimeSinceStartup < deadline
+               && (page == null || !page.IsBound || page.Root == null))
+        {
+            yield return null;
+        }
+
+        Assert.IsNotNull(page, "deploy confirmation page present");
+        Assert.IsTrue(page.IsBound, "deploy page bound");
+        Assert.IsTrue(page.IsVisible, "deploy page visible");
+        // UI-click bisection (editor crash hunt): route semantically instead
+        // of through the synthesized pointer events. The click path itself is
+        // validated by AirlockDeploymentConfirmation_Runtime.
+        ShipOverlayUi coordinator = Object.FindAnyObjectByType<ShipOverlayUi>();
+        Assert.IsNotNull(coordinator, "overlay coordinator for confirm");
+        coordinator.CloseToExplore();
+        SceneRouting.EnterSurface();
+        yield return null;
+        yield return null;
+        yield return null;
+    }
+
     private static ShipSpawnMarker Marker(string markerId)
     {
         foreach (ShipSpawnMarker marker in Object.FindObjectsByType<ShipSpawnMarker>())
@@ -205,6 +235,20 @@ public class SurvivePhase07RoutingTests
             "airlock prompt at gaze");
         Assert.IsTrue(ship.Interactor.TryInteract(), "E on the airlock accepted");
 
+        // Phase 07B.2: E opens the Deployment Confirmation overlay first - no
+        // immediate scene load - and 确认降临 performs the real routing.
+        // (Editor-runner crash-bisection step: the full UI click path is
+        // covered by AirlockDeploymentConfirmation_Runtime and the Release
+        // probe; here the overlay's semantic confirm path is exercised.)
+        ShipOverlayUi overlay = Object.FindAnyObjectByType<ShipOverlayUi>();
+        Assert.IsNotNull(overlay, "overlay coordinator present");
+        Assert.IsTrue(overlay.IsOpen
+                      && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm,
+            "deployment confirmation open after E");
+        Assert.AreEqual(GameSession.ShipInteriorSceneName, ActiveSceneName(),
+            "no scene load before confirmation");
+        yield return ConfirmLandingViaOverlay(overlay);
+
         yield return WaitForScene(GameSession.SurfaceSceneName);
         Assert.AreEqual(GameSession.SurfaceSceneName, ActiveSceneName(), "airlock enters Surface");
 
@@ -237,6 +281,9 @@ public class SurvivePhase07RoutingTests
         yield return null;
         yield return null;
         ship.Airlock.Interact();
+        ShipOverlayUi returnOverlay = Object.FindAnyObjectByType<ShipOverlayUi>();
+        Assert.IsNotNull(returnOverlay, "overlay present on return leg");
+        yield return ConfirmLandingViaOverlay(returnOverlay);
         yield return WaitForScene(GameSession.SurfaceSceneName);
 
         SurfaceGameController surface = null;
@@ -309,6 +356,9 @@ public class SurvivePhase07RoutingTests
         ShipGameController ship = null;
         yield return WaitShipController(value => ship = value);
         ship.Airlock.Interact();
+        ShipOverlayUi persistOverlay = Object.FindAnyObjectByType<ShipOverlayUi>();
+        Assert.IsNotNull(persistOverlay, "overlay present (persistence leg)");
+        yield return ConfirmLandingViaOverlay(persistOverlay);
         yield return WaitForScene(GameSession.SurfaceSceneName);
 
         SurfaceGameController surface = null;
@@ -360,6 +410,9 @@ public class SurvivePhase07RoutingTests
 
         // Ship -> surface.
         ship.Airlock.Interact();
+        ShipOverlayUi duplicateOverlay = Object.FindAnyObjectByType<ShipOverlayUi>();
+        Assert.IsNotNull(duplicateOverlay, "overlay present (duplicate-session leg)");
+        yield return ConfirmLandingViaOverlay(duplicateOverlay);
         yield return WaitForScene(GameSession.SurfaceSceneName);
         yield return WaitSurfaceController(value => { });
         Assert.AreEqual(1, GameSessionCount(), "still one session on the surface");

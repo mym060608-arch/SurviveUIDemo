@@ -146,14 +146,14 @@ public class ShipShotProbe : MonoBehaviour
         string[] idleSuffixes =
         {
             "frame_console_overview_idle",
-            "frame_console_preparation_idle",
+            "frame_console_warehouse_idle",
             "frame_console_processing_idle",
             "frame_console_outpost_idle"
         };
         string[] focusSuffixes =
         {
             "frame_console_overview_focus",
-            "frame_console_preparation_focus",
+            "frame_console_warehouse_focus",
             "frame_console_processing_focus",
             "frame_console_outpost_focus"
         };
@@ -280,14 +280,14 @@ public class ShipShotProbe : MonoBehaviour
         string[] idleSuffixes =
         {
             "frame_console_overview_idle",
-            "frame_console_preparation_idle",
+            "frame_console_warehouse_idle",
             "frame_console_processing_idle",
             "frame_console_outpost_idle"
         };
         string[] focusSuffixes =
         {
             "frame_console_overview_focus",
-            "frame_console_preparation_focus",
+            "frame_console_warehouse_focus",
             "frame_console_processing_focus",
             "frame_console_outpost_focus"
         };
@@ -387,66 +387,73 @@ public class ShipShotProbe : MonoBehaviour
             }
         }
 
-        // ---- Real world-pointer click proof on Preparation console 02 ----
+        // ---- Real world-pointer click proof on Processing console 03 ----
+        // (Console02 is now the read-only 仓库总览 terminal; the interactive
+        // loadout editing lives in the Airlock locker/deployment overlays,
+        // which ShipB2ShotProbe covers. Here the real world-pointer path must
+        // still mutate GameSession on a physical console.)
         session.ResetSession();
-        bool batteryBefore = session.BatterySelected;
-        bool loadoutBefore = session.LoadoutConfirmed;
-        B1Log("pointer-click before battery=" + batteryBefore
-              + " loadoutConfirmed=" + loadoutBefore);
+        int fuelBefore = session.Fuel;
+        int alloyBefore = session.Alloy;
+        B1Log("pointer-click before fuel=" + fuelBefore + " alloy=" + alloyBefore);
 
-        yield return Approach(player, controller, 1);
-        bool prepFocused = false;
-        for (int t = 0; t < 400 && !prepFocused; t++)
+        yield return Approach(player, controller, 2);
+        bool processingFocused = false;
+        for (int t = 0; t < 400 && !processingFocused; t++)
         {
             controller.Interactor.RefreshTarget();
-            if (ReferenceEquals(controller.Interactor.CurrentTarget, controller.Consoles[1])
+            if (ReferenceEquals(controller.Interactor.CurrentTarget, controller.Consoles[2])
                 && controller.Interactor.HasValidTarget)
             {
-                prepFocused = controller.Interactor.TryInteract();
+                processingFocused = controller.Interactor.TryInteract();
             }
 
-            if (!prepFocused)
+            if (!processingFocused)
             {
                 yield return null;
             }
         }
 
-        B1Check("preparation console focused for clicks", prepFocused);
-        WorldConsoleSurface prepSurface =
-            controller.Consoles[1].GetComponent<WorldConsoleSurface>();
-        yield return WaitConsoleUiReady(prepSurface);
+        B1Check("processing console focused for clicks", processingFocused);
+        WorldConsoleSurface processingSurface =
+            controller.Consoles[2].GetComponent<WorldConsoleSurface>();
+        yield return WaitConsoleUiReady(processingSurface);
         yield return WaitReal(0.4f);
-        B1SampleAndCheck(prepSurface, "preparation FOCUS screen content before click", true);
+        B1SampleAndCheck(processingSurface,
+            "processing FOCUS screen content before click", true);
 
-        Button battery = FindConsoleButton(prepSurface, ElementNames.BatteryRowButton);
-        B1Check("battery row button resolved", battery != null);
-        if (battery != null)
+        Button batch5 = FindConsoleButton(processingSurface, ElementNames.Batch5Button);
+        B1Check("batch 05 button resolved", batch5 != null);
+        if (batch5 != null)
         {
-            yield return ClickWorldButton(player, prepSurface, battery);
+            yield return ClickWorldButton(player, processingSurface, batch5);
+        }
+
+        Button start = FindConsoleButton(processingSurface, ElementNames.ProcessingStartButton);
+        B1Check("processing start button resolved", start != null);
+        if (start != null)
+        {
+            yield return ClickWorldButton(player, processingSurface, start);
         }
 
         yield return null;
-        B1Check("pointer click changed GameSession (battery selected)",
-            session.BatterySelected && !batteryBefore);
+        B1Check("pointer click started processing (GameSession mutated)",
+            session.IsProcessing);
 
-        Button confirm = FindConsoleButton(prepSurface, ElementNames.ConfirmLoadoutButton);
-        B1Check("confirm loadout button resolved", confirm != null);
-        if (confirm != null)
-        {
-            yield return ClickWorldButton(player, prepSurface, confirm);
-        }
-
-        yield return null;
-        B1Check("pointer click changed GameSession (loadout confirmed)",
-            session.LoadoutConfirmed && !loadoutBefore);
-        B1Log("pointer-click after battery=" + session.BatterySelected
-              + " loadoutConfirmed=" + session.LoadoutConfirmed
-              + " (GameSession mutated by the real click)");
         if (focus != null)
         {
             focus.RequestExit();
             yield return WaitReal(0.9f);
         }
+
+        yield return WaitReal(2.6f);
+        B1Check("processing completed under the persistent session",
+            session.ProcessState == GameSession.RefineryProcessState.Complete
+            && session.Fuel == fuelBefore + GameSession.ProcessFuelReward
+            && session.Alloy == alloyBefore + GameSession.ProcessAlloyReward);
+        B1Log("pointer-click after fuel=" + session.Fuel
+              + " alloy=" + session.Alloy
+              + " (GameSession mutated by the real click)");
 
         // ---- Ship wrist schematic + map-mode evidence ----
         player.TeleportTo(new Vector3(0f, 0f, 3.6f));
@@ -463,27 +470,45 @@ public class ShipShotProbe : MonoBehaviour
             B1Log("wrist returnMode=" + wrist.ReturnMode + " isShipMode="
                   + wrist.IsShipMode + " schematicAttached=" + wrist.HasShipSchematic);
             B1Check("ship wrist is ship mode", wrist.IsShipMode);
-            B1Check("ship wrist schematic visual attached", wrist.HasShipSchematic);
+            B1Check("ship wrist floorplan visual attached", wrist.HasShipSchematic);
             if (wrist.RootElement != null)
             {
                 VisualElement mapPlayer = wrist.RootElement.Q<VisualElement>("MapPlayer");
                 B1Check("ship wrist hides surface player marker (no scatter map)",
                     mapPlayer == null || mapPlayer.style.display == DisplayStyle.None);
-                for (int i = 0; i < ShipSchematicLayout.Nodes.Length; i++)
+
+                // Floorplan data: 4 terminal markers + 1 airlock marker,
+                // exactly 4 door segments, terminal element names present.
+                B1Check("floorplan holds four terminal markers",
+                    ShipSchematicLayout.Terminals.Length == 4);
+                B1Check("floorplan holds one airlock marker",
+                    ShipSchematicLayout.Airlock != null);
+                B1Check("floorplan holds exactly four door segments",
+                    ShipSchematicLayout.Doors.Length == 4);
+                bool terminalLabelsOk = true;
+                for (int i = 0; i < ShipSchematicLayout.Terminals.Length; i++)
                 {
-                    ShipSchematicNode node = ShipSchematicLayout.Nodes[i];
-                    Label zh = wrist.RootElement.Q<Label>("ShipZoneLabel_" + node.Code);
-                    Label meta = wrist.RootElement.Q<Label>("ShipZoneMeta_" + node.Code);
-                    B1Check("schematic node " + node.Code + " labelled " + node.Zh,
-                        zh != null && !string.IsNullOrEmpty(zh.text)
-                        && meta != null && !string.IsNullOrEmpty(meta.text));
+                    ShipTerminalMarker marker = ShipSchematicLayout.Terminals[i];
+                    VisualElement container = wrist.RootElement
+                        .Q<VisualElement>("ShipTerminal_" + marker.ConsoleId);
+                    if (container == null)
+                    {
+                        terminalLabelsOk = false;
+                    }
                 }
+
+                B1Check("floorplan terminal containers rendered",
+                    terminalLabelsOk);
+                VisualElement airlockMarker =
+                    wrist.RootElement.Q<VisualElement>("ShipAirlockMarker");
+                B1Check("floorplan airlock container rendered",
+                    airlockMarker != null);
             }
 
             B1Check("schematic hull outline fits map disc",
                 ShipSchematicLayout.HullFitsMapDisc(RadialWristElement.MapRadius, 2f));
-            B1Check("schematic five nodes fit map disc",
-                ShipSchematicLayout.NodesFitMapDisc(RadialWristElement.MapRadius, 55f, 2f));
+            B1Check("whole floorplan fits map disc",
+                ShipSchematicLayout.FloorplanFitsMapDisc(RadialWristElement.MapRadius, 2f));
             bool markerOk = false;
             if (wrist.ShipSchematic != null
                 && wrist.ShipSchematic.TryGetPlayerCentre(out Vector2 playerPx))
@@ -566,11 +591,11 @@ public class ShipShotProbe : MonoBehaviour
                   + " volumeWeight=" + volume.weight);
             B1Check("DOF mode Bokeh with override",
                 dof.mode.overrideState && dof.mode.value == DepthOfFieldMode.Bokeh);
-            B1Check("DOF focus on the console plane (0.72 m)",
-                Mathf.Abs(dof.focusDistance.value - 0.72f) < 0.01f);
-            B1Check("DOF strong aperture/focal (1.2/160)",
+            B1Check("DOF focus on the console housing band (1.05 m)",
+                Mathf.Abs(dof.focusDistance.value - 1.05f) < 0.01f);
+            B1Check("DOF strong aperture/focal (1.2/150)",
                 Mathf.Abs(dof.aperture.value - 1.2f) < 0.01f
-                && Mathf.Abs(dof.focalLength.value - 160f) < 0.01f);
+                && Mathf.Abs(dof.focalLength.value - 150f) < 0.01f);
             B1Check("DOF volume weight high while focused", volume.weight > 0.85f);
         }
     }

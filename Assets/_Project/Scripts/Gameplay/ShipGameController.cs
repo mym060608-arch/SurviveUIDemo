@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering.Universal;
 
 /// <summary>
 /// Authoritative coordinator of the ARK-07 walkable interior (Phase 07B).
@@ -24,7 +25,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private static readonly (string Zh, string Meta, float X0, float Z0, float X1, float Z1)[] Zones =
     {
         ("舰桥", "BRIDGE // OPS", -3.4f, 6.3f, 3.4f, 10.6f),
-        ("出发准备", "MISSION PREPARATION", -5.5f, 0.3f, -1.1f, 6.3f),
+        ("仓库", "WAREHOUSE // STORAGE", -5.5f, 0.3f, -1.1f, 6.3f),
         ("中央通道", "SPINE", -1.1f, 0.3f, 1.1f, 6.3f),
         ("资源加工", "RESOURCE PROCESSING", 1.1f, 0.3f, 5.5f, 6.3f),
         ("据点", "OUTPOST // COMMS", -5.5f, -9.4f, 5.5f, 0.3f),
@@ -38,6 +39,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private ShipHudController _hud;
     private ShipAirlockInteractable _airlock;
     private ShipConsoleFocusController _focus;
+    private ShipOverlayUi _overlayUi;
     private SurfaceWristController _wrist;
     private readonly List<ShipConsoleInteractable> _consoles = new List<ShipConsoleInteractable>();
     private readonly List<ShipDoorInteractable> _doors = new List<ShipDoorInteractable>();
@@ -60,6 +62,15 @@ public class ShipGameController : MonoBehaviour, IWristContext
     /// <summary>True while a console transition or focus is active (the wrist
     /// must never open on top of a physical terminal).</summary>
     public bool IsConsoleFocusActive => _focus != null && _focus.FocusActive;
+
+    /// <summary>True while a shipboard overlay (deployment confirmation /
+    /// loadout) is open - movement, world E and the wrist stay gated.</summary>
+    public bool IsOverlayOpen => _overlayUi != null && _overlayUi.IsOpen;
+
+    /// <summary>True while ANY modal interface is open (console focus, wrist
+    /// or overlay) - used by HUD suppression and input gating.</summary>
+    public bool IsAnyModalActive => IsConsoleFocusActive || _isWristOpen
+                                    || IsOverlayOpen;
 
     // ---- IWristContext (Phase 07B) ----
     // Ship contexts expose no live surface nodes/navigation: the wrist shows
@@ -112,6 +123,8 @@ public class ShipGameController : MonoBehaviour, IWristContext
         _hud = UnityEngine.Object.FindAnyObjectByType<ShipHudController>();
         _focus = UnityEngine.Object.FindAnyObjectByType<ShipConsoleFocusController>();
         _wrist = UnityEngine.Object.FindAnyObjectByType<SurfaceWristController>();
+        _overlayUi = UnityEngine.Object.FindAnyObjectByType<ShipOverlayUi>(
+            FindObjectsInactive.Include);
 
         _consoles.Clear();
         foreach (ShipConsoleInteractable console in UnityEngine.Object.FindObjectsByType<ShipConsoleInteractable>())
@@ -130,6 +143,14 @@ public class ShipGameController : MonoBehaviour, IWristContext
         _doors.Sort((a, b) => a.DoorId.CompareTo(b.DoorId));
 
         _airlock = UnityEngine.Object.FindAnyObjectByType<ShipAirlockInteractable>();
+
+        // Phase 07B.2 focus composition: enforce the sharp-screen camera stack
+        // at runtime. The scene authoring adds the overlay camera to the base
+        // camera's URP stack, but that relationship is not guaranteed to
+        // survive every scene serialization/load path; re-asserting it here is
+        // idempotent and makes the always-on sharp console screens robust in
+        // the Release player.
+        EnsureScreenComposition();
 
         // Consume the routing reason (Default for normal boot, FromSurface for
         // the landing return) and place the player on the matching marker.
@@ -158,6 +179,68 @@ public class ShipGameController : MonoBehaviour, IWristContext
                   + " focus=" + (_focus != null) + " wrist=" + (_wrist != null));
     }
 
+    private void EnsureScreenComposition()
+    {
+        if (_player == null)
+        {
+            return;
+        }
+
+        Camera eye = _player.EyeCamera;
+        if (eye == null)
+        {
+            return;
+        }
+
+        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        Camera sharp = null;
+        Transform sharpTransform = eye.transform.Find("SharpScreenCamera");
+        if (sharpTransform != null)
+        {
+            sharp = sharpTransform.GetComponent<Camera>();
+        }
+
+        if (sharp == null)
+        {
+            Debug.LogError("[ShipGameController] SharpScreenCamera missing - "
+                           + "console screens will not render");
+            return;
+        }
+
+        // Environment base camera: post-processing ON, ConsoleScreen layer OUT.
+        var eyeData = eye.GetComponent<UniversalAdditionalCameraData>();
+        var sharpData = sharp.GetComponent<UniversalAdditionalCameraData>();
+        if (eyeData == null)
+        {
+            eyeData = eye.gameObject.AddComponent<UniversalAdditionalCameraData>();
+        }
+
+        if (sharpData == null)
+        {
+            sharpData = sharp.gameObject.AddComponent<UniversalAdditionalCameraData>();
+        }
+
+        eye.cullingMask &= ~(1 << layer);
+        eyeData.renderPostProcessing = true;
+        eyeData.volumeLayerMask = ~0;
+        eye.depth = 0f;
+
+        // Sharp screen camera: independent second camera rendering ONLY the
+        // ConsoleScreen layer after the (post-processed) environment frame;
+        // a depth-only clear preserves the environment colors and the camera
+        // has post-processing OFF, so physical screens stay crisp under DOF.
+        sharp.cullingMask = 1 << layer;
+        sharp.enabled = true;
+        sharp.depth = 1f;
+        sharp.clearFlags = CameraClearFlags.Depth;
+        sharpData.renderType = CameraRenderType.Base;
+        sharpData.renderPostProcessing = false;
+
+        Debug.Log("[ShipGameController] screen composition enforced: baseMask="
+                  + eye.cullingMask + " sharpMask=" + sharp.cullingMask
+                  + " baseDepth=" + eye.depth + " sharpDepth=" + sharp.depth);
+    }
+
     private void Update()
     {
         if (!_ready)
@@ -167,10 +250,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
         PollWristKeys();
 
-        if (IsConsoleFocusActive || _isWristOpen)
+        if (IsAnyModalActive)
         {
-            // A focused console or the wrist is the only interface; the HUD
-            // chrome stays suppressed (SetUiSuppressed handles hiding).
+            // A focused console, an overlay or the wrist is the only
+            // interface; the HUD chrome stays suppressed (SetUiSuppressed
+            // handles hiding).
             if (_hud != null)
             {
                 _hud.SetUiSuppressed(true);
@@ -212,9 +296,9 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
 
         // M / I open the wrist ONLY from plain ShipExplore. While a console
-        // is focused or a console transition runs, both keys must do nothing
-        // (console + wrist never stack).
-        if (IsConsoleFocusActive)
+        // is focused, a transition runs or an overlay is open, both keys must
+        // do nothing (console/wrist/overlay never stack).
+        if (IsConsoleFocusActive || IsOverlayOpen)
         {
             return;
         }
@@ -228,7 +312,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
     /// <summary>Wrist toggle used by tests and M/I input.</summary>
     public void ToggleWrist()
     {
-        if (IsConsoleFocusActive && !_isWristOpen)
+        if (IsAnyModalActive && !_isWristOpen)
         {
             return;
         }
@@ -243,9 +327,10 @@ public class ShipGameController : MonoBehaviour, IWristContext
             return;
         }
 
-        if (open && IsConsoleFocusActive)
+        if (open && (IsConsoleFocusActive || IsOverlayOpen))
         {
-            // Phase 07B: never stack Wrist on a focused physical console.
+            // Phase 07B: never stack Wrist on a focused physical console or
+            // on a shipboard overlay.
             return;
         }
 
@@ -290,14 +375,14 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
     }
 
-    /// <summary>Called by the focus controller whenever console focus state
-    /// changes (entry, focus reached, exit started/finished) so HUD / wrist
-    /// gating stay consistent.</summary>
+    /// <summary>Called by the focus controller / overlay whenever a modal
+    /// state changes (entry, focus reached, exit started/finished) so HUD /
+    /// wrist gating stay consistent.</summary>
     public void HandleConsoleFocusChanged()
     {
         if (_hud != null)
         {
-            _hud.SetUiSuppressed(IsConsoleFocusActive || _isWristOpen);
+            _hud.SetUiSuppressed(IsAnyModalActive);
         }
     }
 

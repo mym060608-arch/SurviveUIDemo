@@ -1,0 +1,47 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- Phase 07B.2 Deployment Confirmation (shown by the Airlock
+         deployment station before any ShipInterior -> Surface routing).
+         Chinese-first, project light-panel language over a dim world. -->
+    <ui:VisualElement name="DeployOverlayRoot" class="modal-root">
+        <ui:VisualElement name="DeployPanel" class="modal-panel">
+            <ui:VisualElement class="modal-head">
+                <ui:Label class="modal-kicker" text="CURRENT DESTINATION" />
+                <ui:Label name="DeployDestination" class="modal-hero" text="NEREID-04" />
+                <ui:Label class="modal-sub" text="未知地表 · 资源候选区" />
+            </ui:VisualElement>
+
+            <ui:VisualElement class="modal-rule" />
+
+            <ui:Label class="modal-group-title" text="当前远征装备" />
+            <ui:VisualElement class="modal-gear">
+                <ui:VisualElement class="modal-gear-row">
+                    <ui:Label class="modal-gear-name" text="采集器 MK-I" />
+                    <ui:Label name="DeployHarvesterState" class="modal-gear-state modal-state-required" text="必需" />
+                </ui:VisualElement>
+                <ui:VisualElement class="modal-row-rule" />
+                <ui:VisualElement class="modal-gear-row">
+                    <ui:Label class="modal-gear-name" text="备用电池组" />
+                    <ui:Label name="DeployBatteryState" class="modal-gear-state" text="未选择" />
+                </ui:VisualElement>
+                <ui:VisualElement class="modal-row-rule" />
+                <ui:VisualElement class="modal-gear-row">
+                    <ui:Label class="modal-gear-name" text="勘测无人机" />
+                    <ui:Label name="DeployDroneState" class="modal-gear-state" text="未选择" />
+                </ui:VisualElement>
+                <ui:VisualElement class="modal-row-rule" />
+                <ui:VisualElement class="modal-gear-row">
+                    <ui:Label class="modal-gear-name" text="载荷" />
+                    <ui:Label name="DeployCargoValue" class="modal-gear-cargo" text="45 / 100 KG" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <ui:VisualElement class="modal-actions">
+                <ui:Button name="DeployAdjustGearButton" class="modal-btn modal-btn-ghost" text="调整装备" />
+                <ui:Button name="DeployConfirmButton" class="modal-btn modal-btn-primary" text="确认降临" />
+                <ui:Button name="DeployCancelButton" class="modal-btn modal-btn-plain" text="取消" />
+            </ui:VisualElement>
+
+            <ui:Label class="modal-hint" text="Esc 返回" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

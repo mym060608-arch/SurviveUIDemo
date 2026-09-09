@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine.UIElements;
 
 /// <summary>
 /// Normal human-runtime routing probe (Phase 07A.1).
@@ -127,6 +128,33 @@ public class ShipFlowProbe : MonoBehaviour
         if (gazeOnAirlock)
         {
             airlockInteracted = controller.Interactor.TryInteract();
+        }
+
+        // Phase 07B.2: E opens the deployment confirmation; 确认降临 then
+        // performs the ShipInterior -> Surface routing through the real UI.
+        ShipOverlayUi overlay = Object.FindAnyObjectByType<ShipOverlayUi>();
+        for (int i = 0; i < 900
+             && (overlay == null || !overlay.IsOpen
+                 || overlay.DeployPage == null || !overlay.DeployPage.IsBound); i++)
+        {
+            overlay = Object.FindAnyObjectByType<ShipOverlayUi>();
+            yield return null;
+        }
+
+        bool confirmOpen = overlay != null && overlay.IsOpen
+                           && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm
+                           && overlay.DeployPage != null && overlay.DeployPage.IsBound;
+        Check("deployment confirmation open after airlock E (no scene load yet)",
+            confirmOpen && ActiveIs(GameSession.ShipInteriorSceneName));
+        if (confirmOpen && overlay.DeployPage.Root != null)
+        {
+            var confirm = overlay.DeployPage.Root
+                .Q<UnityEngine.UIElements.Button>(
+                    ShipDeployConfirmPage.ConfirmButtonName);
+            if (confirm != null)
+            {
+                UiToolkitPointerSimulator.Click(confirm);
+            }
         }
 
         SurfaceGameController surface = null;

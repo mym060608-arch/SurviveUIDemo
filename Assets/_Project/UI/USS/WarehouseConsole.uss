@@ -1,0 +1,161 @@
+/*
+ * Survive UI Demo - Console02 仓库总览 / CARGO // STORAGE (Phase 07B.2).
+ * Follows the project visual language: off-white light canvas, restrained
+ * ink text, single teal accent family, hairline rules, Swiss grid.
+ * Targets the 1920 x 1080 console RenderTexture.
+ */
+
+.warehouse-root {
+    background-color: #E9EBED;
+    flex-direction: column;
+    padding-left: 84px;
+    padding-right: 84px;
+    padding-top: 40px;
+    padding-bottom: 36px;
+}
+
+/* ---------- Header ---------- */
+
+.wh-header {
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: flex-start;
+    margin-bottom: 30px;
+}
+
+.wh-header-text {
+    flex-direction: column;
+}
+
+.wh-title {
+    font-size: 34px;
+    -unity-font-style: medium;
+    color: #161B20;
+}
+
+.wh-meta {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #5A6570;
+    margin-top: 4px;
+}
+
+.wh-header-rule {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-left: 36px;
+    margin-right: 24px;
+    margin-top: 22px;
+}
+
+.wh-index {
+    font-size: 22px;
+    color: #0E7F8C;
+    margin-top: 4px;
+}
+
+/* ---------- Body grid ---------- */
+
+.wh-body {
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+.wh-col {
+    flex-direction: column;
+}
+
+.wh-col-left {
+    width: 46%;
+    margin-right: 8%;
+}
+
+.wh-col-right {
+    width: 46%;
+}
+
+.wh-group-label {
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: #4A525C;
+    margin-bottom: 14px;
+}
+
+.wh-panel {
+    flex-direction: column;
+    padding-top: 6px;
+    padding-bottom: 6px;
+}
+
+.store-row,
+.gear-row {
+    flex-direction: row;
+    align-items: center;
+    height: 74px;
+    flex-shrink: 0;
+}
+
+.store-name {
+    font-size: 21px;
+    color: #161B20;
+    width: 160px;
+    flex-shrink: 0;
+}
+
+.store-value {
+    flex-grow: 1;
+    font-size: 30px;
+    color: #161B20;
+    -unity-text-align: middle-right;
+    margin-right: 8px;
+}
+
+.store-unit {
+    width: 60px;
+    font-size: 15px;
+    color: #5A6570;
+}
+
+.row-rule {
+    height: 1px;
+    background-color: #D3D8DC;
+    flex-shrink: 0;
+}
+
+.gear-name {
+    flex-grow: 1;
+    font-size: 19px;
+    color: #161B20;
+}
+
+.gear-state {
+    font-size: 15px;
+    color: #4A525C;
+    width: 110px;
+    -unity-text-align: middle-center;
+    border-left-width: 1px;
+    border-left-color: #C9CFD4;
+    margin-left: 18px;
+    padding-left: 18px;
+}
+
+.gear-state-required {
+    color: #0E7F8C;
+}
+
+.gear-state-on {
+    color: #0E7F8C;
+}
+
+.gear-cargo {
+    font-size: 19px;
+    color: #0E7F8C;
+    margin-left: 18px;
+}
+
+.wh-caption {
+    font-size: 12px;
+    color: #7B858F;
+    margin-top: 12px;
+}

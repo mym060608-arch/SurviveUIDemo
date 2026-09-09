@@ -236,10 +236,10 @@ public class SurvivePhase07B1Tests
         Assert.IsTrue(dof.mode.overrideState
             && dof.mode.value == DepthOfFieldMode.Bokeh,
             "DOF Bokeh mode is overridden");
-        Assert.IsTrue(Mathf.Abs(dof.focusDistance.value - 0.72f) < 0.01f,
-            "DOF focus sits on the 0.71 m console screen plane");
+        Assert.IsTrue(Mathf.Abs(dof.focusDistance.value - 1.05f) < 0.01f,
+            "DOF focus sits on the console housing band (1.05 m)");
         Assert.IsTrue(Mathf.Abs(dof.aperture.value - 1.2f) < 0.01f
-            && Mathf.Abs(dof.focalLength.value - 160f) < 0.01f,
+            && Mathf.Abs(dof.focalLength.value - 150f) < 0.01f,
             "DOF shallow aperture/long focal for a clearly visible falloff");
 
         yield return EnterConsole(controller, 0);
@@ -286,32 +286,63 @@ public class SurvivePhase07B1Tests
         yield return WaitSeconds(0.5f);
         Assert.IsTrue(wrist.IsShipMode, "ship wrist is ship mode");
         Assert.IsTrue(wrist.HasShipSchematic,
-            "deck schematic visual attached to the wrist geometry host");
+            "floorplan visual attached to the wrist geometry host");
 
         VisualElement root = wrist.RootElement;
         Assert.IsNotNull(root, "ship wrist document root");
         Assert.IsNotNull(root.Q<VisualElement>("ShipSchematicVisual"),
             "ShipSchematicVisual element present in the document");
 
-        ShipSchematicNode[] nodes = ShipSchematicLayout.Nodes;
-        Assert.IsTrue(nodes.Length >= 5,
-            "schematic roster holds >= 5 nodes (got " + nodes.Length + ")");
-        foreach (ShipSchematicNode node in nodes)
+        // Floorplan data model: 4 doors with exact topology, 4 terminals,
+        // 1 airlock marker (Phase 07B.2 authoritative drawing).
+        Assert.AreEqual(4, ShipSchematicLayout.Doors.Length,
+            "floorplan has exactly four door segments");
+        ShipDoorSegment bridgeDoor = ShipSchematicLayout.DoorById(1);
+        ShipDoorSegment warehouseDoor = ShipSchematicLayout.DoorById(2);
+        ShipDoorSegment processingDoor = ShipSchematicLayout.DoorById(3);
+        ShipDoorSegment airlockDoor = ShipSchematicLayout.DoorById(4);
+        Assert.IsNotNull(bridgeDoor, "bridge door present");
+        Assert.IsTrue(ShipSchematicLayout.IsHorizontal(bridgeDoor)
+            && bridgeDoor.A.x < 0f && bridgeDoor.B.x > 0f
+            && Mathf.Abs(bridgeDoor.A.y - 6.3f) < 0.001f,
+            "door 01 is the Bridge BOTTOM horizontal door");
+        Assert.IsNotNull(warehouseDoor, "warehouse door present");
+        Assert.IsTrue(!ShipSchematicLayout.IsHorizontal(warehouseDoor)
+            && Mathf.Abs(warehouseDoor.A.x + 1.1f) < 0.001f
+            && warehouseDoor.A.y > 0.3f,
+            "door 02 is the Warehouse RIGHT/EAST vertical door");
+        Assert.IsNotNull(processingDoor, "processing door present");
+        Assert.IsTrue(!ShipSchematicLayout.IsHorizontal(processingDoor)
+            && Mathf.Abs(processingDoor.A.x - 1.1f) < 0.001f
+            && processingDoor.A.y > 0.3f,
+            "door 03 is the Processing LEFT/WEST vertical door");
+        Assert.IsNotNull(airlockDoor, "airlock door present");
+        Assert.IsTrue(ShipSchematicLayout.IsHorizontal(airlockDoor)
+            && airlockDoor.A.x < 0f && airlockDoor.B.x > 0f
+            && Mathf.Abs(airlockDoor.A.y + 9.4f) < 0.001f,
+            "door 04 is the Airlock TOP horizontal door");
+
+        Assert.AreEqual(4, ShipSchematicLayout.Terminals.Length,
+            "floorplan holds four terminal markers");
+        for (int i = 0; i < ShipSchematicLayout.Terminals.Length; i++)
         {
-            Label zh = root.Q<Label>("ShipZoneLabel_" + node.Code);
-            Label meta = root.Q<Label>("ShipZoneMeta_" + node.Code);
-            Assert.IsNotNull(zh, "node " + node.Code + " zh chip resolved");
-            Assert.IsNotNull(meta, "node " + node.Code + " meta chip resolved");
-            Assert.AreEqual(node.Zh, zh.text, "node " + node.Code + " Chinese label");
-            Assert.AreEqual(node.Code, meta.text, "node " + node.Code + " code label");
+            ShipTerminalMarker marker = ShipSchematicLayout.Terminals[i];
+            Assert.IsTrue(marker.ConsoleId >= 1 && marker.ConsoleId <= 4,
+                "terminal " + i + " maps console 1..4");
+            Assert.AreNotEqual("出发准备", marker.Zh,
+                "no legacy preparation terminal marker exists");
         }
+
+        Assert.IsNotNull(ShipSchematicLayout.Airlock, "airlock marker exists");
+        Assert.IsTrue(ShipSchematicLayout.Walls.Length > 0,
+            "solid wall runs exist");
 
         Assert.IsTrue(
             ShipSchematicLayout.HullFitsMapDisc(RadialWristElement.MapRadius, 2f),
             "deck hull outline fits the central map disc");
         Assert.IsTrue(
-            ShipSchematicLayout.NodesFitMapDisc(RadialWristElement.MapRadius, 55f, 2f),
-            "all five node chips fit the central map disc");
+            ShipSchematicLayout.FloorplanFitsMapDisc(RadialWristElement.MapRadius, 2f),
+            "whole floorplan fits the central map disc");
         bool markerOk = false;
         Vector2 markerPx = Vector2.zero;
         if (wrist.ShipSchematic != null
@@ -323,6 +354,8 @@ public class SurvivePhase07B1Tests
 
         Assert.IsTrue(markerOk,
             "live player marker is drawn inside the map disc");
+        Assert.IsNotNull(root.Q<VisualElement>("ShipAirlockMarker"),
+            "airlock marker container present in the floorplan");
 
         controller.SetWristOpen(false);
         Assert.IsFalse(controller.IsWristOpen, "ship wrist closed");
@@ -389,28 +422,32 @@ public class SurvivePhase07B1Tests
         WorldUiPointerRouter router = Object.FindAnyObjectByType<WorldUiPointerRouter>();
         Assert.IsNotNull(router, "shared world pointer router present");
 
-        yield return EnterConsole(controller, 1);
+        // Console03 资源加工 carries interactive UI on a physical console
+        // (Console02 is the read-only 仓库总览 now). Real world-pointer clicks
+        // must still mutate GameSession.
+        yield return EnterConsole(controller, 2);
         yield return WaitFocused(focus);
-        WorldConsoleSurface surface = SurfaceOf(controller, 1);
+        WorldConsoleSurface surface = SurfaceOf(controller, 2);
         yield return WaitUiContent(surface);
         yield return WaitSeconds(0.4f);
 
-        Assert.IsFalse(GameSession.Instance.BatterySelected, "battery starts off");
-        Button battery = FindButton(surface, ElementNames.BatteryRowButton);
-        Assert.IsNotNull(battery, "battery row button present");
-        yield return ClickElement(router, surface, battery);
-        Assert.IsTrue(GameSession.Instance.BatterySelected,
-            "world-pointer click changed the authoritative loadout");
-
-        Button confirm = FindButton(surface, ElementNames.ConfirmLoadoutButton);
-        Assert.IsNotNull(confirm, "confirm button present");
-        yield return ClickElement(router, surface, confirm);
-        Assert.IsTrue(GameSession.Instance.LoadoutConfirmed,
-            "world-pointer click changed GameSession (loadout confirmed)");
+        Assert.IsFalse(GameSession.Instance.IsProcessing, "processing starts off");
+        Button batch = FindButton(surface, ElementNames.Batch5Button);
+        Assert.IsNotNull(batch, "batch 05 row button present");
+        yield return ClickElement(router, surface, batch);
+        Button start = FindButton(surface, ElementNames.ProcessingStartButton);
+        Assert.IsNotNull(start, "start button present");
+        yield return ClickElement(router, surface, start);
+        Assert.IsTrue(GameSession.Instance.IsProcessing,
+            "world-pointer click started the authoritative process");
 
         focus.RequestExit();
         yield return WaitUntil(() => focus.State
             == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore);
+        yield return WaitSeconds(2.6f);
+        Assert.AreEqual(GameSession.RefineryProcessState.Complete,
+            GameSession.Instance.ProcessState,
+            "processing completed while unfocused");
         GameSession.Ensure().ResetSession();
     }
 

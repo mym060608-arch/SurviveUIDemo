@@ -9,17 +9,26 @@ using UnityEngine.UIElements;
 
 /// <summary>
 /// Deterministic, idempotent builder for the walkable ARK-07 ship interior
-/// (Phase 07 Checkpoint A). Recreates 03_ShipInterior.unity from scratch on
-/// every run: fixed object names, fixed coordinates, project-local URP
-/// materials, one first-person rig + HUD, one ShipGameController, four
-/// physical console placeholders, three sliding doors, one airlock station
-/// and two spawn markers. Repeated execution converges to the same scene.
+/// (Phase 07 Checkpoint A, extended through Phase 07B.2). Recreates
+/// 03_ShipInterior.unity from scratch on every run: fixed object names, fixed
+/// coordinates, project-local URP materials, one first-person rig + HUD, one
+/// ShipGameController, four physical consoles, three sliding doors, one
+/// airlock station + equipment locker, shipboard modal overlays and two spawn
+/// markers. Repeated execution converges to the same scene.
+///
+/// Phase 07B.2 console composition:
+///   environment Base Camera renders everything EXCEPT the ConsoleScreen
+///   layer and carries the focus DOF; a child Overlay (sharp) camera renders
+///   ONLY the ConsoleScreen layer with post-processing OFF, so physical
+///   console UI stays crisp while the environment blurs. Screen quads use an
+///   authored URP/Unlit material asset (Release shader stripping cannot kill
+///   it) and per-renderer MaterialPropertyBlocks bind each console's own RT.
 ///
 /// Layout contract (top view, +z = forward):
 ///
 ///   x -5.5..5.5, z -14.4..10.6 single hull deck, ceiling 2.7
 ///   BRIDGE / OPS        x -3.4..3.4, z 6.3..10.6      console 01 总览
-///   MISSION PREPARATION x -5.5..-1.1, z 0.3..6.3      console 02 出发准备
+///   WAREHOUSE           x -5.5..-1.1, z 0.3..6.3      console 02 仓库总览
 ///   SPINE corridor      x -1.1..1.1,   z 0.3..6.3
 ///   RESOURCE PROCESSING x 1.1..5.5,    z 0.3..6.3      console 03 资源加工
 ///   OUTPOST // COMMS    x -5.5..5.5,   z -9.4..0.3     console 04 据点
@@ -46,6 +55,17 @@ public static class ShipInteriorBuilder
     private const string UxmlWristPath = "Assets/_Project/UI/UXML/SurfaceWrist.uxml";
     private const string UssWristPath = "Assets/_Project/UI/USS/SurfaceWrist.uss";
     private const string WristPanelSettingsPath = "Assets/_Project/UI/Settings/WristPanelSettings.asset";
+
+    // Phase 07B.2 assets: warehouse terminal, modal overlays, screen material.
+    private const string UxmlWarehousePath = "Assets/_Project/UI/UXML/WarehouseConsole.uxml";
+    private const string UssWarehousePath = "Assets/_Project/UI/USS/WarehouseConsole.uss";
+    private const string UxmlDeployPath = "Assets/_Project/UI/UXML/ShipDeployConfirm.uxml";
+    private const string UssModalPath = "Assets/_Project/UI/USS/ShipModal.uss";
+    private const string ScreenMaterialName = "M_ConsoleScreen";
+
+    /// <summary>Layer for physical console display surfaces (TagManager user
+    /// layer 6; must match WorldConsoleSurface.ConsoleScreenLayer).</summary>
+    private const int ConsoleScreenLayer = WorldConsoleSurface.ConsoleScreenLayer;
 
     // ---- Hull layout (interior clear-space) ----
     private const float XMin = -5.5f;
@@ -108,6 +128,18 @@ public static class ShipInteriorBuilder
             return false;
         }
 
+        // Phase 07B.2 assets: warehouse console tree, modal overlays.
+        var warehouseUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlWarehousePath);
+        var warehouseUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssWarehousePath);
+        var deployUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlDeployPath);
+        var modalUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssModalPath);
+        if (warehouseUxml == null || warehouseUss == null || deployUxml == null
+            || modalUss == null)
+        {
+            Debug.LogError("[ShipInteriorBuilder] missing Phase07B.2 UI assets");
+            return false;
+        }
+
         PanelSettings wristPanel = EnsureWristPanelSettings();
         if (wristPanel == null)
         {
@@ -132,6 +164,12 @@ public static class ShipInteriorBuilder
         Material prop = Load("M_ShipProp");
         Material airlock = Load("M_ShipAirlock");
         Material viewport = Load("M_ShipViewport");
+        Material consoleScreen = Load(ScreenMaterialName);
+        if (consoleScreen == null)
+        {
+            Debug.LogError("[ShipInteriorBuilder] console screen material missing");
+            return false;
+        }
 
         Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
@@ -151,10 +189,11 @@ public static class ShipInteriorBuilder
         var consolesRoot = new GameObject("ShipConsoles");
         BuildConsoles(consolesRoot.transform, consoleLight, consoleDark, glow,
             appUxml, panelSettings, appTheme, overviewUss, preparationUss,
-            processingUss, outpostUss);
+            processingUss, outpostUss, consoleScreen, warehouseUxml, warehouseUss);
 
         var airlockRoot = new GameObject("ShipAirlock");
         BuildAirlock(airlockRoot.transform, airlock, dark, glow);
+        BuildEquipmentLocker(airlockRoot.transform, prop, dark, glow);
 
         BuildSpawns(accent, glow);
         BuildProps(prop, dark, accent, glow, airlock);
@@ -181,6 +220,10 @@ public static class ShipInteriorBuilder
         cam.fieldOfView = 70f;
         cam.nearClipPlane = 0.05f;
         cam.farClipPlane = 60f;
+        // Phase 07B.2 focus composition: the environment base camera never
+        // renders the ConsoleScreen layer (physical display surfaces live on
+        // the sharp overlay camera).
+        cam.cullingMask = ~0 & ~(1 << ConsoleScreenLayer);
         eyeGo.transform.localPosition = new Vector3(0f, 1.65f, 0f);
         eyeGo.transform.localRotation = Quaternion.identity;
 
@@ -192,6 +235,27 @@ public static class ShipInteriorBuilder
         var cameraData = eyeGo.AddComponent<UniversalAdditionalCameraData>();
         cameraData.renderPostProcessing = true;
         cameraData.volumeLayerMask = ~0;
+
+        // Phase 07B.2: sharp ConsoleScreen camera. Child of the eye camera =>
+        // position/rotation/FOV stay frame-locked with zero drift. Renders as
+        // a SECOND independent camera AFTER the environment base camera
+        // (higher depth, depth-only clear preserves the environment frame
+        // including its DOF): mask ConsoleScreen-only, post-processing OFF,
+        // so physical console UI stays crisp while the environment blurs.
+        var sharpGo = new GameObject("SharpScreenCamera");
+        sharpGo.transform.SetParent(eyeGo.transform, false);
+        var sharpCam = sharpGo.AddComponent<Camera>();
+        sharpCam.clearFlags = CameraClearFlags.Depth;
+        sharpCam.cullingMask = 1 << ConsoleScreenLayer;
+        sharpCam.fieldOfView = 70f;
+        sharpCam.nearClipPlane = 0.05f;
+        sharpCam.farClipPlane = 60f;
+        cam.depth = 0f;
+        sharpCam.depth = 1f;
+        var sharpData = sharpGo.AddComponent<UniversalAdditionalCameraData>();
+        sharpData.renderType = CameraRenderType.Base;
+        sharpData.renderPostProcessing = false;
+        Debug.Log("[ShipInteriorBuilder] sharp ConsoleScreen camera created");
 
         // ---- Ship HUD (screen-space UI Toolkit overlay) ----
         var hudGo = new GameObject("ShipHUD");
@@ -220,6 +284,11 @@ public static class ShipInteriorBuilder
         // with WristReturnMode.ShipExplore semantics ----
         BuildShipWrist(eyeGo.transform, wristUxml, wristUss, wristPanel);
 
+        // ---- Phase 07B.2 shipboard modal overlays (deployment confirmation
+        // + shared loadout) and their coordinator ----
+        BuildModalOverlays(panelSettings, appUxml, appTheme, preparationUss, modalUss,
+            deployUxml);
+
         // ---- Ship coordinator ----
         var controlGo = new GameObject("ShipGameController");
         controlGo.AddComponent<ShipGameController>();
@@ -246,17 +315,17 @@ public static class ShipInteriorBuilder
         var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
         profile.name = "ConsoleFocusProfile";
         var dof = profile.Add<UnityEngine.Rendering.Universal.DepthOfField>(true);
-        // Phase 07B.1 blur fix. URP Gaussian far blur proved imperceptible on
-        // the console view even at its clamped max radius (1.5 half-res px),
-        // so we use the physical Bokeh mode: focusDistance sits exactly on the
-        // console screen plane (the authored focus anchor is
-        // FocusDistanceForScreen(1.24m) = 0.71 m in front of the screen), a
-        // small aperture + long focal length produce a clearly visible far
-        // falloff on the hull/corridor while the terminal text stays sharp.
+        // Phase 07B.2: the console UI no longer passes through this camera
+        // (it renders on the sharp ConsoleScreen overlay), so the volume only
+        // softens the ENVIRONMENT while a terminal is focused. Physical Bokeh
+        // DOF with the focus on the near console plane (the authored focus
+        // anchor sits ~0.71 m from the screen): the housing stays recognizable
+        // while the hull/corridor behind falls quickly out of focus - clearly
+        // visible softening with zero risk to screen sharpness.
         dof.mode.Override(UnityEngine.Rendering.Universal.DepthOfFieldMode.Bokeh);
-        dof.focusDistance.Override(0.72f);  // console screen plane (anchor 0.71 m)
-        dof.aperture.Override(1.2f);        // very small f-number => clearly visible DOF
-        dof.focalLength.Override(160f);     // long lens => strong CoC growth off-plane
+        dof.focusDistance.Override(1.05f);  // near plane: console housing band
+        dof.aperture.Override(1.2f);        // very small f-number => visible DOF
+        dof.focalLength.Override(150f);     // long lens => strong far falloff
         dof.bladeCount.Override(6);
         dof.bladeCurvature.Override(1f);
         dof.bladeRotation.Override(0f);
@@ -315,6 +384,39 @@ public static class ShipInteriorBuilder
         var anchor = displayGo.AddComponent<WristDisplayAnchor>();
         anchor.Show(false); // the ship controller shows it when the wrist opens
         Debug.Log("[ShipInteriorBuilder] ship wrist host created");
+    }
+
+    // ---- Phase 07B.2 shipboard modal overlays ----
+
+    private static void BuildModalOverlays(PanelSettings panelSettings,
+        VisualTreeAsset appUxml, StyleSheet appTheme, StyleSheet preparationUss,
+        StyleSheet modalUss, VisualTreeAsset deployUxml)
+    {
+        // Coordinator (active; pages stay bound and visibility is display-
+        // driven, so no document enable/disable churn exists).
+        var coordinator = new GameObject("ShipModalCoordinator");
+        coordinator.AddComponent<ShipOverlayUi>();
+
+        // Deployment confirmation page (screen-space document).
+        var deployGo = new GameObject("ShipDeployConfirm");
+        var deployDoc = deployGo.AddComponent<UIDocument>();
+        deployDoc.visualTreeAsset = deployUxml;
+        deployDoc.sortingOrder = 30;
+        var deployPage = deployGo.AddComponent<ShipDeployConfirmPage>();
+        deployPage.panelSettings = panelSettings;
+        deployPage.modalStyleSheet = modalUss;
+
+        // Shared loadout page (the legacy Preparation tree, chrome hidden).
+        var loadoutGo = new GameObject("ShipLoadoutPage");
+        var loadoutDoc = loadoutGo.AddComponent<UIDocument>();
+        loadoutDoc.visualTreeAsset = appUxml;
+        loadoutDoc.sortingOrder = 31;
+        var loadoutPage = loadoutGo.AddComponent<ShipLoadoutPage>();
+        loadoutPage.panelSettings = panelSettings;
+        loadoutPage.themeStyleSheet = appTheme;
+        loadoutPage.preparationStyleSheet = preparationUss;
+        loadoutPage.modalStyleSheet = modalUss;
+        Debug.Log("[ShipInteriorBuilder] ship modal overlays created");
     }
 
     // ---- Structure (hull + compartment dividers) ----
@@ -507,10 +609,11 @@ public static class ShipInteriorBuilder
     private static void BuildConsoles(Transform root, Material consoleLight,
         Material consoleDark, Material glow, VisualTreeAsset appUxml,
         PanelSettings panelSettingsBase, StyleSheet theme, StyleSheet overviewUss,
-        StyleSheet preparationUss, StyleSheet processingUss, StyleSheet outpostUss)
+        StyleSheet preparationUss, StyleSheet processingUss, StyleSheet outpostUss,
+        Material consoleScreen, VisualTreeAsset warehouseUxml, StyleSheet warehouseUss)
     {
         BuildConsole(root, 1, "总览", new Vector3(0f, 0f, 10.05f), 180f);
-        BuildConsole(root, 2, "出发准备", new Vector3(-4.95f, 0f, 3.4f), 90f);
+        BuildConsole(root, 2, "仓库总览", new Vector3(-4.95f, 0f, 3.4f), 90f);
         BuildConsole(root, 3, "资源加工", new Vector3(4.95f, 0f, 3.4f), 270f);
         BuildConsole(root, 4, "据点", new Vector3(-2.2f, 0f, -8.85f), 0f);
 
@@ -561,6 +664,7 @@ public static class ShipInteriorBuilder
             GameObject screen = CreateLocalQuad(console.transform, "Screen", consoleDark,
                 new Vector3(0f, ConsoleScreenCenterY, ConsoleScreenZ),
                 new Vector3(ConsoleScreenWidth, ConsoleScreenHeight, 1f));
+            screen.layer = ConsoleScreenLayer; // sharp overlay camera layer
             var screenCollider = screen.AddComponent<BoxCollider>();
             screenCollider.size = new Vector3(1f, 1f, 0.04f); // thin, screen-only
 
@@ -583,6 +687,12 @@ public static class ShipInteriorBuilder
             surface.Configure(id, screen.GetComponent<Renderer>(), screen.transform,
                 screenCollider, anchorGo.transform, appUxml, panelSettingsBase,
                 theme, overviewUss, preparationUss, processingUss, outpostUss);
+            surface.ConfigureScreenMaterial(consoleScreen);
+            if (id == 2)
+            {
+                // Console02 = 仓库总览: dedicated warehouse terminal tree.
+                surface.ConfigureWarehouse(true, warehouseUxml, warehouseUss);
+            }
 
             var interactable = console.AddComponent<ShipConsoleInteractable>();
             interactable.Configure(id, zhName);
@@ -634,6 +744,41 @@ public static class ShipInteriorBuilder
         trigger.size = new Vector3(2.0f, 1.8f, 1.4f);
 
         station.AddComponent<ShipAirlockInteractable>();
+    }
+
+    // ---- Phase 07B.2 Airlock equipment locker (graybox) ----
+
+    private static void BuildEquipmentLocker(Transform root, Material prop,
+        Material dark, Material glow)
+    {
+        // Wall cabinet on the WEST airlock wall (replaces the west suit
+        // locker prop). Yaw 90: local +z faces the room (+x world).
+        var locker = new GameObject("EquipmentLocker");
+        locker.transform.SetParent(root, false);
+        locker.transform.position = new Vector3(-2.62f, 0f, -12.6f);
+        locker.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+
+        // Local axes after yaw 90: local x runs along the wall (world -z),
+        // local z is the room depth (world +x). Graybox cabinet + teal LED.
+        CreateLocalBox(locker.transform, "Locker_Body", prop,
+            new Vector3(0f, 1.0f, 0f), new Vector3(1.30f, 2.0f, 0.50f), false);
+        CreateLocalBox(locker.transform, "Locker_Trim", dark,
+            new Vector3(0f, 2.06f, 0f), new Vector3(1.42f, 0.12f, 0.56f), false);
+        CreateLocalBox(locker.transform, "Locker_Led", glow,
+            new Vector3(0f, 0.9f, 0.27f), new Vector3(1.1f, 0.5f, 0.03f), false);
+
+        // Solid body collider + gaze trigger in front of the cabinet.
+        var body = locker.AddComponent<BoxCollider>();
+        body.center = new Vector3(0f, 1.0f, 0f);
+        body.size = new Vector3(1.30f, 2.0f, 0.50f);
+
+        var trigger = locker.AddComponent<BoxCollider>();
+        trigger.isTrigger = true;
+        trigger.center = new Vector3(0f, 1.05f, 1.0f);
+        trigger.size = new Vector3(1.9f, 2.2f, 1.5f);
+
+        locker.AddComponent<EquipmentLockerInteractable>();
+        Debug.Log("[ShipInteriorBuilder] airlock equipment locker created");
     }
 
     // ---- Spawn markers ----
@@ -710,10 +855,9 @@ public static class ShipInteriorBuilder
         CreateLocalBox(outpostProps.transform, "CommsBank_Led", glow,
             new Vector3(5.15f, 0.95f, -2.6f), new Vector3(0.05f, 0.06f, 2.6f), false);
 
-        // Airlock: suit lockers flanking the deployment station.
+        // Airlock: suit locker on the east side only (the west locker was
+        // replaced by the interactive Phase 07B.2 equipment locker).
         var airlockProps = new GameObject("Airlock_Props");
-        CreateWorldBox(airlockProps.transform, "SuitLocker_W", prop, new Vector3(-2.6f, 1.0f, -12.6f),
-            new Vector3(0.6f, 2.0f, 1.2f), false);
         CreateWorldBox(airlockProps.transform, "SuitLocker_E", prop, new Vector3(2.6f, 1.0f, -12.6f),
             new Vector3(0.6f, 2.0f, 1.2f), false);
     }
@@ -773,11 +917,39 @@ public static class ShipInteriorBuilder
                    new Color(0.5f, 2.6f, 2.8f))
                & Ensure("M_ShipConsoleLight", new Color(0.85f, 0.88f, 0.90f), 0.4f)
                & Ensure("M_ShipConsoleDark", new Color(0.12f, 0.14f, 0.16f), 0.3f)
-               & Ensure("M_ShipScreen", new Color(0.015f, 0.02f, 0.025f), 0.2f)
+               & EnsureScreenMaterial()
                & Ensure("M_ShipProp", new Color(0.21f, 0.24f, 0.27f), 0.35f)
                & Ensure("M_ShipAirlock", new Color(0.52f, 0.58f, 0.62f), 0.35f)
                & EnsureGlow("M_ShipViewport", new Color(0.05f, 0.20f, 0.24f),
                    new Color(0.30f, 1.1f, 1.3f));
+    }
+
+    /// <summary>
+    /// Authored unlit monitor material asset using the project's own
+    /// Survive/ScreenDisplayUnlit shader (same proven texture-sampling model
+    /// as the wrist display shader; does not depend on URP/Unlit variant
+    /// stripping or runtime Shader.Find). The scene references this asset on
+    /// every console screen quad so the shader stays in the Release build.
+    /// Texture binding is per console on its own material instance so the
+    /// four terminals never cross-wire.
+    /// </summary>
+    private static bool EnsureScreenMaterial()
+    {
+        Shader screen = Shader.Find("Survive/ScreenDisplayUnlit");
+        if (screen == null)
+        {
+            Debug.LogError("[ShipInteriorBuilder] Survive/ScreenDisplayUnlit "
+                           + "shader missing");
+            return false;
+        }
+
+        var material = new Material(screen)
+        {
+            name = ScreenMaterialName
+        };
+        material.SetColor("_BaseColor", Color.white);
+        AssetDatabase.CreateAsset(material, MaterialsFolder + "/" + ScreenMaterialName + ".mat");
+        return true;
     }
 
     private static bool Ensure(string name, Color baseColor, float smoothness)

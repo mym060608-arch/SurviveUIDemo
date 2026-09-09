@@ -1,0 +1,70 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- Phase 07B.2 Console02 = 仓库总览 (CARGO // STORAGE).
+         Authoritative read-only summary of ship-held GameSession resources +
+         current expedition equipment state. It is NOT a loadout editor. -->
+    <ui:VisualElement name="WarehouseScreen" class="warehouse-root">
+        <!-- Screen header -->
+        <ui:VisualElement class="wh-header">
+            <ui:VisualElement class="wh-header-text">
+                <ui:Label name="WarehouseTitleLabel" class="wh-title" text="仓库总览" />
+                <ui:Label name="WarehouseMetaLabel" class="wh-meta" text="CARGO // STORAGE" />
+            </ui:VisualElement>
+            <ui:VisualElement class="wh-header-rule" />
+            <ui:Label class="wh-index" text="02" />
+        </ui:VisualElement>
+
+        <ui:VisualElement class="wh-body">
+            <!-- LEFT: authoritative resource inventory -->
+            <ui:VisualElement class="wh-col wh-col-left">
+                <ui:Label class="wh-group-label" text="资源库存" />
+                <ui:VisualElement class="wh-panel">
+                    <ui:VisualElement class="store-row">
+                        <ui:Label class="store-name" text="矿物" />
+                        <ui:Label name="WarehouseMineralsValue" class="store-value" text="0" />
+                        <ui:Label class="store-unit" text="" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="row-rule" />
+                    <ui:VisualElement class="store-row">
+                        <ui:Label class="store-name" text="燃料" />
+                        <ui:Label name="WarehouseFuelValue" class="store-value" text="0" />
+                        <ui:Label class="store-unit" text="" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="row-rule" />
+                    <ui:VisualElement class="store-row">
+                        <ui:Label class="store-name" text="合金" />
+                        <ui:Label name="WarehouseAlloyValue" class="store-value" text="0" />
+                        <ui:Label class="store-unit" text="" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label class="wh-caption" text="舰船权威库存 · 由本舰各系统共同更新" />
+            </ui:VisualElement>
+
+            <!-- RIGHT: current expedition equipment summary (read-only) -->
+            <ui:VisualElement class="wh-col wh-col-right">
+                <ui:Label class="wh-group-label" text="当前远征装备" />
+                <ui:VisualElement class="wh-panel">
+                    <ui:VisualElement class="gear-row">
+                        <ui:Label class="gear-name" text="采集器 MK-I" />
+                        <ui:Label name="WarehouseHarvesterState" class="gear-state gear-state-required" text="必需" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="row-rule" />
+                    <ui:VisualElement class="gear-row">
+                        <ui:Label class="gear-name" text="备用电池组" />
+                        <ui:Label name="WarehouseBatteryState" class="gear-state" text="未选择" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="row-rule" />
+                    <ui:VisualElement class="gear-row">
+                        <ui:Label class="gear-name" text="勘测无人机" />
+                        <ui:Label name="WarehouseDroneState" class="gear-state" text="未选择" />
+                    </ui:VisualElement>
+                    <ui:VisualElement class="row-rule" />
+                    <ui:VisualElement class="gear-row">
+                        <ui:Label class="gear-name" text="载荷" />
+                        <ui:Label name="WarehouseCargoValue" class="gear-cargo" text="45 / 100 KG" />
+                    </ui:VisualElement>
+                </ui:VisualElement>
+                <ui:Label name="WarehouseNoteLabel" class="wh-caption" text="远征装备可在气闸装备柜调整" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

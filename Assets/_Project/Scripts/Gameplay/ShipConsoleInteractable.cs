@@ -1,13 +1,13 @@
 using UnityEngine;
 
 /// <summary>
-/// Physical ship console placeholder (Phase 07 Checkpoint A).
+/// Physical ship console placeholder (Phase 07 Checkpoint A, role update
+/// Phase 07B.2).
 ///
-/// Each of the four consoles (01 总览, 02 出发准备, 03 资源加工, 04 据点) is an
-/// IFirstPersonInteractable so the gaze prompt works in ShipExplore mode. In
-/// 07A the screen is a static graybox placeholder: E only records a notice.
-/// The real RenderTexture UI + ShipConsole interaction mode arrive in
-/// Phase 07 Checkpoint B.
+/// Each of the four consoles (01 总览, 02 仓库总览, 03 资源加工, 04 据点) is an
+/// IFirstPersonInteractable so the gaze prompt works in ShipExplore mode. E
+/// enters the console-focus mode (ShipConsoleFocusController) which lets the
+/// player operate the physical screen's real UI through the world pointer.
 /// </summary>
 public class ShipConsoleInteractable : MonoBehaviour, IFirstPersonInteractable
 {

@@ -275,13 +275,30 @@ public class SurvivePhase07BTests
                 "console " + (i + 1) + " RT valid at native resolution");
             Assert.IsNotNull(surface.ScreenRenderer, "console " + (i + 1) + " renderer");
             Assert.IsTrue(surface.ScreenRenderer.enabled, "console " + (i + 1) + " renderer on");
-            Assert.IsNotNull(surface.ScreenHost, "console " + (i + 1) + " UI host bound");
-            Assert.IsTrue(surface.ScreenHost.CountVisibleScreens() == 1,
-                "console " + (i + 1) + " shows exactly one screen");
-            Assert.AreEqual(i + 1, surface.ScreenHost.MappedScreen == AppScreen.Overview
-                ? 1 : surface.ScreenHost.MappedScreen == AppScreen.Preparation
-                    ? 2 : surface.ScreenHost.MappedScreen == AppScreen.Processing ? 3 : 4,
-                "console " + (i + 1) + " maps the fixed screen id");
+            if (i == 1)
+            {
+                // Console02 = 仓库总览: dedicated warehouse terminal host.
+                Assert.IsNotNull(surface.WarehouseHost,
+                    "console 2 warehouse host bound");
+                Assert.IsTrue(surface.WarehouseHost.IsBound,
+                    "console 2 warehouse host initialized");
+                VisualElement warehouseRoot = surface.WarehouseHost.Root;
+                Assert.IsNotNull(warehouseRoot, "console 2 warehouse root");
+                Assert.AreEqual("仓库总览",
+                    warehouseRoot.Q<Label>("WarehouseTitleLabel").text,
+                    "console 2 title is 仓库总览");
+            }
+            else
+            {
+                Assert.IsNotNull(surface.ScreenHost, "console " + (i + 1) + " UI host bound");
+                Assert.IsTrue(surface.ScreenHost.CountVisibleScreens() == 1,
+                    "console " + (i + 1) + " shows exactly one screen");
+                Assert.AreEqual(i + 1,
+                    surface.ScreenHost.MappedScreen == AppScreen.Overview
+                        ? 1 : surface.ScreenHost.MappedScreen == AppScreen.Processing
+                            ? 3 : 4,
+                    "console " + (i + 1) + " maps the fixed screen id");
+            }
 
             // Physical aspect must match the RenderTexture aspect (<=1%).
             float aspect = surface.PhysicalScreenAspect;
@@ -517,9 +534,10 @@ public class SurvivePhase07BTests
     // ====================================================================
 
     [UnityTest]
-    public IEnumerator ShipConsole_Preparation_Runtime()
+    public IEnumerator ShipConsole_Warehouse_Runtime()
     {
         GameSession.Ensure().ResetSession();
+        GameSession session = GameSession.Instance;
         yield return LoadShipScene();
         ShipGameController controller = null;
         yield return WaitForShip(value => controller = value);
@@ -533,21 +551,28 @@ public class SurvivePhase07BTests
             controller.Consoles[1].GetComponent<WorldConsoleSurface>();
         yield return WaitConsoleUi(surface);
 
-        Assert.IsFalse(GameSession.Instance.BatterySelected, "battery starts off");
+        // Console02 = 仓库总览 (Phase 07B.2): dedicated read-only terminal.
+        Assert.IsNotNull(surface.WarehouseHost, "warehouse host bound");
+        Assert.IsTrue(surface.WarehouseHost.IsBound, "warehouse host ready");
+        Assert.IsNull(surface.ScreenHost,
+            "warehouse terminal does not host the legacy MainApp tree");
+        VisualElement root = surface.WarehouseHost.Root;
+        Assert.IsNotNull(root, "warehouse document root");
+        Assert.AreEqual("仓库总览", root.Q<Label>("WarehouseTitleLabel").text,
+            "warehouse screen title");
+        Assert.AreEqual(session.Minerals.ToString(),
+            root.Q<Label>(ShipWarehouseScreenHost.MineralsValueName).text,
+            "warehouse minerals show the authoritative session value");
 
-        // Real click on the BATTERY row through the world pointer pipeline.
-        Button battery = FindButton(surface, ElementNames.BatteryRowButton);
-        Assert.IsNotNull(battery, "battery row button present");
-        yield return ClickElement(router, surface, battery);
-        Assert.IsTrue(GameSession.Instance.BatterySelected,
-            "clicking Battery row changed the authoritative loadout");
-
-        // Real click on CONFIRM LOADOUT.
-        Button confirm = FindButton(surface, ElementNames.ConfirmLoadoutButton);
-        Assert.IsNotNull(confirm, "confirm button present");
-        yield return ClickElement(router, surface, confirm);
-        Assert.IsTrue(GameSession.Instance.LoadoutConfirmed,
-            "clicking confirm locked the loadout");
+        // Live: an authoritative mutation refreshes the warehouse screen.
+        session.AddMinerals(5);
+        yield return null;
+        yield return null;
+        Assert.AreEqual(session.Minerals.ToString(),
+            root.Q<Label>(ShipWarehouseScreenHost.MineralsValueName).text,
+            "warehouse minerals refresh from GameSession");
+        Assert.IsNull(root.Q<Button>(ElementNames.BatteryRowButton),
+            "warehouse is NOT a loadout editor (no equipment rows)");
 
         focus.RequestExit();
         yield return WaitExplore(focus);
@@ -704,20 +729,50 @@ public class SurvivePhase07BTests
         Assert.IsTrue(panelTl.x < panelBr.x && panelTl.y < panelBr.y,
             "orientation: top-left -> small panel x AND y (single Y inversion)");
 
-        // Hover a real button through the world pointer and let UI Toolkit
-        // apply its :hover style; a second hover away restores it.
-        Button battery = FindButton(surface, ElementNames.BatteryRowButton);
+        // Hover a real button through the world pointer. The dispatcher's
+        // pointer-under-element resolution (the exact mechanism that drives
+        // :hover pseudo states on a real device) must land on the batch
+        // button. The editor Test Runner has no OS mouse, so the *visual*
+        // pseudo-state change is asserted by the Release-player probe with a
+        // real OS cursor (ShipB2ShotProbe real-mouse hover stage).
+        focus.RequestExit();
+        yield return WaitExplore(focus);
+        yield return EnterConsole(controller, 2);
+        yield return WaitFocused(focus);
+        surface = controller.Consoles[2].GetComponent<WorldConsoleSurface>();
+        yield return WaitConsoleUi(surface);
+        Button batch5 = FindButton(surface, ElementNames.Batch5Button);
+        Assert.IsNotNull(batch5, "batch 05 button present");
         Vector2 viewport;
-        Assert.IsTrue(TryElementViewport(surface, eye, battery, out viewport),
-            "battery element maps into the viewport");
-        Color baseColor = battery.resolvedStyle.backgroundColor;
+        Assert.IsTrue(TryElementViewport(surface, eye, batch5, out viewport),
+            "batch element maps into the viewport");
         Assert.IsTrue(router.TryHoverViewportPoint(viewport), "hover lands on the screen");
         yield return null;
         yield return null;
-        Color hoverColor = battery.resolvedStyle.backgroundColor;
-        Assert.IsTrue(hoverColor != baseColor,
-            "hover applies genuine UI Toolkit styling (" + baseColor + " -> "
-            + hoverColor + ")");
+
+        // The hovered element must be the button itself or one of its
+        // descendants (the genuine :hover recipient chain).
+        Vector2 screenPixel = new Vector2(viewport.x * Screen.width,
+            viewport.y * Screen.height);
+        Vector2 panelPos;
+        Assert.IsTrue(router.TryScreenToPanelPixel(screenPixel, out panelPos),
+            "hover point maps into the focused panel");
+        VisualElement picked = surface.Document.rootVisualElement.panel != null
+            ? surface.Document.rootVisualElement.panel.Pick(panelPos)
+            : null;
+        bool chainToButton = false;
+        for (VisualElement walk = picked; walk != null; walk = walk.parent)
+        {
+            if (walk == batch5)
+            {
+                chainToButton = true;
+                break;
+            }
+        }
+
+        Assert.IsTrue(chainToButton,
+            "hover targeting resolves to the batch button through the "
+            + "dispatcher picker (" + (picked != null ? picked.name : "null") + ")");
 
         focus.RequestExit();
         yield return WaitExplore(focus);

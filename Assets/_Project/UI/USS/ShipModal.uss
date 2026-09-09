@@ -1,0 +1,195 @@
+/*
+ * Survive UI Demo - Ship modal overlay chrome (Phase 07B.2).
+ * Shared by the Deployment Confirmation page and the loadout page close bar.
+ * Light panel over a dim world; restrained corners, hairline rules, teal
+ * primary accent (#0E7F8C). Targets the 1920 x 1080 runtime overlay canvas.
+ */
+
+.modal-root {
+    background-color: rgba(9, 13, 16, 0.56);
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-panel {
+    width: 820px;
+    background-color: #EDEFF1;
+    border-top-width: 3px;
+    border-top-color: #0E7F8C;
+    padding-left: 56px;
+    padding-right: 56px;
+    padding-top: 44px;
+    padding-bottom: 36px;
+}
+
+.modal-head {
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.modal-kicker {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #5A6570;
+    margin-bottom: 6px;
+}
+
+.modal-hero {
+    font-size: 44px;
+    -unity-font-style: medium;
+    color: #161B20;
+}
+
+.modal-sub {
+    font-size: 13px;
+    color: #4A525C;
+    margin-top: 6px;
+}
+
+.modal-rule {
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-top: 22px;
+    margin-bottom: 20px;
+}
+
+.modal-group-title {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #4A525C;
+    margin-bottom: 8px;
+}
+
+.modal-gear {
+    flex-direction: column;
+}
+
+.modal-gear-row {
+    flex-direction: row;
+    align-items: center;
+    height: 52px;
+}
+
+.modal-gear-name {
+    flex-grow: 1;
+    font-size: 18px;
+    color: #161B20;
+}
+
+.modal-gear-state {
+    font-size: 13px;
+    color: #4A525C;
+    width: 84px;
+    -unity-text-align: middle-center;
+}
+
+.modal-state-required {
+    color: #0E7F8C;
+}
+
+.modal-gear-cargo {
+    font-size: 16px;
+    color: #0E7F8C;
+}
+
+.modal-row-rule {
+    height: 1px;
+    background-color: #D8DDE1;
+}
+
+.modal-actions {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 30px;
+}
+
+.modal-btn {
+    height: 46px;
+    padding-left: 22px;
+    padding-right: 22px;
+    margin-left: 12px;
+    font-size: 16px;
+}
+
+.modal-btn-primary {
+    background-color: #0E7F8C;
+    color: #FFFFFF;
+    border-top-width: 0;
+    border-bottom-width: 0;
+    border-left-width: 0;
+    border-right-width: 0;
+}
+
+.modal-btn-primary:hover {
+    background-color: #0B6A76;
+}
+
+.modal-btn-ghost {
+    background-color: #FFFFFF;
+    color: #161B20;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-color: #0E7F8C;
+}
+
+.modal-btn-ghost:hover {
+    background-color: #E3F0F2;
+}
+
+.modal-btn-plain {
+    background-color: rgba(0, 0, 0, 0);
+    color: #4A525C;
+}
+
+.modal-btn-plain:hover {
+    color: #161B20;
+}
+
+.modal-hint {
+    font-size: 11px;
+    color: #7B858F;
+    margin-top: 18px;
+    -unity-text-align: middle-left;
+}
+
+/* ---------- Loadout page close bar (appended over the shared prep page) ---------- */
+
+.loadout-close-bar {
+    position: absolute;
+    top: 18px;
+    right: 24px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.loadout-close-hint {
+    font-size: 12px;
+    color: #5A6570;
+    margin-right: 14px;
+}
+
+.loadout-close-btn {
+    background-color: #FFFFFF;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-left-width: 1px;
+    border-right-width: 1px;
+    border-color: #0E7F8C;
+    color: #161B20;
+    font-size: 15px;
+    height: 36px;
+    padding-left: 18px;
+    padding-right: 18px;
+}
+
+.loadout-close-btn:hover {
+    background-color: #E3F0F2;
+}
+
+/* ---------- Loadout page dim overlay root (keeps the legacy page look) ---------- */
+
+.loadout-scrim {
+    background-color: rgba(9, 13, 16, 0.42);
+}

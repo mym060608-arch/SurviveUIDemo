@@ -211,12 +211,12 @@ public class SurvivePhase07Tests
         Assert.AreEqual("舰桥", ShipGameController.ResolveZoneZh(player.transform.position),
             "zone is bridge after crossing");
 
-        // Preparation bay: corridor -> west side room through the 1.4 m gap.
+        // Warehouse bay: corridor -> west side room through the 1.4 m gap.
         Walk(player, new Vector3(0f, 0f, 3.4f), 270f, 40);
         Assert.IsTrue(player.transform.position.x < -1.4f,
-            "player crossed into preparation (x=" + player.transform.position.x + ")");
-        Assert.AreEqual("出发准备", ShipGameController.ResolveZoneZh(player.transform.position),
-            "zone is preparation after crossing");
+            "player crossed into warehouse (x=" + player.transform.position.x + ")");
+        Assert.AreEqual("仓库", ShipGameController.ResolveZoneZh(player.transform.position),
+            "zone is warehouse after crossing");
 
         // Fabrication bay: corridor -> east side room through the 1.4 m gap.
         Walk(player, new Vector3(0f, 0f, 3.4f), 90f, 40);

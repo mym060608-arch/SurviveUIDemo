@@ -182,6 +182,11 @@ public static class SurviveProjectSetup
         SceneManager.MoveGameObjectToScene(shipShotProbe, scene);
         shipShotProbe.AddComponent<ShipShotProbe>();
 
+        // Phase 07B.2 release evidence probe (inert unless -ship07B2Shot).
+        var b2ShotProbe = new GameObject("ShipB2ShotProbe");
+        SceneManager.MoveGameObjectToScene(b2ShotProbe, scene);
+        b2ShotProbe.AddComponent<ShipB2ShotProbe>();
+
         // Phase 07A.1 normal human-runtime routing probe (inert unless -shipFlow).
         var shipFlowProbe = new GameObject("ShipFlowProbe");
         SceneManager.MoveGameObjectToScene(shipFlowProbe, scene);
