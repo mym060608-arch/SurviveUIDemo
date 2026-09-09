@@ -1678,13 +1678,15 @@ public class SurvivePhase06RevisionTests
     }
 
     // ==================================================================
-    // Round 9.2.1 WristIdentity radial header
+    // Round 9.2.2 WristIdentity map footer
     // ==================================================================
 
-    /// <summary>WristIdentityBounds_Runtime (Round 9.2.1) - the radial header
-    /// label "NEREID-04 · 地表勘测" must stay inside the wrist RenderTexture,
-    /// must not overlap the HealthLabel, must not sit deep over the central
-    /// map, and its four corners must project inside the viewport (exact
+    /// <summary>WristIdentityBounds_Runtime (Round 9.2.2) - the label
+    /// "NEREID-04 · 地表勘测" is a restrained map FOOTER: it must sit INSIDE
+    /// the central Local Map disc (all four corners within MapRadius minus the
+    /// >=12px safe padding), in the LOWER half (identity centre Y below the
+    /// map centre), must not overlap HealthLabel / SatietyLabel or the status
+    /// tracks, and its four corners must project inside the viewport (exact
     /// 1920x1080 numbers print in the Release screenshot log).</summary>
     [UnityTest]
     public IEnumerator WristIdentityBounds_Runtime()
@@ -1705,19 +1707,24 @@ public class SurvivePhase06RevisionTests
         SurfaceWristController wrist = Wrist();
         Assert.IsNotNull(wrist, "wrist controller");
         bool ok = wrist.VerifyWristIdentityBounds(out string report);
-        Assert.IsTrue(ok, "wrist identity radial header bounds:\n" + report);
+        Assert.IsTrue(ok, "wrist identity map footer bounds:\n" + report);
 
         // Deterministic resolved position (USS-positioned, no inline style):
-        // identity must be a top radial header (between health arc and map),
-        // never at the RT bottom (the previous clipped location).
+        // identity must sit INSIDE the map's lower half (map centre y=400,
+        // centre y roughly 560..590), never above/on the health arc.
         VisualElement root = wrist.RootElement;
         Label identity = root.Q<Label>("WristIdentity");
         Assert.IsNotNull(identity, "identity label present");
         float top = identity.resolvedStyle.top;
+        float height = identity.resolvedStyle.height;
         Assert.IsFalse(float.IsNaN(top), "identity resolved top available");
-        Assert.IsTrue(top > 100f && top < 200f,
-            "identity is a top radial header (resolved top=" + top.ToString("0")
-            + ", expected ~130) - NOT at the clipped RT bottom");
+        Assert.IsTrue(top > 520f && top < 610f,
+            "identity is a map footer in the lower half (resolved top=" + top.ToString("0")
+            + ", expected ~560)");
+        float centreY = top + height * 0.5f;
+        Assert.Greater(centreY, RadialWristElement.Center.y,
+            "identity centre is below the map centre (centreY=" + centreY.ToString("0")
+            + " vs " + RadialWristElement.Center.y + ")");
 
         controller.SetWristOpen(false);
     }

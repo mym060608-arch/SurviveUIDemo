@@ -253,23 +253,26 @@
     border-bottom-color: rgb(14, 127, 140);
 }
 
-/* Radial header / identity label (Round 9.2.1): sits between the health
-   status arc (radius 248..262, apex ~y138..152) and the central map top
-   (radius 235, apex ~y165), centred on x=640. It is NOT part of the sector
-   staircase and must never be pushed to the RT bottom (the raised-wrist
-   projection clips it there). */
+/* Map footer / identity label (Round 9.2.2): "NEREID-04 · 地表勘测" lives
+   INSIDE the central Local Map, lower half, below the map centre - it no
+   longer floats between the health arc and the map. Centred at x=640 with a
+   very light MapFill-like translucent backing so the vertical map crosshair
+   (x=640, y up to ~575) does not cut through the glyphs. Deliberately
+   restrained: no card, no border, no teal, no bold. */
 .wrist-identity {
     position: absolute;
 
-    left: 500px;
-    top: 130px;
+    left: 534px;
+    top: 560px;
 
-    width: 280px;
-    height: 18px;
+    width: 212px;
+    height: 20px;
+
+    background-color: rgba(185, 198, 204, 0.13);
 
     color: rgb(74, 82, 92);
 
-    font-size: 11px;
+    font-size: 10px;
 
     white-space: nowrap;
     -unity-text-align: middle-center;

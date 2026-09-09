@@ -673,15 +673,20 @@ public class SurfaceWristController : MonoBehaviour
     }
 
     // ====================================================================
-    // Round 9.2.1 WristIdentity bounds (radial header)
+    // Round 9.2.2 WristIdentity bounds (map footer)
     // ====================================================================
 
-    /// <summary>Round 9.2.1: verifies the WristIdentity radial header.
-    /// The label must:
+    /// <summary>Round 9.2.2: verifies the WristIdentity label is a restrained
+    /// MAP FOOTER - it lives INSIDE the central Local Map (radius 235), lower
+    /// half. The label must:
     ///   - resolve fully inside the 1280x800 wrist RenderTexture;
-    ///   - NOT overlap the HealthLabel bounds;
-    ///   - NOT sit deep over the central map circle (all four corners stay
-    ///     outside MapRadius - it floats between the health arc and map top);
+    ///   - have all four corners strictly INSIDE the map disc with a safe
+    ///     padding (each corner distance to the map centre &lt; MapRadius -
+    ///     MapSafePadding, padding >= 12px);
+    ///   - be centred below the map centre (identity centre Y &gt; map centre Y);
+    ///   - NOT overlap HealthLabel or SatietyLabel;
+    ///   - NOT overlap the Health/Satiety tracks (which live at radius
+    ///     248..262 - corners inside the map already clear them);
     ///   - project to the screen inside the viewport on all four corners.
     /// The projection uses the SAME wrist-pixel -> display-plane -> camera
     /// mapping as ComputeProjectedRadialBounds (no separate coordinate math).</summary>
@@ -704,23 +709,31 @@ public class SurfaceWristController : MonoBehaviour
 
         Label identity = _document.rootVisualElement.Q<Label>("WristIdentity");
         Label health = _document.rootVisualElement.Q<Label>("HealthLabel");
+        Label satiety = _document.rootVisualElement.Q<Label>("SatietyLabel");
         Check(identity != null, "WristIdentity element resolved");
         Check(health != null, "HealthLabel element resolved");
-        if (identity == null || health == null)
+        Check(satiety != null, "SatietyLabel element resolved");
+        if (identity == null || health == null || satiety == null)
         {
             report = lines.ToString();
             return ok;
         }
 
+        const float mapSafePadding = 12f;
+
         // 1) Resolved rect of the identity label inside the 1280x800 canvas.
         Rect idRect = ResolvedRectOf(identity);
         Rect healthRect = ResolvedRectOf(health);
+        Rect satietyRect = ResolvedRectOf(satiety);
         lines.AppendLine("INFO :: identity rect=" + idRect.x.ToString("0") + ","
                          + idRect.y.ToString("0") + " " + idRect.width.ToString("0") + "x"
                          + idRect.height.ToString("0")
-                         + " (expected ~500,130 280x18) health rect="
+                         + " (expected ~534,560 212x20) health rect="
                          + healthRect.x.ToString("0") + "," + healthRect.y.ToString("0") + " "
-                         + healthRect.width.ToString("0") + "x" + healthRect.height.ToString("0"));
+                         + healthRect.width.ToString("0") + "x" + healthRect.height.ToString("0")
+                         + " satiety rect="
+                         + satietyRect.x.ToString("0") + "," + satietyRect.y.ToString("0") + " "
+                         + satietyRect.width.ToString("0") + "x" + satietyRect.height.ToString("0"));
 
         bool rectValid = idRect.width > 1f && idRect.height > 1f
                          && !float.IsNaN(idRect.x) && !float.IsNaN(idRect.y);
@@ -733,14 +746,15 @@ public class SurfaceWristController : MonoBehaviour
                             && idRect.y + idRect.height <= UiHeight + 0.75f;
         Check(insideCanvas, "identity rect fully inside the 1280x800 RenderTexture");
 
-        // 2) No overlap with the HealthLabel bounds.
-        bool noOverlap = !RectsOverlap(idRect, healthRect);
-        Check(noOverlap, "identity does not overlap HealthLabel bounds");
+        // 2) No overlap with the Health / Satiety value labels.
+        Check(!RectsOverlap(idRect, healthRect),
+            "identity does not overlap HealthLabel bounds");
+        Check(!RectsOverlap(idRect, satietyRect),
+            "identity does not overlap SatietyLabel bounds");
 
-        // 3) Not deep over the central map circle: all four corners stay
-        // outside the MapRadius disc (it sits above the map, not on it).
-        bool outsideMap = true;
-        float minCornerDistance = float.MaxValue;
+        // 3) All four corners strictly INSIDE the map disc with the safe
+        // padding. This also guarantees the label never reaches the status
+        // tracks (radius 248..262).
         Vector2[] corners =
         {
             new Vector2(idRect.x, idRect.y),
@@ -748,22 +762,40 @@ public class SurfaceWristController : MonoBehaviour
             new Vector2(idRect.x + idRect.width, idRect.y + idRect.height),
             new Vector2(idRect.x, idRect.y + idRect.height)
         };
+        float maxCornerDistance = 0f;
+        bool cornersInsideMap = true;
+        bool clearOfTracks = true;
         foreach (Vector2 corner in corners)
         {
             float distance = Vector2.Distance(corner, RadialWristElement.Center);
-            minCornerDistance = Mathf.Min(minCornerDistance, distance);
-            if (distance < RadialWristElement.MapRadius - 1.5f)
+            maxCornerDistance = Mathf.Max(maxCornerDistance, distance);
+            if (distance > RadialWristElement.MapRadius - mapSafePadding + 0.75f)
             {
-                outsideMap = false;
+                cornersInsideMap = false;
+            }
+
+            if (distance > RadialWristElement.StatusInnerRadius - 0.75f)
+            {
+                clearOfTracks = false;
             }
         }
 
-        lines.AppendLine("INFO :: identity min corner distance to map centre="
-                         + minCornerDistance.ToString("0.0") + " (map radius "
-                         + RadialWristElement.MapRadius + ")");
-        Check(outsideMap, "identity corners stay outside the central map disc");
+        float maxDistance = maxCornerDistance;
+        lines.AppendLine("INFO :: identity corner distance to map centre="
+                         + maxDistance.ToString("0.0") + " (map radius "
+                         + RadialWristElement.MapRadius + " minus safe padding "
+                         + mapSafePadding + " = " + (RadialWristElement.MapRadius
+                             - mapSafePadding).ToString("0.0") + ")");
+        Check(cornersInsideMap, "all four identity corners INSIDE the map disc with >=12px padding");
+        Check(clearOfTracks, "identity stays clear of the status tracks (radius < 248)");
 
-        // 4) Projected corners inside the current viewport (fraction 0..1).
+        // 4) Lower half: identity centre Y below the map centre.
+        float idCentreY = idRect.y + idRect.height * 0.5f;
+        Check(idCentreY > RadialWristElement.Center.y + 0.5f,
+            "identity centre Y is below the map centre (lower half, centreY="
+            + idCentreY.ToString("0.0") + " vs " + RadialWristElement.Center.y + ")");
+
+        // 5) Projected corners inside the current viewport (fraction 0..1).
         EnsureDisplayReference();
         if (_mainCamera == null && Camera.main != null)
         {
