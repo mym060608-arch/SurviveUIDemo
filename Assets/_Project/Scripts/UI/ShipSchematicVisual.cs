@@ -30,24 +30,57 @@ public sealed class ShipSchematicVisual : VisualElement
     public const float CanvasHeight = 800f;
 
     // Hologram palette (matches the wrist language; never opaque white).
+    //
+    // Phase 07B.2.3 legibility pass: the floorplan is one of the top visual
+    // layers of the wrist, so the hull/wall line work got thicker and more
+    // opaque while the restraint of the Swiss / technical look is kept (no
+    // white hot-line diagram). Visual hierarchy, strongest last:
+    //   room labels < hull outline < walls < dashed doors < terminal icons
+    //   < airlock < live player marker.
     private static readonly Color32 HullColor =
-        new Color32(168, 198, 206, 170);
+        new Color32(176, 206, 214, 200);   // alpha 0.78, width 2.0
     private static readonly Color32 WallColor =
-        new Color32(178, 206, 212, 235);
+        new Color32(196, 224, 230, 245);   // alpha 0.96, width 3.2
     private static readonly Color32 DoorColor =
-        new Color32(178, 206, 212, 235);
+        new Color32(206, 234, 240, 250);   // alpha 0.98, width 3.0 (dashed)
     private static readonly Color32 IconColor =
-        new Color32(236, 249, 251, 245);
+        new Color32(240, 252, 254, 255);   // alpha 1.00 (one step above walls)
     private static readonly Color32 IconFill =
-        new Color32(14, 127, 140, 150);
+        new Color32(14, 127, 140, 168);
     private static readonly Color32 AirlockColor =
-        new Color32(236, 249, 251, 245);
+        new Color32(240, 252, 254, 255);
     private static readonly Color32 PlayerColor =
-        new Color32(235, 250, 252, 255);
+        new Color32(235, 250, 252, 255);   // alpha 1.00, top layer
     private static readonly Color32 LabelColor =
         new Color32(216, 236, 240, 255);
     private static readonly Color32 MetaColor =
         new Color32(150, 182, 190, 235);
+
+    /// <summary>Authored door dash pattern (wrist canvas pixels). The four
+    /// contract doors are only 1.8 m / 1.4 m long = 16.8-21.6 px at the
+    /// floorplan's 12 px/m, so an exactly-tiled pattern used to collapse to a
+    /// single 10-17 px dash that read as a solid wall run. The renderer now
+    /// tiles this pattern CENTERED and never rescales it, guaranteeing at least
+    /// two dashes on every door.</summary>
+    public const float DoorDashPx = 6f;
+
+    /// <summary>Door dash gap (wrist canvas pixels).</summary>
+    public const float DoorGapPx = 4f;
+
+    /// <summary>Shortest partial dash still worth drawing.</summary>
+    public const float MinDashPx = 1.5f;
+
+    public const float HullThicknessPx = 2.0f;
+    public const float WallThicknessPx = 3.2f;
+    public const float DoorThicknessPx = 3.0f;
+
+    /// <summary>Effective alphas (0..1) of the floorplan layers, exposed so the
+    /// visual hierarchy is assertable instead of eyeballed.</summary>
+    public static float HullAlpha => HullColor.a / 255f;
+    public static float WallAlpha => WallColor.a / 255f;
+    public static float DoorAlpha => DoorColor.a / 255f;
+    public static float IconAlpha => IconColor.a / 255f;
+    public static float PlayerAlpha => PlayerColor.a / 255f;
 
     private readonly Label _playerMarker;
     private bool _playerVisible;
@@ -290,24 +323,25 @@ public sealed class ShipSchematicVisual : VisualElement
 
     private void GenerateVisual(MeshGenerationContext ctx)
     {
-        // Hull outline (closed polyline over the deck ring) - subtle frame.
+        // Hull outline (closed polyline over the deck ring) - frame layer.
         Vector2[] ring = ShipSchematicLayout.HullRing;
         for (int i = 0; i < ring.Length; i++)
         {
             Vector2 a = ShipSchematicLayout.DeckToPixel(ring[i]);
             Vector2 b = ShipSchematicLayout.DeckToPixel(
                 ring[(i + 1) % ring.Length]);
-            DrawLine(ctx, a, b, HullColor, 1.4f);
+            DrawLine(ctx, a, b, HullColor, HullThicknessPx);
         }
 
-        // Solid wall runs.
+        // Solid wall runs (the runs stop where a door begins: the dashed door
+        // segment below IS the opening, never an overdrawn second line).
         ShipWallSegment[] walls = ShipSchematicLayout.Walls;
         for (int i = 0; i < walls.Length; i++)
         {
             DrawLine(ctx,
                 ShipSchematicLayout.DeckToPixel(walls[i].A),
                 ShipSchematicLayout.DeckToPixel(walls[i].B),
-                WallColor, 2.2f);
+                WallColor, WallThicknessPx);
         }
 
         // Dashed door segments (replace the interrupted wall part).
@@ -317,10 +351,10 @@ public sealed class ShipSchematicVisual : VisualElement
             DrawDashedLine(ctx,
                 ShipSchematicLayout.DeckToPixel(doors[i].A),
                 ShipSchematicLayout.DeckToPixel(doors[i].B),
-                DoorColor, 2.2f, 8f, 6f);
+                DoorColor, DoorThicknessPx, DoorDashPx, DoorGapPx);
         }
 
-        // Terminal monitor pictograms.
+        // Terminal monitor pictograms (one step above the wall layer).
         ShipTerminalMarker[] terminals = ShipSchematicLayout.Terminals;
         for (int i = 0; i < terminals.Length; i++)
         {
@@ -342,27 +376,27 @@ public sealed class ShipSchematicVisual : VisualElement
         float halfH = 4.6f;
         // Display panel outline.
         DrawRectOutline(ctx, centre + new Vector2(0f, -1f), halfW, halfH,
-            IconColor, 1.2f, IconFill);
+            IconColor, 1.6f, IconFill);
         // Stand neck + foot.
         DrawLine(ctx, centre + new Vector2(0f, 3.4f), centre + new Vector2(0f, 6f),
-            IconColor, 1.2f);
+            IconColor, 1.6f);
         DrawLine(ctx, centre + new Vector2(-3.4f, 6f), centre + new Vector2(3.4f, 6f),
-            IconColor, 1.2f);
+            IconColor, 1.6f);
     }
 
     /// <summary>Simplified descent capsule: rounded pod outline + centre band.</summary>
     private static void DrawCapsuleIcon(MeshGenerationContext ctx, Vector2 centre)
     {
         DrawEllipseOutline(ctx, centre + new Vector2(0f, -0.5f), 6.6f, 10.5f,
-            AirlockColor, 1.3f);
+            AirlockColor, 1.7f);
         // Capsule waist band (reads as a return-pod ring).
         DrawLine(ctx, centre + new Vector2(-6.6f, 1.6f), centre + new Vector2(6.6f, 1.6f),
-            AirlockColor, 1.1f);
+            AirlockColor, 1.5f);
         // Small landing feet hint.
         DrawLine(ctx, centre + new Vector2(-4f, 9.6f), centre + new Vector2(-2.2f, 11.6f),
-            AirlockColor, 1.1f);
+            AirlockColor, 1.5f);
         DrawLine(ctx, centre + new Vector2(4f, 9.6f), centre + new Vector2(2.2f, 11.6f),
-            AirlockColor, 1.1f);
+            AirlockColor, 1.5f);
     }
 
     // ---- Primitive mesh helpers (absolute canvas pixels) ----
@@ -396,8 +430,16 @@ public sealed class ShipSchematicVisual : VisualElement
         mesh.SetNextIndex(3);
     }
 
-    /// <summary>Draws a wall-aligned door as evenly spaced dashes; the dash
-    /// run exactly covers A..B so the door reads as a replaced wall part.</summary>
+    /// <summary>
+    /// Draws a wall-aligned door as dash-gap-dash-gap runs.
+    ///
+    /// The pattern is tiled CENTERED and never rescaled: the 07B.2 version
+    /// force-fitted the tile count to the span, which on the short vertical
+    /// doors (16.8 px) collapsed to ONE 9.6 px dash that was indistinguishable
+    /// from a solid wall. Here the authored dash/gap are honored and the run is
+    /// centered; if fewer than two dashes would fit, the span is split into two
+    /// dashes around a single centred gap so a door can never read as solid.
+    /// </summary>
     private static void DrawDashedLine(
         MeshGenerationContext ctx,
         Vector2 start,
@@ -408,28 +450,59 @@ public sealed class ShipSchematicVisual : VisualElement
         float gapPx)
     {
         float length = Vector2.Distance(start, end);
-        if (length <= 0.0001f)
+        if (length <= 0.5f)
         {
             return;
         }
 
         Vector2 dir = (end - start) / length;
         float pitch = dashPx + gapPx;
-        int count = Mathf.Max(1, Mathf.RoundToInt(length / pitch));
-        pitch = length / count; // exact fit: dashes + gaps tile the span
-        float dash = Mathf.Max(1f, pitch * dashPx / (dashPx + gapPx));
-        float cursor = 0f;
-        while (cursor < length - 0.5f)
+
+        // How many whole dashes fit in the span?
+        int count = Mathf.FloorToInt((length + gapPx) / pitch);
+        if (count >= 2)
         {
-            float a = cursor;
-            float b = Mathf.Min(cursor + dash, length);
-            if (b - a > 0.4f)
+            float run = count * pitch - gapPx;
+            float offset = Mathf.Max(0f, (length - run) * 0.5f);
+            for (int i = 0; i < count; i++)
             {
-                DrawLine(ctx, start + dir * a, start + dir * b, color, thickness);
+                float a = offset + i * pitch;
+                float b = a + dashPx;
+                if (b - a >= MinDashPx)
+                {
+                    DrawLine(ctx, start + dir * a, start + dir * b, color, thickness);
+                }
             }
 
-            cursor += pitch;
+            return;
         }
+
+        // Very short span: force dash - gap - dash.
+        float half = (length - gapPx) * 0.5f;
+        if (half >= MinDashPx)
+        {
+            DrawLine(ctx, start, start + dir * half, color, thickness);
+            DrawLine(ctx, start + dir * (half + gapPx), end, color, thickness);
+            return;
+        }
+
+        // Genuinely too short to be dashed: keep a single solid mark.
+        DrawLine(ctx, start, end, color, thickness);
+    }
+
+    /// <summary>Number of dashes the given door span renders with (test/QA
+    /// helper; must be >= 2 so a door can never look like a solid wall run).</summary>
+    public static int DashCountFor(float length)
+    {
+        float pitch = DoorDashPx + DoorGapPx;
+        int count = Mathf.FloorToInt((length + DoorGapPx) / pitch);
+        if (count >= 2)
+        {
+            return count;
+        }
+
+        float half = (length - DoorGapPx) * 0.5f;
+        return half >= MinDashPx ? 2 : 1;
     }
 
     private static void DrawRectOutline(MeshGenerationContext ctx, Vector2 centre,

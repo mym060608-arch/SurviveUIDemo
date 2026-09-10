@@ -88,13 +88,21 @@ public class ShipHudController : MonoBehaviour
         _bound = true;
     }
 
-    /// <summary>Hides the exploration HUD chrome (prompt / crosshair / zone)
-    /// while the wrist terminal or a focused console is open; a later false
-    /// restores the normal dynamic refresh.</summary>
+    /// <summary>
+    /// Hides the exploration HUD chrome (prompt / CROSSHAIR / zone) while the
+    /// wrist terminal, a focused console or a shipboard overlay is open; a later
+    /// false restores the normal dynamic refresh.
+    ///
+    /// Phase 07B.2.3: the crosshair is a first-person mouse-look presentation
+    /// element and MUST disappear whenever the pointer belongs to another owner
+    /// (wrist, console screen, screen-space modal) - previously only its state
+    /// classes were cleared, so the neutral dot stayed drawn over the wrist.
+    /// </summary>
     public void SetUiSuppressed(bool suppressed)
     {
         _suppressed = suppressed;
         EnsureBound();
+        SetCrosshairVisible(!suppressed);
         if (suppressed)
         {
             if (_prompt != null)
@@ -116,6 +124,28 @@ public class ShipHudController : MonoBehaviour
             }
         }
     }
+
+    /// <summary>Explicit crosshair visibility (dot + ring). A hidden crosshair
+    /// is never picked by the UI Toolkit pointer either.</summary>
+    public void SetCrosshairVisible(bool visible)
+    {
+        DisplayStyle style = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_crosshairDot != null)
+        {
+            _crosshairDot.style.display = style;
+        }
+
+        if (_crosshairRing != null)
+        {
+            _crosshairRing.style.display = style;
+        }
+    }
+
+    /// <summary>True while the centre crosshair dot is actually drawn (used by
+    /// WristCrosshairVisibility_Runtime).</summary>
+    public bool IsCrosshairVisible => _crosshairDot != null
+                                      && _crosshairDot.resolvedStyle.display
+                                      != DisplayStyle.None;
 
     /// <summary>Chinese-first compartment tag; empty Chinese name hides it.</summary>
     public void SetZoneTag(string zhName, string meta)

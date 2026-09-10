@@ -193,9 +193,12 @@ public class ShipConsoleScreenHost : MonoBehaviour
         _processing = new ProcessingScreen(Container(ElementNames.ProcessingScreen), _session);
         _outpost = new OutpostScreen(Container(ElementNames.OutpostScreen), _session);
 
-        // Ship 07B: the Overview CTA keeps its existing look but must never
-        // route the player out of the ship into legacy Hub navigation.
-        _overview.Bind(null);
+        // Ship 07B.2.3: the physical Overview terminal is ship-context only -
+        // it shows planet / mission / status information and must NOT offer the
+        // legacy 准备远征 CTA (inside the ship the expedition starts at the
+        // Airlock equipment locker + deployment station). The legacy Hub keeps
+        // the same view WITH the CTA, driven by the host context flag.
+        _overview.Bind(null, false);
         _preparation.Bind();
         _processing.Bind();
         _outpost.Bind();

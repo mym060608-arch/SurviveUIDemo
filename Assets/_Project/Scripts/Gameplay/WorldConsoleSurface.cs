@@ -50,6 +50,20 @@ public class WorldConsoleSurface : MonoBehaviour
     /// No physical console screen is ever on this layer.</summary>
     public const int FocusOverlayLayer = 6;
 
+    /// <summary>
+    /// Sorting order given to every console's own (offscreen) PanelSettings
+    /// clone. Phase 07B.2.3: UI Toolkit keeps offscreen render-texture panels in
+    /// its sorted player-panel list, and `DefaultEventSystem.FindTargetAtPosition`
+    /// picks the LAST entry - so with every panel at the default order 0 the
+    /// four console panels won the tie and swallowed the whole screen-space
+    /// pointer stream in the ship scene (the deployment confirmation and the
+    /// shared loadout could never be clicked, while the console-less Hub worked).
+    /// Pushing the offscreen clones far below the screen-space panels restores
+    /// the modal pointer path without touching how a console renders: each
+    /// console keeps its own panel, its own RenderTexture and its own screen.
+    /// </summary>
+    public const int OffscreenPanelSortingOrder = -50;
+
     [SerializeField]
     private int _consoleId = 1;
 
@@ -260,6 +274,9 @@ public class WorldConsoleSurface : MonoBehaviour
             ? Object.Instantiate(_panelSettingsBase)
             : ScriptableObject.CreateInstance<PanelSettings>();
         _panelSettings.name = "ConsolePanel_" + _consoleId.ToString("00");
+        // This panel renders into a RenderTexture, never into the player screen:
+        // it must never take part in screen-space pointer ownership.
+        _panelSettings.sortingOrder = OffscreenPanelSortingOrder;
         _panelSettings.scaleMode = PanelScaleMode.ConstantPixelSize;
         _panelSettings.referenceResolution = new Vector2Int(UiWidth, UiHeight);
         _panelSettings.scale = 1f;

@@ -377,6 +377,12 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void ApplyConsoleCursor()
     {
+        if (_ship != null)
+        {
+            _ship.ApplyPointerOwnership(); // console screen owns the pointer
+            return;
+        }
+
         if (_cursor != null)
         {
             _cursor.EnterWristMode(); // unlocked + visible, dot cursor
@@ -390,6 +396,12 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void ApplyShipExploreCursor()
     {
+        if (_ship != null)
+        {
+            _ship.ApplyPointerOwnership(); // no modal owner -> ShipExplore
+            return;
+        }
+
         if (_cursor != null)
         {
             _cursor.ExitToSurface(); // locked + hidden

@@ -377,7 +377,9 @@ public class SurfaceHudController : MonoBehaviour
     }
 
     /// <summary>Wrist terminal mode: the whole normal exploration layer hides
-    /// so the world + wrist stay uncluttered.</summary>
+    /// so the world + wrist stay uncluttered (this covers the centre crosshair:
+    /// it is a first-person mouse-look element and must never draw over the
+    /// wrist).</summary>
     public void SetWristMode(bool wristOpen)
     {
         if (_hudLayer != null)
@@ -385,6 +387,14 @@ public class SurfaceHudController : MonoBehaviour
             _hudLayer.style.display = wristOpen ? DisplayStyle.None : DisplayStyle.Flex;
         }
     }
+
+    /// <summary>True while the centre crosshair dot is actually drawn (used by
+    /// WristCrosshairVisibility_Runtime).</summary>
+    public bool IsCrosshairVisible =>
+        _crosshairDot != null
+        && _crosshairDot.resolvedStyle.display != DisplayStyle.None
+        && (_hudLayer == null
+            || _hudLayer.resolvedStyle.display != DisplayStyle.None);
 
     // ---- Wrist-mode cursor policy (CodeReference) ----
     //

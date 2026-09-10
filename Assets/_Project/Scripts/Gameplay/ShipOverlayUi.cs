@@ -260,40 +260,55 @@ public class ShipOverlayUi : MonoBehaviour
     }
 
     // ---- Input / cursor authority ----
+    //
+    // Ownership is NOT decided here any more (Phase 07B.2.3): this coordinator
+    // only reports its mode to ShipGameController, which arbitrates the single
+    // pointer owner (screen-space modal here, console router or wrist
+    // elsewhere). The inline fallbacks below exist only when no ship controller
+    // is present.
 
     private void EnterOverlayInput()
     {
+        if (_ship != null)
+        {
+            _ship.ApplyPointerOwnership();
+            return;
+        }
+
         if (_player != null)
         {
             _player.InputEnabled = false; // WASD + mouse look OFF
         }
 
-        ApplyCursor();
-        NotifyShip();
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
     }
 
     private void ExitOverlayInput()
     {
+        if (_ship != null)
+        {
+            _ship.ApplyPointerOwnership();
+            return;
+        }
+
         if (_player != null)
         {
             _player.InputEnabled = true;
         }
 
-        if (_ship != null)
-        {
-            _ship.ApplyShipExploreMode(); // cursor locked + hidden
-        }
-        else
-        {
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
-        }
-
-        NotifyShip();
+        Cursor.lockState = CursorLockMode.Locked;
+        Cursor.visible = false;
     }
 
     private void ApplyCursor()
     {
+        if (_ship != null)
+        {
+            _ship.ApplyPointerOwnership();
+            return;
+        }
+
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
     }
@@ -302,7 +317,7 @@ public class ShipOverlayUi : MonoBehaviour
     {
         if (_ship != null)
         {
-            _ship.HandleConsoleFocusChanged(); // keeps HUD/wrist gating in sync
+            _ship.ApplyPointerOwnership();
         }
     }
 }

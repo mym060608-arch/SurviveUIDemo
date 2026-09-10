@@ -28,6 +28,7 @@ public class OverviewScreen
     private VisualElement _energyFill;
     private VisualElement _foodFill;
     private VisualElement _planetDisc;
+    private Button _expeditionCta;
     private bool _planetReady;
 
     public OverviewScreen(VisualElement root, GameSession session)
@@ -36,7 +37,18 @@ public class OverviewScreen
         _session = session;
     }
 
-    public void Bind(System.Action navigateToPreparation)
+    /// <summary>
+    /// Binds the view.
+    ///
+    /// <paramref name="showExpeditionCta"/> is the HOST CONTEXT switch
+    /// (Phase 07B.2.3): the legacy Hub keeps the 准备远征 CTA because it is the
+    /// only way into Preparation there, while the ship's physical Overview
+    /// terminal hides it - inside the ship the expedition is launched from the
+    /// Airlock equipment locker + deployment station, so the CTA would be both
+    /// dead and semantically duplicated.
+    /// </summary>
+    public void Bind(System.Action navigateToPreparation,
+        bool showExpeditionCta = true)
     {
         _energy = BindLabel(ElementNames.EnergyValue);
         _food = BindLabel(ElementNames.FoodValue);
@@ -49,16 +61,31 @@ public class OverviewScreen
         _foodFill = BindElement(ElementNames.FoodBarFill);
         _planetDisc = BindElement(ElementNames.PlanetDisc);
 
-        Button prepare = _root.Q<Button>(ElementNames.OpenPreparationButton);
-        if (prepare != null)
-        {
-            prepare.clicked += navigateToPreparation;
-        }
-        else
+        _expeditionCta = _root.Q<Button>(ElementNames.OpenPreparationButton);
+        if (_expeditionCta == null)
         {
             LogMissing(ElementNames.OpenPreparationButton);
         }
+        else
+        {
+            _expeditionCta.style.display = showExpeditionCta
+                ? DisplayStyle.Flex
+                : DisplayStyle.None;
+            _expeditionCta.SetEnabled(showExpeditionCta);
+            if (showExpeditionCta && navigateToPreparation != null)
+            {
+                _expeditionCta.clicked += navigateToPreparation;
+            }
+        }
     }
+
+    /// <summary>The 准备远征 CTA (hidden on the ship's physical terminal).</summary>
+    public Button ExpeditionCta => _expeditionCta;
+
+    /// <summary>True when the expedition CTA is actually drawn.</summary>
+    public bool IsExpeditionCtaVisible => _expeditionCta != null
+                                          && _expeditionCta.resolvedStyle.display
+                                          != DisplayStyle.None;
 
     public void Refresh()
     {

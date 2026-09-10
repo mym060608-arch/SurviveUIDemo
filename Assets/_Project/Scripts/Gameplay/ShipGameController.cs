@@ -41,10 +41,13 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private ShipConsoleFocusController _focus;
     private ShipOverlayUi _overlayUi;
     private SurfaceWristController _wrist;
+    private WorldUiPointerRouter _pointerRouter;
     private readonly List<ShipConsoleInteractable> _consoles = new List<ShipConsoleInteractable>();
     private readonly List<ShipDoorInteractable> _doors = new List<ShipDoorInteractable>();
     private bool _ready;
     private bool _isWristOpen;
+    private bool _ownershipApplied;
+    private ShipPointerOwner _appliedOwner = ShipPointerOwner.None;
 
     public bool IsReady => _ready;
     public SurfacePlayerController Player => _player;
@@ -71,6 +74,32 @@ public class ShipGameController : MonoBehaviour, IWristContext
     /// or overlay) - used by HUD suppression and input gating.</summary>
     public bool IsAnyModalActive => IsConsoleFocusActive || _isWristOpen
                                     || IsOverlayOpen;
+
+    /// <summary>
+    /// EXACTLY ONE pointer owner per ship mode (Phase 07B.2.3). Two owners must
+    /// never process the mouse at the same time:
+    ///   None          ShipExplore         - mouse look, world E, cursor locked
+    ///   ConsoleScreen ShipConsoleFocus    - WorldUiPointerRouter drives the
+    ///                                       physical console RenderTexture panel
+    ///   ScreenModal   DeploymentConfirm / LoadoutFocus - the native UI Toolkit
+    ///                                       screen-space pointer path only
+    ///   Wrist         ship wrist          - the wrist raycast pointer only
+    /// </summary>
+    public enum ShipPointerOwner
+    {
+        None,
+        ConsoleScreen,
+        ScreenModal,
+        Wrist
+    }
+
+    /// <summary>Current pointer owner (set by ApplyPointerOwnership).</summary>
+    public ShipPointerOwner PointerOwner { get; private set; }
+
+    /// <summary>The shared world-space console pointer router. Enabled ONLY for
+    /// ShipPointerOwner.ConsoleScreen: it must never run while a screen-space
+    /// modal or the wrist owns the pointer.</summary>
+    public WorldUiPointerRouter PointerRouter => _pointerRouter;
 
     // ---- IWristContext (Phase 07B) ----
     // Ship contexts expose no live surface nodes/navigation: the wrist shows
@@ -123,6 +152,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
         _hud = UnityEngine.Object.FindAnyObjectByType<ShipHudController>();
         _focus = UnityEngine.Object.FindAnyObjectByType<ShipConsoleFocusController>();
         _wrist = UnityEngine.Object.FindAnyObjectByType<SurfaceWristController>();
+        _pointerRouter = UnityEngine.Object.FindAnyObjectByType<WorldUiPointerRouter>();
         _overlayUi = UnityEngine.Object.FindAnyObjectByType<ShipOverlayUi>(
             FindObjectsInactive.Include);
 
@@ -499,6 +529,10 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
         PollWristKeys();
 
+        // Pointer ownership is re-asserted every frame: it is cheap, and it
+        // guarantees no mode can leave two owners enabled (Phase 07B.2.3).
+        ApplyPointerOwnership();
+
         if (IsAnyModalActive)
         {
             // A focused console, an overlay or the wrist is the only
@@ -606,33 +640,89 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
     private void ApplyCursorForMode()
     {
-        if (_isWristOpen)
+        ApplyPointerOwnership();
+    }
+
+    /// <summary>
+    /// Single pointer/input ownership arbitration for every ship mode. Called on
+    /// every mode change (wrist toggle, overlay open/close, console focus entry
+    /// and exit) and once per frame so the mouse can never be processed by two
+    /// owners at once. Re-applying an unchanged owner is a no-op, so no cursor
+    /// state is written needlessly every frame.
+    /// </summary>
+    public void ApplyPointerOwnership()
+    {
+        ShipPointerOwner owner = IsConsoleFocusActive
+            ? ShipPointerOwner.ConsoleScreen
+            : IsOverlayOpen
+                ? ShipPointerOwner.ScreenModal
+                : _isWristOpen
+                    ? ShipPointerOwner.Wrist
+                    : ShipPointerOwner.None;
+        PointerOwner = owner;
+
+        if (_ownershipApplied && owner == _appliedOwner)
         {
-            if (_wrist != null)
-            {
-                _wrist.EnterWristCursor();
-            }
-            else
-            {
+            return;
+        }
+
+        _appliedOwner = owner;
+        _ownershipApplied = true;
+
+        // Exactly one world-pointer owner, and only for a physical console.
+        if (_pointerRouter != null)
+        {
+            _pointerRouter.enabled = owner == ShipPointerOwner.ConsoleScreen;
+        }
+
+        if (_player != null)
+        {
+            _player.InputEnabled = owner == ShipPointerOwner.None;
+        }
+
+        switch (owner)
+        {
+            case ShipPointerOwner.Wrist:
+                if (_wrist != null)
+                {
+                    _wrist.EnterWristCursor();
+                }
+                else
+                {
+                    Cursor.lockState = CursorLockMode.None;
+                    Cursor.visible = true;
+                }
+
+                break;
+            case ShipPointerOwner.ConsoleScreen:
+            case ShipPointerOwner.ScreenModal:
+                // Free, visible OS cursor for both the console screen pointer
+                // (screen-space projection) and the native screen-space modals.
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
-            }
+                break;
+            default:
+                ApplyShipExploreMode();
+                break;
         }
-        else
+
+        if (_hud != null)
         {
-            ApplyShipExploreMode();
+            _hud.SetUiSuppressed(owner != ShipPointerOwner.None);
         }
+
+        Debug.Log("[ShipGameController] pointer owner=" + owner
+                  + " router=" + (_pointerRouter != null && _pointerRouter.enabled)
+                  + " input=" + (_player != null && _player.InputEnabled)
+                  + " cursor=" + Cursor.lockState + "/" + Cursor.visible);
     }
 
     /// <summary>Called by the focus controller / overlay whenever a modal
-    /// state changes (entry, focus reached, exit started/finished) so HUD /
-    /// wrist gating stay consistent.</summary>
+    /// state changes (entry, focus reached, exit started/finished) so pointer
+    /// ownership, HUD and wrist gating stay consistent.</summary>
     public void HandleConsoleFocusChanged()
     {
-        if (_hud != null)
-        {
-            _hud.SetUiSuppressed(IsAnyModalActive);
-        }
+        ApplyPointerOwnership();
     }
 
     private void RefreshHud()
