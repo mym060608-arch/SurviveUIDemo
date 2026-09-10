@@ -96,11 +96,16 @@ public class SurvivePhase02Tests
         AssertBarRatio(root, ElementNames.EnergyBarFill, 74f, "energy bar");
         AssertBarRatio(root, ElementNames.FoodBarFill, 51f, "food bar");
 
-        // Procedural planet texture is applied to the center visual.
+        // The center visual carries a planet: either the Phase 07B.2.4 rotating
+        // 3D preview RenderTexture, or the original procedural 2D disc as the
+        // fallback when the preview rig is unavailable.
         VisualElement planet = root.Q<VisualElement>(ElementNames.PlanetDisc);
         Assert.IsNotNull(planet, "planet disc exists");
-        Assert.IsNotNull(planet.style.backgroundImage.value.texture,
-            "planet disc has a procedural texture");
+        StyleBackground planetBackground = planet.style.backgroundImage;
+        Assert.IsTrue(planetBackground.value.texture != null
+                      || planetBackground.value.renderTexture != null,
+            "planet disc has a planet visual (3D preview RenderTexture or "
+            + "procedural texture)");
 
         // Primary CTA exists, enabled and labeled.
         Button cta = root.Q<Button>(ElementNames.OpenPreparationButton);

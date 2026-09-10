@@ -46,9 +46,14 @@ public class ShipConsoleScreenHost : MonoBehaviour
 
     private AppScreen _screen;
     private bool _bound;
+    private OverviewPlanetPreview _planetPreview;
 
     /// <summary>True once this console's UI subtree bound successfully.</summary>
     public bool IsBound => _bound;
+
+    /// <summary>The shared rotating planet preview when this terminal is the
+    /// Overview terminal (null on every other console).</summary>
+    public OverviewPlanetPreview PlanetPreview => _planetPreview;
 
     /// <summary>Screen this terminal must display (1..4 mapping).</summary>
     public AppScreen MappedScreen => _screen;
@@ -118,6 +123,9 @@ public class ShipConsoleScreenHost : MonoBehaviour
         {
             _session.OnStateChanged -= HandleSessionChanged;
         }
+
+        _planetPreview?.Release(this);
+        _planetPreview = null;
     }
 
     private void EnsureBound()
@@ -193,12 +201,32 @@ public class ShipConsoleScreenHost : MonoBehaviour
         _processing = new ProcessingScreen(Container(ElementNames.ProcessingScreen), _session);
         _outpost = new OutpostScreen(Container(ElementNames.OutpostScreen), _session);
 
+        // Phase 07B.2.4: this terminal displays the SAME shared rotating 3D
+        // planet preview as the Hub - one rig, one RenderTexture. Because the
+        // ship's Overview screen is an always-on physical display, its viewer
+        // stays registered for the whole ship session, so the bridge planet
+        // keeps turning even while the player looks elsewhere or is in a
+        // console focus / wrist state.
+        if (_screen == AppScreen.Overview)
+        {
+            _planetPreview = OverviewPlanetPreview.Acquire(this);
+            if (_planetPreview != null)
+            {
+                _planetPreview.SetViewed(this, true);
+                Debug.Log("[ShipConsoleScreenHost] console " + _consoleId
+                          + " shares the rotating planet preview"
+                          + " rt=" + (_planetPreview.Texture != null
+                              ? _planetPreview.Texture.name : "<null>"));
+            }
+        }
+
         // Ship 07B.2.3: the physical Overview terminal is ship-context only -
         // it shows planet / mission / status information and must NOT offer the
         // legacy 准备远征 CTA (inside the ship the expedition starts at the
         // Airlock equipment locker + deployment station). The legacy Hub keeps
         // the same view WITH the CTA, driven by the host context flag.
-        _overview.Bind(null, false);
+        _overview.Bind(null, false,
+            _planetPreview != null ? _planetPreview.Texture : null);
         _preparation.Bind();
         _processing.Bind();
         _outpost.Bind();

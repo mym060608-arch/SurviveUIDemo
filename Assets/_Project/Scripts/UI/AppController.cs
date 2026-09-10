@@ -52,6 +52,7 @@ public class AppController : MonoBehaviour
     private PreparationScreen _preparation;
     private ProcessingScreen _processing;
     private OutpostScreen _outpost;
+    private OverviewPlanetPreview _planetPreview;
 
     private readonly Button[] _navButtons = new Button[4];
     private readonly VisualElement[] _screenContainers = new VisualElement[4];
@@ -68,6 +69,13 @@ public class AppController : MonoBehaviour
     /// <summary>Outpost presentation controller (read-only access for tests;
     /// state stays in GameSession).</summary>
     public OutpostScreen OutpostView => _outpost;
+
+    /// <summary>Overview presentation controller (read-only access for tests).</summary>
+    public OverviewScreen OverviewView => _overview;
+
+    /// <summary>The shared rotating 3D planet preview driving the Overview
+    /// central visual (Phase 07B.2.4).</summary>
+    public OverviewPlanetPreview PlanetPreview => _planetPreview;
 
     public AppScreen CurrentScreen { get; private set; } = AppScreen.Overview;
 
@@ -239,6 +247,9 @@ public class AppController : MonoBehaviour
         {
             _session.OnStateChanged -= HandleSessionChanged;
         }
+
+        _planetPreview?.Release(this);
+        _planetPreview = null;
     }
 
     private void CacheContainers()
@@ -326,12 +337,17 @@ public class AppController : MonoBehaviour
 
     private void BindScreens()
     {
+        // Phase 07B.2.4: the Hub shares the ONE rotating 3D planet preview with
+        // the ship's Overview terminal (same rig, same RenderTexture).
+        _planetPreview = OverviewPlanetPreview.Acquire(this);
+
         _overview = new OverviewScreen(_overviewContainer, _session);
         _preparation = new PreparationScreen(_preparationContainer, _session);
         _processing = new ProcessingScreen(_processingContainer, _session);
         _outpost = new OutpostScreen(_outpostContainer, _session);
 
-        _overview.Bind(() => ShowScreen(AppScreen.Preparation));
+        _overview.Bind(() => ShowScreen(AppScreen.Preparation), true,
+            _planetPreview != null ? _planetPreview.Texture : null);
         _preparation.Bind();
         _processing.Bind();
         _outpost.Bind();
@@ -356,6 +372,10 @@ public class AppController : MonoBehaviour
         SetTabActive(_navButtons[3], outpost);
 
         CurrentScreen = screen;
+
+        // The shared planet preview only renders while an Overview host is
+        // actually visible (the ship terminal keeps its own viewer registered).
+        _planetPreview?.SetViewed(this, overview);
     }
 
     private static void SetScreenVisibility(VisualElement container, bool visible)

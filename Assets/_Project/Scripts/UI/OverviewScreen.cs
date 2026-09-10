@@ -30,6 +30,18 @@ public class OverviewScreen
     private VisualElement _planetDisc;
     private Button _expeditionCta;
     private bool _planetReady;
+    private RenderTexture _planetPreviewTexture;
+    private bool _planetPreviewApplied;
+
+    /// <summary>The rotating 3D preview RenderTexture when this overview is
+    /// driven by the shared preview rig (null = static procedural disc).</summary>
+    public RenderTexture PlanetPreviewTexture => _planetPreviewTexture;
+
+    /// <summary>True while the planet area displays the 3D preview texture.</summary>
+    public bool IsPlanetPreviewActive => _planetPreviewApplied;
+
+    /// <summary>True while the fallback static disc is used instead.</summary>
+    public bool IsPlanetFallbackActive => _planetReady;
 
     public OverviewScreen(VisualElement root, GameSession session)
     {
@@ -46,10 +58,17 @@ public class OverviewScreen
     /// terminal hides it - inside the ship the expedition is launched from the
     /// Airlock equipment locker + deployment station, so the CTA would be both
     /// dead and semantically duplicated.
+    ///
+    /// <paramref name="planetPreview"/> is the shared rotating 3D planet
+    /// RenderTexture (Phase 07B.2.4). Every host reads the SAME texture; when it
+    /// is absent the view falls back to the original static procedural disc, so
+    /// the overview can never render without a planet.
     /// </summary>
     public void Bind(System.Action navigateToPreparation,
-        bool showExpeditionCta = true)
+        bool showExpeditionCta = true,
+        RenderTexture planetPreview = null)
     {
+        _planetPreviewTexture = planetPreview;
         _energy = BindLabel(ElementNames.EnergyValue);
         _food = BindLabel(ElementNames.FoodValue);
         _minerals = BindLabel(ElementNames.MineralsValue);
@@ -60,6 +79,12 @@ public class OverviewScreen
         _energyFill = BindElement(ElementNames.EnergyBarFill);
         _foodFill = BindElement(ElementNames.FoodBarFill);
         _planetDisc = BindElement(ElementNames.PlanetDisc);
+        if (_planetDisc != null)
+        {
+            // The planet is a pure visual preview: it must never intercept a
+            // pointer that belongs to an overview button.
+            _planetDisc.pickingMode = PickingMode.Ignore;
+        }
 
         _expeditionCta = _root.Q<Button>(ElementNames.OpenPreparationButton);
         if (_expeditionCta == null)
@@ -107,10 +132,33 @@ public class OverviewScreen
         EnsurePlanetTexture();
     }
 
-    /// <summary>Assigns the deterministic procedural planet texture once.</summary>
+    /// <summary>
+    /// Assigns the planet visual ONCE.
+    ///
+    /// With the shared preview rig available this is the live rotating 3D
+    /// RenderTexture (Phase 07B.2.4); the procedural disc is only generated as a
+    /// fallback, so hosts that show the preview never pay for the 2D texture.
+    /// </summary>
     private void EnsurePlanetTexture()
     {
-        if (_planetReady || _planetDisc == null)
+        if (_planetDisc == null)
+        {
+            return;
+        }
+
+        if (_planetPreviewTexture != null)
+        {
+            if (!_planetPreviewApplied)
+            {
+                _planetDisc.style.backgroundImage = new StyleBackground(
+                    Background.FromRenderTexture(_planetPreviewTexture));
+                _planetPreviewApplied = true;
+            }
+
+            return;
+        }
+
+        if (_planetReady)
         {
             return;
         }
