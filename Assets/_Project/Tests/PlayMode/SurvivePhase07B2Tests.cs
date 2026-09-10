@@ -12,8 +12,10 @@ using UnityEngine.UIElements;
 ///  - physical screens always-on with REAL content signatures and a verified
 ///    material chain (authored shader + per-console RT through property
 ///    blocks; the visible chain that Release shader stripping used to break),
-///  - ConsoleScreen layer composition (base env camera w/ PP, sharp overlay
-///    camera without PP, transforms frame-locked),
+///  - screen composition (Phase 07B.2.2: the four physical screens are ordinary
+///    world geometry on the base camera with real depth; a single focus-only
+///    proxy quad on the ConsoleFocusOverlay layer is rendered by the overlay
+///    camera, which is enabled only while focused and never clears depth),
 ///  - ship wrist floorplan topology (exactly 4 doors, 4 terminals, airlock,
 ///    no legacy preparation terminal),
 ///  - Airlock equipment locker + deployment confirmation flows driving the
@@ -176,15 +178,19 @@ public class SurvivePhase07B2Tests
             "base/environment camera post-processing ON");
         Assert.IsFalse(sharpData.renderPostProcessing,
             "sharp screen camera post-processing OFF");
-        // Phase 07B.2.1 composition: the sharp screen camera is a URP OVERLAY
-        // camera, clears nothing, renders only the ConsoleScreen layer with
-        // post-processing OFF, and is stacked on the environment base camera
-        // exactly once. (A second Base camera would wipe the environment frame
-        // with its own background colour - the render-recovery regression.)
+        // Phase 07B.2.2 composition: the focus camera is a URP OVERLAY camera
+        // that clears nothing, renders ONLY the ConsoleFocusOverlay layer (the
+        // single proxy quad) with post-processing OFF, honors the base camera's
+        // real depth (clearDepth FALSE), and is stacked on the environment base
+        // camera exactly once. (A second Base camera would wipe the environment
+        // frame with its own background colour - the render-recovery regression.)
         Assert.AreEqual(CameraRenderType.Overlay, sharpData.renderType,
             "sharp camera is an Overlay camera");
         Assert.AreEqual(CameraClearFlags.Nothing, sharp.clearFlags,
             "sharp camera never clears the frame");
+        Assert.IsFalse(sharpData.clearDepth,
+            "focus overlay camera must NOT clear depth (otherwise it floats "
+            + "above walls and the wrist)");
         Assert.IsTrue(sharp.depth > eye.depth,
             "overlay camera is ordered after the environment camera");
         Assert.IsNotNull(eyeData.cameraStack, "base camera has a URP stack");
@@ -291,9 +297,13 @@ public class SurvivePhase07B2Tests
             Assert.AreEqual(surface.CurrentRenderTexture,
                 surface.ReadBoundScreenTexture(),
                 "console " + (c + 1) + " screen samples ITS OWN RT");
-            Assert.AreEqual(WorldConsoleSurface.ConsoleScreenLayer,
+            Assert.AreEqual(WorldConsoleSurface.PhysicalScreenLayer,
                 surface.ScreenRenderer.gameObject.layer,
-                "console " + (c + 1) + " screen on ConsoleScreen layer");
+                "console " + (c + 1) + " screen is ordinary world geometry");
+            Assert.AreNotEqual(WorldConsoleSurface.FocusOverlayLayer,
+                surface.ScreenRenderer.gameObject.layer,
+                "console " + (c + 1) + " screen is never on the focus overlay "
+                + "layer");
         }
 
         GameSession.Ensure().ResetSession();
@@ -372,13 +382,17 @@ public class SurvivePhase07B2Tests
         Camera sharp = sharpTransform.GetComponent<Camera>();
         AssertConsoleScreenLayer(eye, sharp);
 
-        // Culling split: environment camera never sees ConsoleScreen; the
-        // overlay sees ONLY ConsoleScreen.
-        int consoleLayer = WorldConsoleSurface.ConsoleScreenLayer;
-        Assert.IsTrue((eye.cullingMask & (1 << consoleLayer)) == 0,
-            "base camera excludes ConsoleScreen layer");
-        Assert.AreEqual(1 << consoleLayer, sharp.cullingMask,
-            "overlay camera renders only ConsoleScreen layer");
+        // Culling split (Phase 07B.2.2): the environment camera renders the
+        // REAL physical screens (ordinary world layer) and excludes only the
+        // focus-only overlay layer; the overlay renders ONLY that layer.
+        int overlayLayer = WorldConsoleSurface.FocusOverlayLayer;
+        int worldLayer = WorldConsoleSurface.PhysicalScreenLayer;
+        Assert.IsTrue((eye.cullingMask & (1 << overlayLayer)) == 0,
+            "base camera excludes the focus overlay layer");
+        Assert.IsTrue((eye.cullingMask & (1 << worldLayer)) != 0,
+            "base camera renders the world layer that carries the screens");
+        Assert.AreEqual(1 << overlayLayer, sharp.cullingMask,
+            "overlay camera renders only the focus overlay layer");
 
         // Same projection parameters as the base camera (no parallax/drift).
         Assert.IsTrue(Mathf.Abs(sharp.fieldOfView - eye.fieldOfView) < 0.01f,
@@ -405,12 +419,12 @@ public class SurvivePhase07B2Tests
 
     /// <summary>
     /// Sharp screen / blurred environment: with the composition verified
-    /// above, the console surface is RENDERED BY THE OVERLAY CAMERA ONLY, so
-    /// the base camera's DOF mathematically cannot touch screen pixels. This
-    /// test asserts the structural guarantee plus the DOF chain parameters;
-    /// the same-pose A/B pixel evidence (screen ROI vs environment ROI) is
-    /// produced by the Release-player probe (ShipB2ShotProbe blur_off/on
-    /// frames) because the editor Test Runner does not render the backbuffer.
+    /// above, the focus-only proxy quad is RENDERED BY THE OVERLAY CAMERA ONLY
+    /// while the world screen underneath is blurred by the base camera's DOF.
+    /// This test asserts the structural guarantee plus the DOF chain
+    /// parameters; the same-pose A/B pixel evidence (screen ROI vs environment
+    /// ROI) is produced by the Release-player probes because the editor Test
+    /// Runner does not render the backbuffer.
     /// </summary>
     [UnityTest]
     public IEnumerator ConsoleFocusSharpScreen_Runtime()
@@ -424,9 +438,12 @@ public class SurvivePhase07B2Tests
         AssertConsoleScreenLayer(eye,
             eye.transform.Find("SharpScreenCamera").GetComponent<Camera>());
 
-        int consoleLayer = WorldConsoleSurface.ConsoleScreenLayer;
-        Assert.IsTrue((eye.cullingMask & (1 << consoleLayer)) == 0,
-            "screen not in the DOF base camera");
+        int overlayLayer = WorldConsoleSurface.FocusOverlayLayer;
+        int worldLayer = WorldConsoleSurface.PhysicalScreenLayer;
+        Assert.IsTrue((eye.cullingMask & (1 << overlayLayer)) == 0,
+            "the focus proxy is not on the DOF base camera");
+        Assert.IsTrue((eye.cullingMask & (1 << worldLayer)) != 0,
+            "the physical screen IS on the DOF base camera (world geometry)");
         Assert.IsTrue(eye.GetComponent<UniversalAdditionalCameraData>()
             .renderPostProcessing, "DOF executes on the base camera");
 
@@ -452,7 +469,7 @@ public class SurvivePhase07B2Tests
             "environment blur engaged while focused (" + focus.BlurWeight + ")");
         Camera sharp = eye.transform.Find("SharpScreenCamera").GetComponent<Camera>();
         Assert.IsTrue(sharp.enabled, "overlay camera enabled during focus");
-        Assert.AreEqual(1 << consoleLayer, sharp.cullingMask,
+        Assert.AreEqual(1 << WorldConsoleSurface.FocusOverlayLayer, sharp.cullingMask,
             "overlay mask unchanged during focus");
         focus.RequestExit();
         yield return WaitExplore(focus);

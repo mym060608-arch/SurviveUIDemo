@@ -183,8 +183,10 @@ public class ShipB2ShotProbe : MonoBehaviour
         yield return WaitUntilSurface(surface);
 
         // ---- Isolation precheck: does the ENV camera draw the screen quad at
-        // all? Temporarily include the ConsoleScreen layer on the base camera
-        // and read its target offscreen (magenta override on the quad).
+        // all? Since Phase 07B.2.2 the physical screen is ordinary world
+        // geometry the base camera already renders; the temporary layer
+        // inclusion below is kept only as a legacy readback path (magenta
+        // override on the quad).
         Renderer renderer = surface.ScreenRenderer;
         MeshFilter filter = renderer != null
             ? renderer.GetComponent<MeshFilter>()
@@ -684,9 +686,10 @@ public class ShipB2ShotProbe : MonoBehaviour
     private ScreenStats _diagStats;
 
     /// <summary>Reads the ENVIRONMENT camera's offscreen target with the
-    /// ConsoleScreen layer temporarily included on its culling mask, proving
-    /// whether the screen quad/material chain renders at all (independent of
-    /// stacking/presentation).</summary>
+    /// focus-only overlay layer temporarily included on its culling mask,
+    /// proving whether that quad/material chain renders at all (independent of
+    /// stacking/presentation). Physical console screens no longer need this:
+    /// since Phase 07B.2.2 they are ordinary world geometry on the base camera.</summary>
     private IEnumerator ReadBaseTargetIncludeLayer(string name)
     {
         Camera eye = _eye;
@@ -695,7 +698,7 @@ public class ShipB2ShotProbe : MonoBehaviour
             yield break;
         }
 
-        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        int layer = WorldConsoleSurface.FocusOverlayLayer;
         int previousMask = eye.cullingMask;
         eye.cullingMask = previousMask | (1 << layer);
 

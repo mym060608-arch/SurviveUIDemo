@@ -160,8 +160,9 @@ public class ShipB21ShotProbe : MonoBehaviour
     {
         _controller.VerifyBaseCameraVisibility(out string visibility);
         Info("base camera visibility: " + visibility);
-        Check("base camera renders the environment and excludes only "
-              + "ConsoleScreen", _controller.VerifyBaseCameraVisibility(out _));
+        Check("base camera renders the environment and excludes only the focus "
+              + "overlay layer",
+            _controller.VerifyBaseCameraVisibility(out _));
 
         // Normal boot spawn view, untouched.
         yield return WaitReal(0.4f);
@@ -198,7 +199,7 @@ public class ShipB21ShotProbe : MonoBehaviour
         var displayRenderer = wrist.Display != null
             ? wrist.Display.GetComponent<Renderer>()
             : null;
-        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        int layer = WorldConsoleSurface.FocusOverlayLayer;
         int displayLayer = displayRenderer != null
             ? displayRenderer.gameObject.layer
             : -1;
@@ -210,7 +211,7 @@ public class ShipB21ShotProbe : MonoBehaviour
              + " pivotLayer=" + (wrist.ProjectionPivot != null
                  ? wrist.ProjectionPivot.gameObject.layer : -1));
 
-        Check("wrist display is not on the ConsoleScreen layer",
+        Check("wrist display is not on the focus overlay layer",
             displayLayer >= 0 && displayLayer != layer);
         Check("wrist display layer is rendered by the base camera",
             displayLayer >= 0 && _eye != null
@@ -362,7 +363,13 @@ public class ShipB21ShotProbe : MonoBehaviour
 
                 counts[idx]++;
                 sumX[idx] += x;
-                sumY[idx] += y;
+                // Texture2D.GetPixel y grows UPWARD (row 0 is the image bottom),
+                // so it is converted here into the image space ScoreMapping
+                // documents (y = distance from the TOP of the frame). The
+                // 07B.2.1 version skipped this conversion and therefore scored
+                // the vertically-flipped mapping as perfect - the reason its
+                // "diagnostic PASS" contradicted the real Release UI.
+                sumY[idx] += texture.height - 1 - y;
             }
         }
 

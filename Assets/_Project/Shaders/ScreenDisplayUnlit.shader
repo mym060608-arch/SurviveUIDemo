@@ -5,10 +5,12 @@ Shader "Survive/ScreenDisplayUnlit"
         _BaseMap ("Screen Texture", 2D) = "white" {}
         // Authoritative console UV orientation (ConsoleUvAuthority):
         // _FlipU mirrors the mesh U axis ONCE (viewer right = quad local -x),
-        // _FlipV mirrors V once when required. Applied here - ONCE - so the
-        // physical screen, the pointer router and the diagnostics agree.
+        // _FlipV stays 0 (the UI Toolkit RenderTexture already carries the panel
+        // bottom row at texture v = 0). The defaults below MUST equal the
+        // ConsoleUvAuthority constants so an authored material that is never
+        // touched by ApplyToMaterial still shows the panel upright.
         _FlipU ("Flip U", Float) = 1
-        _FlipV ("Flip V", Float) = 1
+        _FlipV ("Flip V", Float) = 0
     }
 
     SubShader

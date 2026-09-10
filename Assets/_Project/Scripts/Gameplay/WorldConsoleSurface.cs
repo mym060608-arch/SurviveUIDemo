@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Physical world-space operation console (Phase 07B / 07B.2).
+/// Physical world-space operation console (Phase 07B / 07B.2 / 07B.2.2).
 ///
 /// One instance per terminal. Owns the console's always-on presentation:
 /// - a real RenderTexture (UI native resolution, created once),
@@ -11,13 +11,15 @@ using UnityEngine.UIElements;
 ///   MainApp tree with exactly one production screen made visible through
 ///   ShipConsoleScreenHost; Console02 (仓库总览) hosts the dedicated
 ///   WarehouseConsole tree through ShipWarehouseScreenHost,
-/// - the screen renderer. Phase 07B.2 renders the display surface with an
-///   AUTHORED URP/Unlit material asset (never Shader.Find at runtime: a
-///   shader that no build asset references is stripped from the Release
-///   player and the runtime-created material silently renders nothing), and
-///   the per-console RenderTexture is bound through a per-renderer
-///   MaterialPropertyBlock so one shared screen material can never cross-wire
-///   the four terminals,
+/// - the screen renderer. The display surface is ORDINARY WORLD GEOMETRY on the
+///   Default layer: the environment Base camera renders it in the opaque pass
+///   with normal depth, so walls, doors and the wrist occlude it and the
+///   console-focus DOF softens it like the rest of the room. It uses an
+///   AUTHORED URP/Unlit material asset (never Shader.Find at runtime: a shader
+///   that no build asset references is stripped from the Release player and the
+///   runtime-created material silently renders nothing), and every console
+///   instantiates its OWN material on which it binds its OWN RenderTexture, so
+///   one shared screen material can never cross-wire the four terminals,
 /// - the dedicated screen collider used for real pointer routing,
 /// - the deterministic ConsoleFocusAnchor camera pose,
 /// - a diagnostic override mode (solid magenta / checkerboard) that paints
@@ -26,17 +28,27 @@ using UnityEngine.UIElements;
 ///
 /// The four terminals keep their screens rendering even while unfocused
 /// (always-on contract); ShipConsoleFocusController switches which surface
-/// receives pointer input. Rendering never pauses when the player walks away.
+/// receives pointer input and which one the focus-only sharp proxy mirrors.
+/// Rendering never pauses when the player walks away.
 /// </summary>
 public class WorldConsoleSurface : MonoBehaviour
 {
     public const int UiWidth = 1920;
     public const int UiHeight = 1080;
 
-    /// <summary>Camera filter layer for physical display surfaces
-    /// (TagManager user layer 6). Base/environment camera never renders it;
-    /// the sharp overlay camera renders only this layer.</summary>
-    public const int ConsoleScreenLayer = 6;
+    /// <summary>Ordinary world layer of the physical display quad (Phase
+    /// 07B.2.2). The screen is a world object, not a HUD: it lives on Default
+    /// with every other piece of ship geometry, is rendered by the environment
+    /// Base camera in the opaque pass, and therefore obeys normal depth - walls
+    /// and the wrist occlude it, and the console-focus DOF softens it together
+    /// with the rest of the environment.</summary>
+    public const int PhysicalScreenLayer = 0;
+
+    /// <summary>Dedicated focus-only overlay layer (TagManager user layer 6,
+    /// named ConsoleFocusOverlay). It carries exactly ONE object: the
+    /// ConsoleFocusProxy quad, rendered only by the focus-only SharpScreenCamera.
+    /// No physical console screen is ever on this layer.</summary>
+    public const int FocusOverlayLayer = 6;
 
     [SerializeField]
     private int _consoleId = 1;
@@ -365,10 +377,10 @@ public class WorldConsoleSurface : MonoBehaviour
             _uvRefRoot.style.top = 0f;
             _uvRefRoot.style.right = 0f;
             _uvRefRoot.style.bottom = 0f;
-            AddUvRefMarker(_uvRefRoot, "UvRef_TL", true, true, UvRefTopLeftColor);
-            AddUvRefMarker(_uvRefRoot, "UvRef_TR", false, true, UvRefTopRightColor);
-            AddUvRefMarker(_uvRefRoot, "UvRef_BL", true, false, UvRefBottomLeftColor);
-            AddUvRefMarker(_uvRefRoot, "UvRef_BR", false, false, UvRefBottomRightColor);
+            AddUvRefMarker(_uvRefRoot, "UvRef_TL", true, true, UvRefTopLeftColor, "TL");
+            AddUvRefMarker(_uvRefRoot, "UvRef_TR", false, true, UvRefTopRightColor, "TR");
+            AddUvRefMarker(_uvRefRoot, "UvRef_BL", true, false, UvRefBottomLeftColor, "BL");
+            AddUvRefMarker(_uvRefRoot, "UvRef_BR", false, false, UvRefBottomRightColor, "BR");
             root.Add(_uvRefRoot);
         }
 
@@ -376,8 +388,11 @@ public class WorldConsoleSurface : MonoBehaviour
         return true;
     }
 
+    /// <summary>Phase 07B.2.2: the marker carries its literal corner label, so
+    /// the Release screenshot can be read by a human ("TL" must be the physical
+    /// screen's top-left) instead of relying on a colour legend.</summary>
     private static void AddUvRefMarker(VisualElement parent, string name, bool left,
-        bool top, Color color)
+        bool top, Color color, string label)
     {
         var marker = new VisualElement { name = name };
         marker.pickingMode = PickingMode.Ignore;
@@ -403,6 +418,16 @@ public class WorldConsoleSurface : MonoBehaviour
         }
 
         marker.style.backgroundColor = color;
+        marker.style.alignItems = Align.Center;
+        marker.style.justifyContent = Justify.Center;
+
+        var text = new Label(label) { name = name + "_Label" };
+        text.pickingMode = PickingMode.Ignore;
+        text.style.fontSize = 96f;
+        text.style.unityFontStyleAndWeight = FontStyle.Bold;
+        text.style.color = new Color(0f, 0f, 0f, 1f);
+        marker.Add(text);
+
         parent.Add(marker);
     }
 
@@ -475,7 +500,8 @@ public class WorldConsoleSurface : MonoBehaviour
 
         report += " renderer.enabled=" + _screenRenderer.enabled
                   + " layer=" + _screenRenderer.gameObject.layer
-                  + " (ConsoleScreen=" + ConsoleScreenLayer + ")";
+                  + " (worldLayer=" + PhysicalScreenLayer + ", focusOverlay="
+                  + FocusOverlayLayer + ")";
         Material material = _screenRenderer.sharedMaterial;
         if (material == null)
         {

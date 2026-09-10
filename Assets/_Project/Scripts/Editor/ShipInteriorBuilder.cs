@@ -16,13 +16,17 @@ using UnityEngine.UIElements;
 /// airlock station + equipment locker, shipboard modal overlays and two spawn
 /// markers. Repeated execution converges to the same scene.
 ///
-/// Phase 07B.2 console composition:
-///   environment Base Camera renders everything EXCEPT the ConsoleScreen
-///   layer and carries the focus DOF; a child Overlay (sharp) camera renders
-///   ONLY the ConsoleScreen layer with post-processing OFF, so physical
-///   console UI stays crisp while the environment blurs. Screen quads use an
-///   authored URP/Unlit material asset (Release shader stripping cannot kill
-///   it) and per-renderer MaterialPropertyBlocks bind each console's own RT.
+/// Phase 07B.2.2 console composition:
+///   the four physical console screens are ordinary opaque WORLD objects on
+///   Default, rendered by the environment Base Camera in the opaque pass, so
+///   they obey real depth (a wall or the wrist occludes them) and receive the
+///   focus DOF like the rest of the room. The crisp focused screen is a
+///   SEPARATE, exactly co-located focus-only proxy quad on the
+///   ConsoleFocusOverlay layer, rendered by a child Overlay (sharp) camera with
+///   post-processing OFF and clearDepth FALSE while a console is focused, and
+///   disabled in every other state. Screen quads use an authored URP/Unlit
+///   material asset (Release shader stripping cannot kill it) with one material
+///   instance per console.
 ///
 /// Layout contract (top view, +z = forward):
 ///
@@ -62,10 +66,18 @@ public static class ShipInteriorBuilder
     private const string UxmlDeployPath = "Assets/_Project/UI/UXML/ShipDeployConfirm.uxml";
     private const string UssModalPath = "Assets/_Project/UI/USS/ShipModal.uss";
     private const string ScreenMaterialName = "M_ConsoleScreen";
+    private const string FocusProxyMaterialName = "M_ConsoleFocusProxy";
 
-    /// <summary>Layer for physical console display surfaces (TagManager user
-    /// layer 6; must match WorldConsoleSurface.ConsoleScreenLayer).</summary>
-    private const int ConsoleScreenLayer = WorldConsoleSurface.ConsoleScreenLayer;
+    /// <summary>Physical display quads are ordinary world geometry (Default):
+    /// rendered by the environment Base camera in the opaque pass with normal
+    /// depth, so walls / doors / the wrist occlude them and the focus DOF
+    /// softens them with the rest of the room (Phase 07B.2.2).</summary>
+    private const int PhysicalScreenLayer = WorldConsoleSurface.PhysicalScreenLayer;
+
+    /// <summary>Dedicated focus-only overlay layer (ConsoleFocusOverlay). It
+    /// carries exactly one object: the ConsoleFocusProxy quad. No physical
+    /// console screen is ever authored on it.</summary>
+    private const int FocusOverlayLayer = WorldConsoleSurface.FocusOverlayLayer;
 
     // ---- Hull layout (interior clear-space) ----
     private const float XMin = -5.5f;
@@ -220,11 +232,12 @@ public static class ShipInteriorBuilder
         cam.fieldOfView = 70f;
         cam.nearClipPlane = 0.05f;
         cam.farClipPlane = 60f;
-        // Phase 07B.2.1: the environment BASE camera renders everything the
-        // player can see (ship geometry, console housings, doors, airlock,
-        // equipment locker, WRIST, HUD) and excludes ONLY the physical
-        // ConsoleScreen display layer drawn by the sharp overlay camera.
-        cam.cullingMask = ~(1 << ConsoleScreenLayer);
+        // Phase 07B.2.2: the environment BASE camera renders the whole visible
+        // world - ship geometry, console housings, DOORS, airlock, equipment
+        // locker, the four REAL console screens and the WRIST - and excludes
+        // ONLY the focus-only proxy layer. Console screens are world objects
+        // again, so walls and the wrist occlude them through real depth.
+        cam.cullingMask = ~(1 << FocusOverlayLayer);
         cam.depth = 0f;
         eyeGo.transform.localPosition = new Vector3(0f, 1.65f, 0f);
         eyeGo.transform.localRotation = Quaternion.identity;
@@ -239,29 +252,41 @@ public static class ShipInteriorBuilder
         cameraData.volumeLayerMask = ~0;
         cameraData.renderType = CameraRenderType.Base;
 
-        // Phase 07B.2.1: sharp ConsoleScreen camera. Child of the eye camera
+        // Phase 07B.2.2: focus-only sharp proxy camera. Child of the eye camera
         // => position/rotation/FOV stay frame-locked with zero drift. It is an
-        // URP OVERLAY camera (never a second Base camera - a second Base camera
-        // wipes the environment frame with its own blue background), renders
-        // ONLY the ConsoleScreen layer, has post-processing OFF, and is
-        // stacked on the environment base camera exactly once.
+        // URP OVERLAY camera stacked on the base camera exactly once, renders
+        // ONLY the ConsoleFocusOverlay layer (the single proxy quad, never a
+        // physical screen), has post-processing OFF so the proxy stays crisp
+        // over the DOF-blurred environment, and is DISABLED by default: only
+        // ShipConsoleFocusController enables it during console focus.
+        //
+        // clearDepth is the critical setting. URP reads
+        // UniversalAdditionalCameraData.clearDepth (NOT Camera.clearFlags) for
+        // overlay depth handling, and that field defaults to TRUE - which is
+        // exactly why the 07B.2.1 overlay camera drew all four console screens
+        // over the whole world (through walls, over the wrist). The property is
+        // read-only at runtime, so it is authored here through SerializedObject.
         var sharpGo = new GameObject("SharpScreenCamera");
         sharpGo.transform.SetParent(eyeGo.transform, false);
         var sharpCam = sharpGo.AddComponent<Camera>();
         sharpCam.clearFlags = CameraClearFlags.Nothing;
-        sharpCam.cullingMask = 1 << ConsoleScreenLayer;
+        sharpCam.cullingMask = 1 << FocusOverlayLayer;
         sharpCam.fieldOfView = 70f;
         sharpCam.nearClipPlane = 0.05f;
         sharpCam.farClipPlane = 60f;
         sharpCam.depth = cam.depth + 1f;
+        sharpCam.enabled = false; // focus-only
         var sharpData = sharpGo.AddComponent<UniversalAdditionalCameraData>();
         sharpData.renderType = CameraRenderType.Overlay;
         sharpData.renderPostProcessing = false;
+        SetOverlayClearDepth(sharpData, false);
         cameraData.cameraStack.Clear();
         cameraData.cameraStack.Add(sharpCam);
-        Debug.Log("[ShipInteriorBuilder] sharp ConsoleScreen overlay camera created"
+        Debug.Log("[ShipInteriorBuilder] focus-only proxy camera created"
                   + " baseMask=" + cam.cullingMask
                   + " overlayMask=" + sharpCam.cullingMask
+                  + " overlayEnabled=" + sharpCam.enabled
+                  + " clearDepth=" + sharpData.clearDepth
                   + " stack=" + cameraData.cameraStack.Count);
 
         // ---- Ship HUD (screen-space UI Toolkit overlay) ----
@@ -273,9 +298,31 @@ public static class ShipInteriorBuilder
         hud.hudStyleSheet = uss;
         hud.panelSettings = panelSettings;
 
+        // ---- Phase 07B.2.2 focus-only sharp proxy ----
+        // ONE quad on the ConsoleFocusOverlay layer. It is not a console screen
+        // collider and not a console screen renderer: it only mirrors the
+        // active console's physical screen (same transform, same RenderTexture,
+        // same ConsoleUvAuthority orientation) while that console is focused.
+        // Authored disabled; only ShipConsoleFocusController turns it on.
+        Material proxyMaterial = Load(FocusProxyMaterialName);
+        if (proxyMaterial == null)
+        {
+            Debug.LogError("[ShipInteriorBuilder] focus proxy material missing");
+            return false;
+        }
+
+        var proxyGo = CreateLocalQuad(null, "FocusScreenProxy", proxyMaterial,
+            Vector3.zero, new Vector3(ConsoleScreenWidth, ConsoleScreenHeight, 1f));
+        proxyGo.layer = FocusOverlayLayer;
+        var proxyRenderer = proxyGo.GetComponent<Renderer>();
+        proxyRenderer.enabled = false; // hidden until a focus transition shows it
+        var focusProxy = proxyGo.AddComponent<ConsoleFocusProxy>();
+        focusProxy.Configure(sharpCam, proxyMaterial);
+
         // ---- Phase 07B console focus machinery ----
         var focusGo = new GameObject("ShipConsoleFocus");
-        focusGo.AddComponent<ShipConsoleFocusController>();
+        var focusController = focusGo.AddComponent<ShipConsoleFocusController>();
+        focusController.focusProxy = focusProxy;
 
         // One shared world-space UI pointer router (mouse -> screen collider
         // -> UV -> panel pixel -> real UI Toolkit events).
@@ -671,7 +718,10 @@ public static class ShipInteriorBuilder
             GameObject screen = CreateLocalQuad(console.transform, "Screen", consoleDark,
                 new Vector3(0f, ConsoleScreenCenterY, ConsoleScreenZ),
                 new Vector3(ConsoleScreenWidth, ConsoleScreenHeight, 1f));
-            screen.layer = ConsoleScreenLayer; // sharp overlay camera layer
+            // Phase 07B.2.2: the physical screen is ordinary WORLD geometry.
+            // It is NOT on the focus-only overlay layer any more, so the base
+            // camera renders it with normal depth and real occlusion.
+            screen.layer = PhysicalScreenLayer;
             var screenCollider = screen.AddComponent<BoxCollider>();
             screenCollider.size = new Vector3(1f, 1f, 0.04f); // thin, screen-only
 
@@ -925,6 +975,7 @@ public static class ShipInteriorBuilder
                & Ensure("M_ShipConsoleLight", new Color(0.85f, 0.88f, 0.90f), 0.4f)
                & Ensure("M_ShipConsoleDark", new Color(0.12f, 0.14f, 0.16f), 0.3f)
                & EnsureScreenMaterial()
+               & EnsureFocusProxyMaterial()
                & Ensure("M_ShipProp", new Color(0.21f, 0.24f, 0.27f), 0.35f)
                & Ensure("M_ShipAirlock", new Color(0.52f, 0.58f, 0.62f), 0.35f)
                & EnsureGlow("M_ShipViewport", new Color(0.05f, 0.20f, 0.24f),
@@ -957,6 +1008,62 @@ public static class ShipInteriorBuilder
         material.SetColor("_BaseColor", Color.white);
         AssetDatabase.CreateAsset(material, MaterialsFolder + "/" + ScreenMaterialName + ".mat");
         return true;
+    }
+
+    /// <summary>
+    /// Authored material for the focus-only sharp proxy (Phase 07B.2.2). It uses
+    /// Survive/ScreenFocusProxyUnlit, the focus variant of the screen shader:
+    /// same single authoritative UV orientation, but ZWrite Off + ZTest LEqual
+    /// in the transparent queue so the proxy can never float above the world.
+    /// The scene references this asset, which also keeps the shader in Release.
+    /// </summary>
+    private static bool EnsureFocusProxyMaterial()
+    {
+        Shader proxy = Shader.Find("Survive/ScreenFocusProxyUnlit");
+        if (proxy == null)
+        {
+            Debug.LogError("[ShipInteriorBuilder] Survive/ScreenFocusProxyUnlit "
+                           + "shader missing");
+            return false;
+        }
+
+        var material = new Material(proxy)
+        {
+            name = FocusProxyMaterialName
+        };
+        material.SetFloat(ConsoleUvAuthority.FlipUProperty, ConsoleUvAuthority.FlipU);
+        material.SetFloat(ConsoleUvAuthority.FlipVProperty, ConsoleUvAuthority.FlipV);
+        AssetDatabase.CreateAsset(material,
+            MaterialsFolder + "/" + FocusProxyMaterialName + ".mat");
+        return true;
+    }
+
+    /// <summary>
+    /// Authors UniversalAdditionalCameraData.clearDepth. URP reads this
+    /// serialized field (not Camera.clearFlags) for overlay depth handling and
+    /// exposes it read-only at runtime, so the scene must be authored here.
+    /// Leaving it at the URP default (true) is what made the 07B.2.1 overlay
+    /// camera paint the console screens over the entire world.
+    /// </summary>
+    private static void SetOverlayClearDepth(UniversalAdditionalCameraData data,
+        bool clearDepth)
+    {
+        if (data == null)
+        {
+            return;
+        }
+
+        var serialized = new SerializedObject(data);
+        SerializedProperty property = serialized.FindProperty("m_ClearDepth");
+        if (property == null)
+        {
+            Debug.LogError("[ShipInteriorBuilder] cannot author m_ClearDepth on "
+                           + data.name + ": URP field name changed");
+            return;
+        }
+
+        property.boolValue = clearDepth;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private static bool Ensure(string name, Color baseColor, float smoothness)

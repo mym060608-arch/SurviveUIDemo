@@ -454,8 +454,14 @@ public static class SurviveProjectValidator
             Record(CountInScene<ShipHudController>() == 1,
                 "03_ShipInterior has exactly one ShipHudController (found "
                 + CountInScene<ShipHudController>() + ")");
-            Record(CountInScene<UIDocument>() == 1,
-                "03_ShipInterior has exactly one UIDocument (found "
+            // Phase 07B.2.2: the ship scene authors exactly four UIDocuments -
+            // the screen-space ShipHUD, the ship wrist document, the deployment
+            // confirmation page and the shared loadout page. The four physical
+            // console screens create their own UIDocuments at RUNTIME, so no
+            // console document is ever authored into the scene.
+            Record(CountInScene<UIDocument>() == 4,
+                "03_ShipInterior authors four UIDocuments - HUD + wrist + "
+                + "deployment confirmation + loadout (found "
                 + CountInScene<UIDocument>() + ")");
             Record(CountInScene<ShipConsoleInteractable>() == 4,
                 "03_ShipInterior has exactly 4 console interactables (found "
@@ -488,6 +494,10 @@ public static class SurviveProjectValidator
                 "ship console ids are 1..4 (found " + string.Join(",", consoleIds) + ")");
 
             // First-person presentation: eye camera child of the player body.
+            // Phase 07B.2.2: the scene also carries the focus-only
+            // SharpScreenCamera, an URP Overlay camera frame-locked to the eye
+            // at local zero, so the eye-height rule applies to the BASE camera
+            // only (an overlay child is intentionally at the eye origin).
             SurfacePlayerController shipPlayer = FirstInScene<SurfacePlayerController>();
             bool shipCameraUnderPlayer = false;
             bool shipSawCamera = false;
@@ -497,6 +507,19 @@ public static class SurviveProjectValidator
                 {
                     shipSawCamera = true;
                     shipCameraUnderPlayer = true;
+                    var cameraData = c.GetComponent<
+                        UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                    bool isOverlay = cameraData != null
+                                     && cameraData.renderType
+                                     == UnityEngine.Rendering.Universal.CameraRenderType.Overlay;
+                    if (isOverlay)
+                    {
+                        Record(c.transform.localPosition.sqrMagnitude < 0.0001f,
+                            "ship focus overlay camera frame-locked at the eye "
+                            + "origin (local=" + c.transform.localPosition + ")");
+                        continue;
+                    }
+
                     Record(c.transform.localPosition.y > 1.4f && c.transform.localPosition.y < 1.9f,
                         "ship eye camera at eye height (y="
                         + c.transform.localPosition.y.ToString("0.00") + ")");

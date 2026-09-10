@@ -13,9 +13,11 @@ using UnityEngine.Rendering;
 /// During the ~0.26 s transition the eye camera smoothly moves from the exact
 /// pose captured at E to the console's deterministic ConsoleFocusAnchor and
 /// back again on exit (no hardcoded direction), the URP Depth-Of-Field volume
-/// weight fades in/out (environment soft, screen at the focus distance stays
-/// sharp), and the OS cursor is released only when the camera has reached the
-/// focused pose. The player capsule never moves and its collider stays valid.
+/// weight fades in/out (environment soft) and the focus-only sharp proxy quad
+/// is shown for exactly the same interval, so the screen rectangle stays crisp
+/// while everything around it softens. The OS cursor is released only when the
+/// camera has reached the focused pose. The player capsule never moves and its
+/// collider stays valid.
 /// </summary>
 public class ShipConsoleFocusController : MonoBehaviour
 {
@@ -33,6 +35,12 @@ public class ShipConsoleFocusController : MonoBehaviour
     /// <summary>Maximum DOF influence while focused (restrained).</summary>
     [Range(0.5f, 1f)]
     public float focusBlurInfluence = 1f;
+
+    /// <summary>The focus-only sharp screen proxy (Phase 07B.2.2). Owned by the
+    /// scene, wired by ShipInteriorBuilder, and driven exclusively by this
+    /// controller: hidden in ShipExplore / wrist / loadout, shown only while a
+    /// console is in TransitionIn / ShipConsoleFocus / TransitionOut.</summary>
+    public ConsoleFocusProxy focusProxy;
 
     private ShipConsoleFocusState _state = ShipConsoleFocusState.ShipExplore;
     private WorldConsoleSurface _active;
@@ -132,6 +140,12 @@ public class ShipConsoleFocusController : MonoBehaviour
         {
             _blurVolume = Object.FindAnyObjectByType<Volume>();
         }
+
+        if (focusProxy == null)
+        {
+            focusProxy = Object.FindAnyObjectByType<ConsoleFocusProxy>(
+                FindObjectsInactive.Include);
+        }
     }
 
     private void OnDisable()
@@ -140,6 +154,8 @@ public class ShipConsoleFocusController : MonoBehaviour
         {
             _blurVolume.weight = 0f;
         }
+
+        HideFocusProxy();
 
         if (_player != null)
         {
@@ -211,6 +227,12 @@ public class ShipConsoleFocusController : MonoBehaviour
         _state = ShipConsoleFocusState.TransitionIn;
         _transitionStart = Time.unscaledTime;
         _transitionDuration = Mathf.Max(0.05f, transitionDuration);
+
+        // Phase 07B.2.2: bring the sharp focus path up WITH the transition, so
+        // the screen stays crisp while the environment DOF rises. The physical
+        // screen underneath keeps rendering (world depth) the whole time.
+        ShowFocusProxy(surface);
+
         if (_player != null)
         {
             _player.InputEnabled = false; // freeze WASD + mouse look
@@ -293,6 +315,9 @@ public class ShipConsoleFocusController : MonoBehaviour
             _state = ShipConsoleFocusState.ShipExplore;
             _active = null;
             TransitionProgress01 = 0f;
+            // Focus fully released: the sharp path and its overlay camera go
+            // away, DOF is already back to 0, and only the world screen remains.
+            HideFocusProxy();
             if (_player != null)
             {
                 _player.InputEnabled = true; // WASD + mouse look restored
@@ -316,6 +341,35 @@ public class ShipConsoleFocusController : MonoBehaviour
         if (_blurVolume != null)
         {
             _blurVolume.weight = Mathf.Clamp01(weight);
+        }
+    }
+
+    // ---- Focus-only sharp proxy ----
+
+    private void ShowFocusProxy(WorldConsoleSurface surface)
+    {
+        if (focusProxy == null)
+        {
+            focusProxy = Object.FindAnyObjectByType<ConsoleFocusProxy>(
+                FindObjectsInactive.Include);
+        }
+
+        if (focusProxy == null)
+        {
+            Debug.LogWarning("[ShipConsoleFocus] no ConsoleFocusProxy in the "
+                             + "scene: the focused screen will follow the "
+                             + "environment blur");
+            return;
+        }
+
+        focusProxy.Show(surface);
+    }
+
+    private void HideFocusProxy()
+    {
+        if (focusProxy != null)
+        {
+            focusProxy.Hide();
         }
     }
 

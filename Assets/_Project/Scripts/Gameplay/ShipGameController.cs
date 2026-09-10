@@ -144,12 +144,13 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
         _airlock = UnityEngine.Object.FindAnyObjectByType<ShipAirlockInteractable>();
 
-        // Phase 07B.2 focus composition: enforce the sharp-screen camera stack
-        // at runtime. The scene authoring adds the overlay camera to the base
-        // camera's URP stack, but that relationship is not guaranteed to
-        // survive every scene serialization/load path; re-asserting it here is
-        // idempotent and makes the always-on sharp console screens robust in
-        // the Release player.
+        // Phase 07B.2.2 screen composition: enforce the world-screen / focus
+        // proxy split at runtime. The scene authoring adds the focus overlay
+        // camera to the base camera's URP stack, but that relationship is not
+        // guaranteed to survive every scene serialization/load path;
+        // re-asserting it here is idempotent. The focus overlay camera stays
+        // DISABLED: only ShipConsoleFocusController enables it while a console
+        // is focused.
         EnsureScreenComposition();
         VerifyBaseCameraVisibility(out string visibilityReport);
         Debug.Log("[ShipGameController] base camera visibility: " + visibilityReport);
@@ -194,7 +195,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
             return;
         }
 
-        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        int layer = WorldConsoleSurface.FocusOverlayLayer;
         Camera sharp = null;
         Transform sharpTransform = eye.transform.Find("SharpScreenCamera");
         if (sharpTransform != null)
@@ -205,11 +206,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
         if (sharp == null)
         {
             Debug.LogError("[ShipGameController] SharpScreenCamera missing - "
-                           + "console screens will not render");
+                           + "the focused console screen cannot stay sharp");
             return;
         }
 
-        // Environment base camera: post-processing ON, ConsoleScreen layer OUT.
+        // Environment base camera: post-processing ON, focus-overlay layer OUT.
         var eyeData = eye.GetComponent<UniversalAdditionalCameraData>();
         var sharpData = sharp.GetComponent<UniversalAdditionalCameraData>();
         if (eyeData == null)
@@ -223,33 +224,44 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
 
         // Environment BASE camera: post-processing ON, renders the whole
-        // visible world (ship geometry, console housings, doors, airlock,
-        // equipment locker, WRIST, HUD) and excludes ONLY ConsoleScreen.
-        // The mask is built explicitly so a stale mask can never exclude the
-        // environment (Phase 07B.2.1 render-recovery hard gate).
+        // visible world INCLUDING the four real physical console screens
+        // (ordinary world geometry on Default) and excludes ONLY the focus-only
+        // proxy layer. The mask is built explicitly so a stale mask can never
+        // exclude the environment (Phase 07B.2.1 render-recovery hard gate).
         eye.cullingMask = ~(1 << layer);
         eyeData.renderPostProcessing = true;
         eyeData.volumeLayerMask = ~0;
         eyeData.renderType = CameraRenderType.Base;
         eye.depth = 0f;
 
-        // Sharp screen camera: URP OVERLAY camera rendering ONLY the
-        // ConsoleScreen layer, post-processing OFF, stacked on the base camera
-        // EXACTLY ONCE. It must never be a second Base camera: a second Base
-        // camera clears the frame with its own background colour and the whole
-        // ship environment (and the wrist) disappears.
+        // Focus-only proxy camera: URP OVERLAY camera rendering ONLY the
+        // ConsoleFocusOverlay layer, post-processing OFF, stacked on the base
+        // camera EXACTLY ONCE, and DISABLED unless a console is focused.
+        // It must never be a second Base camera: a second Base camera clears
+        // the frame with its own background colour and the whole ship
+        // environment (and the wrist) disappears.
         sharp.cullingMask = 1 << layer;
-        sharp.enabled = true;
         sharp.depth = eye.depth + 1f;
         sharp.clearFlags = CameraClearFlags.Nothing;
         sharpData.renderType = CameraRenderType.Overlay;
         sharpData.renderPostProcessing = false;
+        sharp.enabled = _focus != null && _focus.FocusActive;
+
+        // clearDepth is authored by ShipInteriorBuilder through SerializedObject
+        // (URP exposes it read-only at runtime). If it is ever true again the
+        // overlay would paint over the world instead of honoring base depth.
+        if (sharpData.clearDepth)
+        {
+            Debug.LogError("[ShipGameController] focus overlay camera clears "
+                           + "depth: it would float above walls and the wrist. "
+                           + "Rebuild 03_ShipInterior with ShipInteriorBuilder.");
+        }
 
         List<Camera> stack = eyeData.cameraStack;
         if (stack == null)
         {
             Debug.LogError("[ShipGameController] base camera has no URP camera "
-                           + "stack - console screens cannot composite");
+                           + "stack - the focus proxy cannot composite");
         }
         else
         {
@@ -261,15 +273,18 @@ public class ShipGameController : MonoBehaviour, IWristContext
                   + eyeData.renderType + " baseMask=" + eye.cullingMask
                   + " overlayType=" + sharpData.renderType
                   + " overlayMask=" + sharp.cullingMask
+                  + " overlayEnabled=" + sharp.enabled
+                  + " overlayClearDepth=" + sharpData.clearDepth
                   + " stack=" + (stack != null ? stack.Count : -1));
     }
 
     /// <summary>
-    /// Phase 07B.2.1 render-recovery verification: the base camera must render
-    /// every visible environment object, exclude ONLY the ConsoleScreen layer,
-    /// and carry the sharp overlay camera exactly once. Also enumerates every
-    /// GameObject on the ConsoleScreen layer so a recursive SetLayer mistake
-    /// (whole console / rig / wrist on the display layer) is caught.
+    /// Phase 07B.2.2 screen-architecture verification. The four REAL physical
+    /// console screens must be ordinary world geometry rendered by the base
+    /// camera with normal depth, the focus-only proxy layer must hold exactly
+    /// one object (the ConsoleFocusProxy quad) and must be excluded from the
+    /// base camera, and the focus overlay camera must be an overlay that honors
+    /// the base depth (clearDepth false) and is enabled only while focused.
     /// </summary>
     public bool VerifyBaseCameraVisibility(out string report)
     {
@@ -283,7 +298,8 @@ public class ShipGameController : MonoBehaviour, IWristContext
             return false;
         }
 
-        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        int overlayLayer = WorldConsoleSurface.FocusOverlayLayer;
+        int worldLayer = WorldConsoleSurface.PhysicalScreenLayer;
         var eyeData = eye.GetComponent<UniversalAdditionalCameraData>();
         var sharpTransform = eye.transform.Find("SharpScreenCamera");
         Camera sharp = sharpTransform != null
@@ -301,21 +317,46 @@ public class ShipGameController : MonoBehaviour, IWristContext
           .Append(" renderType=").Append(sharpData != null ? sharpData.renderType.ToString() : "-")
           .Append(" mask=").Append(sharp != null ? sharp.cullingMask : 0)
           .Append(" pp=").Append(sharpData != null && sharpData.renderPostProcessing)
+          .Append(" enabled=").Append(sharp != null && sharp.enabled)
+          .Append(" clearDepth=").Append(sharpData != null && sharpData.clearDepth)
           .Append(" | stack=").Append(eyeData != null && eyeData.cameraStack != null
               ? eyeData.cameraStack.Count.ToString() : "-");
 
-        if ((eye.cullingMask & (1 << layer)) != 0)
+        if ((eye.cullingMask & (1 << overlayLayer)) != 0)
         {
-            sb.Append(" ERROR: base renders ConsoleScreen layer");
+            sb.Append(" ERROR: base camera renders the focus overlay layer");
+            ok = false;
+        }
+
+        if ((eye.cullingMask & (1 << worldLayer)) == 0)
+        {
+            sb.Append(" ERROR: base camera does not render world layer "
+                      + worldLayer + " (physical screens would vanish)");
             ok = false;
         }
 
         if (sharp == null || sharpData == null
             || sharpData.renderType != CameraRenderType.Overlay
-            || sharp.cullingMask != (1 << layer)
+            || sharp.cullingMask != (1 << overlayLayer)
             || sharpData.renderPostProcessing)
         {
-            sb.Append(" ERROR: sharp overlay camera misconfigured");
+            sb.Append(" ERROR: focus overlay camera misconfigured");
+            ok = false;
+        }
+
+        if (sharpData != null && sharpData.clearDepth)
+        {
+            sb.Append(" ERROR: overlay camera clears depth (screen would float "
+                      + "above walls and the wrist)");
+            ok = false;
+        }
+
+        bool focusActive = _focus != null && _focus.FocusActive;
+        if (sharpData != null && sharp.enabled != focusActive)
+        {
+            sb.Append(" ERROR: overlay camera must be enabled only during "
+                      + "console focus (focusActive=").Append(focusActive)
+              .Append(" enabled=").Append(sharp.enabled).Append(")");
             ok = false;
         }
 
@@ -357,21 +398,6 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
             int objLayer = renderer.gameObject.layer;
             bool inBase = (eye.cullingMask & (1 << objLayer)) != 0;
-            if (objLayer == layer)
-            {
-                // ConsoleScreen surfaces are intentionally overlay-only.
-                if (sharp != null && (sharp.cullingMask & (1 << objLayer)) != 0)
-                {
-                    visible++;
-                    continue;
-                }
-
-                sb.Append(" ERROR: screen not on overlay: ")
-                  .Append(renderer.gameObject.name);
-                ok = false;
-                continue;
-            }
-
             if (inBase)
             {
                 visible++;
@@ -389,34 +415,58 @@ public class ShipGameController : MonoBehaviour, IWristContext
         sb.Append(" | envVisible=").Append(visible)
           .Append(" envExcluded=").Append(excluded);
 
-        // ConsoleScreen layer hygiene: only the four physical screen quads.
-        var onDisplayLayer = new System.Collections.Generic.List<string>();
+        // Physical screens: exactly four, all on the ordinary world layer and
+        // never on the focus overlay layer.
+        var screens = new System.Collections.Generic.List<Renderer>();
+        var onOverlayLayer = new System.Collections.Generic.List<string>();
         foreach (Renderer renderer in UnityEngine.Object.FindObjectsByType<Renderer>(
                      FindObjectsInactive.Include))
         {
-            if (renderer.gameObject.layer == layer)
+            string n = renderer.gameObject.name;
+            int objLayer = renderer.gameObject.layer;
+            if (n == "Screen" && renderer.transform.parent != null
+                && renderer.transform.parent.name.StartsWith("ShipConsole_"))
             {
-                onDisplayLayer.Add(renderer.gameObject.name);
+                screens.Add(renderer);
+                if (objLayer != worldLayer)
+                {
+                    sb.Append(" ERROR: physical screen not on the world layer: ")
+                      .Append(renderer.transform.parent.name)
+                      .Append("(layer ").Append(objLayer).Append(")");
+                    ok = false;
+                }
+            }
+
+            if (objLayer == overlayLayer)
+            {
+                onOverlayLayer.Add(n);
             }
         }
 
-        sb.Append(" | ConsoleScreenLayerObjects=").Append(onDisplayLayer.Count)
+        sb.Append(" | physicalScreens=").Append(screens.Count);
+        if (screens.Count != 4)
+        {
+            sb.Append(" ERROR: expected exactly four physical console screens");
+            ok = false;
+        }
+
+        sb.Append(" | focusOverlayLayerObjects=").Append(onOverlayLayer.Count)
           .Append("[");
-        for (int i = 0; i < onDisplayLayer.Count; i++)
+        for (int i = 0; i < onOverlayLayer.Count; i++)
         {
             if (i > 0)
             {
                 sb.Append(",");
             }
 
-            sb.Append(onDisplayLayer[i]);
+            sb.Append(onOverlayLayer[i]);
         }
 
         sb.Append("]");
-        if (onDisplayLayer.Count != 4)
+        if (onOverlayLayer.Count != 1 || onOverlayLayer[0] != "FocusScreenProxy")
         {
-            sb.Append(" ERROR: ConsoleScreen layer must hold exactly the four "
-                      + "screen quads");
+            sb.Append(" ERROR: the focus overlay layer must hold exactly the one "
+                      + "FocusScreenProxy quad");
             ok = false;
         }
 

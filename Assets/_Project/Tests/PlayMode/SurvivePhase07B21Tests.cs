@@ -7,11 +7,14 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Phase 07B.2.1 render-recovery acceptance:
-///  - the environment base camera renders the whole visible world and excludes
-///    ONLY the physical ConsoleScreen layer (never the ship, never the wrist),
-///  - the sharp console camera is a single URP Overlay camera stacked once,
-///  - the ConsoleScreen layer holds exactly the four screen quads,
+/// Phase 07B.2.1 render-recovery acceptance (composition updated by Phase
+/// 07B.2.2):
+///  - the environment base camera renders the whole visible world INCLUDING the
+///    four real physical console screens (ordinary world geometry with normal
+///    depth) and excludes ONLY the focus-only ConsoleFocusOverlay layer,
+///  - the focus camera is a single URP Overlay camera stacked once, enabled
+///    only while a console is focused and never clearing depth,
+///  - the ConsoleFocusOverlay layer holds exactly the one focus proxy quad,
 ///  - the ship WRIST is rendered by the base camera and is NOT on that layer,
 ///  - focus composition keeps the environment visible,
 ///  - the console UV orientation has ONE authority shared by the shader, the
@@ -164,15 +167,16 @@ public class SurvivePhase07B21Tests
         yield return null;
         yield return null;
 
-        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        int overlayLayer = WorldConsoleSurface.FocusOverlayLayer;
+        int worldLayer = WorldConsoleSurface.PhysicalScreenLayer;
         Camera eye = controller.Player.EyeCamera;
         Assert.IsNotNull(eye, "eye camera");
         var eyeData = eye.GetComponent<UniversalAdditionalCameraData>();
         Assert.IsNotNull(eyeData, "eye camera URP data");
         Assert.AreEqual(CameraRenderType.Base, eyeData.renderType,
             "environment camera is a URP Base camera");
-        Assert.AreEqual(~(1 << layer), eye.cullingMask,
-            "base camera renders every layer except ConsoleScreen "
+        Assert.AreEqual(~(1 << overlayLayer), eye.cullingMask,
+            "base camera renders every layer except the focus-only overlay "
             + "(mask " + eye.cullingMask + ")");
 
         Camera sharp = SharpOf(eye);
@@ -181,10 +185,12 @@ public class SurvivePhase07B21Tests
         Assert.IsNotNull(sharpData, "sharp camera URP data");
         Assert.AreEqual(CameraRenderType.Overlay, sharpData.renderType,
             "sharp camera is an Overlay camera (never a second Base camera)");
-        Assert.AreEqual(1 << layer, sharp.cullingMask,
-            "sharp camera renders only ConsoleScreen");
+        Assert.AreEqual(1 << overlayLayer, sharp.cullingMask,
+            "sharp camera renders only the focus overlay layer");
         Assert.IsFalse(sharpData.renderPostProcessing,
             "sharp camera post-processing OFF");
+        Assert.IsFalse(sharpData.clearDepth,
+            "sharp camera keeps the base camera's depth buffer");
         Assert.AreEqual(CameraClearFlags.Nothing, sharp.clearFlags,
             "sharp camera never clears the frame");
         Assert.IsNotNull(eyeData.cameraStack, "base camera has a URP stack");
@@ -192,28 +198,43 @@ public class SurvivePhase07B21Tests
             "overlay camera stacked exactly once");
         Assert.AreEqual(sharp, eyeData.cameraStack[0], "stacked camera is the sharp one");
 
-        // Full runtime visibility report (also logs every ConsoleScreen object).
+        // Full runtime visibility report (also logs the focus overlay objects).
         bool ok = controller.VerifyBaseCameraVisibility(out string report);
         Debug.Log("[07B21] base camera visibility: " + report);
         Assert.IsTrue(ok, "base camera visibility report: " + report);
 
-        // ConsoleScreen layer hygiene: exactly the four screen quads.
-        int count = 0;
+        // Phase 07B.2.2: the four REAL physical screens are ordinary world
+        // geometry on the base camera, and the focus-only overlay layer holds
+        // exactly one object (the proxy quad).
+        int physicalScreens = 0;
+        int overlayObjects = 0;
         foreach (Renderer renderer in Object.FindObjectsByType<Renderer>(
                      FindObjectsInactive.Include))
         {
-            if (renderer.gameObject.layer != layer)
+            int objLayer = renderer.gameObject.layer;
+            if (objLayer == overlayLayer)
             {
+                overlayObjects++;
                 continue;
             }
 
-            count++;
-            Assert.AreEqual("Screen", renderer.gameObject.name,
-                "ConsoleScreen layer holds only screen quads (found "
-                + renderer.gameObject.name + ")");
+            if (renderer.gameObject.name == "Screen"
+                && renderer.transform.parent != null
+                && renderer.transform.parent.name.StartsWith("ShipConsole_"))
+            {
+                physicalScreens++;
+                Assert.AreEqual(worldLayer, objLayer,
+                    "physical screen " + renderer.transform.parent.name
+                    + " is ordinary world geometry, not a HUD overlay");
+                Assert.IsTrue((eye.cullingMask & (1 << objLayer)) != 0,
+                    "the base camera renders the physical screen of "
+                    + renderer.transform.parent.name);
+            }
         }
 
-        Assert.AreEqual(4, count, "exactly four ConsoleScreen objects");
+        Assert.AreEqual(4, physicalScreens, "exactly four physical console screens");
+        Assert.AreEqual(1, overlayObjects,
+            "the focus-only overlay layer holds exactly one proxy quad");
 
         // Key visible environment objects (housing/floor/wall/door/locker/
         // airlock/wrist) must be on layers the base camera renders.
@@ -227,7 +248,8 @@ public class SurvivePhase07B21Tests
             Renderer renderer = FindRenderer(name);
             Assert.IsNotNull(renderer, name + " renderer exists");
             int objLayer = renderer.gameObject.layer;
-            Assert.AreNotEqual(layer, objLayer, name + " is not on ConsoleScreen");
+            Assert.AreNotEqual(overlayLayer, objLayer,
+                name + " is not on the focus overlay layer");
             Assert.IsTrue((eye.cullingMask & (1 << objLayer)) != 0,
                 name + " (layer " + objLayer + ") is rendered by the base camera");
         }
@@ -255,13 +277,13 @@ public class SurvivePhase07B21Tests
             : null;
         Assert.IsNotNull(displayRenderer, "wrist display renderer");
         int displayLayer = displayRenderer.gameObject.layer;
-        Assert.AreNotEqual(WorldConsoleSurface.ConsoleScreenLayer, displayLayer,
-            "wrist display is NOT on the ConsoleScreen layer");
+        Assert.AreNotEqual(WorldConsoleSurface.FocusOverlayLayer, displayLayer,
+            "wrist display is NOT on the focus-only overlay layer");
         Assert.IsTrue((eye.cullingMask & (1 << displayLayer)) != 0,
             "wrist display layer is rendered by the base camera");
-        Assert.AreNotEqual(WorldConsoleSurface.ConsoleScreenLayer,
+        Assert.AreNotEqual(WorldConsoleSurface.FocusOverlayLayer,
             wrist.ProjectionPivot != null ? wrist.ProjectionPivot.gameObject.layer : -1,
-            "wrist pivot is not on the ConsoleScreen layer");
+            "wrist pivot is not on the focus-only overlay layer");
 
         // M / I (semantic):
         controller.SetWristOpen(true);
@@ -297,7 +319,7 @@ public class SurvivePhase07B21Tests
         yield return WaitForShip(value => controller = value);
         ShipConsoleFocusController focus = controller.Focus;
         Camera eye = controller.Player.EyeCamera;
-        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        int overlayLayer = WorldConsoleSurface.FocusOverlayLayer;
 
         yield return EnterConsole(controller, 0);
         yield return WaitFocused(focus);
@@ -312,8 +334,8 @@ public class SurvivePhase07B21Tests
         foreach (Renderer renderer in new[] { bezel, floor, wall })
         {
             int objLayer = renderer.gameObject.layer;
-            Assert.AreNotEqual(layer, objLayer,
-                renderer.gameObject.name + " is not on ConsoleScreen");
+            Assert.AreNotEqual(overlayLayer, objLayer,
+                renderer.gameObject.name + " is not on the focus overlay layer");
             Assert.IsTrue((eye.cullingMask & (1 << objLayer)) != 0,
                 renderer.gameObject.name + " stays visible while focused");
         }
@@ -325,7 +347,7 @@ public class SurvivePhase07B21Tests
         Assert.AreEqual(1, eyeData.cameraStack.Count,
             "overlay camera still stacked exactly once");
         Assert.AreEqual(sharp, eyeData.cameraStack[0], "stack entry stable");
-        Assert.AreEqual(1 << layer, sharp.cullingMask,
+        Assert.AreEqual(1 << WorldConsoleSurface.FocusOverlayLayer, sharp.cullingMask,
             "overlay mask unchanged during focus");
         Assert.IsTrue(focus.BlurWeight > 0.8f, "environment blur engaged");
 
