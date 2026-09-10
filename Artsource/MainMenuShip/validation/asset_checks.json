@@ -1,0 +1,49 @@
+{
+  "blend": {
+    "meshes": 46,
+    "anchors": {
+      "VFX_Thruster_L": [
+        -4.650000095367432,
+        10.5,
+        0.5299999713897705
+      ],
+      "VFX_Thruster_R": [
+        4.650000095367432,
+        10.5,
+        0.5299999713897705
+      ]
+    },
+    "material_slots": [
+      "MAT_Accent",
+      "MAT_Engine",
+      "MAT_Glass",
+      "MAT_Hull",
+      "MAT_Secondary"
+    ],
+    "triangles": 964
+  },
+  "fbx_roundtrip": {
+    "meshes": 46,
+    "anchors": {
+      "VFX_Thruster_L": [
+        -4.650000095367432,
+        10.5,
+        0.5299999713897705
+      ],
+      "VFX_Thruster_R": [
+        4.650000095367432,
+        10.5,
+        0.5299999713897705
+      ]
+    },
+    "material_slots": [
+      "MAT_Accent.001",
+      "MAT_Engine.001",
+      "MAT_Glass.001",
+      "MAT_Hull.001",
+      "MAT_Secondary.001"
+    ],
+    "triangles": 8412
+  },
+  "checks": "PASS: hierarchy, two anchors, aft local-Z directions, unit mesh scales, five material slots, FBX readback, render files"
+}
