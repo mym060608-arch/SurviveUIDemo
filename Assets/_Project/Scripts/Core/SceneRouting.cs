@@ -2,25 +2,30 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /// <summary>
-/// Single source of truth for cross-scene runtime routing (Phase 07A.1).
+/// Single source of truth for cross-scene runtime routing (Phase 07A.1,
+/// product flow corrected in the Phase 08 Main Menu revision).
 ///
-/// Normal player flow (Phase 08 adds the product cover):
+/// Normal player flow:
 ///
 ///   00_Boot -&gt; 04_MainMenu (product cover / entry)
-///   04_MainMenu --进入任务--&gt; 01_Hub (Overview, the existing UI demo flow)
-///   01_Hub --确认配置 / 开始远征--&gt; 02_NereidSurface
-///   02_NereidSurface --landing E--&gt; 03_ShipInterior (FromSurface spawn)
+///   04_MainMenu --进入任务--&gt; 03_ShipInterior (first person, blink fade-in)
+///   03_ShipInterior --终端 E--&gt; the 总览 / Overview terminal UI (in scene)
 ///   03_ShipInterior --airlock E--&gt; 02_NereidSurface
+///   02_NereidSurface --landing E--&gt; 03_ShipInterior (FromSurface spawn)
+///   01_Hub --确认配置 / 开始远征--&gt; 02_NereidSurface
 ///
-/// The 2D Hub stays the navigation authority for Overview / Preparation /
-/// Processing / Outpost, and remains directly loadable for Phase01-06
-/// regression and explicit automation.
+/// The Main Menu does NOT enter the 2D Hub any more: the cover's 进入任务 lands
+/// in the walkable ship, and the Overview / Preparation / Processing / Outpost
+/// screens are reached by walking to the ship's physical terminals. The Hub
+/// stays fully loadable through this helper for Phase01-06 regression and
+/// explicit automation.
 ///
 /// No gameplay code hardcodes a scene name anymore: Boot, the Main Menu, the
 /// airlock, the landing return and the Hub path all route through this helper.
-/// The tiny ship-entry reason (Default / FromSurface) is stored here and
-/// consumed once by ShipGameController so spawn selection never depends on
-/// Hierarchy order.
+/// The tiny ship-entry reason (Default / FromSurface / FromMainMenu) is stored
+/// here and consumed once by ShipGameController so spawn selection never
+/// depends on Hierarchy order, and the blink-entry request is consumed once by
+/// the ship scene's first-person entry presentation.
 /// </summary>
 public static class SceneRouting
 {
@@ -34,10 +39,14 @@ public static class SceneRouting
     public enum ShipEntry
     {
         Default,
-        FromSurface
+        FromSurface,
+
+        /// <summary>The product path: the Main Menu's 进入任务 cinematic.</summary>
+        FromMainMenu
     }
 
     private static ShipEntry _pendingShipEntry = ShipEntry.Default;
+    private static bool _pendingBlinkEntry;
 
     /// <summary>Requests the entry reason for the next ShipInterior load.</summary>
     public static void RequestShipEntry(ShipEntry entry)
@@ -52,6 +61,30 @@ public static class SceneRouting
         ShipEntry entry = _pendingShipEntry;
         _pendingShipEntry = ShipEntry.Default;
         return entry;
+    }
+
+    /// <summary>Current pending reason, read-only (automation / verification).</summary>
+    public static ShipEntry PendingShipEntry => _pendingShipEntry;
+
+    /// <summary>
+    /// Requests the first-person "eyelid" fade-in for the next ShipInterior
+    /// entry. Only the menu's 进入任务 cinematic sets it; a direct -bootShip or
+    /// airlock entry stays an ordinary cut.
+    /// </summary>
+    public static void RequestBlinkEntry()
+    {
+        _pendingBlinkEntry = true;
+    }
+
+    /// <summary>True while a blink entry is pending, without clearing it.</summary>
+    public static bool BlinkEntryPending => _pendingBlinkEntry;
+
+    /// <summary>Returns and clears the blink-entry request.</summary>
+    public static bool ConsumeBlinkEntry()
+    {
+        bool pending = _pendingBlinkEntry;
+        _pendingBlinkEntry = false;
+        return pending;
     }
 
     /// <summary>Loads the legacy 2D Hub (the existing UI demo flow: Overview /
@@ -75,6 +108,12 @@ public static class SceneRouting
         Debug.Log("[SceneRouting] EnterShipInterior(" + entry + ") -> "
                   + GameSession.ShipInteriorSceneName);
         RequestShipEntry(entry);
+        if (entry == ShipEntry.FromMainMenu)
+        {
+            // The cover hands the player over as "waking up inside the ship".
+            RequestBlinkEntry();
+        }
+
         SceneManager.LoadScene(GameSession.ShipInteriorSceneName);
     }
 

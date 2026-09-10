@@ -7,15 +7,17 @@
 /// defaults on launch, exactly like the rest of the demo's presentation.
 ///
 /// Every switch here drives something that really exists:
-/// - <see cref="MotionEnabled"/> pauses the Main Menu's own motion (hero scan
-///   sweep, status pulse, modal/transition timing) AND the shared rotating 3D
-///   planet preview spin; the layout never changes.
+/// - <see cref="MotionEnabled"/> pauses the cover's motion (hero ship bob/sway,
+///   thruster flicker, starfield parallax, scan sweep, status pulse, modal and
+///   transition timing); the layout never changes and the ship, the plumes and
+///   the starfield all stay on screen.
 /// - <see cref="HintsVisible"/> hides the peripheral technical annotation
 ///   layer only; every primary element stays visible and functional.
 /// </summary>
 public static class MainMenuSettings
 {
-    /// <summary>Main Menu -> Overview fade duration in seconds (Phase 08 §26).</summary>
+    /// <summary>Fallback cover fade duration in seconds (used only when the
+    /// scene has no MainMenuCinematic).</summary>
     public const float TransitionSeconds = 0.18f;
 
     /// <summary>Modal open/close animation duration in seconds.</summary>
@@ -27,13 +29,15 @@ public static class MainMenuSettings
     /// <summary>True while peripheral technical annotations are drawn.</summary>
     public static bool HintsVisible { get; private set; } = true;
 
-    /// <summary>Applies the motion preference to the menu and the shared planet rig.</summary>
+    /// <summary>
+    /// Applies the motion preference. It is read by the menu, the hero ship and
+    /// the starfield every frame; nothing else is coupled to it (the shared
+    /// Overview planet rig is NOT a Main Menu element any more, so this setting
+    /// no longer reaches it).
+    /// </summary>
     public static void SetMotion(bool enabled)
     {
         MotionEnabled = enabled;
-        // The planet preview is the same authoritative rig the Overview uses;
-        // pausing it is a presentation choice, never a lifecycle change.
-        OverviewPlanetPreview.MotionEnabled = enabled;
     }
 
     /// <summary>Applies the peripheral-annotation preference.</summary>

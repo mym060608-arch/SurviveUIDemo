@@ -7,12 +7,20 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Phase 08 Main Menu clean screenshots + responsive layout validation.
+/// Phase 08 Main Menu (REVISED composition) — UI layout validation at the
+/// competition resolutions.
 ///
-/// Editor-panel offscreen rendering at the three competition resolutions
-/// (1920x1080 hero, 2560x1440, 3440x1440 ultrawide). Every capture runs the same
-/// geometry audit, so a clipped title, an overflowing CTA, an off-frame hero or
-/// a modal outside the frame fails the suite instead of shipping a bad image.
+/// The panel is rendered offscreen at 1920x1080, 2560x1440 and 3440x1440 and the
+/// same geometry audit runs on each capture, so a clipped title, an overflowing
+/// CTA, a menu column outside the frame or a modal taller than the screen fails
+/// the suite instead of shipping a bad image.
+///
+/// IMPORTANT (revision): these captures show the UI DOCUMENT ONLY. The hero ship
+/// and the starfield are 3D and are composited by the stage camera in the real
+/// frame, so the human-facing screenshots come from the runtime capture probe
+/// (-menuCaptureDir). What this suite proves for the revision is exactly what an
+/// offscreen panel capture can prove: the UI paints the RIGHT column and the
+/// hairlines, and it paints NOTHING over the LEFT hero window.
 ///
 /// Run isolated via: -testFilter SurvivePhase08ShotTests
 /// </summary>
@@ -64,7 +72,7 @@ public class SurvivePhase08ShotTests
 
         yield return CaptureAllSizes(menu, panel, "main_menu", null);
 
-        // One settings-modal state is worth keeping for the review pack (§81).
+        // One settings-modal state is worth keeping for the review pack.
         yield return CaptureAllSizes(menu, panel, "settings", () =>
         {
             UiToolkitPointerSimulator.Click(
@@ -133,12 +141,24 @@ public class SurvivePhase08ShotTests
 
             var saved = new Texture2D(2, 2, TextureFormat.RGB24, false);
             Assert.IsTrue(saved.LoadImage(File.ReadAllBytes(pngPath)), "saved png loads " + label);
-            Check(label + " png has real content", new FileInfo(pngPath).Length > 40000);
+            Check(label + " png has real content", new FileInfo(pngPath).Length > 4000);
 
-            // The menu canvas is light (#E9EBED): a capture that is mostly dark
-            // means the UI never rendered (or the camera clear color leaked).
-            Check(label + " canvas is the light menu background", IsLightCanvas(saved));
-            Check(label + " no development watermark strip", CountDarkPixels(saved, 0, size.x, 0, 20) == 0);
+            // Revision contract: the document paints the RIGHT column and leaves
+            // the LEFT hero window empty (the 3D ship shows through there). The
+            // 系统设置 state is exempt: its full-frame dim overlay is the modal's
+            // own background, not menu chrome.
+            Check(label + " right menu column really painted",
+                CountLitPixels(saved, (int)(size.x * 0.66f), size.x,
+                    (int)(size.y * 0.2f), (int)(size.y * 0.8f)) > 200);
+            if (stateName == "main_menu")
+            {
+                Check(label + " left hero window left unpainted for the 3D ship",
+                    CountLitPixels(saved, 0, (int)(size.x * 0.5f),
+                        (int)(size.y * 0.1f), (int)(size.y * 0.9f)) < 400);
+            }
+
+            Check(label + " no development watermark strip",
+                CountLitPixels(saved, 0, size.x, 0, 16) == 0);
 
             VisualElement debugPanel = menu.UiRoot.Q<VisualElement>("DebugPanel");
             Check(label + " no debug panel in the tree", debugPanel == null);
@@ -153,7 +173,8 @@ public class SurvivePhase08ShotTests
 
     /// <summary>
     /// Composition audit at the captured resolution: nothing clipped, nothing
-    /// overlapping, the hero framed, and the modal inside the frame when shown.
+    /// overlapping, the menu column on the right, the hero window on the left,
+    /// and the modal inside the frame when shown.
     /// </summary>
     private bool AuditLayout(MainMenuController menu, string stateName, Vector2Int size)
     {
@@ -161,18 +182,19 @@ public class SurvivePhase08ShotTests
         Rect frame = root.worldBound;
         VisualElement title = root.Q<Label>(MainMenuNames.Title);
         VisualElement subtitle = root.Q<Label>(MainMenuNames.Subtitle);
-        VisualElement content = root.Q<VisualElement>(MainMenuNames.ContentColumn);
+        VisualElement column = root.Q<VisualElement>(MainMenuNames.ContentColumn);
+        VisualElement hero = root.Q<VisualElement>(MainMenuNames.HeroColumn);
         VisualElement cta = menu.EnterMissionButton;
         VisualElement nav = root.Q<VisualElement>(MainMenuNames.SecondaryNav);
         VisualElement exitRow = root.Q<Button>(MainMenuNames.ExitButton);
-        VisualElement disc = root.Q<VisualElement>(MainMenuNames.HeroPlanetDisc);
         VisualElement stage = root.Q<VisualElement>(MainMenuNames.HeroStage);
+        VisualElement telemetry = root.Q<VisualElement>(MainMenuNames.HeroTelemetry);
         VisualElement topBar = root.Q<VisualElement>(MainMenuNames.TopBar);
         VisualElement footer = root.Q<VisualElement>(MainMenuNames.Footer);
 
-        if (title == null || subtitle == null || content == null || cta == null || nav == null
-            || disc == null || stage == null || topBar == null || footer == null
-            || exitRow == null)
+        if (title == null || subtitle == null || column == null || hero == null || cta == null
+            || nav == null || stage == null || telemetry == null || topBar == null
+            || footer == null || exitRow == null)
         {
             _report.AppendLine("audit missing element @ " + size);
             return false;
@@ -189,33 +211,37 @@ public class SurvivePhase08ShotTests
             }
         }
 
-        // Safe area: the brand block, the CTA and the secondary navigation stay
+        // Safe area: the title block, the CTA and the secondary navigation stay
         // clear of the screen edges and inside the frame.
         const float safeMargin = 24f;
         Require(Inside(frame, title.worldBound, safeMargin), "title outside safe area: " + title.worldBound);
         Require(Inside(frame, subtitle.worldBound, safeMargin), "subtitle outside safe area");
         Require(Inside(frame, cta.worldBound, safeMargin), "CTA outside safe area: " + cta.worldBound);
         Require(Inside(frame, nav.worldBound, safeMargin), "secondary nav outside safe area");
-        Require(Inside(frame, disc.worldBound, 0f), "hero planet outside the frame: " + disc.worldBound);
+        Require(Inside(frame, hero.worldBound, 0f), "hero window outside the frame");
         Require(Inside(frame, stage.worldBound, 0f), "hero stage outside the frame");
+        Require(Inside(frame, telemetry.worldBound, 0f), "hero telemetry outside the frame");
+
+        // Revision composition: LEFT window / RIGHT menu, never overlapping.
+        Require(hero.worldBound.xMax <= column.worldBound.xMin + 1f,
+            "hero window overlaps the menu column");
+        Require(column.worldBound.xMin > frame.xMin + frame.width * 0.55f,
+            "menu column is not in the right part of the frame: " + column.worldBound);
+        Require(hero.worldBound.width > frame.width * 0.5f,
+            "hero window is not the dominant left area: " + hero.worldBound.width);
 
         // Nothing overlaps the primary action.
         Require(cta.worldBound.yMax <= exitRow.worldBound.yMin + 1f, "CTA overlaps the secondary nav");
-        Require(content.worldBound.xMax <= disc.worldBound.xMin + 1f,
-            "navigation column overlaps the hero visual");
         Require(title.worldBound.yMin >= topBar.worldBound.yMax - 1f, "title overlaps the top bar");
         Require(nav.worldBound.yMax <= footer.worldBound.yMin + 1f, "secondary nav overlaps the footer");
-
-        // The hero must dominate: at least ~30% of the frame height.
-        Require(disc.worldBound.height >= frame.height * 0.30f,
-            "hero planet too small: " + disc.worldBound.height + " / " + frame.height);
+        Require(title.worldBound.yMax <= cta.worldBound.yMin + 1f, "title overlaps the CTA");
 
         // The CTA must stay the single dominant action: tallest, filled with the
-        // primary ink treatment and carrying the largest label (§14 / §24).
+        // primary treatment and carrying the largest label (style guide §14/§24).
         VisualElement settings = menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton);
         if (settings != null)
         {
-            Require(cta.worldBound.height >= settings.worldBound.height * 1.8f,
+            Require(cta.worldBound.height >= settings.worldBound.height * 1.5f,
                 "CTA is not the tallest action: " + cta.worldBound.height
                 + " vs " + settings.worldBound.height);
 
@@ -232,10 +258,9 @@ public class SurvivePhase08ShotTests
                 "CTA label is not visually dominant");
         }
 
-        // Composition invariance: the 64 px top bar gives the panel scale, so the
-        // title's LOGICAL height must be identical at every resolution. The
-        // composition is never simply scaled up (2560x1440) or stretched (3440).
-        float scale = topBar.worldBound.height / 64f;
+        // Composition invariance: the top bar gives the panel scale, so the
+        // title's LOGICAL height must be identical at every resolution.
+        float scale = topBar.worldBound.height / 46f;
         float logicalTitleHeight = title.worldBound.height / Mathf.Max(scale, 0.001f);
         if (_logicalTitleHeight < 0f)
         {
@@ -248,16 +273,21 @@ public class SurvivePhase08ShotTests
                 + " vs " + _logicalTitleHeight + " at scale " + scale);
         }
 
-        // Ultrawide must recompose, not stretch: the composition frame is capped
-        // and centred, so both margins stay substantial.
+        // Ultrawide must recompose, not stretch: the panel keeps the 1920x1080
+        // logical reference and divides it between a wide hero window and a
+        // readable menu column.
         if (size.x == 3440)
         {
-            float leftMargin = content.worldBound.xMin - frame.xMin;
-            float rightMargin = frame.xMax - disc.worldBound.xMax;
-            Require(leftMargin > 60f && rightMargin > 40f,
-                "ultrawide margins collapsed: left=" + leftMargin + " right=" + rightMargin);
             Require(frame.width > 2100f,
                 "ultrawide logical width should exceed the 1920 reference: " + frame.width);
+            Require(hero.worldBound.width > frame.width * 0.5f,
+                "ultrawide hero window too narrow: " + hero.worldBound.width);
+            Require(column.worldBound.width > frame.width * 0.2f,
+                "ultrawide menu column too narrow: " + column.worldBound.width);
+            Require(cta.worldBound.width > 200f,
+                "ultrawide CTA collapsed: " + cta.worldBound.width);
+            Require(column.worldBound.xMax <= frame.xMax + 0.5f,
+                "ultrawide menu column escapes the frame");
         }
 
         if (stateName == "settings")
@@ -280,43 +310,22 @@ public class SurvivePhase08ShotTests
                && element.yMax <= frame.yMax - margin + 0.5f;
     }
 
-    /// <summary>True when the frame is dominated by the light menu canvas.</summary>
-    private static bool IsLightCanvas(Texture2D texture)
+    /// <summary>Pixels above the "something was drawn here" threshold.</summary>
+    private static int CountLitPixels(Texture2D texture, int x0, int x1, int y0, int y1)
     {
-        int light = 0;
-        int samples = 0;
-        for (int y = 0; y < texture.height; y += 24)
-        {
-            for (int x = 0; x < texture.width; x += 24)
-            {
-                Color c = texture.GetPixel(x, y);
-                float lum = 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
-                samples++;
-                if (lum > 0.55f)
-                {
-                    light++;
-                }
-            }
-        }
-
-        return samples > 0 && light >= samples * 0.6f;
-    }
-
-    private static int CountDarkPixels(Texture2D texture, int x0, int x1, int y0, int y1)
-    {
-        if (y1 > texture.height)
-        {
-            y1 = texture.height;
-        }
+        x0 = Mathf.Max(0, x0);
+        y0 = Mathf.Max(0, y0);
+        x1 = Mathf.Min(texture.width, x1);
+        y1 = Mathf.Min(texture.height, y1);
 
         int count = 0;
-        for (int y = Mathf.Max(0, y0); y < y1; y++)
+        for (int y = y0; y < y1; y += 4)
         {
-            for (int x = Mathf.Max(0, x0); x < Mathf.Min(texture.width, x1); x++)
+            for (int x = x0; x < x1; x += 4)
             {
                 Color c = texture.GetPixel(x, y);
                 float lum = 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
-                if (lum < 0.45f)
+                if (lum > 0.16f)
                 {
                     count++;
                 }

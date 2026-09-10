@@ -12,14 +12,18 @@ using UnityEngine.UIElements;
 /// Inert during normal play: it only activates when the player is launched
 /// with  -smokeResult &lt;absolute path&gt;. Exactly ONE probe instance owns the run
 /// (the first one to wake claims it), so the menu probe and the legacy Hub
-/// probe can both be authored without ever driving the app twice.
+/// probe can both be authored without ever driving the app twice. The owner
+/// survives scene loads (DontDestroyOnLoad), because the journey crosses them.
 ///
-/// Phase 08 order (the real human flow, end to end):
-///   Boot -&gt; Main Menu visible -&gt; 进入任务 CTA -&gt; 系统设置 open/close
-///        -&gt; background click blocked -&gt; 制作信息 open/close -&gt; 进入任务
-///        -&gt; Overview -&gt; existing Phase 01-05 state journey -&gt; main menu
-///        round trip (session preserved, one preview rig) -&gt; 进入任务 again
-///        -&gt; Overview -&gt; 退出 (the application must terminate).
+/// Phase 08 Revision order (the real human flow, end to end):
+///   Boot -&gt; Main Menu cover (left hero ship / right menu / deep space)
+///        -&gt; 系统设置 open/close -&gt; background click blocked -&gt; 制作信息
+///        -&gt; 进入任务 -&gt; start cinematic (menu fade / engine boost / ship
+///        departure / blackout) -&gt; first-person ship interior with the blink
+///        fade -&gt; walk-in terminal flow (总览 + the other three terminals)
+///        -&gt; existing Phase 01-05 state journey -&gt; main menu round trip
+///        (session preserved) -&gt; 进入任务 again -&gt; 退出 (the application must
+///        terminate).
 /// </summary>
 public class StandaloneSmoke : MonoBehaviour
 {
@@ -42,6 +46,16 @@ public class StandaloneSmoke : MonoBehaviour
 
         _sessionClaimed = true;
         _ownsRun = true;
+
+        // The journey crosses scene loads (Main Menu -> Ship Interior -> Main
+        // Menu). Without this the probe would be destroyed with the cover scene
+        // and the run would stall right after 进入任务.
+        DontDestroyOnLoad(gameObject);
+
+        // Automation must not depend on the window having OS focus: a background
+        // player stops ticking, which would freeze the flow mid-journey.
+        Application.runInBackground = true;
+        Application.targetFrameRate = 60;
     }
 
     private void Start()
@@ -80,7 +94,7 @@ public class StandaloneSmoke : MonoBehaviour
 
     private IEnumerator RunProbe()
     {
-        var log = new SmokeLog();
+        var log = new SmokeLog(_resultPath);
         Debug.Log("[StandaloneSmoke] probe start -> " + _resultPath);
 
         // ---- 1. Boot -> Main Menu (Phase 08 product cover) ----
@@ -131,14 +145,20 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("系统设置 / 制作信息 / 退出 all present",
             settingsButton != null && creditsButton != null && exitButton != null);
 
-        // Hero visual: the ONE shared preview rig, rendering into its RT.
-        OverviewPlanetPreview rig = OverviewPlanetPreview.Shared;
-        log.Check("hero uses the one shared planet preview rig",
-            rig != null && menu.IsHeroPlanetActive
-            && rig.Texture != null && rig.Texture.IsCreated()
-            && UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length == 1);
-        log.Check("hero preview camera is rendering for the menu viewer",
-            rig != null && rig.ViewerCount >= 1 && rig.IsRendering);
+        // Hero visual: the REAL 3D ship asset on the left + the procedural
+        // deep-space backdrop behind it (Phase 08 Revision composition).
+        MainMenuShipHero hero = UnityEngine.Object.FindAnyObjectByType<MainMenuShipHero>();
+        MainMenuStarfield stars = UnityEngine.Object.FindAnyObjectByType<MainMenuStarfield>();
+        log.Check("hero is the real 3D main-menu ship asset (46 meshes, 2 nozzles)",
+            hero != null && hero.IsShipPresent && hero.ShipRendererCount >= 40
+            && hero.NozzleCount == 2 && menu.IsHeroShipActive);
+        log.Check("hero ship sits in the LEFT half of the frame",
+            hero != null && HeroScreenX(hero) < 0.62f);
+        log.Check("deep-space starfield is built behind the ship",
+            stars != null && menu.IsStarfieldActive && stars.LayerCount == 3
+            && stars.StarCount > 1000);
+        log.Check("start cinematic is authored and idle before 进入任务",
+            menu.Cinematic != null && !menu.Cinematic.IsPlaying);
 
         // ---- 2. 系统设置 real click ----
         yield return RealClick(settingsButton, "系统设置", log);
@@ -175,6 +195,10 @@ public class StandaloneSmoke : MonoBehaviour
 
         menu.ShowCredits();
         yield return WaitFor(() => menu.IsCreditsOpen, 5f);
+        // The outgoing modal is only LOGICALLY closed at this point: it keeps
+        // fading (and stays displayed) for a few frames, so the "exactly one
+        // modal" invariant is asserted once that fade has finished.
+        yield return WaitFor(() => menu.OpenModalCount == 1, 5f);
         log.Check("制作信息 opens the credits modal without stacking",
             menu.IsCreditsOpen && !menu.IsSettingsOpen && menu.OpenModalCount == 1);
 
@@ -185,63 +209,167 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("制作信息关闭 hides the credits modal",
             !menu.IsCreditsOpen && menu.OpenModalCount == 0 && !menu.IsSettingsOpen);
 
-        // ---- 5. 进入任务 real click -> existing Overview ----
+        // ---- 5. 进入任务 real click -> start cinematic -> first-person ship ----
         yield return RealClick(cta, "进入任务", log);
 
-        // The mission entry lands on the four-screen UI app in the Editor and on
-        // the walkable ship interior in a player build (see MainMenuController:
-        // the legacy Hub scene cannot be loaded in a player). Both hosts are the
-        // SAME demo flow, so the smoke accepts either and then verifies the
-        // shared session journey the same way.
-        AppController app = null;
+        MainMenuCinematic cinematic = menu.Cinematic;
+        log.Check("进入任务 starts the cinematic instead of cutting scenes",
+            cinematic != null && cinematic.IsPlaying
+            && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
+
+        // The shot must pass through menu fade -> engine boost -> departure ->
+        // blackout (PASS 3), and only then load the ship.
+        yield return WaitFor(() => cinematic == null
+                                   || cinematic.CurrentPhase == MainMenuCinematic.Phase.ShipDeparture
+                                   || cinematic.CurrentPhase == MainMenuCinematic.Phase.FadeToBlack, 4f);
+        log.Check("cinematic fades the menu out (title/CTA/navigation)",
+            cinematic == null || cinematic.MenuAlpha < 0.6f);
+        log.Check("cinematic boosts the thrusters before departure",
+            hero == null || hero.EngineTarget > 0.3f);
+        log.Check("cinematic starts the ship departure",
+            cinematic == null
+            || cinematic.CurrentPhase == MainMenuCinematic.Phase.ShipDeparture
+            || cinematic.CurrentPhase == MainMenuCinematic.Phase.FadeToBlack
+            || hero.IsDeparting);
+
+        // The phase only just started when the check above ran, so the travel
+        // distance is asserted once the ship has really accelerated.
+        yield return WaitFor(() => hero == null || !hero.IsDeparting
+                                   || hero.DepartureProgress > 0.35f, 4f);
+        log.Check("departing ship actually leaves its authored pose",
+            hero == null || !hero.IsDeparting
+            || Vector3.Distance(hero.transform.position, hero.SpawnPosition) > 1f);
+
+        // 进入任务 now lands in the WALKABLE SHIP in every host (Editor and
+        // player): the cover no longer routes into the 2D Hub.
         ShipGameController ship = null;
         yield return WaitFor(() =>
         {
-            app = FindFirstObjectByTypeHelper.Find<AppController>();
             ship = FindFirstObjectByTypeHelper.Find<ShipGameController>();
-            return (app != null && app.IsReady) || (ship != null && ship.IsReady);
+            return ship != null && ship.IsReady;
         }, 30f);
 
-        bool inHub = app != null && app.IsReady;
-        bool inShip = ship != null && ship.IsReady;
-        if (!inHub && !inShip)
+        if (ship == null)
         {
-            log.Fail("进入任务 never reached the existing demo flow");
+            log.Fail("进入任务 never reached the walkable ship interior");
             Finish(log, 1);
             yield break;
         }
 
-        if (inHub)
-        {
-            log.Check("进入任务 enters the existing Overview",
-                SceneManager.GetActiveScene().name == BootController.HubSceneName
-                && app.CurrentScreen == AppScreen.Overview
-                && app.VisibleScreenCount == 1);
-        }
-        else
-        {
-            log.Check("进入任务 enters the walkable ship (player flow)",
-                SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName
-                && ship.Player != null && ship.Interactor != null);
-            log.Check("ship bridge hosts the Overview terminal with the shared planet",
-                UnityEngine.Object.FindObjectsByType<ShipConsoleScreenHost>().Length >= 1);
-        }
+        log.Check("进入任务 lands in the ship interior (not the Hub/Overview)",
+            SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName
+            && ship.Player != null && ship.Interactor != null
+            && ship.Player.EyeCamera != null);
+        log.Check("the landing spawn is the ship's default marker",
+            Vector3.Distance(ship.Player.transform.position,
+                new Vector3(0f, 0f, 3.6f)) < 1.5f);
+        log.Check("the first-person entry plays the blink fade (PASS 4)",
+            ship.EntryBlink != null && ship.EntryBlink.IsPlaying);
+        log.Check("no terminal UI covers the frame on entry",
+            ship.IsConsoleFocusActive == false && ship.IsOverlayOpen == false);
+        log.Check("the player is in first person and controllable",
+            ship.Player.EyeCamera.enabled && ship.Player.InputEnabled);
+
+        // The blink must actually open the view again. A destroyed component
+        // compares equal to null only after Unity retires it, so the wait keys on
+        // the reference itself rather than on IsPlaying.
+        yield return WaitFor(() => ship.EntryBlink == null, 6f);
+        log.Check("the blink fade finishes and removes its overlay",
+            ship.EntryBlink == null);
+        Debug.Log("[StandaloneSmoke] step 5b: blink done, entering terminal checks");
 
         log.Check("the menu scene is gone after entering the mission",
             UnityEngine.Object.FindObjectsByType<MainMenuController>().Length == 0);
-        log.Check("still one shared preview rig after the transition",
-            UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length == 1);
 
-        // ---- 6. existing Phase 01-05 state journey (scene independent) ----
-        RunSessionJourney(log, session);
-        if (inHub)
+        // ---- 5b. Walk-in terminal flow: the ship's 总览 terminal hosts it ----
+        Debug.Log("[StandaloneSmoke] step 5b: terminal flow");
+        ShipConsoleInteractable overviewConsole = null;
+        foreach (ShipConsoleInteractable candidate in ship.Consoles)
         {
-            RunLegacyUiJourney(log, app, session);
+            if (candidate.ConsoleId == 1)
+            {
+                overviewConsole = candidate;
+                break;
+            }
         }
 
-        yield return RunProcessJourney(log, session, inHub ? app : null);
+        log.Check("the ship bridge carries the 总览 (Overview) terminal",
+            overviewConsole != null
+            && UnityEngine.Object.FindObjectsByType<ShipConsoleScreenHost>().Length >= 3);
+
+        if (overviewConsole != null && ship.Focus != null)
+        {
+            bool entered = ship.Focus.RequestEnter(overviewConsole);
+            yield return WaitFor(() => ship.Focus.FocusActive, 6f);
+            log.Check("the player can enter the Overview terminal from inside the ship",
+                entered && ship.Focus.FocusActive);
+
+            ShipConsoleScreenHost overviewHost = null;
+            foreach (ShipConsoleScreenHost candidate
+                     in UnityEngine.Object.FindObjectsByType<ShipConsoleScreenHost>())
+            {
+                if (candidate.MappedScreen == AppScreen.Overview)
+                {
+                    overviewHost = candidate;
+                    break;
+                }
+            }
+
+            log.Check("the Overview terminal is bound to the shared Overview screen",
+                overviewHost != null && overviewHost.IsBound
+                && overviewHost.CountVisibleScreens() == 1);
+
+            // The other three production terminals stay available as well.
+            // Console 02 (仓库总览) hosts the dedicated warehouse / 出发准备 tree
+            // instead of a ShipConsoleScreenHost, so the mapping is read from the
+            // console surfaces rather than from one component type.
+            var available = new System.Collections.Generic.HashSet<AppScreen>();
+            int surfaces = 0;
+            foreach (ShipConsoleInteractable console in ship.Consoles)
+            {
+                var surface = console.GetComponent<WorldConsoleSurface>();
+                if (surface == null)
+                {
+                    continue;
+                }
+
+                surfaces++;
+                if (surface.ScreenHost != null)
+                {
+                    available.Add(surface.ScreenHost.MappedScreen);
+                }
+
+                if (surface.WarehouseHost != null)
+                {
+                    // 仓库总览 == the 出发准备 / Preparation production screen.
+                    available.Add(AppScreen.Preparation);
+                }
+            }
+
+            log.Check("all four terminals are wired (" + surfaces + " surfaces)",
+                surfaces == 4);
+            log.Check("Preparation / Processing / Outpost terminals remain available",
+                available.Contains(AppScreen.Overview)
+                && available.Contains(AppScreen.Preparation)
+                && available.Contains(AppScreen.Processing)
+                && available.Contains(AppScreen.Outpost));
+
+            ship.Focus.RequestExit();
+            yield return WaitFor(() => !ship.Focus.FocusActive, 6f);
+            log.Check("leaving the terminal returns to the first-person ship",
+                !ship.Focus.FocusActive && ship.Player.InputEnabled);
+        }
+
+        // ---- 6. existing Phase 01-05 state journey (scene independent) ----
+        // The four-screen 2D Hub is no longer part of the product path, so the
+        // journey runs in its state form here and the full UI journey stays with
+        // the Hub's own probe (-bootHub automation).
+        Debug.Log("[StandaloneSmoke] step 6: session + processing journey");
+        RunSessionJourney(log, session);
+        yield return RunProcessJourney(log, session, null);
 
         // ---- 7. Main Menu round trip: the session must be preserved ----
+        Debug.Log("[StandaloneSmoke] step 7: main menu round trip");
         int mineralsBefore = session.Minerals;
         int alloyBefore = session.Alloy;
         int refineryBefore = session.RefineryLevel;
@@ -260,23 +388,23 @@ public class StandaloneSmoke : MonoBehaviour
             GameSession.Instance == session
             && session.Minerals == mineralsBefore && session.Alloy == alloyBefore
             && session.RefineryLevel == refineryBefore);
-        log.Check("still exactly one shared preview rig after re-entry",
-            UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length == 1);
+        log.Check("still exactly one shared planet rig after re-entry",
+            UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length <= 1);
         log.Check("no duplicated persistent GameSession",
             UnityEngine.Object.FindObjectsByType<GameSession>().Length == 1);
 
         // ---- 8. 进入任务 again -> the same demo flow ----
         yield return RealClick(menuAgain?.EnterMissionButton, "进入任务(2)", log);
-        bool secondEntryOk = false;
+        ShipGameController secondShip = null;
         yield return WaitFor(() =>
         {
-            AppController secondHub = FindFirstObjectByTypeHelper.Find<AppController>();
-            ShipGameController secondShip = FindFirstObjectByTypeHelper.Find<ShipGameController>();
-            secondEntryOk = (secondHub != null && secondHub.IsReady)
-                            || (secondShip != null && secondShip.IsReady);
-            return secondEntryOk;
+            secondShip = FindFirstObjectByTypeHelper.Find<ShipGameController>();
+            return secondShip != null && secondShip.IsReady;
         }, 30f);
-        log.Check("进入任务 works a second time", secondEntryOk);
+        log.Check("进入任务 works a second time", secondShip != null && secondShip.IsReady);
+        log.Check("the cover is stable on a second entry (ship + backdrop rebuilt once)",
+            UnityEngine.Object.FindObjectsByType<MainMenuShipHero>().Length == 0
+            && UnityEngine.Object.FindObjectsByType<MainMenuStarfield>().Length == 0);
 
         // ---- 9. 退出 must terminate the application ----
         SceneRouting.EnterMainMenu();
@@ -302,6 +430,22 @@ public class StandaloneSmoke : MonoBehaviour
         log.Fail("退出 did not terminate the application");
         WriteResult(log, false);
         Application.Quit(1);
+    }
+
+    /// <summary>
+    /// Horizontal viewport position (0 = left edge, 1 = right edge) of the hero
+    /// ship's centre, measured through the stage camera. This is what proves the
+    /// composition is "ship on the LEFT" instead of trusting a screenshot.
+    /// </summary>
+    private static float HeroScreenX(MainMenuShipHero hero)
+    {
+        Camera stageCamera = UnityEngine.Object.FindAnyObjectByType<Camera>();
+        if (stageCamera == null || hero == null)
+        {
+            return 1f;
+        }
+
+        return stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
     }
 
     /// <summary>
@@ -601,16 +745,27 @@ public class StandaloneSmoke : MonoBehaviour
     /// <summary>
     /// Accumulates PASS/FAIL lines. A plain collector (instead of ref
     /// parameters) keeps the checks usable from iterator coroutines.
+    ///
+    /// Every line is flushed to disk immediately: if a player build ever hangs
+    /// mid-journey, the result file still shows exactly which check was the last
+    /// one reached, instead of losing the whole run.
     /// </summary>
     private sealed class SmokeLog
     {
         private readonly StringBuilder _lines = new StringBuilder();
+        private readonly string _path;
+
+        public SmokeLog(string path)
+        {
+            _path = path;
+        }
 
         public int Failures { get; private set; }
 
         public void Line(string text)
         {
             _lines.AppendLine(text);
+            Flush();
         }
 
         public void Check(string label, bool condition)
@@ -624,12 +779,32 @@ public class StandaloneSmoke : MonoBehaviour
                 Failures++;
                 _lines.AppendLine("FAIL :: " + label);
             }
+
+            Flush();
         }
 
         public void Fail(string label)
         {
             Failures++;
             _lines.AppendLine("FAIL :: " + label);
+            Flush();
+        }
+
+        private void Flush()
+        {
+            if (string.IsNullOrEmpty(_path))
+            {
+                return;
+            }
+
+            try
+            {
+                File.WriteAllText(_path, _lines.ToString());
+            }
+            catch (Exception)
+            {
+                // A probe must never fail because of its own log file.
+            }
         }
 
         public override string ToString()

@@ -1,127 +1,138 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <!-- ============================================================
-         Phase 08 — MAIN MENU
-         Product cover / world-building entry / navigation entry.
-         Layout: top system bar / brand + navigation (left) + hero visual
-         (right) / peripheral footer. Shares AppTheme.uss tokens and the
-         Phase 02 Overview visual language.
+         Phase 08 Revision — MAIN MENU (cinematic deep-space cover)
+
+         Composition (binding):
+           LEFT   = the real 3D hero ship flying in deep space
+                    (rendered by the scene camera, NOT by this document)
+           RIGHT  = title / subtitle / 进入任务 CTA / secondary navigation
+           BEHIND = the scene's procedural starfield
+
+         This document therefore paints almost nothing: the root and the
+         left hero zone stay transparent so the 3D stage shows through, and
+         only the menu column, the hairline chrome and the two modals are
+         real UI. MenuLayer is the single subtree the start cinematic fades
+         out; the modals and the black transition overlay are siblings, so
+         they never fade with it.
          ============================================================ -->
     <ui:VisualElement name="MainMenuRoot" class="main-menu-root">
-        <!-- Top system bar (same language as Overview) -->
-        <ui:VisualElement name="MenuTopBar" class="menu-topbar">
-            <ui:VisualElement class="topbar-left">
-                <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
-                <ui:VisualElement class="topbar-divider-v" />
-                <ui:Label class="topbar-role" text="远征控制" />
-            </ui:VisualElement>
-            <ui:VisualElement class="topbar-right">
-                <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
-                <ui:VisualElement class="topbar-cellsep" />
-                <ui:Label class="topbar-cell" text="ORBITAL LINK // STABLE" />
-                <ui:VisualElement class="topbar-cellsep" />
-                <ui:VisualElement class="topbar-system">
-                    <ui:VisualElement name="MenuStatusDot" class="status-dot" />
-                    <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
+        <ui:VisualElement name="MenuLayer" class="menu-layer">
+            <!-- Top system bar (global language, restrained on dark) -->
+            <ui:VisualElement name="MenuTopBar" class="menu-topbar">
+                <ui:VisualElement class="topbar-left">
+                    <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
+                    <ui:VisualElement class="topbar-divider-v" />
+                    <ui:Label class="topbar-role" text="远征控制" />
                 </ui:VisualElement>
-            </ui:VisualElement>
-        </ui:VisualElement>
-
-        <!-- Composition frame: brand / navigation on the left, hero on the right -->
-        <ui:VisualElement name="MenuFrame" class="menu-frame">
-            <!-- LEFT: brand block + navigation -->
-            <ui:VisualElement name="MenuContentColumn" class="menu-content">
-                <ui:Label name="MenuEyebrow" class="menu-eyebrow" text="FRONTIER OPERATIONS INTERFACE" />
-                <ui:Label name="MainMenuTitle" class="menu-title" text="SURVIVE" />
-                <ui:Label name="MainMenuSubtitle" class="menu-subtitle" text="边境生存协议" />
-                <ui:Label name="MainMenuTagline" class="menu-tagline" text="深空前哨生存与生产控制系统" />
-                <ui:VisualElement name="MenuRule" class="menu-rule" />
-
-                <!-- Mission metadata (Level 6 information) -->
-                <ui:VisualElement class="menu-meta">
-                    <ui:VisualElement class="menu-meta-cell">
-                        <ui:Label class="menu-meta-key" text="任务编号" />
-                        <ui:Label class="menu-meta-english" text="MISSION" />
-                        <ui:Label name="MissionCodeValue" class="menu-meta-value" text="FRONTIER-08" />
+                <ui:VisualElement class="topbar-right">
+                    <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
+                    <ui:VisualElement class="topbar-cellsep" />
+                    <ui:Label class="topbar-cell" text="ORBITAL LINK // STABLE" />
+                    <ui:VisualElement class="topbar-cellsep" />
+                    <ui:VisualElement class="topbar-system">
+                        <ui:VisualElement name="MenuStatusDot" class="status-dot" />
+                        <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
                     </ui:VisualElement>
-                    <ui:VisualElement class="menu-meta-sep" />
-                    <ui:VisualElement class="menu-meta-cell">
-                        <ui:Label class="menu-meta-key" text="作业星区" />
-                        <ui:Label class="menu-meta-english" text="SECTOR" />
-                        <ui:Label name="SectorCodeValue" class="menu-meta-value" text="N-04" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-
-                <!-- Primary CTA: the only primary action -->
-                <ui:Button name="EnterMissionButton" class="menu-cta">
-                    <ui:VisualElement class="menu-cta-mark" />
-                    <ui:VisualElement class="menu-cta-copy">
-                        <ui:Label name="EnterMissionLabel" class="menu-cta-label" text="进入任务" />
-                        <ui:Label name="EnterMissionSubLabel" class="menu-cta-sub" text="ENTER MISSION" />
-                    </ui:VisualElement>
-                    <ui:Label name="EnterMissionMicro" class="menu-cta-micro" text="MISSION READY" />
-                </ui:Button>
-
-                <!-- Secondary navigation -->
-                <ui:VisualElement name="SecondaryNav" class="menu-secondary">
-                    <ui:Button name="SettingsButton" class="menu-secondary-row">
-                        <ui:Label class="menu-secondary-index" text="01" />
-                        <ui:Label class="menu-secondary-label" text="系统设置" />
-                        <ui:Label class="menu-secondary-hint" text="SETTINGS" />
-                    </ui:Button>
-                    <ui:Button name="CreditsButton" class="menu-secondary-row">
-                        <ui:Label class="menu-secondary-index" text="02" />
-                        <ui:Label class="menu-secondary-label" text="制作信息" />
-                        <ui:Label class="menu-secondary-hint" text="CREDITS" />
-                    </ui:Button>
-                    <ui:Button name="ExitButton" class="menu-secondary-row">
-                        <ui:Label class="menu-secondary-index" text="03" />
-                        <ui:Label class="menu-secondary-label" text="退出" />
-                        <ui:Label class="menu-secondary-hint" text="EXIT" />
-                    </ui:Button>
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <!-- RIGHT: hero visual (shared rotating 3D planet preview) -->
-            <ui:VisualElement name="MenuHeroColumn" class="menu-hero-column">
-                <ui:VisualElement name="HeroStage" class="hero-stage">
-                    <ui:VisualElement name="HeroRingOuter" class="hero-ring-outer" />
-                    <ui:VisualElement name="HeroRingInner" class="hero-ring-inner" />
-                    <ui:VisualElement class="hero-halo" />
-                    <ui:VisualElement name="HeroPlanetDisc" class="hero-planet" />
-                    <ui:VisualElement name="HeroScanSweep" class="hero-sweep" />
+            <!-- Composition frame: hero window (left) / menu column (right) -->
+            <ui:VisualElement name="MenuFrame" class="menu-frame">
+                <!-- LEFT: transparent window onto the 3D ship + telemetry -->
+                <ui:VisualElement name="MenuHeroColumn" class="menu-hero">
+                    <ui:VisualElement name="HeroStage" class="hero-stage">
+                        <ui:VisualElement class="hero-bracket hero-bracket-tl" />
+                        <ui:VisualElement class="hero-bracket hero-bracket-tr" />
+                        <ui:VisualElement class="hero-bracket hero-bracket-bl" />
+                        <ui:VisualElement class="hero-bracket hero-bracket-br" />
+                        <ui:VisualElement name="HeroScanSweep" class="hero-sweep" />
 
-                    <ui:VisualElement class="hero-bracket hero-bracket-tl" />
-                    <ui:VisualElement class="hero-bracket hero-bracket-tr" />
-                    <ui:VisualElement class="hero-bracket hero-bracket-bl" />
-                    <ui:VisualElement class="hero-bracket hero-bracket-br" />
-
-                    <!-- Peripheral technical annotations (hideable, never layout-critical) -->
-                    <ui:VisualElement name="MenuHintLayer" class="hero-hint-layer">
-                        <ui:VisualElement name="HeroRailLeft" class="hero-rail hero-rail-left">
-                            <ui:Label class="annotation-label" text="ORBITAL SURVEY" />
-                            <ui:VisualElement class="annotation-rule" />
-                            <ui:Label class="annotation-label" text="RESOURCE SIGNAL" />
-                            <ui:Label class="annotation-label annotation-dim" text="LOW" />
+                        <!-- Hideable peripheral annotations (never layout critical) -->
+                        <ui:VisualElement name="MenuHintLayer" class="hero-hint-layer">
+                            <ui:VisualElement name="HeroRailLeft" class="hero-rail hero-rail-left">
+                                <ui:Label class="annotation-label" text="HULL SURVEY" />
+                                <ui:VisualElement class="annotation-rule" />
+                                <ui:Label class="annotation-label" text="ENGINE IDLE" />
+                                <ui:Label class="annotation-label annotation-dim" text="NOMINAL" />
+                            </ui:VisualElement>
+                            <ui:VisualElement name="HeroRailRight" class="hero-rail hero-rail-right">
+                                <ui:Label class="annotation-label" text="FLIGHT DECK" />
+                                <ui:VisualElement class="lock-line" />
+                                <ui:Label class="annotation-label" text="ARK-07" />
+                                <ui:Label class="annotation-label annotation-dim" text="DEEP SPACE RELAY" />
+                            </ui:VisualElement>
                         </ui:VisualElement>
-                        <ui:VisualElement name="HeroRailRight" class="hero-rail hero-rail-right">
-                            <ui:Label class="annotation-label" text="TARGET LOCK" />
-                            <ui:VisualElement class="lock-line" />
-                            <ui:Label class="annotation-label" text="NEREID-04" />
-                            <ui:Label class="annotation-label annotation-dim" text="DEEP SPACE RELAY" />
+
+                        <!-- Ship telemetry strip (bottom-left of the hero window) -->
+                        <ui:VisualElement name="HeroTelemetry" class="hero-telemetry">
+                            <ui:VisualElement class="telemetry-cell">
+                                <ui:Label class="telemetry-key" text="舰船" />
+                                <ui:Label class="telemetry-value" text="ARK-07" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="telemetry-sep" />
+                            <ui:VisualElement class="telemetry-cell">
+                                <ui:Label class="telemetry-key" text="任务编号" />
+                                <ui:Label class="telemetry-english" text="MISSION" />
+                                <ui:Label name="MissionCodeValue" class="telemetry-value" text="FRONTIER-08" />
+                            </ui:VisualElement>
+                            <ui:VisualElement class="telemetry-sep" />
+                            <ui:VisualElement class="telemetry-cell">
+                                <ui:Label class="telemetry-key" text="作业星区" />
+                                <ui:Label class="telemetry-english" text="SECTOR" />
+                                <ui:Label name="SectorCodeValue" class="telemetry-value" text="N-04" />
+                            </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
+
+                <!-- RIGHT: the menu itself (console title screen, not a dashboard) -->
+                <ui:VisualElement name="MenuContentColumn" class="menu-column">
+                    <ui:Label name="MenuEyebrow" class="menu-eyebrow" text="FRONTIER OPERATIONS INTERFACE" />
+                    <ui:Label name="MainMenuTitle" class="menu-title" text="SURVIVE // DRIFT" />
+                    <ui:Label name="MainMenuSubtitle" class="menu-subtitle" text="边境生存协议" />
+                    <ui:Label name="MainMenuTagline" class="menu-tagline" text="深空前哨生存与生产控制系统" />
+                    <ui:VisualElement name="MenuRule" class="menu-rule" />
+
+                    <!-- Primary CTA: the only primary action -->
+                    <ui:Button name="EnterMissionButton" class="menu-cta">
+                        <ui:VisualElement class="menu-cta-mark" />
+                        <ui:VisualElement class="menu-cta-copy">
+                            <ui:Label name="EnterMissionLabel" class="menu-cta-label" text="进入任务" />
+                            <ui:Label name="EnterMissionSubLabel" class="menu-cta-sub" text="ENTER MISSION" />
+                        </ui:VisualElement>
+                        <ui:Label name="EnterMissionMicro" class="menu-cta-micro" text="MISSION READY" />
+                    </ui:Button>
+
+                    <!-- Secondary navigation -->
+                    <ui:VisualElement name="SecondaryNav" class="menu-secondary">
+                        <ui:Button name="SettingsButton" class="menu-secondary-row">
+                            <ui:Label class="menu-secondary-index" text="01" />
+                            <ui:Label class="menu-secondary-label" text="系统设置" />
+                            <ui:Label class="menu-secondary-hint" text="SETTINGS" />
+                        </ui:Button>
+                        <ui:Button name="CreditsButton" class="menu-secondary-row">
+                            <ui:Label class="menu-secondary-index" text="02" />
+                            <ui:Label class="menu-secondary-label" text="制作信息" />
+                            <ui:Label class="menu-secondary-hint" text="CREDITS" />
+                        </ui:Button>
+                        <ui:Button name="ExitButton" class="menu-secondary-row">
+                            <ui:Label class="menu-secondary-index" text="03" />
+                            <ui:Label class="menu-secondary-label" text="退出" />
+                            <ui:Label class="menu-secondary-hint" text="EXIT" />
+                        </ui:Button>
+                    </ui:VisualElement>
+                </ui:VisualElement>
+            </ui:VisualElement>
+
+            <!-- Peripheral footer metadata -->
+            <ui:VisualElement name="MenuFooter" class="menu-footer">
+                <ui:Label name="BuildStampValue" class="menu-footer-cell" text="BUILD // PHASE 08" />
+                <ui:Label class="menu-footer-cell menu-footer-center" text="FRONTIER OPERATIONS // 边境生存协议" />
+                <ui:Label name="FooterSystemValue" class="menu-footer-cell" text="SYSTEM // READY" />
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- Peripheral footer metadata -->
-        <ui:VisualElement name="MenuFooter" class="menu-footer">
-            <ui:Label name="BuildStampValue" class="menu-footer-cell" text="BUILD // PHASE 08" />
-            <ui:Label class="menu-footer-cell menu-footer-center" text="FRONTIER OPERATIONS // 边境生存协议" />
-            <ui:Label name="FooterSystemValue" class="menu-footer-cell" text="SYSTEM // READY" />
-        </ui:VisualElement>
-
-        <!-- Settings modal (compact, same design system) -->
+        <!-- Settings modal (sibling of MenuLayer: it never fades with the menu) -->
         <ui:VisualElement name="SettingsModal" class="menu-modal" style="display: none;">
             <ui:VisualElement name="SettingsDim" class="menu-modal-dim" />
             <ui:VisualElement name="SettingsPanel" class="menu-modal-panel">
@@ -137,7 +148,7 @@
                 <ui:VisualElement class="menu-setting-row">
                     <ui:VisualElement class="menu-setting-copy">
                         <ui:Label class="menu-setting-name" text="动态效果" />
-                        <ui:Label class="menu-setting-note" text="界面动画与星球旋转" />
+                        <ui:Label class="menu-setting-note" text="飞船待机动态、推进器喷焰与星空视差" />
                     </ui:VisualElement>
                     <ui:VisualElement class="menu-segment">
                         <ui:Button name="MotionOnButton" class="menu-segment-button" text="开启" />
@@ -174,7 +185,7 @@
                 </ui:VisualElement>
                 <ui:VisualElement class="menu-modal-rule" />
 
-                <ui:Label class="credits-brand" text="SURVIVE UI DEMO" />
+                <ui:Label class="credits-brand" text="SURVIVE // DRIFT" />
                 <ui:Label class="credits-subtitle" text="边境生存协议" />
                 <ui:Label class="credits-english" text="Frontier Operations Interface" />
                 <ui:Label class="credits-copy" text="科幻生存控制界面设计演示 // 中文优先界面系统" />
@@ -203,7 +214,7 @@
             </ui:VisualElement>
         </ui:VisualElement>
 
-        <!-- Main Menu -> Overview transition overlay (fade) -->
+        <!-- Start cinematic blackout (EnterMission -> Ship Interior) -->
         <ui:VisualElement name="MenuTransitionOverlay" class="menu-transition" style="display: none;" />
     </ui:VisualElement>
 </ui:UXML>

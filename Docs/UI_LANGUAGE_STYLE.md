@@ -1189,6 +1189,11 @@ Current reference:
 
 Do not switch to dark sci-fi UI without explicit user approval.
 
+> **Approved exception (Phase 08 Main Menu Revision):** the user explicitly
+> required the Main Menu cover to be a deep-space shot (left hero ship / right
+> menu / star field), so `04_MainMenu` uses a dark canvas. See §63. Every other
+> screen keeps this light canvas.
+
 ---
 
 # 36. Visual System — Text
@@ -1878,10 +1883,20 @@ Semantics notes:
 # 63. Main Menu Terms (Phase 08)
 
 Main Menu (`04_MainMenu`) is the product cover and the only human entry into the
-demo (Boot → Main Menu → 进入任务 → Overview). Canonical copy:
+demo. The REVISED product flow (Phase 08 Main Menu Revision) is:
 
 ```text
-SURVIVE
+Boot → Main Menu → 进入任务 → 飞船离场过场 → 黑场
+     → 第一人称眨眼淡入 → 飞船内部
+     → 玩家走到终端并按 E → 总览 / 终端 UI
+```
+
+进入任务 does **not** land in the Overview screen any more: it lands in the
+walkable ship interior in first person, and Overview / 出发准备 / 资源加工 /
+据点 are reached from the ship's own physical terminals. Canonical copy:
+
+```text
+SURVIVE // DRIFT
 边境生存协议
 深空前哨生存与生产控制系统
 
@@ -1903,13 +1918,17 @@ Secondary actions (Chinese only — no mechanical English duplication):
 03  退出          EXIT
 ```
 
-Mission / system metadata (Chinese key + English technical label + identifier):
+Hero telemetry (left, under the ship):
 
 ```text
-任务编号      作业星区
-MISSION       SECTOR
-FRONTIER-08   N-04
+舰船        ARK-07
+任务编号    MISSION   FRONTIER-08
+作业星区    SECTOR    N-04
+```
 
+System / footer metadata:
+
+```text
 BUILD // PHASE 08
 SYSTEM // READY
 ```
@@ -1918,8 +1937,8 @@ Settings terms:
 
 ```text
 系统设置
-动态效果      开启 / 关闭
-界面提示      显示 / 隐藏
+动态效果      开启 / 关闭      (飞船待机动态、推进器喷焰、星空视差)
+界面提示      显示 / 隐藏      (外围技术标注)
 关闭
 ```
 
@@ -1932,16 +1951,27 @@ SURVIVE UI DEMO
 引擎 / 界面 / 构建 / 语言
 ```
 
-Visual notes (binding for this screen):
+Visual notes (binding for this screen, superseding §35 for this one screen):
 
-- The Main Menu keeps the Phase 02 light canvas (`#E9EBED`) and the single teal
-  accent (`#0E7F8C`); §35 of this guide stays in force, so the cover is the
-  high-grade version of the Overview rather than a dark sci-fi menu.
-- The hero visual is the EXISTING shared rotating 3D planet preview
-  (`OverviewPlanetPreview`); no second preview rig, camera or RenderTexture.
-- `动态效果` off pauses motion (including the planet spin) without changing the
-  layout or any function; `界面提示` off only hides the peripheral annotation
-  layer.
-- Brand wordmark stays `SURVIVE // DRIFT` (top bar / credits); `SURVIVE` is the
-  short form used as the hero wordmark.
+- **§35 exception — approved by the user for the cover only.** The Main Menu is
+  a cinematic deep-space shot, not a light dashboard page: the canvas is deep
+  space (near-black, star field) because the left half of the frame is the
+  player's own ship flying in space. The four production screens
+  (总览 / 出发准备 / 资源加工 / 据点) keep the Phase 02 light canvas and are
+  unchanged.
+- Composition: **LEFT = the real 3D hero ship** (the authored
+  `Artsource/MainMenuShip` asset, imported at
+  `Assets/_Project/Models/MainMenuShip`), **RIGHT = the menu column**
+  (title / subtitle / 进入任务 / secondary navigation). The menu document paints
+  only the right column, the hairlines and the modals; the left hero window is
+  transparent so the 3D stage shows through.
+- The ship keeps a low idle thruster flame on both authored exhaust nozzles;
+  进入任务 boosts the plumes, flies the ship out of frame, fades to black and
+  then opens the ship interior with a first-person eyelid blink.
+- `动态效果` off freezes the ship's idle motion, the plume flicker and the
+  starfield parallax without changing the layout or any function; `界面提示`
+  off only hides the peripheral annotation layer.
+- Accent family stays teal (§37); the ship's own orange livery is 3D asset
+  material, not UI colour.
+
 

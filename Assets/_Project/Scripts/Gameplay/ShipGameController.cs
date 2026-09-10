@@ -42,6 +42,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private ShipOverlayUi _overlayUi;
     private SurfaceWristController _wrist;
     private WorldUiPointerRouter _pointerRouter;
+    private ShipEntryBlinkFade _blinkFade;
     private readonly List<ShipConsoleInteractable> _consoles = new List<ShipConsoleInteractable>();
     private readonly List<ShipDoorInteractable> _doors = new List<ShipDoorInteractable>();
     private bool _ready;
@@ -61,6 +62,16 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
     /// <summary>Wrist mode currently open inside the ship.</summary>
     public bool IsWristOpen => _isWristOpen;
+
+    /// <summary>First-person entry blink, while one is playing (PASS 4).</summary>
+    public ShipEntryBlinkFade EntryBlink => _blinkFade;
+
+    /// <summary>
+    /// True when THIS entry played the first-person blink. It stays true after
+    /// the blink finished (the component removes itself), so the hand-over is
+    /// verifiable without racing a sub-second presentation.
+    /// </summary>
+    public bool EntryBlinkArmed { get; private set; }
 
     /// <summary>True while a console transition or focus is active (the wrist
     /// must never open on top of a physical terminal).</summary>
@@ -185,13 +196,29 @@ public class ShipGameController : MonoBehaviour, IWristContext
         VerifyBaseCameraVisibility(out string visibilityReport);
         Debug.Log("[ShipGameController] base camera visibility: " + visibilityReport);
 
-        // Consume the routing reason (Default for normal boot, FromSurface for
-        // the landing return) and place the player on the matching marker.
+        // Consume the routing reason and place the player on the matching marker.
+        // FromMainMenu shares the Default marker: that marker already faces the
+        // bridge terminals, so the hand-over from the cover drops the player in
+        // front of the 总览 terminal instead of in a special-case pose.
         SceneRouting.ShipEntry entry = SceneRouting.ConsumeShipEntry();
         string markerId = entry == SceneRouting.ShipEntry.FromSurface
             ? ShipSpawnMarker.FromSurfaceId
             : ShipSpawnMarker.DefaultId;
         ApplySpawn(markerId);
+
+        // Phase 08 Revision (PASS 4): the Main Menu hands the player over as
+        // "waking up inside the ship", so the interior opens through a blink
+        // fade instead of a hard cut. The request is consumed exactly once and
+        // only the cover sets it; every other entry stays an ordinary cut.
+        _blinkFade = gameObject.GetComponent<ShipEntryBlinkFade>();
+        if (_blinkFade == null
+            && (SceneRouting.BlinkEntryPending || ShipEntryBlinkFade.AutomationRequested))
+        {
+            SceneRouting.ConsumeBlinkEntry();
+            _blinkFade = gameObject.AddComponent<ShipEntryBlinkFade>();
+            EntryBlinkArmed = true;
+            Debug.Log("[ShipGameController] first-person blink entry armed");
+        }
 
         if (_hud != null)
         {

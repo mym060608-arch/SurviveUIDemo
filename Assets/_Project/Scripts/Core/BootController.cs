@@ -7,7 +7,8 @@ using UnityEngine.SceneManagement;
 /// 1. ensures the authoritative GameSession exists (defaults are applied on a
 ///    fresh launch),
 /// 2. enters the Phase 08 product cover (04_MainMenu), which is the only human
-///    entry into the demo: Main Menu -> 进入任务 -> Overview.
+///    entry into the demo: Main Menu (left hero ship / right menu) ->
+///    进入任务 -> start cinematic -> first-person ship interior.
 ///
 /// Boot's job is initialization only - it still owns no UI and authors no
 /// GameSession. The 2D Hub (01_Hub) and the walkable ship interior

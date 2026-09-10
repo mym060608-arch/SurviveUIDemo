@@ -33,6 +33,8 @@ public static class SurviveProjectValidator
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
     private const string MainMenuUxmlPath = "Assets/_Project/UI/UXML/MainMenu.uxml";
     private const string MainMenuUssPath = "Assets/_Project/UI/USS/MainMenu.uss";
+    private const string ShipModelPath =
+        "Assets/_Project/Models/MainMenuShip/MainMenuShip.fbx";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
@@ -211,7 +213,7 @@ public static class SurviveProjectValidator
             }
         }
 
-        Record(menuInBuild, "Main Menu scene is an enabled build scene (16 进入任务 -> Overview)");
+        Record(menuInBuild, "Main Menu scene is an enabled build scene (进入任务 -> Ship Interior)");
         Record(hubInBuild, "Overview destination scene is an enabled build scene");
 
         // ---- MainApp.uxml coverage ----
@@ -691,6 +693,72 @@ public static class SurviveProjectValidator
             {
                 Record(false, "MainMenuController missing (cannot verify references)");
             }
+
+            // ---- Phase 08 Revision: the cover is a cinematic deep-space shot ----
+            Record(CountInScene<MainMenuShipHero>() == 1,
+                "04_MainMenu authors exactly one hero ship (found "
+                + CountInScene<MainMenuShipHero>() + ")");
+            Record(CountInScene<MainMenuStarfield>() == 1,
+                "04_MainMenu authors exactly one starfield (found "
+                + CountInScene<MainMenuStarfield>() + ")");
+            Record(CountInScene<MainMenuCinematic>() == 1,
+                "04_MainMenu authors exactly one start cinematic (found "
+                + CountInScene<MainMenuCinematic>() + ")");
+            Record(CountInScene<MainMenuCapture>() == 1,
+                "04_MainMenu authors the runtime capture probe (found "
+                + CountInScene<MainMenuCapture>() + ")");
+            Record(AssetDatabase.LoadAssetAtPath<GameObject>(ShipModelPath) != null,
+                "hero ship model imported: " + ShipModelPath);
+
+            MainMenuShipHero hero = FirstInScene<MainMenuShipHero>();
+            if (hero != null)
+            {
+                var serialized = new SerializedObject(hero);
+                Record(serialized.FindProperty("plumeMaterial") != null
+                       && serialized.FindProperty("plumeMaterial").objectReferenceValue != null,
+                    "hero ship has the authored additive plume material assigned");
+            }
+
+            MainMenuStarfield starfield = FirstInScene<MainMenuStarfield>();
+            if (starfield != null)
+            {
+                var serialized = new SerializedObject(starfield);
+                Record(serialized.FindProperty("spriteMaterial") != null
+                       && serialized.FindProperty("spriteMaterial").objectReferenceValue != null,
+                    "starfield has the authored additive sprite material assigned");
+                Record(serialized.FindProperty("stageCamera") != null
+                       && serialized.FindProperty("stageCamera").objectReferenceValue != null,
+                    "starfield is bound to the stage camera");
+            }
+
+            // The stage camera must be a real deep-space camera: near-black
+            // background, HDR, post-processing on, and a wide far plane for the
+            // 900 m star layer.
+            int spaceCameras = 0;
+            foreach (GameObject root in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                foreach (Camera camera in root.GetComponentsInChildren<Camera>(true))
+                {
+                    float lum = 0.2126f * camera.backgroundColor.r
+                                + 0.7152f * camera.backgroundColor.g
+                                + 0.0722f * camera.backgroundColor.b;
+                    if (camera.clearFlags == CameraClearFlags.SolidColor && lum < 0.02f
+                        && camera.farClipPlane >= 1000f)
+                    {
+                        spaceCameras++;
+                    }
+                }
+            }
+
+            Record(spaceCameras == 1,
+                "04_MainMenu has exactly one deep-space stage camera (found "
+                + spaceCameras + ")");
+            Record(CountInScene<Light>() == 3,
+                "04_MainMenu authors exactly three stage lights (found "
+                + CountInScene<Light>() + ")");
+            Record(CountInScene<UnityEngine.Rendering.Volume>() == 1,
+                "04_MainMenu authors exactly one post-processing volume (found "
+                + CountInScene<UnityEngine.Rendering.Volume>() + ")");
         }
 
         // ---- shared 3D preview rig authoring guard ----

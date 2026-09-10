@@ -1,26 +1,41 @@
 /// <summary>
-/// Single source of truth for MainMenu.uxml element names (Phase 08).
+/// Single source of truth for MainMenu.uxml element names (Phase 08, revised
+/// composition in the Phase 08 Main Menu revision).
 ///
-/// Runtime binding, the structural validator and the Play Mode smoke / shot
-/// suites all reference these constants, so a rename fails loudly instead of
-/// silently unbinding the menu.
+/// Runtime binding, the structural validator and the Play Mode suites all
+/// reference these constants, so a rename fails loudly instead of silently
+/// unbinding the menu.
+///
+/// Revision note: the old composition was "brand + navigation on the left, hero
+/// planet on the right". The cover is now LEFT hero ship / RIGHT menu, so the
+/// planet-only nodes (HeroPlanetDisc, HeroRingInner/Outer) are gone and the
+/// fadeable <see cref="Layer"/> subtree plus the hero telemetry strip are new.
 /// </summary>
 public static class MainMenuNames
 {
     // Layout shell.
     public const string Root = "MainMenuRoot";
+    public const string Layer = "MenuLayer";
     public const string TopBar = "MenuTopBar";
     public const string Frame = "MenuFrame";
+
+    /// <summary>RIGHT column: the menu itself.</summary>
     public const string ContentColumn = "MenuContentColumn";
+
+    /// <summary>LEFT column: transparent window onto the 3D hero ship.</summary>
     public const string HeroColumn = "MenuHeroColumn";
+
     public const string Footer = "MenuFooter";
 
-    // Brand block.
+    // Brand block (inside the right column).
     public const string Eyebrow = "MenuEyebrow";
     public const string Title = "MainMenuTitle";
     public const string Subtitle = "MainMenuSubtitle";
     public const string Tagline = "MainMenuTagline";
     public const string Rule = "MenuRule";
+
+    // Hero telemetry strip (left, under the ship).
+    public const string HeroTelemetry = "HeroTelemetry";
     public const string MissionCodeValue = "MissionCodeValue";
     public const string SectorCodeValue = "SectorCodeValue";
 
@@ -36,12 +51,9 @@ public static class MainMenuNames
     public const string CreditsButton = "CreditsButton";
     public const string ExitButton = "ExitButton";
 
-    // Hero visual (shared rotating 3D planet preview + orbital framing).
+    // Hero window (the 3D ship is behind it; only its chrome is UI).
     public const string HeroStage = "HeroStage";
-    public const string HeroPlanetDisc = "HeroPlanetDisc";
     public const string HeroScanSweep = "HeroScanSweep";
-    public const string HeroRingInner = "HeroRingInner";
-    public const string HeroRingOuter = "HeroRingOuter";
     public const string HeroRailLeft = "HeroRailLeft";
     public const string HeroRailRight = "HeroRailRight";
     public const string HintLayer = "MenuHintLayer";
@@ -67,13 +79,14 @@ public static class MainMenuNames
     public const string CreditsPanel = "CreditsPanel";
     public const string CreditsCloseButton = "CreditsCloseButton";
 
-    // Transition overlay (Main Menu -> Overview fade).
+    // Start cinematic blackout (EnterMission -> Ship Interior).
     public const string TransitionOverlay = "MenuTransitionOverlay";
 
     /// <summary>Every element the Main Menu runtime binds to.</summary>
     public static readonly string[] All =
     {
         Root,
+        Layer,
         TopBar,
         Frame,
         ContentColumn,
@@ -84,6 +97,7 @@ public static class MainMenuNames
         Subtitle,
         Tagline,
         Rule,
+        HeroTelemetry,
         MissionCodeValue,
         SectorCodeValue,
         EnterMissionButton,
@@ -95,10 +109,7 @@ public static class MainMenuNames
         CreditsButton,
         ExitButton,
         HeroStage,
-        HeroPlanetDisc,
         HeroScanSweep,
-        HeroRingInner,
-        HeroRingOuter,
         HeroRailLeft,
         HeroRailRight,
         HintLayer,
@@ -121,16 +132,17 @@ public static class MainMenuNames
     };
 
     /// <summary>
-    /// Phase 08 composition elements that must keep their stable structure
-    /// (checked by name only, never by pixel values).
+    /// Composition elements that must keep their stable structure (checked by
+    /// name and containment only, never by pixel values).
     /// </summary>
     public static readonly string[] Structure =
     {
         Root,
+        Layer,
         TopBar,
         Frame,
-        ContentColumn,
         HeroColumn,
+        ContentColumn,
         Footer,
         Title,
         Subtitle,
@@ -142,9 +154,7 @@ public static class MainMenuNames
         CreditsButton,
         ExitButton,
         HeroStage,
-        HeroPlanetDisc,
-        HeroRingInner,
-        HeroRingOuter,
+        HeroTelemetry,
         HeroRailLeft,
         HeroRailRight,
         SettingsModal,

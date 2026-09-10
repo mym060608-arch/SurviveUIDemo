@@ -3,18 +3,26 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Main Menu presentation controller (Phase 08).
+/// Main Menu presentation controller (Phase 08, composition revised in the
+/// Phase 08 Main Menu revision).
 ///
 /// Ownership: exactly ONE UIDocument (MainMenu.uxml) is the whole menu tree.
-/// This controller binds the four real actions, owns the two modals, drives the
-/// menu's own motion and the fade into the existing Overview, and hosts the
-/// SHARED rotating 3D planet preview (OverviewPlanetPreview) as the hero visual.
+/// The controller binds the four real actions, owns the two modals, drives the
+/// menu's own motion and hands 进入任务 to <see cref="MainMenuCinematic"/>.
+///
+/// Composition (binding): the LEFT of the screen is the real 3D hero ship
+/// flying in deep space (MainMenuShipHero + MainMenuStarfield, rendered by the
+/// scene camera) and the RIGHT is this document's menu column. The document
+/// therefore paints almost nothing - the root, the layer and the hero column are
+/// transparent.
 ///
 /// It is deliberately NOT a session or navigation authority:
 /// - it never creates / resets / mutates GameSession (opening the menu is not
 ///   "new game"),
 /// - it navigates only through SceneRouting (the project's single routing
-///   helper) and always into the pre-existing demo flow.
+///   helper) and always into the pre-existing demo flow,
+/// - the cinematic owns the shot and the route; this controller only exposes
+///   the layer alphas the shot drives.
 ///
 /// Motion contract: with motion disabled the layout is identical and every
 /// action still works - only the ambient movement stops.
@@ -28,14 +36,17 @@ public class MainMenuController : MonoBehaviour
     [SerializeField]
     private StyleSheet mainMenuStyleSheet;
 
-    // Hero stage reference width used by the scan sweep (logical reference px).
-    private const float HeroStageWidth = 600f;
+    // Hero window reference width used by the scan sweep (logical reference px).
+    private const float HeroStageWidth = 940f;
     private const float SweepMargin = 44f;
-    private const float SweepSeconds = 12f;
+    private const float SweepSeconds = 13f;
 
     private UIDocument _document;
     private VisualElement _root;
-    private OverviewPlanetPreview _planetPreview;
+    private VisualElement _menuLayer;
+    private MainMenuCinematic _cinematic;
+    private MainMenuShipHero _heroShip;
+    private MainMenuStarfield _starfield;
 
     private VisualElement _settingsModal;
     private VisualElement _settingsDim;
@@ -46,7 +57,6 @@ public class MainMenuController : MonoBehaviour
     private VisualElement _hintLayer;
     private VisualElement _scanSweep;
     private VisualElement _statusDot;
-    private VisualElement _planetDisc;
     private VisualElement _transitionOverlay;
 
     private Button _enterMission;
@@ -83,11 +93,70 @@ public class MainMenuController : MonoBehaviour
     /// <summary>The one primary CTA.</summary>
     public Button EnterMissionButton => _enterMission;
 
-    /// <summary>The shared rotating planet RenderTexture shown as the hero.</summary>
-    public RenderTexture HeroPlanetTexture { get; private set; }
+    /// <summary>The fadeable menu subtree (everything except the modals).</summary>
+    public VisualElement MenuLayer => _menuLayer;
 
-    /// <summary>True while the hero shows the shared 3D preview RenderTexture.</summary>
-    public bool IsHeroPlanetActive { get; private set; }
+    /// <summary>The start cinematic that owns 进入任务 (null only if unauthored).</summary>
+    public MainMenuCinematic Cinematic
+    {
+        get
+        {
+            if (_cinematic == null)
+            {
+                _cinematic = Object.FindAnyObjectByType<MainMenuCinematic>();
+            }
+
+            return _cinematic;
+        }
+    }
+
+    /// <summary>The 3D hero ship shown on the left (null if unauthored).</summary>
+    public MainMenuShipHero HeroShip
+    {
+        get
+        {
+            if (_heroShip == null)
+            {
+                _heroShip = Object.FindAnyObjectByType<MainMenuShipHero>();
+            }
+
+            return _heroShip;
+        }
+    }
+
+    /// <summary>The procedural deep-space backdrop (null if unauthored).</summary>
+    public MainMenuStarfield Starfield
+    {
+        get
+        {
+            if (_starfield == null)
+            {
+                _starfield = Object.FindAnyObjectByType<MainMenuStarfield>();
+            }
+
+            return _starfield;
+        }
+    }
+
+    /// <summary>True while the left hero really shows the 3D ship.</summary>
+    public bool IsHeroShipActive
+    {
+        get
+        {
+            MainMenuShipHero hero = HeroShip;
+            return hero != null && hero.IsShipPresent && hero.NozzleCount == 2;
+        }
+    }
+
+    /// <summary>True while the deep-space backdrop is built.</summary>
+    public bool IsStarfieldActive
+    {
+        get
+        {
+            MainMenuStarfield stars = Starfield;
+            return stars != null && stars.IsActive;
+        }
+    }
 
     /// <summary>Logical settings-modal state.</summary>
     public bool IsSettingsOpen => _settingsOpen;
@@ -120,8 +189,15 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    /// <summary>True while the menu is fading into the existing Overview.</summary>
-    public bool IsTransitioning => _transitioning;
+    /// <summary>True while the start cinematic runs (or the fallback fade does).</summary>
+    public bool IsTransitioning
+    {
+        get
+        {
+            MainMenuCinematic cinematic = Cinematic;
+            return _transitioning || (cinematic != null && cinematic.IsPlaying);
+        }
+    }
 
     /// <summary>Assigns the style sheets; called once by scene authoring tooling.</summary>
     public void Configure(StyleSheet theme, StyleSheet menu)
@@ -173,15 +249,20 @@ public class MainMenuController : MonoBehaviour
         BindElements();
         BindActions();
         BindModalElements();
-        BindHero();
         ApplySettings();
         IsReady = true;
+
+        Debug.Log("[MainMenuController] cover ready: heroShip="
+                  + (HeroShip != null ? HeroShip.ShipRendererCount.ToString() : "0")
+                  + " nozzles=" + (HeroShip != null ? HeroShip.NozzleCount.ToString() : "0")
+                  + " starLayers=" + (Starfield != null ? Starfield.LayerCount.ToString() : "0")
+                  + " cinematic=" + (Cinematic != null));
     }
 
     private void Update()
     {
         Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard[Key.Escape].wasPressedThisFrame)
+        if (keyboard != null && keyboard[EscapeKey].wasPressedThisFrame)
         {
             HandleEscapeKey();
         }
@@ -190,6 +271,8 @@ public class MainMenuController : MonoBehaviour
         UpdateModalAnimation();
         UpdateTransition();
     }
+
+    private const Key EscapeKey = Key.Escape;
 
     /// <summary>
     /// ESC behavior (§53): close an open modal, and never exit the application.
@@ -201,14 +284,6 @@ public class MainMenuController : MonoBehaviour
         CloseOpenModal();
     }
 
-    private void OnDestroy()
-    {
-        // The shared rig outlives this scene in the Editor; in a player build it
-        // is retired with the scene, because the legacy Hub cannot host it.
-        _planetPreview?.Release(this);
-        _planetPreview = null;
-    }
-
     // ---- Binding ----
 
     private void BindElements()
@@ -218,18 +293,11 @@ public class MainMenuController : MonoBehaviour
         _credits = BindButton(MainMenuNames.CreditsButton);
         _exit = BindButton(MainMenuNames.ExitButton);
 
+        _menuLayer = BindElement(MainMenuNames.Layer);
         _hintLayer = BindElement(MainMenuNames.HintLayer);
         _scanSweep = BindElement(MainMenuNames.HeroScanSweep);
         _statusDot = BindElement(MainMenuNames.StatusDot);
-        _planetDisc = BindElement(MainMenuNames.HeroPlanetDisc);
         _transitionOverlay = BindElement(MainMenuNames.TransitionOverlay);
-
-        if (_planetDisc != null)
-        {
-            // The hero is a pure visual: it must never steal a pointer that
-            // belongs to the CTA or the secondary navigation.
-            _planetDisc.pickingMode = PickingMode.Ignore;
-        }
 
         if (_transitionOverlay != null)
         {
@@ -320,36 +388,14 @@ public class MainMenuController : MonoBehaviour
         _creditsInteractive = false;
     }
 
-    /// <summary>
-    /// Hosts the ONE shared rotating 3D planet preview (Phase 07B.2.4) as the
-    /// Main Menu hero visual. The menu never builds a second rig, camera or
-    /// RenderTexture - it displays the same RenderTexture the Overview uses.
-    /// </summary>
-    private void BindHero()
-    {
-        _planetPreview = OverviewPlanetPreview.Acquire(this);
-        if (_planetPreview == null)
-        {
-            Debug.LogError("MainMenuController: shared planet preview unavailable.");
-            return;
-        }
-
-        HeroPlanetTexture = _planetPreview.Texture;
-        if (_planetDisc != null && HeroPlanetTexture != null)
-        {
-            _planetDisc.style.backgroundImage =
-                new StyleBackground(Background.FromRenderTexture(HeroPlanetTexture));
-            IsHeroPlanetActive = true;
-        }
-
-        _planetPreview.SetViewed(this, true);
-    }
-
     // ---- Primary action ----
 
     /// <summary>
-    /// The 进入任务 action: fade, then enter the EXISTING demo flow
-    /// (Main Menu -> Overview) through the project routing helper.
+    /// The 进入任务 action: hand the shot to the start cinematic
+    /// (menu fade -> engine boost -> ship departure -> blackout -> ship
+    /// interior). The menu never routes on its own while the cinematic exists;
+    /// if it is missing the controller still fades and routes, so the product
+    /// path can never dead-end.
     ///
     /// It never resets or recreates the session: entering the demo is
     /// navigation, not a new game.
@@ -365,13 +411,54 @@ public class MainMenuController : MonoBehaviour
         _transitioning = true;
         _transitionAlpha = 0f;
 
-        if (_transitionOverlay != null)
+        MainMenuCinematic cinematic = Cinematic;
+        if (cinematic != null)
         {
-            _transitionOverlay.style.display = DisplayStyle.Flex;
-            _transitionOverlay.style.opacity = 0f;
-            _transitionOverlay.pickingMode = PickingMode.Position;
+            cinematic.Begin();
+            return;
+        }
+
+        Debug.LogWarning("MainMenuController: no MainMenuCinematic in the scene - "
+                         + "falling back to a plain fade + route");
+        SetCinematicBlackoutVisible(true);
+    }
+
+    // ---- Cinematic hooks (driven by MainMenuCinematic) ----
+
+    /// <summary>Fades the whole menu subtree (title, CTA, navigation, chrome).</summary>
+    public void SetCinematicMenuAlpha(float alpha)
+    {
+        if (_menuLayer != null)
+        {
+            _menuLayer.style.opacity = Mathf.Clamp01(alpha);
         }
     }
+
+    /// <summary>Shows/hides the black start-cinematic overlay.</summary>
+    public void SetCinematicBlackoutVisible(bool visible)
+    {
+        if (_transitionOverlay == null)
+        {
+            return;
+        }
+
+        _transitionOverlay.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        _transitionOverlay.pickingMode = visible ? PickingMode.Position : PickingMode.Ignore;
+    }
+
+    /// <summary>Sets the black overlay opacity (0 = clear, 1 = full blackout).</summary>
+    public void SetCinematicBlackoutAlpha(float alpha)
+    {
+        if (_transitionOverlay != null)
+        {
+            _transitionOverlay.style.opacity = Mathf.Clamp01(alpha);
+        }
+    }
+
+    /// <summary>Current black overlay opacity (verification).</summary>
+    public float BlackoutAlpha => _transitionOverlay != null
+        ? _transitionOverlay.resolvedStyle.opacity
+        : 0f;
 
     // ---- Modals ----
 
@@ -439,18 +526,6 @@ public class MainMenuController : MonoBehaviour
 
     // ---- Per-frame presentation ----
 
-    private void HandleEscape()
-    {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard == null || !keyboard[Key.Escape].wasPressedThisFrame)
-        {
-            return;
-        }
-
-        // ESC only closes an open modal - it never exits the application (§53).
-        CloseOpenModal();
-    }
-
     private void UpdateAmbientMotion()
     {
         bool motion = MainMenuSettings.MotionEnabled;
@@ -465,7 +540,7 @@ public class MainMenuController : MonoBehaviour
                 : 0.5f;
             _scanSweep.style.translate = new Translate(
                 t * (HeroStageWidth - SweepMargin * 2f), 0f);
-            _scanSweep.style.opacity = motion ? 0.55f : 0.18f;
+            _scanSweep.style.opacity = motion ? 0.5f : 0.16f;
         }
 
         if (_statusDot != null)
@@ -500,6 +575,10 @@ public class MainMenuController : MonoBehaviour
         SetModalInteractive(_creditsModal, ref _creditsInteractive, _creditsOpen);
     }
 
+    /// <summary>
+    /// Fallback transition used only when the scene has no cinematic: fade to
+    /// black, then take the product route (Main Menu -> Ship Interior).
+    /// </summary>
     private void UpdateTransition()
     {
         if (!_transitioning || _sceneLoadRequested)
@@ -507,13 +586,17 @@ public class MainMenuController : MonoBehaviour
             return;
         }
 
+        if (Cinematic != null)
+        {
+            // The cinematic owns the shot and its own route.
+            return;
+        }
+
         _transitionAlpha = Mathf.MoveTowards(_transitionAlpha, 1f,
             MotionEnabledStep(MainMenuSettings.TransitionSeconds));
 
-        if (_transitionOverlay != null)
-        {
-            _transitionOverlay.style.opacity = _transitionAlpha;
-        }
+        SetCinematicBlackoutAlpha(_transitionAlpha);
+        SetCinematicMenuAlpha(1f - _transitionAlpha);
 
         if (_transitionAlpha < 1f)
         {
@@ -521,7 +604,7 @@ public class MainMenuController : MonoBehaviour
         }
 
         _sceneLoadRequested = true;
-        SceneRouting.EnterHub();
+        SceneRouting.EnterShipInterior(SceneRouting.ShipEntry.FromMainMenu);
     }
 
     /// <summary>Per-frame alpha step; motion disabled resolves instantly.</summary>
@@ -565,7 +648,7 @@ public class MainMenuController : MonoBehaviour
         if (_hintLayer != null)
         {
             // The annotation layer is absolutely positioned, so hiding it can
-            // never move the title, the CTA or the hero.
+            // never move the title, the CTA or the hero window.
             _hintLayer.style.display = MainMenuSettings.HintsVisible
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
