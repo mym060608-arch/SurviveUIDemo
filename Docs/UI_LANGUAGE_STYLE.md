@@ -1831,7 +1831,6 @@ OFL 许可），在最终资产阶段统一嵌入。
 ---
 
 # 62. Wrist Terminal Terms (Phase 06 Revision)
-
 Field/personal terminal canonical terms. Chinese remains the primary player
 language; English stays as secondary metadata only.
 
@@ -1873,3 +1872,76 @@ Semantics notes:
   navigation readout, temporary harvest/transfer feedback, return action.
 - Wrist shows: map, personal status, equipment, cargo, mission/node count.
 - 腕部终端 must never be presented as a miniature of the four ship screens.
+
+---
+
+# 63. Main Menu Terms (Phase 08)
+
+Main Menu (`04_MainMenu`) is the product cover and the only human entry into the
+demo (Boot → Main Menu → 进入任务 → Overview). Canonical copy:
+
+```text
+SURVIVE
+边境生存协议
+深空前哨生存与生产控制系统
+
+FRONTIER OPERATIONS INTERFACE
+```
+
+Primary action (the only primary CTA):
+
+```text
+进入任务
+ENTER MISSION
+```
+
+Secondary actions (Chinese only — no mechanical English duplication):
+
+```text
+01  系统设置      SETTINGS
+02  制作信息      CREDITS
+03  退出          EXIT
+```
+
+Mission / system metadata (Chinese key + English technical label + identifier):
+
+```text
+任务编号      作业星区
+MISSION       SECTOR
+FRONTIER-08   N-04
+
+BUILD // PHASE 08
+SYSTEM // READY
+```
+
+Settings terms:
+
+```text
+系统设置
+动态效果      开启 / 关闭
+界面提示      显示 / 隐藏
+关闭
+```
+
+Credits terms:
+
+```text
+制作信息
+SURVIVE UI DEMO
+科幻生存控制界面设计演示
+引擎 / 界面 / 构建 / 语言
+```
+
+Visual notes (binding for this screen):
+
+- The Main Menu keeps the Phase 02 light canvas (`#E9EBED`) and the single teal
+  accent (`#0E7F8C`); §35 of this guide stays in force, so the cover is the
+  high-grade version of the Overview rather than a dark sci-fi menu.
+- The hero visual is the EXISTING shared rotating 3D planet preview
+  (`OverviewPlanetPreview`); no second preview rig, camera or RenderTexture.
+- `动态效果` off pauses motion (including the planet spin) without changing the
+  layout or any function; `界面提示` off only hides the peripheral annotation
+  layer.
+- Brand wordmark stays `SURVIVE // DRIFT` (top bar / credits); `SURVIVE` is the
+  short form used as the hero wordmark.
+

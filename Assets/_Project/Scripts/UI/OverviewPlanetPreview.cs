@@ -70,6 +70,14 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
 
     private static OverviewPlanetPreview _shared;
 
+    /// <summary>
+    /// Presentation switch for the continuous spin (Phase 08): the Main Menu's
+    /// 动态效果 setting pauses the preview instead of stopping the rig, so the
+    /// RenderTexture, the camera and the viewer registration all stay intact and
+    /// the last angle is kept. Default is the Phase 07B.2.4 behavior.
+    /// </summary>
+    public static bool MotionEnabled { get; set; } = true;
+
     /// <summary>The one shared rig (null until the first Acquire).</summary>
     public static OverviewPlanetPreview Shared => _shared;
 
@@ -212,9 +220,14 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
         PruneViewers();
 
         // Continuous, never-reset rotation: focus transitions, wrist opens and
-        // scene routing all leave the angle untouched.
-        SpinAngleDegrees = Mathf.Repeat(SpinAngleDegrees
-                                        + SpinDegreesPerSecond * Time.deltaTime, 360f);
+        // scene routing all leave the angle untouched. The Main Menu's motion
+        // setting can pause it without disturbing the accumulated angle.
+        if (MotionEnabled)
+        {
+            SpinAngleDegrees = Mathf.Repeat(SpinAngleDegrees
+                                            + SpinDegreesPerSecond * Time.deltaTime, 360f);
+        }
+
         if (_sphere != null)
         {
             _sphere.localRotation = Quaternion.Euler(0f, SpinAngleDegrees, 0f);

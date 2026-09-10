@@ -19,6 +19,7 @@ public static class SurviveProjectSetup
     private const string ScenesFolder = "Assets/_Project/Scenes";
     private const string BootScenePath = ScenesFolder + "/00_Boot.unity";
     private const string HubScenePath = ScenesFolder + "/01_Hub.unity";
+    private const string MainMenuScenePath = ScenesFolder + "/04_MainMenu.unity";
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
@@ -26,6 +27,10 @@ public static class SurviveProjectSetup
     private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
     private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
     private const string PanelSettingsPath = "Assets/_Project/UI/Settings/HubPanelSettings.asset";
+    private const string MainMenuPanelSettingsPath =
+        "Assets/_Project/UI/Settings/MainMenuPanelSettings.asset";
+    private const string MainMenuUxmlPath = "Assets/_Project/UI/UXML/MainMenu.uxml";
+    private const string MainMenuUssPath = "Assets/_Project/UI/USS/MainMenu.uss";
 
     [MenuItem("Tools/SurviveUI/Setup Phase 01 Project")]
     public static void RunFromMenu()
@@ -46,6 +51,27 @@ public static class SurviveProjectSetup
         Debug.Log("[SurviveProjectSetup] RunCli start");
         RunSetup();
         Debug.Log("[SurviveProjectSetup] RunCli end");
+    }
+
+    /// <summary>
+    /// CLI entry that rebuilds ONLY the Phase 08 Main Menu scene and re-applies
+    /// the build order. The Phase 01-07 scenes are frozen green baselines, so
+    /// Phase 08 tooling never regenerates them: the menu is added to the same
+    /// deterministic builder without touching already-validated scene content.
+    /// </summary>
+    public static void RunMainMenuCli()
+    {
+        Debug.Log("[SurviveProjectSetup] RunMainMenuCli start");
+        bool ok = EnsureFolder(ScenesFolder)
+                  & EnsureFolder("Assets/_Project/UI/UXML")
+                  & EnsureFolder("Assets/_Project/UI/USS");
+        ok &= BuildMainMenuScene();
+        ok &= SetBuildOrder();
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+        Debug.Log(ok
+            ? "[SurviveProjectSetup] main menu setup OK"
+            : "[SurviveProjectSetup] main menu setup reported failures above");
     }
 
     public static bool RunSetup()
@@ -100,10 +126,25 @@ public static class SurviveProjectSetup
             ok = false;
         }
 
+        // Phase 08 Main Menu assets (verified here so a full setup also reports
+        // a missing cover instead of silently skipping the scene).
+        if (AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(MainMenuUxmlPath) == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] missing VisualTreeAsset: " + MainMenuUxmlPath);
+            ok = false;
+        }
+
+        if (AssetDatabase.LoadAssetAtPath<StyleSheet>(MainMenuUssPath) == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] missing StyleSheet: " + MainMenuUssPath);
+            ok = false;
+        }
+
         ok &= BuildBootScene();
         ok &= BuildHubScene(uxml, uss, overviewUss, preparationUss, processingUss, outpostUss);
         ok &= NereidSurfaceBuilder.BuildSurface();
         ok &= ShipInteriorBuilder.BuildShipInterior();
+        ok &= BuildMainMenuScene();
         ok &= SetBuildOrder();
 
         AssetDatabase.SaveAssets();
@@ -146,11 +187,16 @@ public static class SurviveProjectSetup
 
     private static void AddCamera(Scene scene, string name)
     {
+        AddCamera(scene, name, new Color(0.05f, 0.06f, 0.07f, 1f));
+    }
+
+    private static void AddCamera(Scene scene, string name, Color background)
+    {
         var go = new GameObject(name);
         SceneManager.MoveGameObjectToScene(go, scene);
         var camera = go.AddComponent<Camera>();
         camera.clearFlags = CameraClearFlags.SolidColor;
-        camera.backgroundColor = new Color(0.05f, 0.06f, 0.07f, 1f);
+        camera.backgroundColor = background;
     }
 
     private static bool BuildBootScene()
@@ -274,9 +320,124 @@ public static class SurviveProjectSetup
         return true;
     }
 
-    private static PanelSettings CreatePanelSettings()
+    /// <summary>
+    /// Phase 08: deterministic Main Menu scene (04_MainMenu).
+    ///
+    /// One UIDocument bound to MainMenu.uxml + MainMenuController, plus the
+    /// runtime smoke probe. No EventSystem, no AudioListener and no authored
+    /// GameSession: the menu is presentation only and reuses the persistent
+    /// Boot session exactly like every other scene.
+    ///
+    /// Re-running this builder converges to the same scene (the previous asset
+    /// is deleted first, so no "MainMenu (1)" duplicates can accumulate).
+    /// </summary>
+    private static bool BuildMainMenuScene()
     {
-        if (AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelSettingsPath) != null)
+        // Existence check only: the real references are loaded AFTER the scene
+        // switch. Switching scenes unloads assets that no open scene references,
+        // which would leave a destroyed PanelSettings object behind and silently
+        // serialize a null panel into the new scene.
+        if (AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(MainMenuUxmlPath) == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] missing VisualTreeAsset: " + MainMenuUxmlPath);
+            return false;
+        }
+
+        if (AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath) == null
+            || AssetDatabase.LoadAssetAtPath<StyleSheet>(MainMenuUssPath) == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] missing Main Menu style sheet ("
+                           + UssPath + " / " + MainMenuUssPath + ")");
+            return false;
+        }
+
+        if (AssetDatabase.LoadAssetAtPath<SceneAsset>(MainMenuScenePath) != null)
+        {
+            AssetDatabase.DeleteAsset(MainMenuScenePath);
+        }
+
+        Scene scene = NewScene();
+        // Light canvas clear color: the menu panel covers the frame, so this is
+        // only the safety color behind it (never a dark flash).
+        AddCamera(scene, "Main Camera", new Color(0.914f, 0.922f, 0.929f, 1f));
+
+        // Fresh asset references, taken after the scene switch.
+        var uxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(MainMenuUxmlPath);
+        var theme = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
+        var menuUss = AssetDatabase.LoadAssetAtPath<StyleSheet>(MainMenuUssPath);
+
+        // The Main Menu owns its OWN panel settings asset with the same
+        // configuration as the Hub (1920x1080 reference, scale with screen
+        // size). Sharing one PanelSettings instance across two scenes is not
+        // safe: the second panel can hang while the first panel is being torn
+        // down. The Hub asset itself is never regenerated (it is referenced by
+        // the frozen 01_Hub scene).
+        var panelSettings = AssetDatabase.LoadAssetAtPath<PanelSettings>(MainMenuPanelSettingsPath);
+        if (panelSettings == null)
+        {
+            panelSettings = CreateMainMenuPanelSettings();
+        }
+
+        if (uxml == null || theme == null || menuUss == null || panelSettings == null)
+        {
+            Debug.LogError("[SurviveProjectSetup] Main Menu assets unavailable after scene switch");
+            return false;
+        }
+
+        var ui = new GameObject("UI");
+        SceneManager.MoveGameObjectToScene(ui, scene);
+        var document = ui.AddComponent<UIDocument>();
+        document.visualTreeAsset = uxml;
+        document.panelSettings = panelSettings;
+        document.sortingOrder = 0;
+
+        var controller = ui.AddComponent<MainMenuController>();
+        controller.Configure(theme, menuUss);
+
+        // Standalone runtime smoke probe (inert unless launched with -smokeResult).
+        var smoke = new GameObject("StandaloneSmoke");
+        SceneManager.MoveGameObjectToScene(smoke, scene);
+        smoke.AddComponent<StandaloneSmoke>();
+
+        if (!EditorSceneManager.SaveScene(scene, MainMenuScenePath))
+        {
+            Debug.LogError("[SurviveProjectSetup] failed to save " + MainMenuScenePath);
+            return false;
+        }
+
+        Debug.Log("[SurviveProjectSetup] wrote " + MainMenuScenePath);
+        return true;
+    }
+
+    /// <summary>
+    /// Creates the Main Menu's own PanelSettings asset, copying the Hub's panel
+    /// configuration (including its runtime theme) so both UI applications scale
+    /// and theme identically while owning separate panel instances.
+    /// </summary>
+    private static PanelSettings CreateMainMenuPanelSettings()
+    {
+        var hub = AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelSettingsPath);
+        var panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
+        panelSettings.scaleMode = PanelScaleMode.ScaleWithScreenSize;
+        panelSettings.referenceResolution = new Vector2Int(1920, 1080);
+        panelSettings.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;
+        panelSettings.match = 0.5f;
+        if (hub != null)
+        {
+            panelSettings.themeStyleSheet = hub.themeStyleSheet;
+        }
+
+        AssetDatabase.CreateAsset(panelSettings, MainMenuPanelSettingsPath);
+        EditorUtility.SetDirty(panelSettings);
+        Debug.Log("[SurviveProjectSetup] wrote " + MainMenuPanelSettingsPath
+                  + " (theme=" + (panelSettings.themeStyleSheet != null
+                      ? panelSettings.themeStyleSheet.name
+                      : "<null>") + ")");
+        return panelSettings;
+    }
+
+    private static PanelSettings CreatePanelSettings()
+    {        if (AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelSettingsPath) != null)
         {
             AssetDatabase.DeleteAsset(PanelSettingsPath);
         }
@@ -297,20 +458,25 @@ public static class SurviveProjectSetup
     {
         string surfacePath = "Assets/_Project/Scenes/02_NereidSurface.unity";
         string shipPath = "Assets/_Project/Scenes/03_ShipInterior.unity";
+        // Phase 08 appends the Main Menu at index 4: indices 0-3 (the frozen
+        // Phase 01-07 scenes, with 00_Boot as the launch scene) keep their
+        // exact order, and the menu is loaded by name through SceneRouting.
         var scenes = new[]
         {
             new EditorBuildSettingsScene(BootScenePath, true),
             new EditorBuildSettingsScene(HubScenePath, true),
             new EditorBuildSettingsScene(surfacePath, true),
-            new EditorBuildSettingsScene(shipPath, true)
+            new EditorBuildSettingsScene(shipPath, true),
+            new EditorBuildSettingsScene(MainMenuScenePath, true)
         };
 
         EditorBuildSettings.scenes = scenes;
 
         var current = EditorBuildSettings.scenes;
-        bool ok = current != null && current.Length == 4
+        bool ok = current != null && current.Length == 5
                   && current[0].path == BootScenePath && current[1].path == HubScenePath
-                  && current[2].path == surfacePath && current[3].path == shipPath;
+                  && current[2].path == surfacePath && current[3].path == shipPath
+                  && current[4].path == MainMenuScenePath;
         if (!ok)
         {
             Debug.LogError("[SurviveProjectSetup] build order not applied");
@@ -318,7 +484,8 @@ public static class SurviveProjectSetup
         else
         {
             Debug.Log("[SurviveProjectSetup] build order set: "
-                      + "0=00_Boot 1=01_Hub 2=02_NereidSurface 3=03_ShipInterior");
+                      + "0=00_Boot 1=01_Hub 2=02_NereidSurface 3=03_ShipInterior "
+                      + "4=04_MainMenu");
         }
 
         return ok;

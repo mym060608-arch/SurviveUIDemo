@@ -6,18 +6,21 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Phase 07A.1 Play Mode routing validation - normal human runtime entry and
-/// return routing.
+/// Phase 07A.1 Play Mode routing validation - human runtime entry and return
+/// routing.
 ///
-/// Runtime contract:
-///   normal Boot -&gt; 03_ShipInterior (ShipSpawn_Default)
+/// Runtime contract (Phase 08 migration):
+///   normal Boot -&gt; 04_MainMenu (product cover; see SurvivePhase08Tests)
+///   进入任务     -&gt; 01_Hub Overview, and the expedition flow reaches the ship
+///                  through SceneRouting.EnterShipInterior
 ///   airlock E  -&gt; 02_NereidSurface
 ///   landing E  -&gt; 03_ShipInterior (ShipSpawn_FromSurface)
 ///
-/// The legacy Hub stays loadable and is explicitly entered by older suites;
-/// these tests verify the ship-first routes, spawn reasons and GameSession
-/// authority across scene transitions. OS cursor semantics are asserted in
-/// the standalone routing probe (the editor Test Runner owns the OS cursor).
+/// Phase 08 made 00_Boot land on the Main Menu cover instead of the ship, so
+/// these suites enter the ship through the SAME production helper the demo uses
+/// (SceneRouting.EnterShipInterior) instead of relying on the boot destination.
+/// Every ship/surface route, spawn reason and session-authority assertion below
+/// is unchanged; only the entry into the ship comes from the routing helper.
 /// </summary>
 public class SurvivePhase07RoutingTests
 {
@@ -114,6 +117,20 @@ public class SurvivePhase07RoutingTests
         yield return WaitForScene(BootController.HubSceneName, 20f);
     }
 
+    /// <summary>
+    /// Enters the ship interior the way the shipped demo does after Phase 08:
+    /// a fresh boundary scene, then the production routing helper (the Main
+    /// Menu / Hub expedition flow uses exactly this call). The ship-entry
+    /// contract itself (Default spawn, input state, session authority) is
+    /// asserted unchanged by the callers.
+    /// </summary>
+    private static IEnumerator EnterShipViaRouting()
+    {
+        yield return ResetToHubBoundary();
+        SceneRouting.EnterShipInterior(SceneRouting.ShipEntry.Default);
+        yield return WaitForScene(GameSession.ShipInteriorSceneName);
+    }
+
     /// <summary>Landing on the deployment station opens the confirmation
     /// overlay (Phase 07B.2); presses the real 确认降临 button through the
     /// genuine UI Toolkit pointer pipeline, which triggers the ShipInterior ->
@@ -162,18 +179,17 @@ public class SurvivePhase07RoutingTests
     }
 
     [UnityTest]
-    public IEnumerator Phase07_NormalBoot_EntersShipInterior()
+    public IEnumerator Phase07_ShipInteriorEntry_DefaultSpawn_Green()
     {
         GameSession session = GameSession.Ensure();
         session.ResetSession();
 
-        // A plain Boot load must end up in the ship (not the legacy Hub).
-        yield return ResetToHubBoundary();
-        SceneRouting.RequestShipEntry(SceneRouting.ShipEntry.Default);
-        SceneManager.LoadScene("00_Boot");
-        yield return WaitForScene(GameSession.ShipInteriorSceneName);
+        // Entering the ship must end up in the ship interior (not the legacy
+        // Hub): Phase 08 boots into the Main Menu cover, so the ship entry is
+        // the production routing helper's job.
+        yield return EnterShipViaRouting();
         Assert.AreEqual(GameSession.ShipInteriorSceneName, ActiveSceneName(),
-            "normal Boot enters ShipInterior");
+            "ship entry lands on ShipInterior");
 
         ShipGameController controller = null;
         yield return WaitShipController(value => controller = value);
@@ -210,10 +226,7 @@ public class SurvivePhase07RoutingTests
         int mineralsBefore = session.Minerals;
 
         // Reach the ship the way a normal player does (Boot -> ship).
-        yield return ResetToHubBoundary();
-        SceneRouting.RequestShipEntry(SceneRouting.ShipEntry.Default);
-        SceneManager.LoadScene("00_Boot");
-        yield return WaitForScene(GameSession.ShipInteriorSceneName);
+        yield return EnterShipViaRouting();
 
         ShipGameController ship = null;
         yield return WaitShipController(value => ship = value);
@@ -269,10 +282,7 @@ public class SurvivePhase07RoutingTests
         session.ResetSession();
 
         // Ship -> airlock -> surface.
-        yield return ResetToHubBoundary();
-        SceneRouting.RequestShipEntry(SceneRouting.ShipEntry.Default);
-        SceneManager.LoadScene("00_Boot");
-        yield return WaitForScene(GameSession.ShipInteriorSceneName);
+        yield return EnterShipViaRouting();
 
         ShipGameController ship = null;
         yield return WaitShipController(value => ship = value);
@@ -348,10 +358,7 @@ public class SurvivePhase07RoutingTests
         int satiety = session.PlayerSatiety;
 
         // Ship -> Surface -> Ship through the real routing helpers.
-        yield return ResetToHubBoundary();
-        SceneRouting.RequestShipEntry(SceneRouting.ShipEntry.Default);
-        SceneManager.LoadScene("00_Boot");
-        yield return WaitForScene(GameSession.ShipInteriorSceneName);
+        yield return EnterShipViaRouting();
 
         ShipGameController ship = null;
         yield return WaitShipController(value => ship = value);
@@ -399,10 +406,7 @@ public class SurvivePhase07RoutingTests
         Assert.AreEqual(1, GameSessionCount(), "one session after Ensure");
 
         // Normal boot -> ship.
-        yield return ResetToHubBoundary();
-        SceneRouting.RequestShipEntry(SceneRouting.ShipEntry.Default);
-        SceneManager.LoadScene("00_Boot");
-        yield return WaitForScene(GameSession.ShipInteriorSceneName);
+        yield return EnterShipViaRouting();
         ShipGameController ship = null;
         yield return WaitShipController(value => ship = value);
         Assert.AreEqual(1, GameSessionCount(), "still one session on the ship");

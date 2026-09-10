@@ -1,0 +1,743 @@
+/*
+ * Survive UI Demo - Main Menu composition (Phase 08).
+ * Loaded after AppTheme.uss. Coordinates target the 1920x1080 reference.
+ *
+ * Visual language: identical tokens to Phase 02 Overview (AppTheme.uss):
+ *   canvas #E9EBED / ink #161B20 / secondary #4A525C / metadata #7B858F
+ *   rules #C9CFD4 + #DEE2E5 / single teal accent #0E7F8C.
+ *
+ * The top-bar and annotation atoms below intentionally mirror the Overview
+ * metrics (same sizes, same tracking, same 1 px hairlines) so the Main Menu
+ * reads as the cover of the very same product. They are declared here rather
+ * than reusing OverviewScreen.uss, which stays a Phase 02 screen sheet.
+ */
+
+/* ---------- Shell ---------- */
+
+.main-menu-root {
+    flex-grow: 1;
+    flex-direction: column;
+    background-color: #E9EBED;
+}
+
+.menu-topbar {
+    flex-shrink: 0;
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.topbar-left {
+    flex-direction: row;
+    align-items: center;
+}
+
+.topbar-brand {
+    font-size: 24px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    color: #161B20;
+}
+
+.topbar-divider-v {
+    width: 1px;
+    height: 18px;
+    background-color: #C9CFD4;
+    margin-left: 24px;
+    margin-right: 24px;
+}
+
+.topbar-role {
+    font-size: 11px;
+    letter-spacing: 0px;
+    color: #7B858F;
+}
+
+.topbar-right {
+    flex-direction: row;
+    align-items: center;
+    margin-left: auto;
+}
+
+.topbar-cell {
+    font-size: 12px;
+    letter-spacing: 1.5px;
+    color: #4A525C;
+}
+
+.topbar-cellsep {
+    width: 1px;
+    height: 16px;
+    background-color: #C9CFD4;
+    margin-left: 24px;
+    margin-right: 24px;
+}
+
+.topbar-system {
+    flex-direction: row;
+    align-items: center;
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #0E7F8C;
+    margin-right: 10px;
+}
+
+/* ---------- Composition frame (max-width keeps ultrawide composed) ---------- */
+
+.menu-frame {
+    flex-grow: 1;
+    min-height: 0;
+    width: 100%;
+    max-width: 1920px;
+    align-self: center;
+    flex-direction: row;
+    align-items: stretch;
+    padding-left: 64px;
+    padding-right: 64px;
+    padding-top: 28px;
+    padding-bottom: 20px;
+}
+
+.menu-content {
+    width: 620px;
+    flex-shrink: 0;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.menu-hero-column {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ---------- Brand block ---------- */
+
+.menu-eyebrow {
+    font-size: 11px;
+    letter-spacing: 3.5px;
+    color: #7B858F;
+}
+
+.menu-title {
+    font-size: 104px;
+    -unity-font-style: bold;
+    letter-spacing: 10px;
+    color: #161B20;
+    margin-top: 6px;
+}
+
+/* Chinese subtitle: restrained tracking only (UI_LANGUAGE_STYLE §28). */
+.menu-subtitle {
+    font-size: 30px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: #161B20;
+    margin-top: 2px;
+}
+
+.menu-tagline {
+    font-size: 14px;
+    letter-spacing: 0px;
+    color: #4A525C;
+    margin-top: 12px;
+}
+
+.menu-rule {
+    width: 96px;
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-top: 24px;
+}
+
+/* ---------- Mission metadata ---------- */
+
+.menu-meta {
+    flex-direction: row;
+    align-items: flex-start;
+    margin-top: 22px;
+}
+
+.menu-meta-cell {
+    flex-direction: column;
+}
+
+.menu-meta-sep {
+    width: 1px;
+    height: 54px;
+    background-color: #DEE2E5;
+    margin-left: 30px;
+    margin-right: 30px;
+}
+
+.menu-meta-key {
+    font-size: 12px;
+    letter-spacing: 0px;
+    color: #4A525C;
+}
+
+.menu-meta-english {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #9AA2AA;
+    margin-top: 3px;
+}
+
+.menu-meta-value {
+    font-size: 17px;
+    -unity-font-style: bold;
+    letter-spacing: 1.5px;
+    color: #161B20;
+    margin-top: 5px;
+}
+
+/* ---------- Primary CTA (the only primary action) ---------- */
+
+.menu-cta {
+    width: 520px;
+    height: 88px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    margin-top: 32px;
+    padding-left: 30px;
+    padding-right: 26px;
+    background-color: #161B20;
+    border-width: 1px;
+    border-color: #161B20;
+    transition-property: background-color, border-color;
+    transition-duration: 0.14s;
+}
+
+.menu-cta:hover {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+}
+
+.menu-cta:active {
+    background-color: #0A616C;
+    border-color: #0A616C;
+}
+
+.menu-cta-mark {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    background-color: #FFFFFF;
+    margin-right: 24px;
+}
+
+.menu-cta:hover .menu-cta-mark {
+    background-color: #0A616C;
+}
+
+.menu-cta-copy {
+    flex-direction: column;
+    justify-content: center;
+}
+
+.menu-cta-label {
+    font-size: 24px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    color: #FFFFFF;
+}
+
+.menu-cta-sub {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: rgba(255, 255, 255, 0.62);
+    margin-top: 3px;
+}
+
+.menu-cta-micro {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    color: rgba(255, 255, 255, 0.55);
+    margin-left: auto;
+}
+
+.menu-cta:hover .menu-cta-micro {
+    color: rgba(255, 255, 255, 0.86);
+}
+
+/* ---------- Secondary navigation ---------- */
+
+.menu-secondary {
+    flex-direction: column;
+    margin-top: 26px;
+    width: 520px;
+}
+
+.menu-secondary-row {
+    height: 42px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 4px;
+    padding-right: 4px;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0px;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+    transition-property: background-color, border-bottom-color;
+    transition-duration: 0.12s;
+}
+
+.menu-secondary-row:hover {
+    background-color: rgba(14, 127, 140, 0.07);
+    border-bottom-color: #0E7F8C;
+}
+
+.menu-secondary-row:active {
+    background-color: rgba(14, 127, 140, 0.14);
+}
+
+.menu-secondary-index {
+    width: 34px;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.menu-secondary-row:hover .menu-secondary-index {
+    color: #0E7F8C;
+}
+
+.menu-secondary-label {
+    font-size: 16px;
+    letter-spacing: 1px;
+    color: #161B20;
+}
+
+.menu-secondary-hint {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #9AA2AA;
+    margin-left: auto;
+    margin-right: 2px;
+}
+
+/* ---------- Hero visual ---------- */
+
+.hero-stage {
+    width: 600px;
+    height: 600px;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.hero-ring-outer {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 616px;
+    height: 616px;
+    margin-left: -308px;
+    margin-top: -308px;
+    border-width: 1px;
+    border-color: rgba(123, 133, 143, 0.16);
+    border-radius: 308px;
+}
+
+.hero-ring-inner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 566px;
+    height: 566px;
+    margin-left: -283px;
+    margin-top: -283px;
+    border-width: 1px;
+    border-color: rgba(123, 133, 143, 0.35);
+    border-radius: 283px;
+}
+
+.hero-halo {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 522px;
+    height: 522px;
+    margin-left: -261px;
+    margin-top: -261px;
+    border-width: 1px;
+    border-color: rgba(14, 127, 140, 0.35);
+    border-radius: 261px;
+}
+
+.hero-planet {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 480px;
+    height: 480px;
+    margin-left: -240px;
+    margin-top: -240px;
+}
+
+/* Slow survey sweep across the hero (motion setting controls movement only). */
+.hero-sweep {
+    position: absolute;
+    top: 68px;
+    left: 44px;
+    width: 1px;
+    height: 464px;
+    background-color: rgba(14, 127, 140, 0.55);
+}
+
+.hero-bracket {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 26px;
+    height: 26px;
+}
+
+.hero-bracket-tl {
+    margin-left: -240px;
+    margin-top: -240px;
+    border-top-width: 1px;
+    border-top-color: rgba(74, 82, 92, 0.85);
+    border-left-width: 1px;
+    border-left-color: rgba(74, 82, 92, 0.85);
+}
+
+.hero-bracket-tr {
+    margin-left: 214px;
+    margin-top: -240px;
+    border-top-width: 1px;
+    border-top-color: rgba(74, 82, 92, 0.85);
+    border-right-width: 1px;
+    border-right-color: rgba(74, 82, 92, 0.85);
+}
+
+.hero-bracket-bl {
+    margin-left: -240px;
+    margin-top: 214px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(74, 82, 92, 0.85);
+    border-left-width: 1px;
+    border-left-color: rgba(74, 82, 92, 0.85);
+}
+
+.hero-bracket-br {
+    margin-left: 214px;
+    margin-top: 214px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(74, 82, 92, 0.85);
+    border-right-width: 1px;
+    border-right-color: rgba(74, 82, 92, 0.85);
+}
+
+/* Peripheral annotations: absolutely positioned, so hiding them (界面提示)
+   can never move the title, the CTA or the planet. */
+.hero-hint-layer {
+    position: absolute;
+    left: -210px;
+    top: 0px;
+    width: 1020px;
+    height: 600px;
+}
+
+.hero-rail {
+    position: absolute;
+    top: 196px;
+    width: 180px;
+    flex-direction: column;
+}
+
+.hero-rail-left {
+    left: 0px;
+    align-items: flex-end;
+}
+
+.hero-rail-right {
+    right: 0px;
+    align-items: flex-start;
+}
+
+.annotation-label {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: #7B858F;
+}
+
+.annotation-dim {
+    color: #9AA2AA;
+    margin-top: 6px;
+}
+
+.annotation-rule {
+    width: 34px;
+    height: 1px;
+    background-color: #C9CFD4;
+    margin-top: 8px;
+    margin-bottom: 8px;
+    margin-right: 6px;
+}
+
+.lock-line {
+    width: 1px;
+    height: 26px;
+    background-color: #C9CFD4;
+    margin-top: 6px;
+    margin-bottom: 10px;
+}
+
+/* ---------- Peripheral footer ---------- */
+
+.menu-footer {
+    flex-shrink: 0;
+    height: 56px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 64px;
+    padding-right: 64px;
+    border-top-width: 1px;
+    border-top-color: #DEE2E5;
+}
+
+.menu-footer-cell {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.menu-footer-center {
+    margin-left: auto;
+    margin-right: auto;
+    letter-spacing: 1.5px;
+}
+
+/* ---------- Modals ---------- */
+
+.menu-modal {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Full-screen dim: it swallows every pointer event, so menu buttons behind a
+   modal can never be clicked through (§20 background blocking). */
+.menu-modal-dim {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    background-color: rgba(22, 27, 32, 0.46);
+}
+
+.menu-modal-panel {
+    width: 560px;
+    flex-direction: column;
+    padding-left: 30px;
+    padding-right: 30px;
+    padding-top: 26px;
+    padding-bottom: 20px;
+    background-color: #FFFFFF;
+    border-width: 1px;
+    border-color: #C9CFD4;
+}
+
+.menu-credits-panel {
+    width: 600px;
+}
+
+.menu-modal-head {
+    flex-direction: row;
+    align-items: flex-start;
+}
+
+.menu-modal-head-copy {
+    flex-direction: column;
+}
+
+.menu-modal-title {
+    font-size: 20px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: #161B20;
+}
+
+.menu-modal-subtitle {
+    font-size: 9px;
+    letter-spacing: 2.5px;
+    color: #9AA2AA;
+    margin-top: 5px;
+}
+
+.menu-modal-close {
+    height: 30px;
+    margin-left: auto;
+    padding-left: 14px;
+    padding-right: 14px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #4A525C;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.12s;
+}
+
+.menu-modal-close:hover {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+    color: #FFFFFF;
+}
+
+.menu-modal-close:active {
+    background-color: #0A616C;
+    border-color: #0A616C;
+}
+
+.menu-modal-rule {
+    height: 1px;
+    background-color: #DEE2E5;
+    margin-top: 18px;
+    margin-bottom: 6px;
+}
+
+.menu-setting-row {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 14px;
+    padding-bottom: 14px;
+    border-bottom-width: 1px;
+    border-bottom-color: #EDEFF1;
+}
+
+.menu-setting-copy {
+    flex-direction: column;
+}
+
+.menu-setting-name {
+    font-size: 15px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+}
+
+.menu-setting-note {
+    font-size: 11px;
+    letter-spacing: 0px;
+    color: #7B858F;
+    margin-top: 4px;
+}
+
+.menu-segment {
+    flex-direction: row;
+    margin-left: auto;
+}
+
+.menu-segment-button {
+    width: 66px;
+    height: 32px;
+    -unity-text-align: middle-center;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #4A525C;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: #C9CFD4;
+    margin-left: 6px;
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.12s;
+}
+
+.menu-segment-button:hover {
+    border-color: #0E7F8C;
+    color: #0A616C;
+}
+
+.menu-segment-button.segment-active {
+    background-color: #161B20;
+    border-color: #161B20;
+    color: #FFFFFF;
+    -unity-font-style: bold;
+}
+
+.menu-modal-footnote {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    color: #9AA2AA;
+    margin-top: 14px;
+}
+
+/* ---------- Credits content ---------- */
+
+.credits-brand {
+    font-size: 26px;
+    -unity-font-style: bold;
+    letter-spacing: 5px;
+    color: #161B20;
+    margin-top: 18px;
+}
+
+.credits-subtitle {
+    font-size: 17px;
+    letter-spacing: 2px;
+    color: #4A525C;
+    margin-top: 6px;
+}
+
+.credits-english {
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    color: #9AA2AA;
+    margin-top: 6px;
+}
+
+.credits-copy {
+    font-size: 12px;
+    letter-spacing: 0px;
+    color: #5A6570;
+    margin-top: 12px;
+}
+
+.credits-row {
+    flex-direction: row;
+    align-items: center;
+    padding-top: 7px;
+    padding-bottom: 7px;
+}
+
+.credits-key {
+    width: 96px;
+    font-size: 12px;
+    letter-spacing: 1px;
+    color: #7B858F;
+}
+
+.credits-value {
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+}
+
+/* ---------- Transition overlay ---------- */
+
+.menu-transition {
+    position: absolute;
+    left: 0px;
+    top: 0px;
+    right: 0px;
+    bottom: 0px;
+    background-color: #161B20;
+}

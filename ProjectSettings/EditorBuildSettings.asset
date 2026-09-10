@@ -17,5 +17,8 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/_Project/Scenes/03_ShipInterior.unity
     guid: b97bc2cd82ae3254c9e39f291f9086cb
+  - enabled: 1
+    path: Assets/_Project/Scenes/04_MainMenu.unity
+    guid: fe549612fe7a972498aca57b3fcca229
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

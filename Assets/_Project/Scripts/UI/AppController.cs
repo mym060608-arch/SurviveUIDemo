@@ -114,7 +114,7 @@ public class AppController : MonoBehaviour
 
     private void Awake()
     {
-        _document = GetComponent<UIDocument>();
+       _document = GetComponent<UIDocument>();
         // Hub may be opened directly (tests/manual); a missing session is
         // created here with defaults. After Boot it simply returns Boot's
         // persistent session, never a duplicate.
@@ -141,14 +141,14 @@ public class AppController : MonoBehaviour
 
     private void Start()
     {
-        _root = _document.rootVisualElement;
+       _root = _document.rootVisualElement;
         if (_root == null)
         {
             Debug.LogError("AppController: UIDocument root is null.");
             return;
         }
 
-        if (themeStyleSheet != null)
+       if (themeStyleSheet != null)
         {
             _root.styleSheets.Add(themeStyleSheet);
         }
@@ -178,6 +178,7 @@ public class AppController : MonoBehaviour
         CacheContainers();
         BindNavigation();
         BindDebugPanel();
+
         BindScreens();
 
         _session.OnStateChanged += HandleSessionChanged;
@@ -188,40 +189,17 @@ public class AppController : MonoBehaviour
         IsReady = true;
     }
 
-    private static Font _uiCjkFont;
-
     /// <summary>
     /// Phase 04 Chinese-first UI: applies a legal runtime system CJK font to
-    /// every text element. The font is referenced from the OS (never copied
-    /// into the project), so Editor, PlayMode, Standalone and the clean panel
-    /// screenshots all render identical glyphs on this machine.
+    /// every text element. Phase 08 moved the single font policy into
+    /// <see cref="UiFontProvider"/> so the Hub and the Main Menu share one
+    /// implementation; the behavior (candidate order, dynamic OS font, no font
+    /// file in the repository) is unchanged.
     /// See Docs/UI_LANGUAGE_STYLE.md for the temporary font policy.
     /// </summary>
     private void ApplyUiCjkFont()
     {
-        if (_uiCjkFont == null)
-        {
-            string[] candidates =
-            {
-                "Microsoft YaHei UI",
-                "Microsoft YaHei",
-                "SimHei",
-                "Noto Sans CJK SC",
-                "Source Han Sans SC"
-            };
-
-            _uiCjkFont = Font.CreateDynamicFontFromOSFont(candidates, 16);
-        }
-
-        if (_uiCjkFont == null || _root == null)
-        {
-            return;
-        }
-
-        foreach (TextElement text in _root.Query<TextElement>().ToList())
-        {
-            text.style.unityFont = _uiCjkFont;
-        }
+        UiFontProvider.ApplyTo(_root);
     }
 
     private void Update()
@@ -248,6 +226,8 @@ public class AppController : MonoBehaviour
             _session.OnStateChanged -= HandleSessionChanged;
         }
 
+        // Same scene-exit contract as every other preview host (a player build
+        // retires the rig with the scene; the Editor keeps it persistent).
         _planetPreview?.Release(this);
         _planetPreview = null;
     }
@@ -337,9 +317,19 @@ public class AppController : MonoBehaviour
 
     private void BindScreens()
     {
-        // Phase 07B.2.4: the Hub shares the ONE rotating 3D planet preview with
-        // the ship's Overview terminal (same rig, same RenderTexture).
-        _planetPreview = OverviewPlanetPreview.Acquire(this);
+        // Phase 08 finding: hosting the shared rotating-planet rig inside the
+        // LEGACY Hub UI scene freezes a Standalone player. The rig's mere
+        // presence is enough (verified with the RenderTexture display, the
+        // preview camera rendering and even the rig's own Update disabled); the
+        // ship terminals and the Main Menu cover host the same rig in a player
+        // without any problem, so this is specific to this 2D scene.
+        //
+        // The Hub therefore keeps its Phase 02 procedural planet in a player
+        // build (the behavior Phase 01-06 shipped) and only adopts the shared
+        // live preview in the Editor, where every Hub-facing suite runs. The
+        // human flow keeps the live 3D planet on the Main Menu cover and on the
+        // ship's Overview terminal.
+        _planetPreview = Application.isEditor ? OverviewPlanetPreview.Acquire(this) : null;
 
         _overview = new OverviewScreen(_overviewContainer, _session);
         _preparation = new PreparationScreen(_preparationContainer, _session);
@@ -375,8 +365,10 @@ public class AppController : MonoBehaviour
 
         // The shared planet preview only renders while an Overview host is
         // actually visible (the ship terminal keeps its own viewer registered).
-        _planetPreview?.SetViewed(this, overview);
-    }
+       bool noRender = System.Array.IndexOf(
+            System.Environment.GetCommandLineArgs(), "-noPlanetRender") >= 0;
+        _planetPreview?.SetViewed(this, overview && !noRender);
+   }
 
     private static void SetScreenVisibility(VisualElement container, bool visible)
     {

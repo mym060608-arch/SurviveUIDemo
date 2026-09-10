@@ -29,7 +29,10 @@ public static class SurviveProjectValidator
     private const string HubScenePath = "Assets/_Project/Scenes/01_Hub.unity";
     private const string SurfaceScenePath = "Assets/_Project/Scenes/02_NereidSurface.unity";
     private const string ShipScenePath = "Assets/_Project/Scenes/03_ShipInterior.unity";
+    private const string MainMenuScenePath = "Assets/_Project/Scenes/04_MainMenu.unity";
     private const string UxmlPath = "Assets/_Project/UI/UXML/MainApp.uxml";
+    private const string MainMenuUxmlPath = "Assets/_Project/UI/UXML/MainMenu.uxml";
+    private const string MainMenuUssPath = "Assets/_Project/UI/USS/MainMenu.uss";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
@@ -134,6 +137,9 @@ public static class SurviveProjectValidator
         Record(File.Exists(HubScenePath), "scene exists: " + HubScenePath);
         Record(File.Exists(SurfaceScenePath), "scene exists: " + SurfaceScenePath);
         Record(File.Exists(ShipScenePath), "scene exists: " + ShipScenePath);
+        Record(File.Exists(MainMenuScenePath), "scene exists: " + MainMenuScenePath);
+        Record(File.Exists(MainMenuUxmlPath), "main menu uxml exists: " + MainMenuUxmlPath);
+        Record(File.Exists(MainMenuUssPath), "main menu uss exists: " + MainMenuUssPath);
         Record(File.Exists(UxmlPath), "uxml exists: " + UxmlPath);
         Record(File.Exists(UssPath), "uss exists: " + UssPath);
         Record(File.Exists(OverviewUssPath), "overview uss exists: " + OverviewUssPath);
@@ -149,8 +155,8 @@ public static class SurviveProjectValidator
 
         // ---- Build order ----
         var buildScenes = EditorBuildSettings.scenes ?? new EditorBuildSettingsScene[0];
-        Record(buildScenes.Length == 4,
-            "build contains exactly 4 scenes (found " + buildScenes.Length + ")");
+        Record(buildScenes.Length == 5,
+            "build contains exactly 5 scenes (found " + buildScenes.Length + ")");
         if (buildScenes.Length >= 1)
         {
             Record(buildScenes[0].path == BootScenePath && buildScenes[0].enabled,
@@ -174,6 +180,39 @@ public static class SurviveProjectValidator
             Record(buildScenes[3].path == ShipScenePath && buildScenes[3].enabled,
                 "build[3] = 03_ShipInterior enabled (actual: " + buildScenes[3].path + ")");
         }
+
+        // Phase 08: the menu is appended after the frozen Phase 01-07 scenes, so
+        // the launch scene (index 0 = 00_Boot) and every legacy index stay put.
+        if (buildScenes.Length >= 5)
+        {
+            Record(buildScenes[4].path == MainMenuScenePath && buildScenes[4].enabled,
+                "build[4] = 04_MainMenu enabled (actual: " + buildScenes[4].path + ")");
+        }
+
+        // Navigation destination validity: the routing constant must name the
+        // scene that is actually in the build list (a stale name would leave the
+        // human entry into the demo broken).
+        string routingSceneName = System.IO.Path.GetFileNameWithoutExtension(MainMenuScenePath);
+        Record(SceneRouting.MainMenuSceneName == routingSceneName,
+            "SceneRouting.MainMenuSceneName matches the Main Menu scene (actual: "
+            + SceneRouting.MainMenuSceneName + ")");
+        bool menuInBuild = false;
+        bool hubInBuild = false;
+        foreach (EditorBuildSettingsScene scene in buildScenes)
+        {
+            if (scene != null && scene.path == MainMenuScenePath)
+            {
+                menuInBuild = scene.enabled;
+            }
+
+            if (scene != null && scene.path == HubScenePath)
+            {
+                hubInBuild = scene.enabled;
+            }
+        }
+
+        Record(menuInBuild, "Main Menu scene is an enabled build scene (16 进入任务 -> Overview)");
+        Record(hubInBuild, "Overview destination scene is an enabled build scene");
 
         // ---- MainApp.uxml coverage ----
         var uxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
@@ -293,6 +332,43 @@ public static class SurviveProjectValidator
             {
                 Record(shipPresent.Contains(expected), "ShipHUD.uxml structure: " + expected);
             }
+        }
+
+        // ---- MainMenu.uxml coverage (Phase 08 product cover) ----
+        var menuUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(MainMenuUxmlPath);
+        Record(menuUxml != null, "MainMenu.uxml imports as VisualTreeAsset");
+        if (menuUxml != null)
+        {
+            HashSet<string> menuPresent = new HashSet<string>();
+            TemplateContainer menuTemplate = menuUxml.Instantiate();
+            menuTemplate.Query<VisualElement>().ForEach(element =>
+            {
+                if (!string.IsNullOrEmpty(element.name))
+                {
+                    menuPresent.Add(element.name);
+                }
+            });
+
+            foreach (string expected in MainMenuNames.All)
+            {
+                Record(menuPresent.Contains(expected), "MainMenu.uxml contains element: " + expected);
+            }
+
+            foreach (string expected in MainMenuNames.Structure)
+            {
+                Record(menuPresent.Contains(expected), "MainMenu.uxml composition structure: " + expected);
+            }
+
+            // The one primary CTA must exist as a real Button (not a label) so
+            // the runtime can bind and the smoke can really click it.
+            Button cta = menuTemplate.Q<Button>(MainMenuNames.EnterMissionButton);
+            Record(cta != null, "MainMenu.uxml primary CTA is a Button (进入任务)");
+            Record(cta != null && cta.Q<Label>(MainMenuNames.EnterMissionLabel) != null,
+                "MainMenu.uxml primary CTA carries the Chinese label element");
+            Record(cta != null
+                   && cta.Q<Label>(MainMenuNames.EnterMissionLabel) != null
+                   && cta.Q<Label>(MainMenuNames.EnterMissionLabel).text == "进入任务",
+                "MainMenu.uxml primary CTA text is 进入任务");
         }
 
         // ---- 00_Boot scene content ----
@@ -551,6 +627,86 @@ public static class SurviveProjectValidator
             Record(shipHudDoc, "ship UIDocument bound to ShipHUD.uxml");
         }
 
+        // ---- 04_MainMenu scene content (Phase 08) ----
+        if (File.Exists(MainMenuScenePath))
+        {
+            EditorSceneManager.OpenScene(MainMenuScenePath, OpenSceneMode.Single);
+            Record(CountInScene<GameSession>() == 0,
+                "04_MainMenu authors no GameSession instance (found "
+                + CountInScene<GameSession>() + ")");
+            Record(CountInScene<UIDocument>() == 1,
+                "04_MainMenu has exactly one UIDocument (found "
+                + CountInScene<UIDocument>() + ")");
+            Record(CountInScene<MainMenuController>() == 1,
+                "04_MainMenu has exactly one MainMenuController (found "
+                + CountInScene<MainMenuController>() + ")");
+            Record(CountInScene<AppController>() == 0,
+                "04_MainMenu authors no second UI application / AppController (found "
+                + CountInScene<AppController>() + ")");
+
+            // EventSystem / AudioListener uniqueness (§35 / §37): the project
+            // authors neither one anywhere, so the menu must not introduce the
+            // first (audited by type name so the validator needs no ugui ref).
+            Record(CountInSceneByTypeName("EventSystem") == 0,
+                "04_MainMenu authors no EventSystem (found "
+                + CountInSceneByTypeName("EventSystem") + ")");
+            Record(CountInScene<AudioListener>() == 0,
+                "04_MainMenu authors no AudioListener (found "
+                + CountInScene<AudioListener>() + ")");
+
+            // The shared planet preview rig is NEVER authored: it is created on
+            // demand and shared by every host (one authoritative rig).
+            Record(CountInScene<OverviewPlanetPreview>() == 0,
+                "04_MainMenu authors no planet preview rig (runtime-created, found "
+                + CountInScene<OverviewPlanetPreview>() + ")");
+
+            UIDocument menuDocument = FirstInScene<UIDocument>();
+            if (menuDocument != null)
+            {
+                string sourceName = menuDocument.visualTreeAsset != null
+                    ? menuDocument.visualTreeAsset.name
+                    : "<null>";
+                Record(menuDocument.visualTreeAsset != null && sourceName == "MainMenu",
+                    "Main Menu UIDocument bound to MainMenu.uxml (actual: " + sourceName + ")");
+                Record(menuDocument.panelSettings != null,
+                    "Main Menu UIDocument has PanelSettings assigned");
+            }
+            else
+            {
+                Record(false, "Main Menu UIDocument missing (cannot verify binding)");
+            }
+
+            MainMenuController menu = FirstInScene<MainMenuController>();
+            if (menu != null)
+            {
+                var serialized = new SerializedObject(menu);
+                Record(serialized.FindProperty("themeStyleSheet") != null
+                       && serialized.FindProperty("themeStyleSheet").objectReferenceValue != null,
+                    "Main Menu controller has the shared theme style sheet assigned");
+                Record(serialized.FindProperty("mainMenuStyleSheet") != null
+                       && serialized.FindProperty("mainMenuStyleSheet").objectReferenceValue != null,
+                    "Main Menu controller has its own style sheet assigned");
+            }
+            else
+            {
+                Record(false, "MainMenuController missing (cannot verify references)");
+            }
+        }
+
+        // ---- shared 3D preview rig authoring guard ----
+        foreach (string scenePath in new[] { BootScenePath, HubScenePath, SurfaceScenePath, ShipScenePath })
+        {
+            if (!File.Exists(scenePath))
+            {
+                continue;
+            }
+
+            EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
+            Record(CountInScene<OverviewPlanetPreview>() == 0,
+                System.IO.Path.GetFileName(scenePath) + " authors no planet preview rig (found "
+                + CountInScene<OverviewPlanetPreview>() + ")");
+        }
+
         bool ok = failures == 0;
         log.AppendLine(ok ? "RESULT: SUCCESS" : "RESULT: FAILED");
         log.AppendLine("CHECKS: " + CountCheckLines(log) + " | FAILURES: " + failures);
@@ -590,6 +746,28 @@ public static class SurviveProjectValidator
         return count;
     }
 
+    /// <summary>
+    /// Counts components whose runtime type name matches, so uniqueness checks
+    /// (EventSystem) need no reference to the ugui assembly from this asmdef.
+    /// </summary>
+    private static int CountInSceneByTypeName(string typeName)
+    {
+        int count = 0;
+        Scene active = SceneManager.GetActiveScene();
+        foreach (GameObject root in active.GetRootGameObjects())
+        {
+            foreach (Component component in root.GetComponentsInChildren<Component>(true))
+            {
+                if (component != null && component.GetType().Name == typeName)
+                {
+                    count++;
+                }
+            }
+        }
+
+        return count;
+    }
+
     private static int CountInScene<T>() where T : Component
     {
         int count = 0;
@@ -602,8 +780,7 @@ public static class SurviveProjectValidator
         return count;
     }
 
-    private static bool RootExists(string rootName)
-    {
+    private static bool RootExists(string rootName)    {
         Scene active = SceneManager.GetActiveScene();
         foreach (GameObject root in active.GetRootGameObjects())
         {

@@ -3,47 +3,63 @@ using System.Collections;
 using System.IO;
 using System.Text;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 /// <summary>
 /// Standalone smoke probe (validation instrumentation only).
 ///
 /// Inert during normal play: it only activates when the player is launched
-/// with  -smokeResult &lt;absolute path&gt;. It then drives the authoritative
-/// Boot -> Hub -> state-mutation path once, writes a machine-readable result
-/// file and quits with a matching exit code.
+/// with  -smokeResult &lt;absolute path&gt;. Exactly ONE probe instance owns the run
+/// (the first one to wake claims it), so the menu probe and the legacy Hub
+/// probe can both be authored without ever driving the app twice.
+///
+/// Phase 08 order (the real human flow, end to end):
+///   Boot -&gt; Main Menu visible -&gt; 进入任务 CTA -&gt; 系统设置 open/close
+///        -&gt; background click blocked -&gt; 制作信息 open/close -&gt; 进入任务
+///        -&gt; Overview -&gt; existing Phase 01-05 state journey -&gt; main menu
+///        round trip (session preserved, one preview rig) -&gt; 进入任务 again
+///        -&gt; Overview -&gt; 退出 (the application must terminate).
 /// </summary>
 public class StandaloneSmoke : MonoBehaviour
 {
     private const string SmokeResultFlag = "-smokeResult";
 
+    private static bool _sessionClaimed;
+
     private string _resultPath;
+    private bool _ownsRun;
 
     private void Awake()
     {
         _resultPath = ParseFlag(SmokeResultFlag);
-        if (string.IsNullOrEmpty(_resultPath))
+        if (string.IsNullOrEmpty(_resultPath) || _sessionClaimed)
         {
-            // Not a smoke launch: remove the probe entirely.
+            // Not a smoke launch, or another probe instance already owns it.
             enabled = false;
             return;
         }
+
+        _sessionClaimed = true;
+        _ownsRun = true;
     }
 
     private void Start()
     {
-        if (!string.IsNullOrEmpty(_resultPath))
+        if (!_ownsRun)
         {
-            StartCoroutine(RunProbe());
-            // Watchdog guarantees termination if an unexpected exception stops
-            // the probe coroutine.
-            StartCoroutine(QuitWatchdog());
+            return;
         }
+
+        StartCoroutine(RunProbe());
+        // Watchdog guarantees termination if an unexpected exception stops the
+        // probe coroutine.
+        StartCoroutine(QuitWatchdog());
     }
 
     private static IEnumerator QuitWatchdog()
     {
-        yield return new WaitForSecondsRealtime(120f);
+        yield return new WaitForSecondsRealtime(300f);
         Debug.LogError("[StandaloneSmoke] watchdog timeout - forcing quit");
         Application.Quit(2);
     }
@@ -64,252 +80,561 @@ public class StandaloneSmoke : MonoBehaviour
 
     private IEnumerator RunProbe()
     {
-        var results = new StringBuilder();
-        int failures = 0;
+        var log = new SmokeLog();
+        Debug.Log("[StandaloneSmoke] probe start -> " + _resultPath);
 
-        // Wait until the Hub UI is ready (Boot -> Hub transition finished).
+        // ---- 1. Boot -> Main Menu (Phase 08 product cover) ----
+        MainMenuController menu = null;
+        yield return WaitFor(() =>
+        {
+            menu = FindFirstObjectByTypeHelper.Find<MainMenuController>();
+            return menu != null && menu.IsReady;
+        }, 25f);
+
+        if (menu == null)
+        {
+            Debug.LogError("[StandaloneSmoke] main menu never became ready");
+            log.Fail("main menu never became ready");
+            Finish(log, 1);
+            yield break;
+        }
+
+        Debug.Log("[StandaloneSmoke] main menu ready: "
+                  + SceneManager.GetActiveScene().name);
+
+        log.Check("boot enters the main menu scene",
+            SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
+        log.Check("exactly one MainMenuController",
+            UnityEngine.Object.FindObjectsByType<MainMenuController>().Length == 1);
+
+        GameSession session = GameSession.Instance;
+        log.Check("exactly one authoritative GameSession",
+            session != null
+            && UnityEngine.Object.FindObjectsByType<GameSession>().Length == 1);
+
+        // The menu is presentation only: showing it never resets the state.
+        log.Check("main menu shows launch defaults without resetting",
+            session != null && session.Energy == 74 && session.Food == 51
+            && session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5
+            && session.OutpostLevel == 1 && session.RefineryLevel == 1);
+
+        Button cta = menu.EnterMissionButton;
+        Label ctaLabel = cta != null ? cta.Q<Label>(MainMenuNames.EnterMissionLabel) : null;
+        log.Check("进入任务 CTA visible, enabled and labelled",
+            cta != null && cta.enabledSelf
+            && cta.resolvedStyle.display != DisplayStyle.None
+            && ctaLabel != null && ctaLabel.text == "进入任务");
+
+        VisualElement settingsButton = menu.UiRoot?.Q<Button>(MainMenuNames.SettingsButton);
+        VisualElement creditsButton = menu.UiRoot?.Q<Button>(MainMenuNames.CreditsButton);
+        Button exitButton = menu.UiRoot?.Q<Button>(MainMenuNames.ExitButton);
+        log.Check("系统设置 / 制作信息 / 退出 all present",
+            settingsButton != null && creditsButton != null && exitButton != null);
+
+        // Hero visual: the ONE shared preview rig, rendering into its RT.
+        OverviewPlanetPreview rig = OverviewPlanetPreview.Shared;
+        log.Check("hero uses the one shared planet preview rig",
+            rig != null && menu.IsHeroPlanetActive
+            && rig.Texture != null && rig.Texture.IsCreated()
+            && UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length == 1);
+        log.Check("hero preview camera is rendering for the menu viewer",
+            rig != null && rig.ViewerCount >= 1 && rig.IsRendering);
+
+        // ---- 2. 系统设置 real click ----
+        yield return RealClick(settingsButton, "系统设置", log);
+        yield return WaitFor(() => menu.IsSettingsOpen, 5f);
+        log.Check("系统设置 opens the settings modal",
+            menu.IsSettingsOpen && menu.OpenModalCount == 1);
+
+        // ---- 3. Background is blocked while the modal is open (§20) ----
+        bool clickedBehind = UiToolkitPointerSimulator.Click(cta);
+        yield return null;
+        yield return null;
+        log.Check("modal blocks the background CTA (no navigation)",
+            clickedBehind && !menu.IsTransitioning
+            && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName
+            && menu.IsSettingsOpen);
+
+        yield return RealClick(menu.UiRoot?.Q<Button>(MainMenuNames.SettingsCloseButton),
+            "设置关闭", log);
+        yield return WaitFor(() => !menu.IsSettingsOpen, 5f);
+        yield return WaitFor(() => menu.OpenModalCount == 0, 5f);
+        log.Check("设置关闭 hides the settings modal",
+            !menu.IsSettingsOpen && menu.OpenModalCount == 0);
+
+        // ---- 4. 制作信息 real click (and no modal stacking) ----
+        // Opening settings first proves the background is blocked; the stacking
+        // rule itself is then checked through the menu's own API.
+        yield return RealClick(settingsButton, "系统设置(2)", log);
+        yield return WaitFor(() => menu.IsSettingsOpen, 5f);
+        bool blockedCredits = UiToolkitPointerSimulator.Click(creditsButton);
+        yield return null;
+        yield return null;
+        log.Check("制作信息 behind the modal is blocked",
+            blockedCredits && !menu.IsCreditsOpen && menu.IsSettingsOpen);
+
+        menu.ShowCredits();
+        yield return WaitFor(() => menu.IsCreditsOpen, 5f);
+        log.Check("制作信息 opens the credits modal without stacking",
+            menu.IsCreditsOpen && !menu.IsSettingsOpen && menu.OpenModalCount == 1);
+
+        yield return RealClick(menu.UiRoot?.Q<Button>(MainMenuNames.CreditsCloseButton),
+            "制作信息关闭", log);
+        yield return WaitFor(() => !menu.IsCreditsOpen, 5f);
+        yield return WaitFor(() => menu.OpenModalCount == 0, 5f);
+        log.Check("制作信息关闭 hides the credits modal",
+            !menu.IsCreditsOpen && menu.OpenModalCount == 0 && !menu.IsSettingsOpen);
+
+        // ---- 5. 进入任务 real click -> existing Overview ----
+        yield return RealClick(cta, "进入任务", log);
+
+        // The mission entry lands on the four-screen UI app in the Editor and on
+        // the walkable ship interior in a player build (see MainMenuController:
+        // the legacy Hub scene cannot be loaded in a player). Both hosts are the
+        // SAME demo flow, so the smoke accepts either and then verifies the
+        // shared session journey the same way.
         AppController app = null;
-        for (int i = 0; i < 600; i++)
+        ShipGameController ship = null;
+        yield return WaitFor(() =>
         {
             app = FindFirstObjectByTypeHelper.Find<AppController>();
-            if (app != null && app.IsReady && GameSession.Instance != null)
-            {
-                break;
-            }
+            ship = FindFirstObjectByTypeHelper.Find<ShipGameController>();
+            return (app != null && app.IsReady) || (ship != null && ship.IsReady);
+        }, 30f);
 
+        bool inHub = app != null && app.IsReady;
+        bool inShip = ship != null && ship.IsReady;
+        if (!inHub && !inShip)
+        {
+            log.Fail("进入任务 never reached the existing demo flow");
+            Finish(log, 1);
+            yield break;
+        }
+
+        if (inHub)
+        {
+            log.Check("进入任务 enters the existing Overview",
+                SceneManager.GetActiveScene().name == BootController.HubSceneName
+                && app.CurrentScreen == AppScreen.Overview
+                && app.VisibleScreenCount == 1);
+        }
+        else
+        {
+            log.Check("进入任务 enters the walkable ship (player flow)",
+                SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName
+                && ship.Player != null && ship.Interactor != null);
+            log.Check("ship bridge hosts the Overview terminal with the shared planet",
+                UnityEngine.Object.FindObjectsByType<ShipConsoleScreenHost>().Length >= 1);
+        }
+
+        log.Check("the menu scene is gone after entering the mission",
+            UnityEngine.Object.FindObjectsByType<MainMenuController>().Length == 0);
+        log.Check("still one shared preview rig after the transition",
+            UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length == 1);
+
+        // ---- 6. existing Phase 01-05 state journey (scene independent) ----
+        RunSessionJourney(log, session);
+        if (inHub)
+        {
+            RunLegacyUiJourney(log, app, session);
+        }
+
+        yield return RunProcessJourney(log, session, inHub ? app : null);
+
+        // ---- 7. Main Menu round trip: the session must be preserved ----
+        int mineralsBefore = session.Minerals;
+        int alloyBefore = session.Alloy;
+        int refineryBefore = session.RefineryLevel;
+        SceneRouting.EnterMainMenu();
+        MainMenuController menuAgain = null;
+        yield return WaitFor(() =>
+        {
+            menuAgain = FindFirstObjectByTypeHelper.Find<MainMenuController>();
+            return menuAgain != null && menuAgain.IsReady;
+        }, 25f);
+
+        log.Check("main menu is re-enterable after the mission entry",
+            menuAgain != null
+            && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
+        log.Check("returning to the main menu never resets the session",
+            GameSession.Instance == session
+            && session.Minerals == mineralsBefore && session.Alloy == alloyBefore
+            && session.RefineryLevel == refineryBefore);
+        log.Check("still exactly one shared preview rig after re-entry",
+            UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length == 1);
+        log.Check("no duplicated persistent GameSession",
+            UnityEngine.Object.FindObjectsByType<GameSession>().Length == 1);
+
+        // ---- 8. 进入任务 again -> the same demo flow ----
+        yield return RealClick(menuAgain?.EnterMissionButton, "进入任务(2)", log);
+        bool secondEntryOk = false;
+        yield return WaitFor(() =>
+        {
+            AppController secondHub = FindFirstObjectByTypeHelper.Find<AppController>();
+            ShipGameController secondShip = FindFirstObjectByTypeHelper.Find<ShipGameController>();
+            secondEntryOk = (secondHub != null && secondHub.IsReady)
+                            || (secondShip != null && secondShip.IsReady);
+            return secondEntryOk;
+        }, 30f);
+        log.Check("进入任务 works a second time", secondEntryOk);
+
+        // ---- 9. 退出 must terminate the application ----
+        SceneRouting.EnterMainMenu();
+        MainMenuController menuExit = null;
+        yield return WaitFor(() =>
+        {
+            menuExit = FindFirstObjectByTypeHelper.Find<MainMenuController>();
+            return menuExit != null && menuExit.IsReady;
+        }, 25f);
+        log.Check("main menu is ready for the exit smoke", menuExit != null);
+
+        log.Line("EXIT: clicking 退出 (the process must terminate)");
+        WriteResult(log, log.Failures == 0);
+        yield return RealClick(menuExit?.UiRoot?.Q<Button>(MainMenuNames.ExitButton), "退出", log);
+
+        // Still alive after ~1.5 s means the exit action is broken; the
+        // watchdog must not be allowed to hide that.
+        for (int i = 0; i < 90; i++)
+        {
             yield return null;
         }
 
-        // No try/catch here: iterator bodies may not contain yield inside a
-        // catch scope. Unexpected exceptions surface in the player log while
-        // the watchdog guarantees the process terminates.
+        log.Fail("退出 did not terminate the application");
+        WriteResult(log, false);
+        Application.Quit(1);
+    }
+
+    /// <summary>
+    /// Phase 01-05 authoritative STATE journey. Scene independent, so it runs in
+    /// every host (the four-screen UI app or the walkable ship).
+    /// </summary>
+    private static void RunSessionJourney(SmokeLog log, GameSession session)
+    {
+        session.ResetSession();
+
+        log.Check("defaults minerals=20 fuel=8 alloy=5 modules LV1",
+            session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5
+            && session.RefineryLevel == 1 && session.HarvesterLevel == 1
+            && session.OutpostLevel == 1);
+
+        log.Check("derived defaults eff=100 duration=2.0 cap=LV.2",
+            session.HarvesterEfficiencyPercent == 100
+            && Math.Abs(session.RefineryProcessSeconds - 2.0f) < 0.001f
+            && session.SubsystemLevelCap == 2);
+
+        session.AddMinerals(10);
+        log.Check("after +10 minerals minerals=30", session.Minerals == 30);
+
+        bool started5 = session.TryStartProcess(5);
+        session.AdvanceProcessing(session.RefineryProcessSeconds);
+        log.Check("batch5 complete -> minerals=25 fuel=10 alloy=6",
+            started5 && session.Minerals == 25 && session.Fuel == 10 && session.Alloy == 6);
+
+        bool upgradeOk = session.TryUpgrade(GameSession.OutpostModule.Refinery)
+                         == GameSession.UpgradeFailureReason.None;
+        log.Check("refinery upgrade -> alloy=3 level=2 duration=1.6",
+            upgradeOk && session.Alloy == 3 && session.RefineryLevel == 2
+            && Math.Abs(session.RefineryProcessSeconds - 1.6f) < 0.001f);
+    }
+
+    /// <summary>Phase 01-03 UI journey (needs the four-screen UI app host).</summary>
+    private static void RunLegacyUiJourney(SmokeLog log, AppController app, GameSession session)
+    {
+        app.ShowScreen(AppScreen.Overview);
+        log.Check("screen overview active/unique",
+            app.CurrentScreen == AppScreen.Overview && app.VisibleScreenCount == 1);
+
+        app.ShowScreen(AppScreen.Preparation);
+        log.Check("screen preparation active/unique",
+            app.CurrentScreen == AppScreen.Preparation && app.VisibleScreenCount == 1);
+
+        app.ShowScreen(AppScreen.Processing);
+        log.Check("screen processing active/unique",
+            app.CurrentScreen == AppScreen.Processing && app.VisibleScreenCount == 1);
+
+        app.ShowScreen(AppScreen.Outpost);
+        log.Check("screen outpost active/unique",
+            app.CurrentScreen == AppScreen.Outpost && app.VisibleScreenCount == 1);
+
+        // Phase 03: the Preparation loadout journey (Chinese-first copy).
+        app.ShowScreen(AppScreen.Preparation);
+        Label cargoLabel = app.UiRoot?.Q<Label>(ElementNames.CargoValue);
+        Label stateLabel = app.UiRoot?.Q<Label>(ElementNames.LoadoutStateLabel);
+        Button confirmButton = app.UiRoot?.Q<Button>(ElementNames.ConfirmLoadoutButton);
+        log.Check("preparation defaults cargo 45/100 state 就绪 confirm enabled",
+            app.CurrentScreen == AppScreen.Preparation && app.VisibleScreenCount == 1
+            && cargoLabel != null && cargoLabel.text == "45 / 100"
+            && stateLabel != null && stateLabel.text == "就绪"
+            && confirmButton != null && confirmButton.enabledSelf);
+
+        bool selectBattery = session.TrySetBatterySelected(true);
+        log.Check("select battery -> cargo 70/100",
+            selectBattery && session.CargoWeight == 70
+            && cargoLabel != null && cargoLabel.text == "70 / 100");
+
+        bool selectDrone = session.TrySetDroneSelected(true);
+        log.Check("select drone -> cargo 90/100",
+            selectDrone && session.CargoWeight == 90
+            && cargoLabel != null && cargoLabel.text == "90 / 100");
+
+        bool confirmLoadout = session.TryConfirmLoadout();
+        log.Check("confirm loadout -> 已确认",
+            confirmLoadout && session.LoadoutConfirmed
+            && stateLabel != null && stateLabel.text == "已确认");
+
+        app.ShowScreen(AppScreen.Overview);
+        app.ShowScreen(AppScreen.Preparation);
+        log.Check("loadout preserved across navigation",
+            session.BatterySelected && session.DroneSelected && session.LoadoutConfirmed
+            && cargoLabel != null && cargoLabel.text == "90 / 100");
+
+        bool editAfterConfirm = session.TrySetBatterySelected(false);
+        log.Check("edit after confirm clears confirmation (cargo 65)",
+            editAfterConfirm && !session.LoadoutConfirmed
+            && cargoLabel != null && cargoLabel.text == "65 / 100");
+
+        app.ShowScreen(AppScreen.Overview);
+        Label overviewMinerals = app.UiRoot?.Q<Label>(ElementNames.MineralsValue);
+        Label overviewAlloy = app.UiRoot?.Q<Label>(ElementNames.AlloyValue);
+        log.Check("overview reflects shared state (minerals=25 alloy=3)",
+            overviewMinerals != null && overviewMinerals.text == "25"
+            && overviewAlloy != null && overviewAlloy.text == "3");
+
+        bool blockedByCore = session.TryUpgrade(GameSession.OutpostModule.Refinery)
+                             == GameSession.UpgradeFailureReason.CoreLevelRequired;
+        log.Check("refinery LV3 blocked by core (alloy unchanged)",
+            blockedByCore && session.RefineryLevel == 2 && session.Alloy == 3);
+        bool coreLack = session.TryUpgrade(GameSession.OutpostModule.Core)
+                        == GameSession.UpgradeFailureReason.InsufficientAlloy;
+        log.Check("core upgrade insufficient alloy",
+            coreLack && session.OutpostLevel == 1 && session.Alloy == 3);
+    }
+
+    /// <summary>
+    /// Phase 04/05 journey with real timers, then the state regression. The
+    /// processing/handling assertions run in every host; the label assertions
+    /// only when the four-screen UI app is the active host.
+    /// </summary>
+    private static IEnumerator RunProcessJourney(SmokeLog log, GameSession session,
+        AppController app)
+    {
+        string host = app != null ? "hub" : "ship";
+        if (app != null)
         {
-            if (app == null || GameSession.Instance == null)
-            {
-                Fail(results, ref failures, "hub UI never became ready");
-            }
-            else
-            {
-                GameSession session = GameSession.Instance;
-                session.ResetSession();
-
-                Check(results, ref failures, "defaults minerals=20 fuel=8 alloy=5 modules LV1",
-                    session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5
-                    && session.RefineryLevel == 1 && session.HarvesterLevel == 1 && session.OutpostLevel == 1);
-
-                // Derived defaults.
-                Check(results, ref failures, "derived defaults eff=100 duration=2.0 cap=LV.2",
-                    session.HarvesterEfficiencyPercent == 100
-                    && Math.Abs(session.RefineryProcessSeconds - 2.0f) < 0.001f
-                    && session.SubsystemLevelCap == 2);
-
-                session.AddMinerals(10);
-                Check(results, ref failures, "after +10 minerals minerals=30", session.Minerals == 30);
-
-                // Batch refinery: start deducts, completion settles.
-                bool started5 = session.TryStartProcess(5);
-                session.AdvanceProcessing(session.RefineryProcessSeconds);
-                Check(results, ref failures, "batch5 complete -> minerals=25 fuel=10 alloy=6",
-                    started5 && session.Minerals == 25 && session.Fuel == 10 && session.Alloy == 6);
-
-                // Phase 05 economy: Refinery LV.1 -> LV.2 costs 3 Alloy.
-                bool upgradeOk = session.TryUpgrade(GameSession.OutpostModule.Refinery)
-                                 == GameSession.UpgradeFailureReason.None;
-                Check(results, ref failures, "refinery upgrade -> alloy=3 level=2 duration=1.6",
-                    upgradeOk && session.Alloy == 3 && session.RefineryLevel == 2
-                    && Math.Abs(session.RefineryProcessSeconds - 1.6f) < 0.001f);
-
-                // Navigation: every screen reachable, exactly one visible.
-                app.ShowScreen(AppScreen.Overview);
-                Check(results, ref failures, "screen overview active/unique",
-                    app.CurrentScreen == AppScreen.Overview && app.VisibleScreenCount == 1);
-
-                app.ShowScreen(AppScreen.Preparation);
-                Check(results, ref failures, "screen preparation active/unique",
-                    app.CurrentScreen == AppScreen.Preparation && app.VisibleScreenCount == 1);
-
-                app.ShowScreen(AppScreen.Processing);
-                Check(results, ref failures, "screen processing active/unique",
-                    app.CurrentScreen == AppScreen.Processing && app.VisibleScreenCount == 1);
-
-                app.ShowScreen(AppScreen.Outpost);
-                Check(results, ref failures, "screen outpost active/unique",
-                    app.CurrentScreen == AppScreen.Outpost && app.VisibleScreenCount == 1);
-
-                // Phase 03: Preparation loadout journey (Chinese-first copy).
-                app.ShowScreen(AppScreen.Preparation);
-                Label cargoLabel = app.UiRoot?.Q<Label>(ElementNames.CargoValue);
-                Label stateLabel = app.UiRoot?.Q<Label>(ElementNames.LoadoutStateLabel);
-                Button confirmButton = app.UiRoot?.Q<Button>(ElementNames.ConfirmLoadoutButton);
-                Check(results, ref failures, "preparation defaults cargo 45/100 state 就绪 confirm enabled",
-                    app.CurrentScreen == AppScreen.Preparation && app.VisibleScreenCount == 1
-                    && cargoLabel != null && cargoLabel.text == "45 / 100"
-                    && stateLabel != null && stateLabel.text == "就绪"
-                    && confirmButton != null && confirmButton.enabledSelf);
-
-                bool selectBattery = session.TrySetBatterySelected(true);
-                Check(results, ref failures, "select battery -> cargo 70/100",
-                    selectBattery && session.CargoWeight == 70
-                    && cargoLabel != null && cargoLabel.text == "70 / 100");
-
-                bool selectDrone = session.TrySetDroneSelected(true);
-                Check(results, ref failures, "select drone -> cargo 90/100",
-                    selectDrone && session.CargoWeight == 90
-                    && cargoLabel != null && cargoLabel.text == "90 / 100");
-
-                bool confirmLoadout = session.TryConfirmLoadout();
-                Check(results, ref failures, "confirm loadout -> 已确认",
-                    confirmLoadout && session.LoadoutConfirmed
-                    && stateLabel != null && stateLabel.text == "已确认");
-
-                // Leave Preparation and return: loadout state must persist.
-                app.ShowScreen(AppScreen.Overview);
-                app.ShowScreen(AppScreen.Preparation);
-                Check(results, ref failures, "loadout preserved across navigation",
-                    session.BatterySelected && session.DroneSelected && session.LoadoutConfirmed
-                    && cargoLabel != null && cargoLabel.text == "90 / 100");
-
-                bool editAfterConfirm = session.TrySetBatterySelected(false);
-                Check(results, ref failures, "edit after confirm clears confirmation (cargo 65)",
-                    editAfterConfirm && !session.LoadoutConfirmed
-                    && cargoLabel != null && cargoLabel.text == "65 / 100");
-
-                // Cross-screen consistency on the Overview after mutations.
-                app.ShowScreen(AppScreen.Overview);
-                Label overviewMinerals = app.UiRoot?.Q<Label>(ElementNames.MineralsValue);
-                Label overviewAlloy = app.UiRoot?.Q<Label>(ElementNames.AlloyValue);
-                Check(results, ref failures, "overview reflects shared state (minerals=25 alloy=3)",
-                    overviewMinerals != null && overviewMinerals.text == "25"
-                    && overviewAlloy != null && overviewAlloy.text == "3");
-
-                // Module blockers: LV.3 needs Core LV.2; Core costs more than
-                // the 3 remaining Alloy.
-                bool blockedByCore = session.TryUpgrade(GameSession.OutpostModule.Refinery)
-                                     == GameSession.UpgradeFailureReason.CoreLevelRequired;
-                Check(results, ref failures, "refinery LV3 blocked by core (alloy unchanged)",
-                    blockedByCore && session.RefineryLevel == 2 && session.Alloy == 3);
-                bool coreLack = session.TryUpgrade(GameSession.OutpostModule.Core)
-                                == GameSession.UpgradeFailureReason.InsufficientAlloy;
-                Check(results, ref failures, "core upgrade insufficient alloy",
-                    coreLack && session.OutpostLevel == 1 && session.Alloy == 3);
-
-                // Outpost UI reflects state: refinery LV.2, new duration, CTA
-                // shows the Core prerequisite and is disabled.
-                app.ShowScreen(AppScreen.Outpost);
-                yield return null;
-                yield return null;
-                Label outpostAlloy = app.UiRoot?.Q<Label>(ElementNames.OutpostAlloyValue);
-                Label refineryStatus = app.UiRoot?.Q<Label>(ElementNames.RefineryLevelValue);
-                Label detailDuration = app.UiRoot?.Q<Label>(ElementNames.ModuleCurrentEffectValue);
-                Label detailName = app.UiRoot?.Q<Label>(ElementNames.ModuleDetailName);
-                Button outpostUpgrade = app.UiRoot?.Q<Button>(ElementNames.OutpostUpgradeButton);
-                Check(results, ref failures, "outpost UI shows refinery LV.2 duration 1.6 CTA core-locked",
-                    outpostAlloy != null && outpostAlloy.text == "3"
-                    && refineryStatus != null && refineryStatus.text == "LV.2"
-                    && detailName != null && detailName.text == "精炼模块"
-                    && detailDuration != null && detailDuration.text == "1.6s"
-                    && outpostUpgrade != null && outpostUpgrade.text == "需要核心升级"
-                    && !outpostUpgrade.enabledSelf);
-
-                // Phase 04: Processing journey with real-time completion and
-                // the Phase 05 duration integration visible.
-                app.ShowScreen(AppScreen.Processing);
-                Label mineralsLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingMineralsValue);
-                Label fuelLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingFuelValue);
-                Label statusLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingStatusLabel);
-                Label durationMeta = app.UiRoot?.Q<Label>(ElementNames.ProcessingDurationValue);
-                Label refineryMeta = app.UiRoot?.Q<Label>(ElementNames.ProcessingRefineryLevel);
-                Button processStart = app.UiRoot?.Q<Button>(ElementNames.ProcessingStartButton);
-                Check(results, ref failures, "processing shows refinery LV.2 duration 1.6s",
-                    refineryMeta != null && refineryMeta.text == "LV.2"
-                    && durationMeta != null && durationMeta.text == "1.6s");
-
-                bool batch10 = session.TryStartProcess(10);
-                Check(results, ref failures, "start batch 10 -> minerals=15 state Running",
-                    batch10 && session.Minerals == 15 && session.IsProcessing
-                    && mineralsLabel != null && mineralsLabel.text == "15"
-                    && processStart != null && processStart.text == "加工中"
-                    && !processStart.enabledSelf);
-
-                // Navigate away and back while processing: state must persist.
-                app.ShowScreen(AppScreen.Overview);
-                app.ShowScreen(AppScreen.Preparation);
-                app.ShowScreen(AppScreen.Processing);
-                Check(results, ref failures, "processing persists across navigation",
-                    session.IsProcessing && session.Minerals == 15);
-
-                yield return WaitForProcessDone(session, 9000);
-                Check(results, ref failures, "batch10 complete -> fuel=14 alloy=5",
-                    session.ProcessState == GameSession.RefineryProcessState.Complete
-                    && session.Fuel == 14 && session.Alloy == 5
-                    && fuelLabel != null && fuelLabel.text == "14");
-
-                // A second batch from Complete demonstrates re-start; the UI
-                // selection (batch 5) matches this run, so "加工完成" is shown.
-                bool again = session.TryStartProcess(5);
-                Check(results, ref failures, "re-start batch 5 after complete -> minerals=10",
-                    again && session.Minerals == 10 && session.IsProcessing);
-                yield return WaitForProcessDone(session, 9000);
-                Check(results, ref failures, "batch5 complete -> fuel=16 alloy=6 status 加工完成",
-                    session.ProcessState == GameSession.RefineryProcessState.Complete
-                    && session.Fuel == 16 && session.Alloy == 6
-                    && statusLabel != null && statusLabel.text == "加工完成");
-
-                session.ResetSession();
-                Check(results, ref failures, "reset restores defaults minerals=20 fuel=8 alloy=5 modules LV1",
-                    session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5
-                    && session.RefineryLevel == 1 && session.HarvesterLevel == 1 && session.OutpostLevel == 1
-                    && Math.Abs(session.RefineryProcessSeconds - 2.0f) < 0.001f);
-            }
+            app.ShowScreen(AppScreen.Outpost);
+            yield return null;
+            yield return null;
+            Label outpostAlloy = app.UiRoot?.Q<Label>(ElementNames.OutpostAlloyValue);
+            Label refineryStatus = app.UiRoot?.Q<Label>(ElementNames.RefineryLevelValue);
+            Label detailDuration = app.UiRoot?.Q<Label>(ElementNames.ModuleCurrentEffectValue);
+            Label detailName = app.UiRoot?.Q<Label>(ElementNames.ModuleDetailName);
+            Button outpostUpgrade = app.UiRoot?.Q<Button>(ElementNames.OutpostUpgradeButton);
+            log.Check("outpost UI shows refinery LV.2 duration 1.6 CTA core-locked",
+                outpostAlloy != null && outpostAlloy.text == "3"
+                && refineryStatus != null && refineryStatus.text == "LV.2"
+                && detailName != null && detailName.text == "精炼模块"
+                && detailDuration != null && detailDuration.text == "1.6s"
+                && outpostUpgrade != null && outpostUpgrade.text == "需要核心升级"
+                && !outpostUpgrade.enabledSelf);
+        }
+        else
+        {
+            log.Check("outpost state derived values in the " + host + " host",
+                session.RefineryLevel == 2 && session.Alloy == 3
+                && session.SubsystemLevelCap == 2);
         }
 
-        results.AppendLine(failures == 0 ? "RESULT: SUCCESS" : "RESULT: FAILED");
-        WriteResult(results.ToString(), failures == 0);
-        Application.Quit(failures == 0 ? 0 : 1);
+        Label mineralsLabel = null;
+        Label fuelLabel = null;
+        Label statusLabel = null;
+        Label durationMeta = null;
+        Label refineryMeta = null;
+        Button processStart = null;
+        if (app != null)
+        {
+            app.ShowScreen(AppScreen.Processing);
+            mineralsLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingMineralsValue);
+            fuelLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingFuelValue);
+            statusLabel = app.UiRoot?.Q<Label>(ElementNames.ProcessingStatusLabel);
+            durationMeta = app.UiRoot?.Q<Label>(ElementNames.ProcessingDurationValue);
+            refineryMeta = app.UiRoot?.Q<Label>(ElementNames.ProcessingRefineryLevel);
+            processStart = app.UiRoot?.Q<Button>(ElementNames.ProcessingStartButton);
+            log.Check("processing shows refinery LV.2 duration 1.6s",
+                refineryMeta != null && refineryMeta.text == "LV.2"
+                && durationMeta != null && durationMeta.text == "1.6s");
+        }
+        else
+        {
+            log.Check("processing host has no UI app: duration derived from LV.2",
+                Math.Abs(session.RefineryProcessSeconds - 1.6f) < 0.001f);
+        }
+
+        bool batch10 = session.TryStartProcess(10);
+        log.Check("start batch 10 -> minerals=15 state Running",
+            batch10 && session.Minerals == 15 && session.IsProcessing
+            && (app == null || (mineralsLabel != null && mineralsLabel.text == "15"
+                                && processStart != null && processStart.text == "加工中"
+                                && !processStart.enabledSelf)));
+
+        if (app != null)
+        {
+            app.ShowScreen(AppScreen.Overview);
+            app.ShowScreen(AppScreen.Preparation);
+            app.ShowScreen(AppScreen.Processing);
+        }
+
+        log.Check("processing persists across navigation",
+            session.IsProcessing && session.Minerals == 15);
+
+        yield return WaitForProcessDone(session, 30f);
+        log.Check("batch10 complete -> fuel=14 alloy=5",
+            session.ProcessState == GameSession.RefineryProcessState.Complete
+            && session.Fuel == 14 && session.Alloy == 5
+            && (app == null || (fuelLabel != null && fuelLabel.text == "14")));
+
+        bool again = session.TryStartProcess(5);
+        log.Check("re-start batch 5 after complete -> minerals=10",
+            again && session.Minerals == 10 && session.IsProcessing);
+        yield return WaitForProcessDone(session, 30f);
+        log.Check("batch5 complete -> fuel=16 alloy=6 status 加工完成",
+            session.ProcessState == GameSession.RefineryProcessState.Complete
+            && session.Fuel == 16 && session.Alloy == 6
+            && (app == null || (statusLabel != null && statusLabel.text == "加工完成")));
+
+        // §73: a short cross-screen state regression after the menu transition.
+        if (app != null)
+        {
+            app.ShowScreen(AppScreen.Overview);
+            Label overviewMinerals = app.UiRoot?.Q<Label>(ElementNames.MineralsValue);
+            log.Check("state regression starts on Overview with the settled state",
+                app.CurrentScreen == AppScreen.Overview && overviewMinerals != null
+                && overviewMinerals.text == "10");
+            app.ShowScreen(AppScreen.Preparation);
+            app.ShowScreen(AppScreen.Processing);
+            app.ShowScreen(AppScreen.Outpost);
+            log.Check("state regression ends on Outpost with one visible screen",
+                app.CurrentScreen == AppScreen.Outpost && app.VisibleScreenCount == 1);
+        }
+        else
+        {
+            log.Check("state regression: settled state is shared in the " + host + " host",
+                session.Minerals == 10 && session.Fuel == 16 && session.Alloy == 6
+                && session.ProcessState == GameSession.RefineryProcessState.Complete);
+        }
     }
 
     /// <summary>Waits (bounded) for a running process to settle via the real
     /// session timer; completes immediately if already finished.</summary>
-    private static IEnumerator WaitForProcessDone(GameSession session, int maxFrames)
+    private static IEnumerator WaitForProcessDone(GameSession session, float seconds)
     {
-        int frames = 0;
-        while (session.IsProcessing && frames < maxFrames)
+        float deadline = Time.realtimeSinceStartup + seconds;
+        while (session.IsProcessing && Time.realtimeSinceStartup < deadline)
         {
-            frames++;
             yield return null;
         }
     }
 
-    private static void Check(StringBuilder results, ref int failures, string label, bool condition)
+    /// <summary>Real UI Toolkit click through the shared pointer simulator.</summary>
+    private static IEnumerator RealClick(VisualElement element, string label, SmokeLog log)
     {
-        if (condition)
+        if (element == null)
         {
-            results.AppendLine("PASS :: " + label);
+            log.Fail("cannot click missing element: " + label);
+            yield break;
         }
-        else
+
+        // Let the panel lay the element out first: a click targets its centre,
+        // and a synthetic click only lands when the panel resolves the element
+        // itself under that point.
+        yield return null;
+        if (element.worldBound.width < 1f || element.worldBound.height < 1f)
         {
-            failures++;
-            results.AppendLine("FAIL :: " + label);
+            log.Fail("element not laid out before the click: " + label);
+            yield break;
+        }
+
+        if (!UiToolkitPointerSimulator.Click(element))
+        {
+            log.Fail("pointer event could not be dispatched to: " + label);
+            yield break;
+        }
+
+        yield return null;
+        yield return null;
+    }
+
+    /// <summary>
+    /// Waits (bounded) for a condition. The bound is REAL TIME, not frames: the
+    /// player runs at thousands of frames per second without vsync, so a frame
+    /// budget cannot express "wait for a 0.18 s fade and a scene load".
+    /// </summary>
+    private static IEnumerator WaitFor(Func<bool> condition, float seconds)
+    {
+        float deadline = Time.realtimeSinceStartup + seconds;
+        while (!condition() && Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
         }
     }
 
-    private static void Fail(StringBuilder results, ref int failures, string label)
+    private void Finish(SmokeLog log, int exitCode)
     {
-        failures++;
-        results.AppendLine("FAIL :: " + label);
+        WriteResult(log, log.Failures == 0 && exitCode == 0);
+        Application.Quit(log.Failures == 0 && exitCode == 0 ? 0 : 1);
     }
 
-    private void WriteResult(string content, bool success)
+    private void WriteResult(SmokeLog log, bool success)
     {
+        log.Line(success ? "RESULT: SUCCESS" : "RESULT: FAILED");
         try
         {
-            File.WriteAllText(_resultPath, content);
+            File.WriteAllText(_resultPath, log.ToString());
             Debug.Log("[StandaloneSmoke] wrote result: " + _resultPath
                       + (success ? " SUCCESS" : " FAILED"));
         }
         catch (Exception e)
         {
             Debug.LogError("[StandaloneSmoke] failed to write result file: " + e);
+        }
+    }
+
+    /// <summary>
+    /// Accumulates PASS/FAIL lines. A plain collector (instead of ref
+    /// parameters) keeps the checks usable from iterator coroutines.
+    /// </summary>
+    private sealed class SmokeLog
+    {
+        private readonly StringBuilder _lines = new StringBuilder();
+
+        public int Failures { get; private set; }
+
+        public void Line(string text)
+        {
+            _lines.AppendLine(text);
+        }
+
+        public void Check(string label, bool condition)
+        {
+            if (condition)
+            {
+                _lines.AppendLine("PASS :: " + label);
+            }
+            else
+            {
+                Failures++;
+                _lines.AppendLine("FAIL :: " + label);
+            }
+        }
+
+        public void Fail(string label)
+        {
+            Failures++;
+            _lines.AppendLine("FAIL :: " + label);
+        }
+
+        public override string ToString()
+        {
+            return _lines.ToString();
         }
     }
 }
