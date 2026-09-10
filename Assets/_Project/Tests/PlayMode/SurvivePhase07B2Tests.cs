@@ -176,15 +176,24 @@ public class SurvivePhase07B2Tests
             "base/environment camera post-processing ON");
         Assert.IsFalse(sharpData.renderPostProcessing,
             "sharp screen camera post-processing OFF");
-        // Phase 07B.2 composition: a second independent base-type camera with
-        // a depth-only clear renders the ConsoleScreen layer after the
-        // post-processed environment frame (sharp screens, blurred env).
-        Assert.AreEqual(CameraRenderType.Base, sharpData.renderType,
-            "sharp camera is a base-type camera ordered after the environment");
+        // Phase 07B.2.1 composition: the sharp screen camera is a URP OVERLAY
+        // camera, clears nothing, renders only the ConsoleScreen layer with
+        // post-processing OFF, and is stacked on the environment base camera
+        // exactly once. (A second Base camera would wipe the environment frame
+        // with its own background colour - the render-recovery regression.)
+        Assert.AreEqual(CameraRenderType.Overlay, sharpData.renderType,
+            "sharp camera is an Overlay camera");
+        Assert.AreEqual(CameraClearFlags.Nothing, sharp.clearFlags,
+            "sharp camera never clears the frame");
         Assert.IsTrue(sharp.depth > eye.depth,
-            "sharp camera renders after the environment camera (depth)");
-        Assert.AreEqual(CameraClearFlags.Depth, sharp.clearFlags,
-            "sharp camera keeps the environment frame (depth-only clear)");
+            "overlay camera is ordered after the environment camera");
+        Assert.IsNotNull(eyeData.cameraStack, "base camera has a URP stack");
+        Assert.AreEqual(1, eyeData.cameraStack.Count,
+            "overlay camera stacked exactly once");
+        Assert.AreEqual(sharp, eyeData.cameraStack[0],
+            "stacked camera is the sharp screen camera");
+        Assert.AreEqual(CameraRenderType.Base, eyeData.renderType,
+            "environment camera remains the stack base");
     }
 
     // ====================================================================

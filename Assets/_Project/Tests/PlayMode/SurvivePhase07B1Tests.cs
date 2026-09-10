@@ -479,43 +479,9 @@ public class SurvivePhase07B1Tests
     private static bool TryElementViewport(WorldConsoleSurface surface, Camera camera,
         VisualElement element, out Vector2 viewport)
     {
-        viewport = Vector2.zero;
-        if (surface == null || camera == null || element == null
-            || surface.ScreenQuad == null || surface.Document == null)
-        {
-            return false;
-        }
-
-        Rect bounds = element.worldBound;
-        if (bounds.width < 1f || bounds.height < 1f)
-        {
-            bounds = new Rect(element.resolvedStyle.left, element.resolvedStyle.top,
-                element.resolvedStyle.width, element.resolvedStyle.height);
-        }
-
-        if (bounds.width < 1f || bounds.height < 1f || float.IsNaN(bounds.center.x)
-            || float.IsNaN(bounds.center.y))
-        {
-            return false;
-        }
-
-        float layoutW = Mathf.Max(1f, WorldConsoleSurface.UiWidth);
-        float layoutH = Mathf.Max(1f, WorldConsoleSurface.UiHeight);
-        float u = Mathf.Clamp01(bounds.center.x / layoutW);
-        float vUp = 1f - Mathf.Clamp01(bounds.center.y / layoutH);
-
-        Transform quad = surface.ScreenQuad;
-        Vector3 scale = quad.lossyScale;
-        Vector3 world = quad.position
-                        + quad.right * ((u - 0.5f) * scale.x)
-                        + quad.up * ((vUp - 0.5f) * scale.y);
-        Vector3 vp = camera.WorldToViewportPoint(world);
-        if (vp.z <= 0f)
-        {
-            return false;
-        }
-
-        viewport = new Vector2(vp.x, vp.y);
-        return true;
+        // Single projection authority (Phase 07B.2.1): the click position and
+        // the visual orientation share ConsoleUvAuthority.
+        return ConsoleScreenProjection.TryElementViewport(surface, camera, element,
+            out viewport);
     }
 }

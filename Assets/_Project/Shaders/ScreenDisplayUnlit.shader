@@ -3,6 +3,12 @@ Shader "Survive/ScreenDisplayUnlit"
     Properties
     {
         _BaseMap ("Screen Texture", 2D) = "white" {}
+        // Authoritative console UV orientation (ConsoleUvAuthority):
+        // _FlipU mirrors the mesh U axis ONCE (viewer right = quad local -x),
+        // _FlipV mirrors V once when required. Applied here - ONCE - so the
+        // physical screen, the pointer router and the diagnostics agree.
+        _FlipU ("Flip U", Float) = 1
+        _FlipV ("Flip V", Float) = 1
     }
 
     SubShader
@@ -39,6 +45,8 @@ Shader "Survive/ScreenDisplayUnlit"
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseMap_ST;
+                float _FlipU;
+                float _FlipV;
             CBUFFER_END
 
             TEXTURE2D(_BaseMap);
@@ -54,7 +62,11 @@ Shader "Survive/ScreenDisplayUnlit"
 
             half4 frag (v2f i) : SV_Target
             {
-                return SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
+                // Single authoritative orientation correction.
+                float2 uv = i.uv;
+                uv.x = lerp(uv.x, 1.0 - uv.x, _FlipU);
+                uv.y = lerp(uv.y, 1.0 - uv.y, _FlipV);
+                return SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv);
             }
             ENDHLSL
         }

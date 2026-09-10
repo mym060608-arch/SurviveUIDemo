@@ -220,10 +220,12 @@ public static class ShipInteriorBuilder
         cam.fieldOfView = 70f;
         cam.nearClipPlane = 0.05f;
         cam.farClipPlane = 60f;
-        // Phase 07B.2 focus composition: the environment base camera never
-        // renders the ConsoleScreen layer (physical display surfaces live on
-        // the sharp overlay camera).
-        cam.cullingMask = ~0 & ~(1 << ConsoleScreenLayer);
+        // Phase 07B.2.1: the environment BASE camera renders everything the
+        // player can see (ship geometry, console housings, doors, airlock,
+        // equipment locker, WRIST, HUD) and excludes ONLY the physical
+        // ConsoleScreen display layer drawn by the sharp overlay camera.
+        cam.cullingMask = ~(1 << ConsoleScreenLayer);
+        cam.depth = 0f;
         eyeGo.transform.localPosition = new Vector3(0f, 1.65f, 0f);
         eyeGo.transform.localRotation = Quaternion.identity;
 
@@ -235,27 +237,32 @@ public static class ShipInteriorBuilder
         var cameraData = eyeGo.AddComponent<UniversalAdditionalCameraData>();
         cameraData.renderPostProcessing = true;
         cameraData.volumeLayerMask = ~0;
+        cameraData.renderType = CameraRenderType.Base;
 
-        // Phase 07B.2: sharp ConsoleScreen camera. Child of the eye camera =>
-        // position/rotation/FOV stay frame-locked with zero drift. Renders as
-        // a SECOND independent camera AFTER the environment base camera
-        // (higher depth, depth-only clear preserves the environment frame
-        // including its DOF): mask ConsoleScreen-only, post-processing OFF,
-        // so physical console UI stays crisp while the environment blurs.
+        // Phase 07B.2.1: sharp ConsoleScreen camera. Child of the eye camera
+        // => position/rotation/FOV stay frame-locked with zero drift. It is an
+        // URP OVERLAY camera (never a second Base camera - a second Base camera
+        // wipes the environment frame with its own blue background), renders
+        // ONLY the ConsoleScreen layer, has post-processing OFF, and is
+        // stacked on the environment base camera exactly once.
         var sharpGo = new GameObject("SharpScreenCamera");
         sharpGo.transform.SetParent(eyeGo.transform, false);
         var sharpCam = sharpGo.AddComponent<Camera>();
-        sharpCam.clearFlags = CameraClearFlags.Depth;
+        sharpCam.clearFlags = CameraClearFlags.Nothing;
         sharpCam.cullingMask = 1 << ConsoleScreenLayer;
         sharpCam.fieldOfView = 70f;
         sharpCam.nearClipPlane = 0.05f;
         sharpCam.farClipPlane = 60f;
-        cam.depth = 0f;
-        sharpCam.depth = 1f;
+        sharpCam.depth = cam.depth + 1f;
         var sharpData = sharpGo.AddComponent<UniversalAdditionalCameraData>();
-        sharpData.renderType = CameraRenderType.Base;
+        sharpData.renderType = CameraRenderType.Overlay;
         sharpData.renderPostProcessing = false;
-        Debug.Log("[ShipInteriorBuilder] sharp ConsoleScreen camera created");
+        cameraData.cameraStack.Clear();
+        cameraData.cameraStack.Add(sharpCam);
+        Debug.Log("[ShipInteriorBuilder] sharp ConsoleScreen overlay camera created"
+                  + " baseMask=" + cam.cullingMask
+                  + " overlayMask=" + sharpCam.cullingMask
+                  + " stack=" + cameraData.cameraStack.Count);
 
         // ---- Ship HUD (screen-space UI Toolkit overlay) ----
         var hudGo = new GameObject("ShipHUD");

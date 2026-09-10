@@ -375,9 +375,10 @@ public class WorldUiPointerRouter : MonoBehaviour
             ? new Vector2(_panel.visualTree.layout.width,
                 _panel.visualTree.layout.height)
             : new Vector2(WorldConsoleSurface.UiWidth, WorldConsoleSurface.UiHeight);
-        float x = Mathf.Clamp01(uv.x) * layout.x;
-        float y = (1f - Mathf.Clamp01(uv.y)) * layout.y; // single Y inversion
-        return new Vector2(x, y);
+        // Phase 07B.2.1: the visual orientation (shader flip) and the click
+        // position share ONE authority (ConsoleUvAuthority) so what the player
+        // sees and what the player clicks can never drift apart.
+        return ConsoleUvAuthority.UvToPanelPixel(uv, layout);
     }
 
     private bool IsOverInteractiveElement(Vector2 panelPos)

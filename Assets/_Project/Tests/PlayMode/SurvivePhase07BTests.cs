@@ -154,49 +154,13 @@ public class SurvivePhase07BTests
     }
 
     /// <summary>Maps a UI element centre (panel pixel, y down) through the
-    /// surface quad into a viewport fraction for the focused eye camera.</summary>
+    /// projected screen quad into a viewport fraction using the single
+    /// projection authority (Phase 07B.2.1).</summary>
     private static bool TryElementViewport(WorldConsoleSurface surface, Camera camera,
         VisualElement element, out Vector2 viewport)
     {
-        viewport = Vector2.zero;
-        if (surface == null || camera == null || element == null
-            || surface.ScreenQuad == null || surface.Document == null)
-        {
-            return false;
-        }
-
-        Rect bounds = element.worldBound;
-        if (bounds.width < 1f || bounds.height < 1f)
-        {
-            // Fall back to resolved layout when worldBound is degenerate.
-            bounds = new Rect(element.resolvedStyle.left, element.resolvedStyle.top,
-                element.resolvedStyle.width, element.resolvedStyle.height);
-        }
-
-        if (bounds.width < 1f || bounds.height < 1f || float.IsNaN(bounds.center.x)
-            || float.IsNaN(bounds.center.y))
-        {
-            return false;
-        }
-
-        float layoutW = Mathf.Max(1f, WorldConsoleSurface.UiWidth);
-        float layoutH = Mathf.Max(1f, WorldConsoleSurface.UiHeight);
-        float u = Mathf.Clamp01(bounds.center.x / layoutW);
-        float vUp = 1f - Mathf.Clamp01(bounds.center.y / layoutH);
-
-        Transform quad = surface.ScreenQuad;
-        Vector3 scale = quad.lossyScale;
-        Vector3 world = quad.position
-                        + quad.right * ((u - 0.5f) * scale.x)
-                        + quad.up * ((vUp - 0.5f) * scale.y);
-        Vector3 vp = camera.WorldToViewportPoint(world);
-        if (vp.z <= 0f)
-        {
-            return false;
-        }
-
-        viewport = new Vector2(vp.x, vp.y);
-        return true;
+        return ConsoleScreenProjection.TryElementViewport(surface, camera, element,
+            out viewport);
     }
 
     // ====================================================================
@@ -709,25 +673,35 @@ public class SurvivePhase07BTests
             controller.Consoles[1].GetComponent<WorldConsoleSurface>();
         yield return WaitConsoleUi(surface);
 
-        // The authoritative UV->panel conversion is monotonic and uses exactly
-        // one Y inversion (left->left, right->right, top->top, bottom->bottom).
+        // The authoritative UV->panel conversion must map what the PLAYER SEES
+        // as the screen's top-left onto the UI panel's top-left (small panel x
+        // AND small panel y). The viewer frame is derived from the camera, not
+        // from the quad axes, so a mirrored screen cannot pass this check.
         Camera eye = controller.Player.EyeCamera;
         Transform quad = surface.ScreenQuad;
         Vector2 scale = quad.lossyScale;
-        Vector3 topLeft = quad.position - quad.right * (scale.x * 0.5f)
-                          + quad.up * (scale.y * 0.5f);
-        Vector3 bottomRight = quad.position + quad.right * (scale.x * 0.5f)
-                              - quad.up * (scale.y * 0.5f);
-        Vector2 vpTl = eye.WorldToViewportPoint(topLeft);
-        Vector2 vpBr = eye.WorldToViewportPoint(bottomRight);
+        Vector3 viewerForward = -quad.forward; // player stands in front, looks at the screen
+        Vector3 viewerRight = Vector3.Cross(Vector3.up, viewerForward).normalized;
+        Vector3 viewerTop = Vector3.up;
+        Vector3 seenTopLeft = quad.position
+                              - viewerRight * (scale.x * 0.5f)
+                              + viewerTop * (scale.y * 0.5f);
+        Vector3 seenBottomRight = quad.position
+                                  + viewerRight * (scale.x * 0.5f)
+                                  - viewerTop * (scale.y * 0.5f);
+        Vector2 vpTl = eye.WorldToViewportPoint(seenTopLeft);
+        Vector2 vpBr = eye.WorldToViewportPoint(seenBottomRight);
         Vector2 panelTl;
         Vector2 panelBr;
         Assert.IsTrue(router.TryScreenToPanelPixel(new Vector2(vpTl.x * Screen.width,
-            vpTl.y * Screen.height), out panelTl), "maps screen top-left");
+            vpTl.y * Screen.height), out panelTl),
+            "maps the seen screen top-left");
         Assert.IsTrue(router.TryScreenToPanelPixel(new Vector2(vpBr.x * Screen.width,
-            vpBr.y * Screen.height), out panelBr), "maps screen bottom-right");
+            vpBr.y * Screen.height), out panelBr),
+            "maps the seen screen bottom-right");
         Assert.IsTrue(panelTl.x < panelBr.x && panelTl.y < panelBr.y,
-            "orientation: top-left -> small panel x AND y (single Y inversion)");
+            "orientation: what the player sees as top-left maps to panel "
+            + "top-left (got " + panelTl + " vs " + panelBr + ")");
 
         // Hover a real button through the world pointer. The dispatcher's
         // pointer-under-element resolution (the exact mechanism that drives

@@ -151,6 +151,8 @@ public class ShipGameController : MonoBehaviour, IWristContext
         // idempotent and makes the always-on sharp console screens robust in
         // the Release player.
         EnsureScreenComposition();
+        VerifyBaseCameraVisibility(out string visibilityReport);
+        Debug.Log("[ShipGameController] base camera visibility: " + visibilityReport);
 
         // Consume the routing reason (Default for normal boot, FromSurface for
         // the landing return) and place the player on the matching marker.
@@ -220,25 +222,222 @@ public class ShipGameController : MonoBehaviour, IWristContext
             sharpData = sharp.gameObject.AddComponent<UniversalAdditionalCameraData>();
         }
 
-        eye.cullingMask &= ~(1 << layer);
+        // Environment BASE camera: post-processing ON, renders the whole
+        // visible world (ship geometry, console housings, doors, airlock,
+        // equipment locker, WRIST, HUD) and excludes ONLY ConsoleScreen.
+        // The mask is built explicitly so a stale mask can never exclude the
+        // environment (Phase 07B.2.1 render-recovery hard gate).
+        eye.cullingMask = ~(1 << layer);
         eyeData.renderPostProcessing = true;
         eyeData.volumeLayerMask = ~0;
+        eyeData.renderType = CameraRenderType.Base;
         eye.depth = 0f;
 
-        // Sharp screen camera: independent second camera rendering ONLY the
-        // ConsoleScreen layer after the (post-processed) environment frame;
-        // a depth-only clear preserves the environment colors and the camera
-        // has post-processing OFF, so physical screens stay crisp under DOF.
+        // Sharp screen camera: URP OVERLAY camera rendering ONLY the
+        // ConsoleScreen layer, post-processing OFF, stacked on the base camera
+        // EXACTLY ONCE. It must never be a second Base camera: a second Base
+        // camera clears the frame with its own background colour and the whole
+        // ship environment (and the wrist) disappears.
         sharp.cullingMask = 1 << layer;
         sharp.enabled = true;
-        sharp.depth = 1f;
-        sharp.clearFlags = CameraClearFlags.Depth;
-        sharpData.renderType = CameraRenderType.Base;
+        sharp.depth = eye.depth + 1f;
+        sharp.clearFlags = CameraClearFlags.Nothing;
+        sharpData.renderType = CameraRenderType.Overlay;
         sharpData.renderPostProcessing = false;
 
-        Debug.Log("[ShipGameController] screen composition enforced: baseMask="
-                  + eye.cullingMask + " sharpMask=" + sharp.cullingMask
-                  + " baseDepth=" + eye.depth + " sharpDepth=" + sharp.depth);
+        List<Camera> stack = eyeData.cameraStack;
+        if (stack == null)
+        {
+            Debug.LogError("[ShipGameController] base camera has no URP camera "
+                           + "stack - console screens cannot composite");
+        }
+        else
+        {
+            stack.Clear();
+            stack.Add(sharp);
+        }
+
+        Debug.Log("[ShipGameController] screen composition enforced: baseType="
+                  + eyeData.renderType + " baseMask=" + eye.cullingMask
+                  + " overlayType=" + sharpData.renderType
+                  + " overlayMask=" + sharp.cullingMask
+                  + " stack=" + (stack != null ? stack.Count : -1));
+    }
+
+    /// <summary>
+    /// Phase 07B.2.1 render-recovery verification: the base camera must render
+    /// every visible environment object, exclude ONLY the ConsoleScreen layer,
+    /// and carry the sharp overlay camera exactly once. Also enumerates every
+    /// GameObject on the ConsoleScreen layer so a recursive SetLayer mistake
+    /// (whole console / rig / wrist on the display layer) is caught.
+    /// </summary>
+    public bool VerifyBaseCameraVisibility(out string report)
+    {
+        var sb = new System.Text.StringBuilder();
+        bool ok = true;
+
+        Camera eye = _player != null ? _player.EyeCamera : null;
+        if (eye == null)
+        {
+            report = "base camera missing";
+            return false;
+        }
+
+        int layer = WorldConsoleSurface.ConsoleScreenLayer;
+        var eyeData = eye.GetComponent<UniversalAdditionalCameraData>();
+        var sharpTransform = eye.transform.Find("SharpScreenCamera");
+        Camera sharp = sharpTransform != null
+            ? sharpTransform.GetComponent<Camera>()
+            : null;
+        var sharpData = sharp != null
+            ? sharp.GetComponent<UniversalAdditionalCameraData>()
+            : null;
+
+        sb.Append("base=").Append(eye.name)
+          .Append(" renderType=").Append(eyeData != null ? eyeData.renderType.ToString() : "-")
+          .Append(" mask=").Append(eye.cullingMask)
+          .Append(" clear=").Append(eye.clearFlags)
+          .Append(" | overlay=").Append(sharp != null ? sharp.name : "MISSING")
+          .Append(" renderType=").Append(sharpData != null ? sharpData.renderType.ToString() : "-")
+          .Append(" mask=").Append(sharp != null ? sharp.cullingMask : 0)
+          .Append(" pp=").Append(sharpData != null && sharpData.renderPostProcessing)
+          .Append(" | stack=").Append(eyeData != null && eyeData.cameraStack != null
+              ? eyeData.cameraStack.Count.ToString() : "-");
+
+        if ((eye.cullingMask & (1 << layer)) != 0)
+        {
+            sb.Append(" ERROR: base renders ConsoleScreen layer");
+            ok = false;
+        }
+
+        if (sharp == null || sharpData == null
+            || sharpData.renderType != CameraRenderType.Overlay
+            || sharp.cullingMask != (1 << layer)
+            || sharpData.renderPostProcessing)
+        {
+            sb.Append(" ERROR: sharp overlay camera misconfigured");
+            ok = false;
+        }
+
+        if (eyeData == null || eyeData.cameraStack == null
+            || eyeData.cameraStack.Count != 1
+            || eyeData.cameraStack[0] != sharp)
+        {
+            sb.Append(" ERROR: overlay camera not stacked exactly once");
+            ok = false;
+        }
+
+        // Key visible environment objects must be rendered by the base camera.
+        var required = new System.Collections.Generic.List<Renderer>();
+        AddFirstRenderer(required, "ShipStructure");
+        AddFirstRenderer(required, "ShipDoors");
+        AddFirstRenderer(required, "ShipConsoles");
+        AddFirstRenderer(required, "Airlock_DeployStation");
+        AddFirstRenderer(required, "EquipmentLocker");
+        AddFirstRenderer(required, "ShipWristUI");
+        foreach (Renderer renderer in UnityEngine.Object.FindObjectsByType<Renderer>(
+                     FindObjectsInactive.Include))
+        {
+            string n = renderer.gameObject.name;
+            if (n == "Deck_Floor" || n == "Deck_Ceiling" || n == "WristDisplay"
+                || n == "Screen")
+            {
+                required.Add(renderer);
+            }
+        }
+
+        int visible = 0;
+        int excluded = 0;
+        foreach (Renderer renderer in required)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            int objLayer = renderer.gameObject.layer;
+            bool inBase = (eye.cullingMask & (1 << objLayer)) != 0;
+            if (objLayer == layer)
+            {
+                // ConsoleScreen surfaces are intentionally overlay-only.
+                if (sharp != null && (sharp.cullingMask & (1 << objLayer)) != 0)
+                {
+                    visible++;
+                    continue;
+                }
+
+                sb.Append(" ERROR: screen not on overlay: ")
+                  .Append(renderer.gameObject.name);
+                ok = false;
+                continue;
+            }
+
+            if (inBase)
+            {
+                visible++;
+            }
+            else
+            {
+                excluded++;
+                sb.Append(" ERROR: env object excluded from base: ")
+                  .Append(renderer.gameObject.name)
+                  .Append("(layer ").Append(objLayer).Append(")");
+                ok = false;
+            }
+        }
+
+        sb.Append(" | envVisible=").Append(visible)
+          .Append(" envExcluded=").Append(excluded);
+
+        // ConsoleScreen layer hygiene: only the four physical screen quads.
+        var onDisplayLayer = new System.Collections.Generic.List<string>();
+        foreach (Renderer renderer in UnityEngine.Object.FindObjectsByType<Renderer>(
+                     FindObjectsInactive.Include))
+        {
+            if (renderer.gameObject.layer == layer)
+            {
+                onDisplayLayer.Add(renderer.gameObject.name);
+            }
+        }
+
+        sb.Append(" | ConsoleScreenLayerObjects=").Append(onDisplayLayer.Count)
+          .Append("[");
+        for (int i = 0; i < onDisplayLayer.Count; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(",");
+            }
+
+            sb.Append(onDisplayLayer[i]);
+        }
+
+        sb.Append("]");
+        if (onDisplayLayer.Count != 4)
+        {
+            sb.Append(" ERROR: ConsoleScreen layer must hold exactly the four "
+                      + "screen quads");
+            ok = false;
+        }
+
+        report = sb.ToString();
+        return ok;
+    }
+
+    private static void AddFirstRenderer(System.Collections.Generic.List<Renderer> list,
+        string rootName)
+    {
+        foreach (Renderer renderer in UnityEngine.Object.FindObjectsByType<Renderer>(
+                     FindObjectsInactive.Include))
+        {
+            if (renderer.gameObject.name == rootName
+                || renderer.transform.parent != null
+                && renderer.transform.parent.name == rootName)
+            {
+                list.Add(renderer);
+                return;
+            }
+        }
     }
 
     private void Update()

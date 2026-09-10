@@ -324,7 +324,86 @@ public class WorldConsoleSurface : MonoBehaviour
         }
 
         _screenRenderer.sharedMaterial = displayMaterial;
+        ConsoleUvAuthority.ApplyToMaterial(displayMaterial);
         ApplyScreenTexture();
+    }
+
+    // ====================================================================
+    // Phase 07B.2.1 UV orientation diagnostic (TL / TR / BL / BR markers)
+    // ====================================================================
+
+    public const string UvRefRootName = "UvReferenceMarkers";
+
+    /// <summary>Canonical marker colours: panel top-left RED, top-right GREEN,
+    /// bottom-left BLUE, bottom-right YELLOW. The probe samples the projected
+    /// screen corners and proves which canonical corner really appears where.</summary>
+    public static readonly Color UvRefTopLeftColor = new Color(1f, 0f, 0f, 1f);
+    public static readonly Color UvRefTopRightColor = new Color(0f, 1f, 0f, 1f);
+    public static readonly Color UvRefBottomLeftColor = new Color(0f, 0f, 1f, 1f);
+    public static readonly Color UvRefBottomRightColor = new Color(1f, 1f, 0f, 1f);
+
+    private VisualElement _uvRefRoot;
+
+    /// <summary>Shows/hides the four corner reference markers inside this
+    /// console's real UI document (diagnostic only, never part of gameplay).
+    /// The markers live in the real UI Toolkit tree, so they exercise the
+    /// complete UI -> RenderTexture -> material chain.</summary>
+    public bool SetUvReferenceMarkersVisible(bool visible)
+    {
+        if (_document == null || _document.rootVisualElement == null)
+        {
+            return false;
+        }
+
+        VisualElement root = _document.rootVisualElement;
+        if (_uvRefRoot == null || _uvRefRoot.parent != root)
+        {
+            _uvRefRoot = new VisualElement { name = UvRefRootName };
+            _uvRefRoot.pickingMode = PickingMode.Ignore;
+            _uvRefRoot.style.position = Position.Absolute;
+            _uvRefRoot.style.left = 0f;
+            _uvRefRoot.style.top = 0f;
+            _uvRefRoot.style.right = 0f;
+            _uvRefRoot.style.bottom = 0f;
+            AddUvRefMarker(_uvRefRoot, "UvRef_TL", true, true, UvRefTopLeftColor);
+            AddUvRefMarker(_uvRefRoot, "UvRef_TR", false, true, UvRefTopRightColor);
+            AddUvRefMarker(_uvRefRoot, "UvRef_BL", true, false, UvRefBottomLeftColor);
+            AddUvRefMarker(_uvRefRoot, "UvRef_BR", false, false, UvRefBottomRightColor);
+            root.Add(_uvRefRoot);
+        }
+
+        _uvRefRoot.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        return true;
+    }
+
+    private static void AddUvRefMarker(VisualElement parent, string name, bool left,
+        bool top, Color color)
+    {
+        var marker = new VisualElement { name = name };
+        marker.pickingMode = PickingMode.Ignore;
+        marker.style.position = Position.Absolute;
+        marker.style.width = Length.Percent(22f);
+        marker.style.height = Length.Percent(20f);
+        if (left)
+        {
+            marker.style.left = 0f;
+        }
+        else
+        {
+            marker.style.right = 0f;
+        }
+
+        if (top)
+        {
+            marker.style.top = 0f;
+        }
+        else
+        {
+            marker.style.bottom = 0f;
+        }
+
+        marker.style.backgroundColor = color;
+        parent.Add(marker);
     }
 
     /// <summary>Applies the effective screen texture (diagnostic override or
