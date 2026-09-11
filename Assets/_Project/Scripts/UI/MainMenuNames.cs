@@ -1,85 +1,57 @@
 /// <summary>
-/// Single source of truth for MainMenu.uxml element names (Phase 08, revised
-/// composition in the Phase 08 Main Menu revision).
+/// Single source of truth for MainMenu.uxml element names (Phase 08, Revision 2
+/// title-screen composition).
 ///
 /// Runtime binding, the structural validator and the Play Mode suites all
 /// reference these constants, so a rename fails loudly instead of silently
 /// unbinding the menu.
 ///
-/// Revision note: the old composition was "brand + navigation on the left, hero
-/// planet on the right". The cover is now LEFT hero ship / RIGHT menu, so the
-/// planet-only nodes (HeroPlanetDisc, HeroRingInner/Outer) are gone and the
-/// fadeable <see cref="Layer"/> subtree plus the hero telemetry strip are new.
+/// Revision 2 note: the cover is now a minimal console title screen - 活下去
+/// plus 新游戏 / 继续游戏 / 选项 / 退出 - so the previous chrome (top bar,
+/// footer, telemetry strip, hint rails, scan sweep, corner brackets) and the
+/// 制作信息 modal are gone on purpose.
 /// </summary>
 public static class MainMenuNames
 {
     // Layout shell.
     public const string Root = "MainMenuRoot";
     public const string Layer = "MenuLayer";
-    public const string TopBar = "MenuTopBar";
-    public const string Frame = "MenuFrame";
 
-    /// <summary>RIGHT column: the menu itself.</summary>
-    public const string ContentColumn = "MenuContentColumn";
-
-    /// <summary>LEFT column: transparent window onto the 3D hero ship.</summary>
+    /// <summary>LEFT: transparent window onto the 3D hero ship.</summary>
     public const string HeroColumn = "MenuHeroColumn";
 
-    public const string Footer = "MenuFooter";
+    /// <summary>RIGHT: title + menu.</summary>
+    public const string ContentColumn = "MenuContentColumn";
 
-    // Brand block (inside the right column).
-    public const string Eyebrow = "MenuEyebrow";
+    // Title (the only headline on the screen).
     public const string Title = "MainMenuTitle";
-    public const string Subtitle = "MainMenuSubtitle";
-    public const string Tagline = "MainMenuTagline";
-    public const string Rule = "MenuRule";
 
-    // Hero telemetry strip (left, under the ship).
-    public const string HeroTelemetry = "HeroTelemetry";
-    public const string MissionCodeValue = "MissionCodeValue";
-    public const string SectorCodeValue = "SectorCodeValue";
-
-    // Primary CTA (the only primary action).
-    public const string EnterMissionButton = "EnterMissionButton";
-    public const string EnterMissionLabel = "EnterMissionLabel";
-    public const string EnterMissionSubLabel = "EnterMissionSubLabel";
-    public const string EnterMissionMicro = "EnterMissionMicro";
-
-    // Secondary navigation.
-    public const string SecondaryNav = "SecondaryNav";
-    public const string SettingsButton = "SettingsButton";
-    public const string CreditsButton = "CreditsButton";
+    // The four title-screen options.
+    public const string MenuList = "MenuList";
+    public const string NewGameButton = "NewGameButton";
+    public const string NewGameLabel = "NewGameLabel";
+    public const string ContinueButton = "ContinueButton";
+    public const string ContinueLabel = "ContinueLabel";
+    public const string OptionsButton = "OptionsButton";
+    public const string OptionsLabel = "OptionsLabel";
     public const string ExitButton = "ExitButton";
+    public const string ExitLabel = "ExitLabel";
 
-    // Hero window (the 3D ship is behind it; only its chrome is UI).
-    public const string HeroStage = "HeroStage";
-    public const string HeroScanSweep = "HeroScanSweep";
-    public const string HeroRailLeft = "HeroRailLeft";
-    public const string HeroRailRight = "HeroRailRight";
-    public const string HintLayer = "MenuHintLayer";
+    /// <summary>Device-aware controller hint (empty for mouse/keyboard).</summary>
+    public const string InputHintLabel = "InputHintLabel";
 
-    // Peripheral metadata.
-    public const string BuildStampValue = "BuildStampValue";
-    public const string FooterSystemValue = "FooterSystemValue";
-    public const string StatusDot = "MenuStatusDot";
-
-    // Settings modal.
-    public const string SettingsModal = "SettingsModal";
-    public const string SettingsDim = "SettingsDim";
-    public const string SettingsPanel = "SettingsPanel";
-    public const string SettingsCloseButton = "SettingsCloseButton";
+    // Options modal (the Phase 08 settings, simplified).
+    public const string OptionsModal = "OptionsModal";
+    public const string OptionsDim = "OptionsDim";
+    public const string OptionsPanel = "OptionsPanel";
+    public const string OptionsTitle = "OptionsTitle";
+    public const string OptionsCloseButton = "OptionsCloseButton";
     public const string MotionOnButton = "MotionOnButton";
     public const string MotionOffButton = "MotionOffButton";
     public const string HintsShowButton = "HintsShowButton";
     public const string HintsHideButton = "HintsHideButton";
 
-    // Credits modal.
-    public const string CreditsModal = "CreditsModal";
-    public const string CreditsDim = "CreditsDim";
-    public const string CreditsPanel = "CreditsPanel";
-    public const string CreditsCloseButton = "CreditsCloseButton";
-
-    // Start cinematic blackout (EnterMission -> Ship Interior).
+    // Start cinematic blackout (新游戏 / 继续游戏 -> Ship Interior).
     public const string TransitionOverlay = "MenuTransitionOverlay";
 
     /// <summary>Every element the Main Menu runtime binds to.</summary>
@@ -87,47 +59,28 @@ public static class MainMenuNames
     {
         Root,
         Layer,
-        TopBar,
-        Frame,
-        ContentColumn,
         HeroColumn,
-        Footer,
-        Eyebrow,
+        ContentColumn,
         Title,
-        Subtitle,
-        Tagline,
-        Rule,
-        HeroTelemetry,
-        MissionCodeValue,
-        SectorCodeValue,
-        EnterMissionButton,
-        EnterMissionLabel,
-        EnterMissionSubLabel,
-        EnterMissionMicro,
-        SecondaryNav,
-        SettingsButton,
-        CreditsButton,
+        MenuList,
+        NewGameButton,
+        NewGameLabel,
+        ContinueButton,
+        ContinueLabel,
+        OptionsButton,
+        OptionsLabel,
         ExitButton,
-        HeroStage,
-        HeroScanSweep,
-        HeroRailLeft,
-        HeroRailRight,
-        HintLayer,
-        BuildStampValue,
-        FooterSystemValue,
-        StatusDot,
-        SettingsModal,
-        SettingsDim,
-        SettingsPanel,
-        SettingsCloseButton,
+        ExitLabel,
+        InputHintLabel,
+        OptionsModal,
+        OptionsDim,
+        OptionsPanel,
+        OptionsTitle,
+        OptionsCloseButton,
         MotionOnButton,
         MotionOffButton,
         HintsShowButton,
         HintsHideButton,
-        CreditsModal,
-        CreditsDim,
-        CreditsPanel,
-        CreditsCloseButton,
         TransitionOverlay
     };
 
@@ -139,31 +92,53 @@ public static class MainMenuNames
     {
         Root,
         Layer,
-        TopBar,
-        Frame,
         HeroColumn,
         ContentColumn,
-        Footer,
         Title,
-        Subtitle,
-        MissionCodeValue,
-        SectorCodeValue,
-        EnterMissionButton,
-        SecondaryNav,
-        SettingsButton,
-        CreditsButton,
+        MenuList,
+        NewGameButton,
+        ContinueButton,
+        OptionsButton,
         ExitButton,
-        HeroStage,
-        HeroTelemetry,
-        HeroRailLeft,
-        HeroRailRight,
-        SettingsModal,
-        SettingsPanel,
+        OptionsModal,
+        OptionsPanel,
         MotionOnButton,
         MotionOffButton,
         HintsShowButton,
-        HintsHideButton,
-        CreditsModal,
-        CreditsPanel
+        HintsHideButton
+    };
+
+    /// <summary>
+    /// The four title-screen options, in navigation order (top to bottom).
+    /// </summary>
+    public static readonly string[] MenuItemOrder =
+    {
+        NewGameButton,
+        ContinueButton,
+        OptionsButton,
+        ExitButton
+    };
+
+    /// <summary>
+    /// Copy that must NOT appear on the title screen any more (Revision 2 §3):
+    /// the previous cover's HUD, telemetry and system text.
+    /// </summary>
+    public static readonly string[] RemovedCopy =
+    {
+        "进入任务",
+        "制作信息",
+        "系统设置",
+        "SURVIVE // DRIFT",
+        "边境生存协议",
+        "深空前哨生存与生产控制系统",
+        "FRONTIER OPERATIONS INTERFACE",
+        "HULL SURVEY",
+        "FLIGHT DECK",
+        "MISSION READY",
+        "BUILD // PHASE 08",
+        "SYSTEM // READY",
+        "FRONTIER-08",
+        "N-04",
+        "ARK-07"
     };
 }

@@ -2,67 +2,81 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// First-person "eyelid" entry fade for the ship interior (Phase 08 Revision,
-/// PASS 4).
+/// First-person entry eyelids (Phase 08 Revision 2, PASS 4).
 ///
-/// The Main Menu's 进入任务 cinematic ends on a full black frame and then loads
-/// 03_ShipInterior. Without this component the player would simply appear in the
-/// cockpit; with it the interior opens through a short double-blink, which is
-/// what makes the hand-over read as "I woke up inside my ship".
+/// 新游戏 ends on a full black frame and then loads 03_ShipInterior. Instead of
+/// a plain fade, the interior now opens through TWO BLACK CURTAINS - a top
+/// eyelid hanging from the upper edge and a bottom eyelid rising from the lower
+/// edge - that meet on the centre line while the eyes are shut and retract as
+/// the player wakes up:
 ///
-/// It is production flow, not a test hook: <see cref="SceneRouting"/> flags the
-/// blink for every 进入任务 entry (SceneRouting.ShipEntry.FromMainMenu) and the
-/// ship scene plays it once. A direct -bootShip / airlock entry never blinks.
-/// Automation may force it with -blinkEntry so a player build can be validated
-/// on the same presentation.
+///   closed -> Beat 1 (small crack, ~22%) -> closed
+///          -> Beat 2 (bigger, ~45%)      -> closed
+///          -> Beat 3 (fully open, stays)
 ///
-/// The overlay is a plain UI Toolkit element appended to the existing ship HUD
-/// panel: no canvas, no second camera, no scene authoring change, and it removes
-/// itself completely (element + component) when the blink finishes.
+/// The curtains change their real height (not an opacity trick), the animation
+/// runs on unscaled time, movement/look stay locked until the third beat
+/// completes, and both elements are removed when it ends so nothing is left to
+/// block pointer or input.
+///
+/// It is production flow, not a test hook: SceneRouting flags the eyelid mode
+/// for every 新游戏 (Full) / 继续游戏 (Quick) entry and the ship scene plays it
+/// once. A direct -bootShip / airlock entry never animates.
 /// </summary>
 public class ShipEntryBlinkFade : MonoBehaviour
 {
-    /// <summary>Automation flag that forces the blink in any ship entry.</summary>
+    /// <summary>Automation flag that forces the full eyelids in any ship entry.</summary>
     public const string AutomationFlag = "-blinkEntry";
 
-    /// <summary>Eyes fully shut before anything opens.</summary>
-    public const float ClosedSeconds = 0.22f;
+    // ---- Full (新游戏) timeline, seconds ----
+    public const float Beat1OpenEnd = 0.14f;
+    public const float Beat1CloseEnd = 0.25f;
+    public const float Beat2OpenEnd = 0.42f;
+    public const float Beat2CloseEnd = 0.55f;
+    public const float Beat3OpenEnd = 1.05f;
 
-    /// <summary>First crack open.</summary>
-    public const float OpenSeconds = 0.10f;
+    /// <summary>Whole three-beat animation: 1.05 s (inside the 0.8-1.3 s spec).</summary>
+    public const float BlinkSeconds = Beat3OpenEnd;
 
-    /// <summary>Involuntary re-close.</summary>
-    public const float RecloseSeconds = 0.10f;
+    // ---- Quick (继续游戏) timeline, seconds ----
+    public const float QuickHoldEnd = 0.10f;
+    public const float QuickOpenEnd = 0.55f;
 
-    /// <summary>Final full opening.</summary>
-    public const float SettleSeconds = 0.55f;
+    /// <summary>How far the eyes open at the first crack (fraction of screen).</summary>
+    public const float Beat1Openness = 0.22f;
 
-    /// <summary>Whole blink duration: 0.97 s.</summary>
-    public const float BlinkSeconds = ClosedSeconds + OpenSeconds + RecloseSeconds
-                                      + SettleSeconds;
-
-    /// <summary>Black level the eyelids reach at the first crack open.</summary>
-    public const float FirstOpenAlpha = 0.42f;
-
-    /// <summary>Black level of the involuntary re-close.</summary>
-    public const float RecloseAlpha = 0.90f;
+    /// <summary>How far the eyes open at the second attempt.</summary>
+    public const float Beat2Openness = 0.45f;
 
     private VisualElement _root;
-    private VisualElement _overlay;
+    private VisualElement _topEyelid;
+    private VisualElement _bottomEyelid;
     private float _elapsed;
     private bool _playing;
     private bool _finished;
 
-    /// <summary>True while the blink is being played.</summary>
+    /// <summary>Which animation this instance plays.</summary>
+    public SceneRouting.EntryEyelid Mode { get; private set; } = SceneRouting.EntryEyelid.Full;
+
+    /// <summary>True while the eyelids are animating.</summary>
     public bool IsPlaying => _playing;
 
-    /// <summary>0 = fully open (clear view), 1 = fully shut (black).</summary>
-    public float Alpha { get; private set; } = 1f;
+    /// <summary>1 = fully open (clear view), 0 = fully shut (black screen).</summary>
+    public float Openness { get; private set; }
 
-    /// <summary>Human readable stage, used by the standalone probe report.</summary>
+    /// <summary>How much of the screen each curtain currently covers (0..0.5).</summary>
+    public float CoveredFraction { get; private set; } = 0.5f;
+
+    /// <summary>Human readable stage, used by the probes and the tests.</summary>
     public string StageLabel { get; private set; } = "none";
 
-    /// <summary>True when the automation flag asks for a forced blink.</summary>
+    /// <summary>The top curtain (removed when the animation ends).</summary>
+    public VisualElement TopEyelid => _topEyelid;
+
+    /// <summary>The bottom curtain (removed when the animation ends).</summary>
+    public VisualElement BottomEyelid => _bottomEyelid;
+
+    /// <summary>True when the ship entry should force the full eyelids.</summary>
     public static bool AutomationRequested
     {
         get
@@ -80,59 +94,83 @@ public class ShipEntryBlinkFade : MonoBehaviour
         }
     }
 
+    /// <summary>Runtime wiring: which animation to play.</summary>
+    public void Configure(SceneRouting.EntryEyelid mode)
+    {
+        Mode = mode == SceneRouting.EntryEyelid.None
+            ? SceneRouting.EntryEyelid.Full
+            : mode;
+    }
+
     private void Awake()
     {
         // Created during ShipGameController.Start, i.e. before the first frame of
-        // this scene is rendered: the very first visible frame of the interior is
-        // already the closed eyelid, so the blackout handed over by the menu is
-        // never broken by a flash of the cockpit.
+        // this scene renders: the very first visible frame of the interior is
+        // already the closed eyelid, so the blackout handed over by the title
+        // screen is never broken by a flash of the cockpit.
         _root = ResolvePanelRoot();
         if (_root == null)
         {
-            Debug.LogWarning("[ShipEntryBlinkFade] no UI Toolkit panel to fade");
+            Debug.LogWarning("[ShipEntryBlinkFade] no UI Toolkit panel to draw the eyelids");
             enabled = false;
             return;
         }
 
-        _overlay = new VisualElement { name = "ShipEntryBlink" };
-        _overlay.style.position = Position.Absolute;
-        _overlay.style.left = 0f;
-        _overlay.style.top = 0f;
-        _overlay.style.right = 0f;
-        _overlay.style.bottom = 0f;
-        _overlay.style.backgroundColor = Color.black;
-        _overlay.style.opacity = 1f;
-        // A pure presentation layer: it must never swallow a click that belongs
-        // to the HUD or to a console modal.
-        _overlay.pickingMode = PickingMode.Ignore;
-        _root.Add(_overlay);
+        _topEyelid = CreateEyelid("TopEyelid", true);
+        _bottomEyelid = CreateEyelid("BottomEyelid", false);
+        ApplyCurtains(0f);
+    }
+
+    private VisualElement CreateEyelid(string name, bool top)
+    {
+        var eyelid = new VisualElement { name = name };
+        eyelid.style.position = Position.Absolute;
+        eyelid.style.left = 0f;
+        eyelid.style.right = 0f;
+        eyelid.style.backgroundColor = Color.black;
+        eyelid.style.height = Length.Percent(50f);
+        if (top)
+        {
+            eyelid.style.top = 0f;
+        }
+        else
+        {
+            eyelid.style.bottom = 0f;
+        }
+
+        // Pure presentation: it must never swallow a click that belongs to the
+        // HUD or to a console modal.
+        eyelid.pickingMode = PickingMode.Ignore;
+        _root.Add(eyelid);
+        return eyelid;
     }
 
     private void Start()
     {
-        PlayBlink();
+        Play(Mode);
     }
 
-    /// <summary>Plays the blink once. Idempotent.</summary>
-    public void PlayBlink()
+    /// <summary>Plays the eyelid animation once. Idempotent.</summary>
+    public void Play(SceneRouting.EntryEyelid mode)
     {
-        if (_playing || _finished || _overlay == null)
+        if (_playing || _finished || _topEyelid == null)
         {
             return;
         }
 
+        Configure(mode);
         _playing = true;
         _elapsed = 0f;
-        Alpha = 1f;
+        Openness = 0f;
+        CoveredFraction = 0.5f;
         StageLabel = "closed";
-        _overlay.style.opacity = 1f;
+        ApplyCurtains(0f);
     }
 
-    /// <summary>Skips straight to the open view (automation safety net).</summary>
+    /// <summary>Jumps straight to the open view (automation safety net).</summary>
     public void FinishImmediately()
     {
-        _elapsed = BlinkSeconds;
-        Tick(0f);
+        Tick(BlinkSeconds);
     }
 
     private void Update()
@@ -142,7 +180,10 @@ public class ShipEntryBlinkFade : MonoBehaviour
             return;
         }
 
-        Tick(Time.unscaledDeltaTime);
+        // Clamped steps: the first frame of a freshly loaded scene can be long
+        // (asset streaming), and a single hitch must never skip a whole beat of
+        // the animation. The beats are the point - they have to be visible.
+        Tick(Mathf.Min(Time.unscaledDeltaTime, 1f / 30f));
     }
 
     private void Tick(float delta)
@@ -153,105 +194,166 @@ public class ShipEntryBlinkFade : MonoBehaviour
         }
 
         _elapsed += delta;
-        Alpha = AlphaAt(_elapsed);
-        StageLabel = StageAt(_elapsed);
+        Openness = OpennessAt(_elapsed, Mode);
+        CoveredFraction = CoveredFractionFor(Openness);
+        StageLabel = StageAt(_elapsed, Mode);
+        ApplyCurtains(Openness);
 
-        if (_overlay != null)
-        {
-            _overlay.style.opacity = Alpha;
-        }
-
-        if (_elapsed < BlinkSeconds)
+        if (_elapsed < DurationSeconds(Mode))
         {
             return;
         }
 
         _playing = false;
         _finished = true;
-        Alpha = 0f;
+        Openness = 1f;
+        CoveredFraction = 0f;
 
-        // The overlay is removed entirely: a finished transition must leave no
-        // element behind that could intercept input or invalidate the panel.
-        _overlay?.RemoveFromHierarchy();
-        _overlay = null;
-        Debug.Log("[ShipEntryBlinkFade] entry blink finished");
+        // The curtains are removed entirely: a finished transition must leave no
+        // element behind that could intercept pointer, input or focus.
+        _topEyelid?.RemoveFromHierarchy();
+        _bottomEyelid?.RemoveFromHierarchy();
+        _topEyelid = null;
+        _bottomEyelid = null;
+        Debug.Log("[ShipEntryBlinkFade] eyelid entry finished (" + Mode + ")");
         Destroy(this);
     }
 
-    /// <summary>Stage name for a given moment (report + verification).</summary>
-    public static string StageAt(float t)
+    /// <summary>Height of ONE curtain for an openness value (0..0.5 of the frame).</summary>
+    public static float CoveredFractionFor(float openness)
+    {
+        return (1f - Mathf.Clamp01(openness)) * 0.5f;
+    }
+
+    /// <summary>Total animation length for a mode.</summary>
+    public static float DurationSeconds(SceneRouting.EntryEyelid mode)
+    {
+        return mode == SceneRouting.EntryEyelid.Quick ? QuickOpenEnd : BlinkSeconds;
+    }
+
+    /// <summary>
+    /// The eyelid curve. It is deliberately NOT a linear fade: the double
+    /// movement (small attempt, bigger attempt, full open) is what makes it read
+    /// as waking up rather than dissolving.
+    /// </summary>
+    public static float OpennessAt(float t, SceneRouting.EntryEyelid mode)
+    {
+        if (t <= 0f)
+        {
+            return 0f;
+        }
+
+        if (mode == SceneRouting.EntryEyelid.Quick)
+        {
+            if (t <= QuickHoldEnd)
+            {
+                return 0f;
+            }
+
+            if (t >= QuickOpenEnd)
+            {
+                return 1f;
+            }
+
+            return Mathf.SmoothStep(0f, 1f, (t - QuickHoldEnd) / (QuickOpenEnd - QuickHoldEnd));
+        }
+
+        if (t < Beat1OpenEnd)
+        {
+            return Mathf.SmoothStep(0f, 1f, t / Beat1OpenEnd) * Beat1Openness;
+        }
+
+        if (t < Beat1CloseEnd)
+        {
+            return Mathf.Lerp(Beat1Openness, 0f,
+                Mathf.SmoothStep(0f, 1f, (t - Beat1OpenEnd) / (Beat1CloseEnd - Beat1OpenEnd)));
+        }
+
+        if (t < Beat2OpenEnd)
+        {
+            return Mathf.SmoothStep(0f, 1f,
+                (t - Beat1CloseEnd) / (Beat2OpenEnd - Beat1CloseEnd)) * Beat2Openness;
+        }
+
+        if (t < Beat2CloseEnd)
+        {
+            return Mathf.Lerp(Beat2Openness, 0f,
+                Mathf.SmoothStep(0f, 1f, (t - Beat2OpenEnd) / (Beat2CloseEnd - Beat2OpenEnd)));
+        }
+
+        if (t < Beat3OpenEnd)
+        {
+            return Mathf.SmoothStep(0f, 1f,
+                (t - Beat2CloseEnd) / (Beat3OpenEnd - Beat2CloseEnd));
+        }
+
+        return 1f;
+    }
+
+    /// <summary>Stage name for a given moment (probe reports + verification).</summary>
+    public static string StageAt(float t, SceneRouting.EntryEyelid mode)
     {
         if (t <= 0f)
         {
             return "closed";
         }
 
-        if (t < ClosedSeconds)
+        if (mode == SceneRouting.EntryEyelid.Quick)
         {
-            return "closed";
+            if (t <= QuickHoldEnd)
+            {
+                return "closed";
+            }
+
+            return t >= QuickOpenEnd ? "open" : "quick-open";
         }
 
-        if (t < ClosedSeconds + OpenSeconds)
+        if (t < Beat1OpenEnd)
         {
-            return "opening";
+            return "beat1";
         }
 
-        if (t < ClosedSeconds + OpenSeconds + RecloseSeconds)
+        if (t < Beat1CloseEnd)
         {
-            return "reclosing";
+            return "beat1-close";
         }
 
-        if (t < BlinkSeconds)
+        if (t < Beat2OpenEnd)
         {
-            return "settling";
+            return "beat2";
+        }
+
+        if (t < Beat2CloseEnd)
+        {
+            return "beat2-close";
+        }
+
+        if (t < Beat3OpenEnd)
+        {
+            return "beat3";
         }
 
         return "open";
     }
 
-    /// <summary>
-    /// The eyelid curve: shut, crack open, reflexive re-close, then a slow full
-    /// open. It is deliberately NOT a linear fade - the double movement is what
-    /// makes it read as a blink instead of a scene dissolve.
-    /// </summary>
-    public static float AlphaAt(float t)
+    /// <summary>Writes the curtain heights for the current openness.</summary>
+    private void ApplyCurtains(float openness)
     {
-        if (t <= 0f)
+        float percent = CoveredFractionFor(openness) * 100f;
+        if (_topEyelid != null)
         {
-            return 1f;
+            _topEyelid.style.height = Length.Percent(percent);
         }
 
-        if (t < ClosedSeconds)
+        if (_bottomEyelid != null)
         {
-            return 1f;
+            _bottomEyelid.style.height = Length.Percent(percent);
         }
-
-        float openEnd = ClosedSeconds + OpenSeconds;
-        if (t < openEnd)
-        {
-            return Mathf.Lerp(1f, FirstOpenAlpha,
-                Mathf.SmoothStep(0f, 1f, (t - ClosedSeconds) / OpenSeconds));
-        }
-
-        float recloseEnd = openEnd + RecloseSeconds;
-        if (t < recloseEnd)
-        {
-            return Mathf.Lerp(FirstOpenAlpha, RecloseAlpha,
-                Mathf.SmoothStep(0f, 1f, (t - openEnd) / RecloseSeconds));
-        }
-
-        if (t < BlinkSeconds)
-        {
-            return Mathf.Lerp(RecloseAlpha, 0f,
-                Mathf.SmoothStep(0f, 1f, (t - recloseEnd) / SettleSeconds));
-        }
-
-        return 0f;
     }
 
     /// <summary>
-    /// Prefers the ship HUD panel (it is the scene's main screen-space UI
-    /// Toolkit document); falls back to any other document in the scene.
+    /// Prefers the ship HUD panel (the scene's main screen-space UI Toolkit
+    /// document); falls back to any other document in the scene.
     /// </summary>
     private static VisualElement ResolvePanelRoot()
     {

@@ -446,10 +446,11 @@ public static class SurviveProjectSetup
 
     /// <summary>World-space direction the ship's exhaust points. The camera looks
     /// back along -Z, so its screen right is world -X: the aft therefore points
-    /// towards -X (screen right) and slightly towards the camera, which keeps BOTH
-    /// plumes visible while the nose crosses the left half of the frame.</summary>
+    /// towards +X (screen LEFT) and the NOSE points screen RIGHT, which is the
+    /// Revision 2 hard requirement - the ship cruises and departs LEFT to RIGHT
+    /// while both plumes stay visible streaming backwards.</summary>
     private static readonly Vector3 HeroAftDirection =
-        new Vector3(-0.94f, 0.06f, 0.34f).normalized;
+        new Vector3(0.94f, 0.06f, 0.34f).normalized;
 
     /// <summary>Initial boom length; the builder solves the final distance.</summary>
     private const float HeroCameraDistance = 32f;

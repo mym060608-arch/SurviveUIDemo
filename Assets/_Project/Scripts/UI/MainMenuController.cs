@@ -3,29 +3,27 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Main Menu presentation controller (Phase 08, composition revised in the
-/// Phase 08 Main Menu revision).
+/// Title screen controller (Phase 08, Revision 2).
 ///
-/// Ownership: exactly ONE UIDocument (MainMenu.uxml) is the whole menu tree.
-/// The controller binds the four real actions, owns the two modals, drives the
-/// menu's own motion and hands 进入任务 to <see cref="MainMenuCinematic"/>.
+/// The cover is now a MINIMAL console title screen: the headline 活下去 and the
+/// four options 新游戏 / 继续游戏 / 选项 / 退出, floating over the deep-space
+/// shot of the hero ship. Everything else the previous cover carried is gone
+/// (system bars, telemetry, mission/sector codes, HUD brackets, brand wordmark,
+/// 制作信息).
 ///
-/// Composition (binding): the LEFT of the screen is the real 3D hero ship
-/// flying in deep space (MainMenuShipHero + MainMenuStarfield, rendered by the
-/// scene camera) and the RIGHT is this document's menu column. The document
-/// therefore paints almost nothing - the root, the layer and the hero column are
-/// transparent.
+/// Responsibilities:
+/// - bind the four real actions (new game / continue / options / quit),
+/// - own the focus state (Focus is the primary state; hover follows it),
+/// - provide the basic gamepad navigation this screen must already support
+///   (D-Pad or left stick up/down, A confirm, B back) without pretending to be
+///   the full Phase 09 console UX,
+/// - show a light, device-aware input hint,
+/// - own the 选项 modal,
+/// - expose the layer alphas the start cinematic drives.
 ///
-/// It is deliberately NOT a session or navigation authority:
-/// - it never creates / resets / mutates GameSession (opening the menu is not
-///   "new game"),
-/// - it navigates only through SceneRouting (the project's single routing
-///   helper) and always into the pre-existing demo flow,
-/// - the cinematic owns the shot and the route; this controller only exposes
-///   the layer alphas the shot drives.
-///
-/// Motion contract: with motion disabled the layout is identical and every
-/// action still works - only the ambient movement stops.
+/// It is deliberately NOT a session or navigation authority: 新游戏 resets the
+/// ONE authoritative GameSession through its existing reset contract, then hands
+/// the shot to <see cref="MainMenuCinematic"/>; routing stays in SceneRouting.
 /// </summary>
 [RequireComponent(typeof(UIDocument))]
 public class MainMenuController : MonoBehaviour
@@ -36,50 +34,52 @@ public class MainMenuController : MonoBehaviour
     [SerializeField]
     private StyleSheet mainMenuStyleSheet;
 
-    // Hero window reference width used by the scan sweep (logical reference px).
-    private const float HeroStageWidth = 940f;
-    private const float SweepMargin = 44f;
-    private const float SweepSeconds = 13f;
+    /// <summary>Seconds before a held stick/D-Pad starts repeating.</summary>
+    private const float NavigationRepeatDelay = 0.32f;
+
+    /// <summary>Seconds between repeats while the direction is held.</summary>
+    private const float NavigationRepeatRate = 0.14f;
+
+    /// <summary>Stick magnitude that counts as a direction press.</summary>
+    private const float NavigateStickThreshold = 0.55f;
 
     private UIDocument _document;
     private VisualElement _root;
     private VisualElement _menuLayer;
     private MainMenuCinematic _cinematic;
-    private MainMenuShipHero _heroShip;
-    private MainMenuStarfield _starfield;
 
-    private VisualElement _settingsModal;
-    private VisualElement _settingsDim;
-    private VisualElement _settingsPanel;
-    private VisualElement _creditsModal;
-    private VisualElement _creditsDim;
-    private VisualElement _creditsPanel;
-    private VisualElement _hintLayer;
-    private VisualElement _scanSweep;
-    private VisualElement _statusDot;
+    private VisualElement _optionsModal;
+    private VisualElement _optionsDim;
+    private VisualElement _optionsPanel;
     private VisualElement _transitionOverlay;
+    private Label _inputHint;
 
-    private Button _enterMission;
-    private Button _settings;
-    private Button _credits;
+    private Label _title;
+    private Button _newGame;
+    private Button _continue;
+    private Button _options;
     private Button _exit;
-    private Button _settingsClose;
-    private Button _creditsClose;
+    private Button _optionsClose;
     private Button _motionOn;
     private Button _motionOff;
     private Button _hintsShow;
     private Button _hintsHide;
 
-    private bool _settingsOpen;
-    private bool _creditsOpen;
-    private float _settingsAlpha;
-    private float _creditsAlpha;
-    private bool _settingsInteractive;
-    private bool _creditsInteractive;
+    private readonly System.Collections.Generic.List<Button> _items =
+        new System.Collections.Generic.List<Button>();
+
+    private int _focusIndex;
+    private bool _optionsOpen;
+    private float _optionsAlpha;
+    private bool _optionsInteractive;
 
     private bool _transitioning;
     private bool _sceneLoadRequested;
     private float _transitionAlpha;
+
+    private float _navigateHeld;
+    private int _lastNavigateDirection;
+    private float _nextNavigateTime;
 
     /// <summary>True once Start() finished binding and the menu is usable.</summary>
     public bool IsReady { get; private set; }
@@ -90,13 +90,28 @@ public class MainMenuController : MonoBehaviour
     /// <summary>The menu's UIDocument.</summary>
     public UIDocument Document => _document;
 
-    /// <summary>The one primary CTA.</summary>
-    public Button EnterMissionButton => _enterMission;
-
-    /// <summary>The fadeable menu subtree (everything except the modals).</summary>
+    /// <summary>The fadeable menu subtree (everything except the modal).</summary>
     public VisualElement MenuLayer => _menuLayer;
 
-    /// <summary>The start cinematic that owns 进入任务 (null only if unauthored).</summary>
+    /// <summary>The only headline on the screen.</summary>
+    public Label Title => _title;
+
+    /// <summary>The four options, in navigation order.</summary>
+    public System.Collections.Generic.IReadOnlyList<Button> MenuItems => _items;
+
+    public Button NewGameButton => _newGame;
+    public Button ContinueButton => _continue;
+    public Button OptionsButton => _options;
+    public Button ExitButton => _exit;
+
+    /// <summary>Index of the focused option inside <see cref="MenuItems"/>.</summary>
+    public int FocusIndex => _focusIndex;
+
+    /// <summary>The focused option (never a disabled one).</summary>
+    public Button FocusedButton =>
+        _focusIndex >= 0 && _focusIndex < _items.Count ? _items[_focusIndex] : null;
+
+    /// <summary>The start cinematic that owns 新游戏 / 继续游戏.</summary>
     public MainMenuCinematic Cinematic
     {
         get
@@ -110,84 +125,34 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    /// <summary>The 3D hero ship shown on the left (null if unauthored).</summary>
-    public MainMenuShipHero HeroShip
-    {
-        get
-        {
-            if (_heroShip == null)
-            {
-                _heroShip = Object.FindAnyObjectByType<MainMenuShipHero>();
-            }
+    /// <summary>Logical options-modal state.</summary>
+    public bool IsOptionsOpen => _optionsOpen;
 
-            return _heroShip;
-        }
-    }
-
-    /// <summary>The procedural deep-space backdrop (null if unauthored).</summary>
-    public MainMenuStarfield Starfield
-    {
-        get
-        {
-            if (_starfield == null)
-            {
-                _starfield = Object.FindAnyObjectByType<MainMenuStarfield>();
-            }
-
-            return _starfield;
-        }
-    }
-
-    /// <summary>True while the left hero really shows the 3D ship.</summary>
-    public bool IsHeroShipActive
-    {
-        get
-        {
-            MainMenuShipHero hero = HeroShip;
-            return hero != null && hero.IsShipPresent && hero.NozzleCount == 2;
-        }
-    }
-
-    /// <summary>True while the deep-space backdrop is built.</summary>
-    public bool IsStarfieldActive
-    {
-        get
-        {
-            MainMenuStarfield stars = Starfield;
-            return stars != null && stars.IsActive;
-        }
-    }
-
-    /// <summary>Logical settings-modal state.</summary>
-    public bool IsSettingsOpen => _settingsOpen;
-
-    /// <summary>Logical credits-modal state.</summary>
-    public bool IsCreditsOpen => _creditsOpen;
-
-    /// <summary>
-    /// Number of modals currently shown. Phase 08 §53 forbids stacking, so this
-    /// must never exceed 1.
-    /// </summary>
+    /// <summary>Number of modals currently shown (never above one).</summary>
     public int OpenModalCount
     {
         get
         {
-            int count = 0;
-            if (_settingsModal != null
-                && _settingsModal.resolvedStyle.display == DisplayStyle.Flex)
-            {
-                count++;
-            }
-
-            if (_creditsModal != null
-                && _creditsModal.resolvedStyle.display == DisplayStyle.Flex)
-            {
-                count++;
-            }
-
-            return count;
+            return _optionsModal != null
+                   && _optionsModal.resolvedStyle.display == DisplayStyle.Flex
+                ? 1
+                : 0;
         }
     }
+
+    /// <summary>True while a modal is open (the menu behind it is blocked).</summary>
+    public bool IsAnyModalOpen => _optionsOpen;
+
+    /// <summary>True when 继续游戏 can resume a run started in this process.</summary>
+    public bool IsContinueAvailable => GameSession.Instance != null
+                                       && GameSession.Instance.HasStartedRun;
+
+    /// <summary>True while the current input device is a gamepad.</summary>
+    public bool IsGamepadHintVisible => _inputHint != null
+                                        && !string.IsNullOrEmpty(_inputHint.text);
+
+    /// <summary>The controller hint currently shown (empty when hidden).</summary>
+    public string InputHintText => _inputHint != null ? _inputHint.text : string.Empty;
 
     /// <summary>True while the start cinematic runs (or the fallback fade does).</summary>
     public bool IsTransitioning
@@ -210,8 +175,8 @@ public class MainMenuController : MonoBehaviour
     {
         _document = GetComponent<UIDocument>();
 
-        // The Main Menu is a 2D UI screen: keep the OS cursor usable (returning
-        // from the wrist/surface modes leaves it locked and hidden).
+        // The title screen is a 2D UI screen: keep the OS cursor usable
+        // (returning from the wrist/surface modes leaves it locked and hidden).
         UnityEngine.Cursor.lockState = CursorLockMode.None;
         UnityEngine.Cursor.visible = true;
     }
@@ -237,10 +202,9 @@ public class MainMenuController : MonoBehaviour
 
         UiFontProvider.ApplyTo(_root);
 
-        // A player build runs Resources.UnloadUnusedAssets on every scene load.
-        // The panel settings asset of a scene that is being replaced must not be
-        // released while UI Toolkit still holds its panel state, so the menu pins
-        // it for the process lifetime. (Editor only reads, so nothing is dirtied.)
+        // A player build runs Resources.UnloadUnusedAssets on every scene load:
+        // the panel settings of the scene being replaced must not be released
+        // while UI Toolkit still holds its panel state.
         if (!Application.isEditor && _document != null && _document.panelSettings != null)
         {
             _document.panelSettings.hideFlags |= HideFlags.DontUnloadUnusedAsset;
@@ -248,56 +212,82 @@ public class MainMenuController : MonoBehaviour
 
         BindElements();
         BindActions();
-        BindModalElements();
+        BindOptions();
         ApplySettings();
+        RefreshContinueAvailability();
+        SetFocus(0);
         IsReady = true;
 
-        Debug.Log("[MainMenuController] cover ready: heroShip="
-                  + (HeroShip != null ? HeroShip.ShipRendererCount.ToString() : "0")
-                  + " nozzles=" + (HeroShip != null ? HeroShip.NozzleCount.ToString() : "0")
-                  + " starLayers=" + (Starfield != null ? Starfield.LayerCount.ToString() : "0")
+        Debug.Log("[MainMenuController] title screen ready: items=" + _items.Count
+                  + " continue=" + IsContinueAvailable
                   + " cinematic=" + (Cinematic != null));
     }
 
     private void Update()
     {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard[EscapeKey].wasPressedThisFrame)
-        {
-            HandleEscapeKey();
-        }
+        // Device tracking first: everything below reacts to the same sample.
+        InputDeviceTracker.Poll();
 
-        UpdateAmbientMotion();
-        UpdateModalAnimation();
+        UpdateNavigation();
+        HandleEscapeAndBack();
+        PollConfirm();
+        UpdateInputHint();
+        UpdateOptionsAnimation();
         UpdateTransition();
     }
 
-    private const Key EscapeKey = Key.Escape;
-
-    /// <summary>
-    /// ESC behavior (§53): close an open modal, and never exit the application.
-    /// Extracted from the key check so the behavior itself is verifiable in
-    /// automated runs that have no keyboard device.
-    /// </summary>
+    /// <summary>ESC closes 选项 and never exits the application.</summary>
     public void HandleEscapeKey()
     {
-        CloseOpenModal();
+        HandleBackInput();
+    }
+
+    /// <summary>
+    /// The one "go back" action: ESC, gamepad B and the modal's 返回 button all
+    /// end up here, so the behaviour cannot drift between devices.
+    /// </summary>
+    public void HandleBackInput()
+    {
+        CloseOptions();
+    }
+
+    private void HandleEscapeAndBack()
+    {
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+        {
+            HandleBackInput();
+        }
+
+        Gamepad pad = Gamepad.current;
+        if (pad != null && pad.buttonEast.wasPressedThisFrame && _optionsOpen)
+        {
+            // B = Back, the console convention for leaving a submenu.
+            InputDeviceTracker.NotifyGamepad();
+            HandleBackInput();
+        }
     }
 
     // ---- Binding ----
 
     private void BindElements()
     {
-        _enterMission = BindButton(MainMenuNames.EnterMissionButton);
-        _settings = BindButton(MainMenuNames.SettingsButton);
-        _credits = BindButton(MainMenuNames.CreditsButton);
+        _menuLayer = BindElement(MainMenuNames.Layer, false);
+        _title = BindLabel(MainMenuNames.Title);
+
+        _newGame = BindButton(MainMenuNames.NewGameButton);
+        _continue = BindButton(MainMenuNames.ContinueButton);
+        _options = BindButton(MainMenuNames.OptionsButton);
         _exit = BindButton(MainMenuNames.ExitButton);
 
-        _menuLayer = BindElement(MainMenuNames.Layer);
-        _hintLayer = BindElement(MainMenuNames.HintLayer);
-        _scanSweep = BindElement(MainMenuNames.HeroScanSweep);
-        _statusDot = BindElement(MainMenuNames.StatusDot);
-        _transitionOverlay = BindElement(MainMenuNames.TransitionOverlay);
+        _items.Clear();
+        TrackItem(_newGame);
+        TrackItem(_continue);
+        TrackItem(_options);
+        TrackItem(_exit);
+
+        _inputHint = BindLabel(MainMenuNames.InputHintLabel, false);
+        _transitionOverlay = BindElement(MainMenuNames.TransitionOverlay, false);
 
         if (_transitionOverlay != null)
         {
@@ -306,21 +296,36 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
+    private void TrackItem(Button item)
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        int index = _items.Count;
+        _items.Add(item);
+
+        // Mouse still works, but it now FEEDS the focus state instead of being
+        // a separate hover treatment.
+        item.RegisterCallback<PointerEnterEvent>(_ => SetFocus(index));
+    }
+
     private void BindActions()
     {
-        if (_enterMission != null)
+        if (_newGame != null)
         {
-            _enterMission.clicked += RequestEnterMission;
+            _newGame.clicked += RequestNewGame;
         }
 
-        if (_settings != null)
+        if (_continue != null)
         {
-            _settings.clicked += ShowSettings;
+            _continue.clicked += RequestContinue;
         }
 
-        if (_credits != null)
+        if (_options != null)
         {
-            _credits.clicked += ShowCredits;
+            _options.clicked += ShowOptions;
         }
 
         if (_exit != null)
@@ -329,32 +334,22 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    private void BindModalElements()
+    private void BindOptions()
     {
-        _settingsModal = BindElement(MainMenuNames.SettingsModal);
-        _settingsDim = BindElement(MainMenuNames.SettingsDim);
-        _settingsPanel = BindElement(MainMenuNames.SettingsPanel);
-        _creditsModal = BindElement(MainMenuNames.CreditsModal);
-        _creditsDim = BindElement(MainMenuNames.CreditsDim);
-        _creditsPanel = BindElement(MainMenuNames.CreditsPanel);
+        _optionsModal = BindElement(MainMenuNames.OptionsModal, false);
+        _optionsDim = BindElement(MainMenuNames.OptionsDim, false);
+        _optionsPanel = BindElement(MainMenuNames.OptionsPanel, false);
+        _optionsClose = BindButton(MainMenuNames.OptionsCloseButton, false);
 
-        _settingsClose = BindButton(MainMenuNames.SettingsCloseButton);
-        _creditsClose = BindButton(MainMenuNames.CreditsCloseButton);
-
-        if (_settingsClose != null)
+        if (_optionsClose != null)
         {
-            _settingsClose.clicked += HideSettings;
+            _optionsClose.clicked += CloseOptions;
         }
 
-        if (_creditsClose != null)
-        {
-            _creditsClose.clicked += HideCredits;
-        }
-
-        _motionOn = BindButton(MainMenuNames.MotionOnButton);
-        _motionOff = BindButton(MainMenuNames.MotionOffButton);
-        _hintsShow = BindButton(MainMenuNames.HintsShowButton);
-        _hintsHide = BindButton(MainMenuNames.HintsHideButton);
+        _motionOn = BindButton(MainMenuNames.MotionOnButton, false);
+        _motionOff = BindButton(MainMenuNames.MotionOffButton, false);
+        _hintsShow = BindButton(MainMenuNames.HintsShowButton, false);
+        _hintsHide = BindButton(MainMenuNames.HintsHideButton, false);
 
         if (_motionOn != null)
         {
@@ -376,35 +371,330 @@ public class MainMenuController : MonoBehaviour
             _hintsHide.clicked += () => SetHints(false);
         }
 
-        SetModalVisible(_settingsModal, false);
-        SetModalVisible(_creditsModal, false);
-        ApplyPickingMode(_settingsModal, false);
-        ApplyPickingMode(_creditsModal, false);
-        _settingsOpen = false;
-        _creditsOpen = false;
-        _settingsAlpha = 0f;
-        _creditsAlpha = 0f;
-        _settingsInteractive = false;
-        _creditsInteractive = false;
+        SetModalVisible(_optionsModal, false);
+        ApplyPickingMode(_optionsModal, false);
+        _optionsOpen = false;
+        _optionsAlpha = 0f;
+        _optionsInteractive = false;
     }
 
-    // ---- Primary action ----
+    // ---- Focus / navigation ----
+
+    /// <summary>Moves the focus to an index, skipping disabled options.</summary>
+    public void SetFocus(int index)
+    {
+        if (_items.Count == 0)
+        {
+            return;
+        }
+
+        index = Mathf.Clamp(index, 0, _items.Count - 1);
+        if (IsItemEnabled(index))
+        {
+            _focusIndex = index;
+        }
+        else
+        {
+            // Never leave the focus on an unavailable option: walk forward,
+            // then backward, and stay put when nothing is selectable.
+            int found = -1;
+            for (int step = 1; step <= _items.Count; step++)
+            {
+                int candidate = (index + step) % _items.Count;
+                if (IsItemEnabled(candidate))
+                {
+                    found = candidate;
+                    break;
+                }
+            }
+
+            _focusIndex = found >= 0 ? found : index;
+        }
+
+        ApplyFocusClasses();
+    }
+
+    private bool IsItemEnabled(int index)
+    {
+        return _items[index] != null && _items[index].enabledSelf;
+    }
+
+    private void ApplyFocusClasses()
+    {
+        for (int i = 0; i < _items.Count; i++)
+        {
+            Button item = _items[i];
+            if (item == null)
+            {
+                continue;
+            }
+
+            if (i == _focusIndex)
+            {
+                item.AddToClassList("menu-item-focused");
+            }
+            else
+            {
+                item.RemoveFromClassList("menu-item-focused");
+            }
+        }
+    }
+
+    /// <summary>Moves the focus to the next enabled option (wraps).</summary>
+    public void FocusNext()
+    {
+        Step(1);
+    }
+
+    /// <summary>Moves the focus to the previous enabled option (wraps).</summary>
+    public void FocusPrevious()
+    {
+        Step(-1);
+    }
+
+    private void Step(int direction)
+    {
+        if (_items.Count == 0)
+        {
+            return;
+        }
+
+        for (int step = 1; step <= _items.Count; step++)
+        {
+            int candidate = ((_focusIndex + direction * step) % _items.Count
+                             + _items.Count) % _items.Count;
+            if (IsItemEnabled(candidate))
+            {
+                SetFocus(candidate);
+                return;
+            }
+        }
+    }
+
+    /// <summary>Activates the focused option (A / Confirm).</summary>
+    public bool ConfirmFocused()
+    {
+        Button focused = FocusedButton;
+        if (focused == null || !focused.enabledSelf || IsAnyModalOpen || IsTransitioning)
+        {
+            return false;
+        }
+
+        Activate(focused);
+        return true;
+    }
+
+    private void Activate(Button item)
+    {
+        if (item == _newGame)
+        {
+            RequestNewGame();
+        }
+        else if (item == _continue)
+        {
+            RequestContinue();
+        }
+        else if (item == _options)
+        {
+            ShowOptions();
+        }
+        else if (item == _exit)
+        {
+            RequestQuit();
+        }
+    }
 
     /// <summary>
-    /// The 进入任务 action: hand the shot to the start cinematic
-    /// (menu fade -> engine boost -> ship departure -> blackout -> ship
-    /// interior). The menu never routes on its own while the cinematic exists;
-    /// if it is missing the controller still fades and routes, so the product
-    /// path can never dead-end.
-    ///
-    /// It never resets or recreates the session: entering the demo is
-    /// navigation, not a new game.
+    /// D-Pad / left stick / arrow keys move the focus; A confirms. Repeat uses a
+    /// short delay then a steady rate so a held stick cannot race the menu.
     /// </summary>
-    public void RequestEnterMission()
+    private void UpdateNavigation()
     {
-        if (_transitioning || _sceneLoadRequested || IsAnyModalOpen)
+        if (IsAnyModalOpen || IsTransitioning)
         {
-            // While a modal is open the background is blocked (§20).
+            return;
+        }
+
+        int direction = ReadNavigationDirection();
+        if (direction == 0)
+        {
+            _navigateHeld = 0f;
+            _lastNavigateDirection = 0;
+            return;
+        }
+
+        float now = Time.unscaledTime;
+        if (direction != _lastNavigateDirection)
+        {
+            _lastNavigateDirection = direction;
+            _navigateHeld = 0f;
+            _nextNavigateTime = now + NavigationRepeatDelay;
+            Step(direction);
+            return;
+        }
+
+        if (now >= _nextNavigateTime)
+        {
+            _nextNavigateTime = now + NavigationRepeatRate;
+            Step(direction);
+        }
+    }
+
+    private static int ReadNavigationDirection()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad != null)
+        {
+            float stick = pad.leftStick.ReadValue().y;
+            if (stick > NavigateStickThreshold)
+            {
+                return -1;
+            }
+
+            if (stick < -NavigateStickThreshold)
+            {
+                return 1;
+            }
+
+            Vector2 dpad = pad.dpad.ReadValue();
+            if (dpad.y > 0.5f)
+            {
+                return -1;
+            }
+
+            if (dpad.y < -0.5f)
+            {
+                return 1;
+            }
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null)
+        {
+            if (keyboard.upArrowKey.wasPressedThisFrame)
+            {
+                return -1;
+            }
+
+            if (keyboard.downArrowKey.wasPressedThisFrame)
+            {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>Gamepad A confirmation, polled here so the title screen works
+    /// without any authored EventSystem.</summary>
+    private void PollConfirm()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad == null || !pad.buttonSouth.wasPressedThisFrame)
+        {
+            return;
+        }
+
+        InputDeviceTracker.NotifyGamepad();
+        if (_optionsOpen)
+        {
+            return;
+        }
+
+        ConfirmFocused();
+    }
+
+    private void UpdateInputHint()
+    {
+        if (_inputHint == null)
+        {
+            return;
+        }
+
+        if (!InputDeviceTracker.GamepadActive)
+        {
+            // Mouse/keyboard players get no controller chrome at all.
+            if (_inputHint.text.Length > 0)
+            {
+                _inputHint.text = string.Empty;
+                _inputHint.style.display = DisplayStyle.None;
+            }
+
+            return;
+        }
+
+        string hint = _optionsOpen ? "(A) 确认    (B) 返回" : "(A) 确认";
+        if (_inputHint.text != hint)
+        {
+            _inputHint.text = hint;
+        }
+
+        _inputHint.style.display = DisplayStyle.Flex;
+    }
+
+    // ---- Options ----
+
+    /// <summary>Opens 选项.</summary>
+    public void ShowOptions()
+    {
+        if (_optionsOpen || IsTransitioning)
+        {
+            return;
+        }
+
+        _optionsOpen = true;
+        SetModalVisible(_optionsModal, true);
+    }
+
+    /// <summary>Closes 选项 (ESC / B / 返回).</summary>
+    public void CloseOptions()
+    {
+        _optionsOpen = false;
+    }
+
+    // ---- The four actions ----
+
+    /// <summary>
+    /// 新游戏: resets the ONE authoritative session through its existing reset
+    /// contract, marks the run as started (which is what enables 继续游戏 for the
+    /// rest of this process) and plays the start cinematic. It never creates a
+    /// second session object.
+    /// </summary>
+    public void RequestNewGame()
+    {
+        if (IsTransitioning || IsAnyModalOpen)
+        {
+            return;
+        }
+
+        GameSession session = GameSession.Ensure();
+        session.ResetSession();
+        session.BeginRun();
+
+        _transitioning = true;
+        _transitionAlpha = 0f;
+        RefreshContinueAvailability();
+
+        MainMenuCinematic cinematic = Cinematic;
+        if (cinematic != null)
+        {
+            cinematic.BeginNewGame();
+            return;
+        }
+
+        Debug.LogWarning("MainMenuController: no MainMenuCinematic in the scene - "
+                         + "falling back to a plain fade + route");
+        SetCinematicBlackoutVisible(true);
+    }
+
+    /// <summary>
+    /// 继续游戏: resumes the run already started in this process WITHOUT touching
+    /// the session, through a short blackout and a shorter eyelid open.
+    /// </summary>
+    public void RequestContinue()
+    {
+        if (IsTransitioning || IsAnyModalOpen || !IsContinueAvailable)
+        {
             return;
         }
 
@@ -414,18 +704,53 @@ public class MainMenuController : MonoBehaviour
         MainMenuCinematic cinematic = Cinematic;
         if (cinematic != null)
         {
-            cinematic.Begin();
+            cinematic.BeginContinue();
             return;
         }
 
-        Debug.LogWarning("MainMenuController: no MainMenuCinematic in the scene - "
-                         + "falling back to a plain fade + route");
         SetCinematicBlackoutVisible(true);
+    }
+
+    /// <summary>Reflects the resumable state into 继续游戏 (disabled when the
+    /// process has no started run yet).</summary>
+    public void RefreshContinueAvailability()
+    {
+        bool available = IsContinueAvailable;
+        if (_continue != null)
+        {
+            _continue.SetEnabled(available);
+            if (available)
+            {
+                _continue.RemoveFromClassList("menu-item-disabled");
+            }
+            else
+            {
+                _continue.AddToClassList("menu-item-disabled");
+            }
+        }
+
+        if (!available && _focusIndex == _items.IndexOf(_continue))
+        {
+            SetFocus(0);
+        }
+    }
+
+    /// <summary>
+    /// The 退出 action. In a player this ends the application; inside the Unity
+    /// Editor it leaves Play Mode instead of terminating the editor process.
+    /// </summary>
+    public static void RequestQuit()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 
     // ---- Cinematic hooks (driven by MainMenuCinematic) ----
 
-    /// <summary>Fades the whole menu subtree (title, CTA, navigation, chrome).</summary>
+    /// <summary>Fades the whole menu subtree (title, options, hint).</summary>
     public void SetCinematicMenuAlpha(float alpha)
     {
         if (_menuLayer != null)
@@ -460,141 +785,60 @@ public class MainMenuController : MonoBehaviour
         ? _transitionOverlay.resolvedStyle.opacity
         : 0f;
 
-    // ---- Modals ----
-
-    /// <summary>Opens 系统设置, closing any other modal first (no stacking).</summary>
-    public void ShowSettings()
-    {
-        _creditsOpen = false;
-        _settingsOpen = true;
-        SetModalVisible(_settingsModal, true);
-    }
-
-    /// <summary>Closes 系统设置.</summary>
-    public void HideSettings()
-    {
-        _settingsOpen = false;
-    }
-
-    /// <summary>Opens 制作信息, closing any other modal first (no stacking).</summary>
-    public void ShowCredits()
-    {
-        _settingsOpen = false;
-        _creditsOpen = true;
-        SetModalVisible(_creditsModal, true);
-    }
-
-    /// <summary>Closes 制作信息.</summary>
-    public void HideCredits()
-    {
-        _creditsOpen = false;
-    }
-
-    /// <summary>Closes whatever modal is open (ESC behavior, §53).</summary>
-    public void CloseOpenModal()
-    {
-        if (_settingsOpen)
-        {
-            HideSettings();
-        }
-        else if (_creditsOpen)
-        {
-            HideCredits();
-        }
-    }
-
-    /// <summary>True while either modal is logically open.</summary>
-    public bool IsAnyModalOpen => _settingsOpen || _creditsOpen;
-
-    // ---- Exit ----
-
-    /// <summary>
-    /// The 退出 action.
-    ///
-    /// In a player this ends the application. Inside the Unity Editor it must
-    /// never terminate the editor process, so the guarded branch simply leaves
-    /// Play Mode; both paths are error-free.
-    /// </summary>
-    public static void RequestQuit()
-    {
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
-#endif
-    }
-
     // ---- Per-frame presentation ----
 
-    private void UpdateAmbientMotion()
+    private void UpdateOptionsAnimation()
     {
-        bool motion = MainMenuSettings.MotionEnabled;
-
-        if (_scanSweep != null)
-        {
-            // Transform, never a layout property: writing `left` every frame
-            // invalidates layout forever, which leaves the panel's teardown
-            // spinning in a player build.
-            float t = motion
-                ? Mathf.Repeat(Time.unscaledTime / SweepSeconds, 1f)
-                : 0.5f;
-            _scanSweep.style.translate = new Translate(
-                t * (HeroStageWidth - SweepMargin * 2f), 0f);
-            _scanSweep.style.opacity = motion ? 0.5f : 0.16f;
-        }
-
-        if (_statusDot != null)
-        {
-            _statusDot.style.opacity = motion
-                ? 0.45f + 0.55f * (0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 1.6f))
-                : 1f;
-        }
-    }
-
-    private void UpdateModalAnimation()
-    {
-        // Steady state: no style writes at all. Writing layout-affecting style
-        // every frame (even the same value) keeps the panel invalidated forever,
-        // which leaves UI Toolkit's teardown spinning in a player build.
-        float settingsTarget = _settingsOpen ? 1f : 0f;
-        float creditsTarget = _creditsOpen ? 1f : 0f;
-        if (_settingsAlpha == settingsTarget && _creditsAlpha == creditsTarget)
+        // Steady state: no style writes at all (a per-frame layout write keeps
+        // the panel invalidated forever and makes its teardown spin).
+        float target = _optionsOpen ? 1f : 0f;
+        if (_optionsAlpha == target)
         {
             return;
         }
 
-        float step = MotionEnabledStep(MainMenuSettings.ModalSeconds);
-        _settingsAlpha = Mathf.MoveTowards(_settingsAlpha, settingsTarget, step);
-        _creditsAlpha = Mathf.MoveTowards(_creditsAlpha, creditsTarget, step);
+        _optionsAlpha = Mathf.MoveTowards(_optionsAlpha, target,
+            MotionEnabledStep(MainMenuSettings.ModalSeconds));
 
-        ApplyModalAlpha(_settingsModal, _settingsDim, _settingsPanel, _settingsAlpha, _settingsOpen);
-        ApplyModalAlpha(_creditsModal, _creditsDim, _creditsPanel, _creditsAlpha, _creditsOpen);
+        if (_optionsDim != null)
+        {
+            _optionsDim.style.opacity = _optionsAlpha;
+        }
 
-        // Only an OPEN modal may block the menu behind it.
-        SetModalInteractive(_settingsModal, ref _settingsInteractive, _settingsOpen);
-        SetModalInteractive(_creditsModal, ref _creditsInteractive, _creditsOpen);
+        if (_optionsPanel != null)
+        {
+            _optionsPanel.style.opacity = _optionsAlpha;
+            _optionsPanel.style.translate = new Translate(0f,
+                Mathf.Lerp(16f, 0f, _optionsAlpha));
+        }
+
+        bool visible = _optionsOpen || _optionsAlpha > 0.001f;
+        DisplayStyle wanted = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        if (_optionsModal != null && _optionsModal.resolvedStyle.display != wanted)
+        {
+            _optionsModal.style.display = wanted;
+        }
+
+        if (_optionsInteractive != _optionsOpen)
+        {
+            _optionsInteractive = _optionsOpen;
+            ApplyPickingMode(_optionsModal, _optionsOpen);
+        }
     }
 
     /// <summary>
     /// Fallback transition used only when the scene has no cinematic: fade to
-    /// black, then take the product route (Main Menu -> Ship Interior).
+    /// black, then take the product route (title screen -> ship interior).
     /// </summary>
     private void UpdateTransition()
     {
-        if (!_transitioning || _sceneLoadRequested)
+        if (!_transitioning || _sceneLoadRequested || Cinematic != null)
         {
-            return;
-        }
-
-        if (Cinematic != null)
-        {
-            // The cinematic owns the shot and its own route.
             return;
         }
 
         _transitionAlpha = Mathf.MoveTowards(_transitionAlpha, 1f,
             MotionEnabledStep(MainMenuSettings.TransitionSeconds));
-
         SetCinematicBlackoutAlpha(_transitionAlpha);
         SetCinematicMenuAlpha(1f - _transitionAlpha);
 
@@ -604,7 +848,8 @@ public class MainMenuController : MonoBehaviour
         }
 
         _sceneLoadRequested = true;
-        SceneRouting.EnterShipInterior(SceneRouting.ShipEntry.FromMainMenu);
+        SceneRouting.EnterShipInterior(SceneRouting.ShipEntry.FromMainMenu,
+            SceneRouting.EntryEyelid.Full);
     }
 
     /// <summary>Per-frame alpha step; motion disabled resolves instantly.</summary>
@@ -634,25 +879,13 @@ public class MainMenuController : MonoBehaviour
         ApplySettings();
     }
 
-    /// <summary>
-    /// Reflects <see cref="MainMenuSettings"/> into the tree. Called on bind and
-    /// after every settings change; always keeps the layout intact.
-    /// </summary>
+    /// <summary>Reflects <see cref="MainMenuSettings"/> into the tree.</summary>
     public void ApplySettings()
     {
         SetToggleState(_motionOn, MainMenuSettings.MotionEnabled);
         SetToggleState(_motionOff, !MainMenuSettings.MotionEnabled);
         SetToggleState(_hintsShow, MainMenuSettings.HintsVisible);
         SetToggleState(_hintsHide, !MainMenuSettings.HintsVisible);
-
-        if (_hintLayer != null)
-        {
-            // The annotation layer is absolutely positioned, so hiding it can
-            // never move the title, the CTA or the hero window.
-            _hintLayer.style.display = MainMenuSettings.HintsVisible
-                ? DisplayStyle.Flex
-                : DisplayStyle.None;
-        }
     }
 
     private static void SetToggleState(Button button, bool active)
@@ -680,57 +913,13 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    private static void ApplyModalAlpha(VisualElement modal, VisualElement dim,
-        VisualElement panel, float alpha, bool open)
-    {
-        if (modal == null)
-        {
-            return;
-        }
-
-        if (dim != null)
-        {
-            dim.style.opacity = alpha;
-        }
-
-        if (panel != null)
-        {
-            panel.style.opacity = alpha;
-            // Slide with a transform: a layout property (marginTop) written every
-            // frame keeps the panel invalidated and makes the panel teardown spin
-            // in a player build.
-            panel.style.translate = new Translate(0f, Mathf.Lerp(16f, 0f, alpha));
-        }
-
-        // Keep it drawn while it fades out, then remove it entirely. A closed
-        // modal must never keep intercepting pointers while it fades, and the
-        // display property is only written when it actually changes.
-        bool visible = open || alpha > 0.001f;
-        DisplayStyle wanted = visible ? DisplayStyle.Flex : DisplayStyle.None;
-        if (modal.resolvedStyle.display != wanted)
-        {
-            modal.style.display = wanted;
-        }
-    }
-
-    /// <summary>
-    /// Enables/disables pointer interception for a whole modal subtree. Called
-    /// only on state changes: a fading-out modal must not swallow a click that
-    /// belongs to the menu behind it.
-    /// </summary>
-    private static void SetModalInteractive(VisualElement modal, ref bool applied, bool interactive)
-    {
-        if (modal == null || applied == interactive)
-        {
-            return;
-        }
-
-        applied = interactive;
-        ApplyPickingMode(modal, interactive);
-    }
-
     private static void ApplyPickingMode(VisualElement element, bool interactive)
     {
+        if (element == null)
+        {
+            return;
+        }
+
         element.pickingMode = interactive ? PickingMode.Position : PickingMode.Ignore;
         foreach (VisualElement child in element.Children())
         {
@@ -738,10 +927,12 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    private Button BindButton(string name)
+    // ---- Binding helpers ----
+
+    private Button BindButton(string name, bool required = true)
     {
         Button button = _root.Q<Button>(name);
-        if (button == null)
+        if (button == null && required)
         {
             LogMissing(name);
         }
@@ -749,10 +940,21 @@ public class MainMenuController : MonoBehaviour
         return button;
     }
 
-    private VisualElement BindElement(string name)
+    private Label BindLabel(string name, bool required = true)
+    {
+        Label label = _root.Q<Label>(name);
+        if (label == null && required)
+        {
+            LogMissing(name);
+        }
+
+        return label;
+    }
+
+    private VisualElement BindElement(string name, bool required = true)
     {
         VisualElement element = _root.Q<VisualElement>(name);
-        if (element == null)
+        if (element == null && required)
         {
             LogMissing(name);
         }

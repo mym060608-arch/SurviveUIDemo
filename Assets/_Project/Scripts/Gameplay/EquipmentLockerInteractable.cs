@@ -13,7 +13,7 @@ using UnityEngine;
 public class EquipmentLockerInteractable : MonoBehaviour, IFirstPersonInteractable
 {
     /// <summary>Chinese-first equipment-locker prompt.</summary>
-    public string PromptText => "E  调整远征装备";
+    public string PromptText => InputDeviceTracker.FormatPrompt("调整远征装备");
 
     public bool CanInteract()
     {

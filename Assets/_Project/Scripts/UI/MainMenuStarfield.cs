@@ -1,17 +1,23 @@
 using UnityEngine;
 
 /// <summary>
-/// Phase 08 Revision deep-space backdrop for the Main Menu.
+/// Deep-space backdrop for the title screen (Phase 08, Revision 2).
 ///
 /// Three additive quads parented to the stage camera at very different
-/// distances (and drift rates) build the "deep space" read: a far star field
-/// with faint nebula, a mid field and a sparse near field that provides the
-/// parallax. Everything is generated procedurally from a fixed seed, so the
-/// menu never depends on an imported texture and every run composes identically.
+/// distances build the "deep space" read: a far star field with faint nebula, a
+/// mid field and a sparse near field that provides the parallax. Everything is
+/// generated procedurally from a fixed seed, ONCE, so the menu never depends on
+/// an imported texture and every run composes identically.
 ///
-/// The layers are camera children and keep their authored distance; the camera
-/// therefore never flies out of the backdrop. Depth is real - the quads are
-/// ordinary transparent geometry, so the hero ship occludes them normally.
+/// Motion (Revision 2): the plates drift sideways forever in the shader
+/// (<c>_ScrollSpeed</c>, no per-frame texture work) and each layer twinkles with
+/// its own decorrelated noise octaves, so the sky feels alive without flashing.
+/// The ship cruises to the RIGHT, so the stars flow LEFT past it - that relative
+/// motion is what sells the cruise while the ship holds its composition.
+///
+/// The layers are camera children and keep their authored distance, so the
+/// camera never flies out of the backdrop. Depth is real: the quads are ordinary
+/// transparent geometry and the hero ship occludes them normally.
 /// </summary>
 public class MainMenuStarfield : MonoBehaviour
 {
@@ -32,11 +38,17 @@ public class MainMenuStarfield : MonoBehaviour
         public float Distance;
         public float Parallax;
         public float Intensity;
-        public float TwinklePhase;
         public Vector2 Drift;
     }
 
     private static readonly int IntensityId = Shader.PropertyToID("_Intensity");
+    private static readonly int BaseMapId = Shader.PropertyToID("_BaseMap");
+    private static readonly int TwinkleMapId = Shader.PropertyToID("_TwinkleMap");
+    private static readonly int ScrollSpeedId = Shader.PropertyToID("_ScrollSpeed");
+    private static readonly int TwinkleAmountId = Shader.PropertyToID("_TwinkleAmount");
+    private static readonly int TwinkleScaleId = Shader.PropertyToID("_TwinkleScale");
+    private static readonly int TwinkleSpeedId = Shader.PropertyToID("_TwinkleSpeed");
+    private static readonly int SpikeAmountId = Shader.PropertyToID("_SpikeAmount");
 
     private readonly Layer[] _layers = new Layer[3];
     private Mesh _quad;
@@ -51,6 +63,22 @@ public class MainMenuStarfield : MonoBehaviour
 
     /// <summary>Total stars baked into the three layers (verification).</summary>
     public int StarCount { get; private set; }
+
+    /// <summary>Per-layer sideways drift in uv units per second (verification).</summary>
+    public float ScrollSpeedOf(int layer)
+    {
+        return layer >= 0 && layer < _layers.Length && _layers[layer]?.Material != null
+            ? _layers[layer].Material.GetFloat(ScrollSpeedId)
+            : 0f;
+    }
+
+    /// <summary>Per-layer twinkle strength (verification).</summary>
+    public float TwinkleAmountOf(int layer)
+    {
+        return layer >= 0 && layer < _layers.Length && _layers[layer]?.Material != null
+            ? _layers[layer].Material.GetFloat(TwinkleAmountId)
+            : 0f;
+    }
 
     /// <summary>Runtime wiring (called by the scene builder).</summary>
     public void Configure(Camera camera, Material material, int randomSeed)
@@ -89,22 +117,39 @@ public class MainMenuStarfield : MonoBehaviour
         _quad = BuildQuad();
         var random = new System.Random(seed);
 
+        // One shared twinkle noise plate: the shader samples it in two
+        // decorrelated octaves, so no per-star CPU work is needed.
+        Texture2D twinkle = BuildTwinkleNoise(128, seed ^ 0x5f3a);
+
         // Far: the main field + the nebula wash that makes the sky read as deep
-        // space instead of "black with dots".
+        // space instead of "black with dots". Slowest drift and the calmest
+        // twinkle.
         AddLayer(0, 900f, 0.05f, 1f, 1024, 512, 1900, 1.05f, 0.60f,
-            nebula: true, random: random, drift: new Vector2(0.35f, 0.22f));
+            nebula: true, random: random, twinkle: twinkle,
+            scrollSpeed: 0.0035f, twinkleAmount: 0.28f, twinkleScale: 2.2f,
+            twinkleSpeed: 0.22f, spikeAmount: 0.30f,
+            parallaxDrift: new Vector2(0.35f, 0.22f));
         // Mid: brighter and slightly larger stars.
         AddLayer(1, 560f, 0.18f, 0.85f, 768, 384, 620, 1.5f, 0.85f,
-            nebula: false, random: random, drift: new Vector2(1.1f, 0.7f));
-        // Near: few, large, faint - these sell the parallax.
+            nebula: false, random: random, twinkle: twinkle,
+            scrollSpeed: 0.008f, twinkleAmount: 0.38f, twinkleScale: 3.4f,
+            twinkleSpeed: 0.3f, spikeAmount: 0.45f,
+            parallaxDrift: new Vector2(1.1f, 0.7f));
+        // Near: few, large stars - these carry both the parallax and the most
+        // visible twinkle.
         AddLayer(2, 300f, 0.42f, 0.65f, 640, 320, 170, 2.4f, 0.9f,
-            nebula: false, random: random, drift: new Vector2(3.2f, 2.0f));
+            nebula: false, random: random, twinkle: twinkle,
+            scrollSpeed: 0.017f, twinkleAmount: 0.5f, twinkleScale: 4.6f,
+            twinkleSpeed: 0.38f, spikeAmount: 0.6f,
+            parallaxDrift: new Vector2(3.2f, 2.0f));
         LayerCount = 3;
     }
 
     private void AddLayer(int index, float distance, float parallax, float intensity,
         int width, int height, int stars, float starSize, float brightness,
-        bool nebula, System.Random random, Vector2 drift)
+        bool nebula, System.Random random, Texture2D twinkle,
+        float scrollSpeed, float twinkleAmount, float twinkleScale,
+        float twinkleSpeed, float spikeAmount, Vector2 parallaxDrift)
     {
         var go = new GameObject("StarLayer_" + index);
         go.transform.SetParent(stageCamera.transform, false);
@@ -116,10 +161,16 @@ public class MainMenuStarfield : MonoBehaviour
 
         var renderer = go.AddComponent<MeshRenderer>();
         var material = new Material(spriteMaterial) { name = "M_StarLayer_" + index };
-        material.SetTexture("_BaseMap", BuildTexture(width, height, stars, starSize,
+        material.SetTexture(BaseMapId, BuildTexture(width, height, stars, starSize,
             brightness, nebula, random, out int drawn));
+        material.SetTexture(TwinkleMapId, twinkle);
         material.SetColor("_BaseColor", Color.white);
         material.SetFloat(IntensityId, intensity);
+        material.SetFloat(ScrollSpeedId, scrollSpeed);
+        material.SetFloat(TwinkleAmountId, twinkleAmount);
+        material.SetFloat(TwinkleScaleId, twinkleScale);
+        material.SetFloat(TwinkleSpeedId, twinkleSpeed);
+        material.SetFloat(SpikeAmountId, spikeAmount);
         renderer.sharedMaterial = material;
         renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         renderer.receiveShadows = false;
@@ -135,8 +186,7 @@ public class MainMenuStarfield : MonoBehaviour
             Distance = distance,
             Parallax = parallax,
             Intensity = intensity,
-            TwinklePhase = (float)random.NextDouble() * 6.283f,
-            Drift = drift
+            Drift = parallaxDrift
         };
     }
 
@@ -147,47 +197,35 @@ public class MainMenuStarfield : MonoBehaviour
             return;
         }
 
+        // The drift and the twinkle live in the shader, so the only per-frame
+        // work left is the aspect refit and the cinematic parallax nudge.
         if (!Mathf.Approximately(_lastAspect, stageCamera.aspect))
         {
             FitLayers();
         }
 
-        bool motion = MainMenuSettings.MotionEnabled;
-        float time = Time.unscaledTime;
+        if (_parallaxBoost <= 0.0001f)
+        {
+            return;
+        }
 
         for (int i = 0; i < _layers.Length; i++)
         {
             Layer layer = _layers[i];
-            if (layer == null || layer.Transform == null)
+            if (layer?.Transform == null)
             {
                 continue;
             }
 
-            float driftX = 0f;
-            float driftY = 0f;
-            if (motion)
-            {
-                driftX = Mathf.Sin(time * 0.037f + i) * layer.Drift.x + time * 0.02f * i;
-                driftY = Mathf.Cos(time * 0.029f + i * 1.7f) * layer.Drift.y;
-            }
-
-            driftX += _parallaxBoost * layer.Parallax * 24f;
-            layer.Transform.localPosition = new Vector3(driftX, driftY, layer.Distance);
-
-            float twinkle = motion
-                ? 1f + Mathf.Sin(time * 0.55f + layer.TwinklePhase) * 0.05f
-                : 1f;
-            if (layer.Material != null)
-            {
-                layer.Material.SetFloat(IntensityId, layer.Intensity * twinkle);
-            }
+            layer.Transform.localPosition = new Vector3(
+                _parallaxBoost * layer.Parallax * 24f, 0f, layer.Distance);
         }
     }
 
     /// <summary>
     /// Nudges the whole backdrop sideways (a fraction of each layer's parallax
-    /// factor). The cinematic raises this while the ship accelerates away, so
-    /// the star field answers the departure instead of sitting still.
+    /// factor). The cinematic raises this while the ship accelerates away, so the
+    /// star field answers the departure instead of sitting still.
     /// </summary>
     public void SetParallaxBoost(float amount)
     {
@@ -206,7 +244,7 @@ public class MainMenuStarfield : MonoBehaviour
         for (int i = 0; i < _layers.Length; i++)
         {
             Layer layer = _layers[i];
-            if (layer == null || layer.Transform == null)
+            if (layer?.Transform == null)
             {
                 continue;
             }
@@ -243,9 +281,65 @@ public class MainMenuStarfield : MonoBehaviour
     }
 
     /// <summary>
+    /// Deterministic seamless twinkle noise: a wrapped value-noise lattice so the
+    /// drifting plate never shows a seam where the noise repeats.
+    /// </summary>
+    private static Texture2D BuildTwinkleNoise(int size, int randomSeed)
+    {
+        var random = new System.Random(randomSeed);
+        const int lattice = 16;
+        var values = new float[lattice * lattice];
+        for (int i = 0; i < values.Length; i++)
+        {
+            values[i] = (float)random.NextDouble();
+        }
+
+        var pixels = new Color32[size * size];
+        for (int y = 0; y < size; y++)
+        {
+            float v = y / (float)size * lattice;
+            int y0 = (int)v % lattice;
+            int y1 = (y0 + 1) % lattice;
+            float fy = Smooth(v - Mathf.Floor(v));
+            for (int x = 0; x < size; x++)
+            {
+                float u = x / (float)size * lattice;
+                int x0 = (int)u % lattice;
+                int x1 = (x0 + 1) % lattice;
+                float fx = Smooth(u - Mathf.Floor(u));
+
+                float a = values[y0 * lattice + x0];
+                float b = values[y0 * lattice + x1];
+                float c = values[y1 * lattice + x0];
+                float d = values[y1 * lattice + x1];
+                float value = Mathf.Lerp(Mathf.Lerp(a, b, fx), Mathf.Lerp(c, d, fx), fy);
+
+                byte grey = (byte)Mathf.Clamp(Mathf.RoundToInt(value * 255f), 0, 255);
+                pixels[y * size + x] = new Color32(grey, grey, grey, 255);
+            }
+        }
+
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, true, true)
+        {
+            name = "MainMenuTwinkleNoise",
+            wrapMode = TextureWrapMode.Repeat,
+            filterMode = FilterMode.Bilinear
+        };
+        texture.SetPixels32(pixels);
+        texture.Apply(true, false);
+        return texture;
+    }
+
+    private static float Smooth(float t)
+    {
+        return t * t * (3f - 2f * t);
+    }
+
+    /// <summary>
     /// Deterministic deep-space plate: soft nebula wash (far layer only) plus
     /// point stars. rgb carries the star colour and a carries coverage, which is
-    /// exactly what the additive sprite shader consumes.
+    /// exactly what the additive sprite shader consumes. The plate wraps
+    /// seamlessly because the shader scrolls it forever.
     /// </summary>
     private static Texture2D BuildTexture(int width, int height, int starCount,
         float starSize, float brightness, bool nebula, System.Random random,
@@ -273,7 +367,7 @@ public class MainMenuStarfield : MonoBehaviour
         var texture = new Texture2D(width, height, TextureFormat.RGBA32, true, false)
         {
             name = "MainMenuStarPlate",
-            wrapMode = TextureWrapMode.Clamp,
+            wrapMode = TextureWrapMode.Repeat,
             filterMode = FilterMode.Bilinear
         };
         texture.SetPixels32(pixels);
@@ -402,17 +496,30 @@ public class MainMenuStarfield : MonoBehaviour
 
     private void OnDestroy()
     {
+        Texture2D twinkle = null;
         for (int i = 0; i < _layers.Length; i++)
         {
-            if (_layers[i]?.Material != null)
+            if (_layers[i]?.Material == null)
             {
-                if (_layers[i].Material.HasProperty("_BaseMap"))
-                {
-                    Destroy(_layers[i].Material.GetTexture("_BaseMap"));
-                }
-
-                Destroy(_layers[i].Material);
+                continue;
             }
+
+            if (_layers[i].Material.HasProperty(BaseMapId))
+            {
+                Destroy(_layers[i].Material.GetTexture(BaseMapId));
+            }
+
+            if (twinkle == null && _layers[i].Material.HasProperty(TwinkleMapId))
+            {
+                twinkle = _layers[i].Material.GetTexture(TwinkleMapId) as Texture2D;
+            }
+
+            Destroy(_layers[i].Material);
+        }
+
+        if (twinkle != null)
+        {
+            Destroy(twinkle);
         }
 
         if (_quad != null)

@@ -361,16 +361,36 @@ public static class SurviveProjectValidator
                 Record(menuPresent.Contains(expected), "MainMenu.uxml composition structure: " + expected);
             }
 
-            // The one primary CTA must exist as a real Button (not a label) so
-            // the runtime can bind and the smoke can really click it.
-            Button cta = menuTemplate.Q<Button>(MainMenuNames.EnterMissionButton);
-            Record(cta != null, "MainMenu.uxml primary CTA is a Button (进入任务)");
-            Record(cta != null && cta.Q<Label>(MainMenuNames.EnterMissionLabel) != null,
-                "MainMenu.uxml primary CTA carries the Chinese label element");
-            Record(cta != null
-                   && cta.Q<Label>(MainMenuNames.EnterMissionLabel) != null
-                   && cta.Q<Label>(MainMenuNames.EnterMissionLabel).text == "进入任务",
-                "MainMenu.uxml primary CTA text is 进入任务");
+            // Revision 2: the title screen carries 活下去 and exactly four
+            // options as real Buttons, and none of the previous cover's chrome.
+            Label menuTitle = menuTemplate.Q<Label>(MainMenuNames.Title);
+            Record(menuTitle != null && menuTitle.text == "活下去",
+                "MainMenu.uxml title is 活下去 (actual: "
+                + (menuTitle != null ? menuTitle.text : "<missing>") + ")");
+
+            string[] expectedItems = { "新游戏", "继续游戏", "选项", "退出" };
+            for (int i = 0; i < MainMenuNames.MenuItemOrder.Length; i++)
+            {
+                Button item = menuTemplate.Q<Button>(MainMenuNames.MenuItemOrder[i]);
+                bool itemOk = item != null
+                              && item.Q<Label>(className: "menu-item-label") != null
+                              && item.Q<Label>(className: "menu-item-label").text == expectedItems[i];
+                Record(itemOk, "MainMenu.uxml option is a Button reading " + expectedItems[i]);
+            }
+
+            Record(menuTemplate.Q<VisualElement>(MainMenuNames.OptionsModal) != null,
+                "MainMenu.uxml carries the 选项 modal");
+
+            // The removed chrome must not come back: check the instantiated tree
+            // for any of the copy Revision 2 deleted from the title screen.
+            var menuCopy = new System.Text.StringBuilder();
+            menuTemplate.Query<Label>().ForEach(label => menuCopy.Append(label.text).Append('\n'));
+            string copy = menuCopy.ToString();
+            foreach (string removed in MainMenuNames.RemovedCopy)
+            {
+                Record(!copy.Contains(removed),
+                    "MainMenu.uxml no longer shows: " + removed);
+            }
         }
 
         // ---- 00_Boot scene content ----

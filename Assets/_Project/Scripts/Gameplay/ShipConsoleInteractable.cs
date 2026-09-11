@@ -24,7 +24,7 @@ public class ShipConsoleInteractable : MonoBehaviour, IFirstPersonInteractable
     public string ChineseName => _zhName;
 
     /// <summary>Chinese-first prompt shown while gazing at the console.</summary>
-    public string PromptText => "E  使用 " + _zhName + "终端";
+    public string PromptText => InputDeviceTracker.FormatPrompt("使用 " + _zhName + "终端");
 
     /// <summary>Builder configuration (called once at scene authoring time).</summary>
     public void Configure(int consoleId, string zhName)

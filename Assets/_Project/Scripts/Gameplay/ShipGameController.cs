@@ -43,6 +43,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private SurfaceWristController _wrist;
     private WorldUiPointerRouter _pointerRouter;
     private ShipEntryBlinkFade _blinkFade;
+    private bool _entryInputLocked;
     private readonly List<ShipConsoleInteractable> _consoles = new List<ShipConsoleInteractable>();
     private readonly List<ShipDoorInteractable> _doors = new List<ShipDoorInteractable>();
     private bool _ready;
@@ -67,11 +68,38 @@ public class ShipGameController : MonoBehaviour, IWristContext
     public ShipEntryBlinkFade EntryBlink => _blinkFade;
 
     /// <summary>
-    /// True when THIS entry played the first-person blink. It stays true after
-    /// the blink finished (the component removes itself), so the hand-over is
-    /// verifiable without racing a sub-second presentation.
+    /// True when THIS entry played the first-person eyelid animation. It stays
+    /// true after the animation finished (the component removes itself), so the
+    /// hand-over is verifiable without racing a sub-second presentation.
     /// </summary>
     public bool EntryBlinkArmed { get; private set; }
+
+    /// <summary>True while the entry eyelids still hold movement/look locked.</summary>
+    public bool IsEntryInputLocked => _entryInputLocked;
+
+    /// <summary>
+    /// Releases the entry lock once the eyelids are gone: movement, look and
+    /// interaction are enabled and the HUD chrome comes back.
+    /// </summary>
+    private void UpdateEntryEyelids()
+    {
+        if (!_entryInputLocked)
+        {
+            return;
+        }
+
+        // The eyelid component destroys itself when the last beat completes, so
+        // a null reference IS the finished signal (Unity's destroyed-object null).
+        if (_blinkFade != null)
+        {
+            return;
+        }
+
+        _entryInputLocked = false;
+        _hud?.SetUiSuppressed(false);
+        ApplyPointerOwnership();
+        Debug.Log("[ShipGameController] entry eyelids finished - first-person control released");
+    }
 
     /// <summary>True while a console transition or focus is active (the wrist
     /// must never open on top of a physical terminal).</summary>
@@ -206,18 +234,27 @@ public class ShipGameController : MonoBehaviour, IWristContext
             : ShipSpawnMarker.DefaultId;
         ApplySpawn(markerId);
 
-        // Phase 08 Revision (PASS 4): the Main Menu hands the player over as
-        // "waking up inside the ship", so the interior opens through a blink
-        // fade instead of a hard cut. The request is consumed exactly once and
-        // only the cover sets it; every other entry stays an ordinary cut.
+        // Phase 08 Revision 2 (PASS 4): the title screen hands the player over
+        // as "waking up inside the ship", so the interior opens through the
+        // two-panel eyelid animation instead of a hard cut. The requested mode
+        // is consumed exactly once and only the title screen sets it; every
+        // other entry (-bootShip, airlock, landing) stays an ordinary cut.
+        SceneRouting.EntryEyelid eyelid = SceneRouting.ConsumeEntryEyelid();
         _blinkFade = gameObject.GetComponent<ShipEntryBlinkFade>();
         if (_blinkFade == null
-            && (SceneRouting.BlinkEntryPending || ShipEntryBlinkFade.AutomationRequested))
+            && (eyelid != SceneRouting.EntryEyelid.None
+                || ShipEntryBlinkFade.AutomationRequested))
         {
-            SceneRouting.ConsumeBlinkEntry();
             _blinkFade = gameObject.AddComponent<ShipEntryBlinkFade>();
+            _blinkFade.Configure(eyelid != SceneRouting.EntryEyelid.None
+                ? eyelid
+                : SceneRouting.EntryEyelid.Full);
             EntryBlinkArmed = true;
-            Debug.Log("[ShipGameController] first-person blink entry armed");
+            // Movement, look and interaction stay locked until the eyes are
+            // fully open, so the player cannot turn away before seeing anything.
+            _entryInputLocked = true;
+            _hud?.SetUiSuppressed(true);
+            Debug.Log("[ShipGameController] entry eyelids armed (" + eyelid + ")");
         }
 
         if (_hud != null)
@@ -555,10 +592,22 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
 
         PollWristKeys();
+        UpdateEntryEyelids();
 
         // Pointer ownership is re-asserted every frame: it is cheap, and it
         // guarantees no mode can leave two owners enabled (Phase 07B.2.3).
         ApplyPointerOwnership();
+
+        if (_entryInputLocked)
+        {
+            // Still behind closed eyelids: no HUD chrome and no interaction.
+            if (_hud != null)
+            {
+                _hud.SetUiSuppressed(true);
+            }
+
+            return;
+        }
 
         if (IsAnyModalActive)
         {
@@ -688,7 +737,13 @@ public class ShipGameController : MonoBehaviour, IWristContext
                     : ShipPointerOwner.None;
         PointerOwner = owner;
 
-        if (_ownershipApplied && owner == _appliedOwner)
+        bool inputAllowed = owner == ShipPointerOwner.None && !_entryInputLocked;
+
+        // Re-applying an unchanged owner is a no-op, but the cached state is only
+        // valid while the player's input flag already matches it: the entry
+        // eyelid lock changes that flag without changing the owner.
+        if (_ownershipApplied && owner == _appliedOwner
+            && (_player == null || _player.InputEnabled == inputAllowed))
         {
             return;
         }
@@ -704,7 +759,8 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
         if (_player != null)
         {
-            _player.InputEnabled = owner == ShipPointerOwner.None;
+            // Movement is only handed back once the entry eyelids are open.
+            _player.InputEnabled = inputAllowed;
         }
 
         switch (owner)

@@ -97,7 +97,7 @@ public class StandaloneSmoke : MonoBehaviour
         var log = new SmokeLog(_resultPath);
         Debug.Log("[StandaloneSmoke] probe start -> " + _resultPath);
 
-        // ---- 1. Boot -> Main Menu (Phase 08 product cover) ----
+        // ---- 1. Boot -> minimal title screen ----
         MainMenuController menu = null;
         yield return WaitFor(() =>
         {
@@ -107,16 +107,13 @@ public class StandaloneSmoke : MonoBehaviour
 
         if (menu == null)
         {
-            Debug.LogError("[StandaloneSmoke] main menu never became ready");
-            log.Fail("main menu never became ready");
+            Debug.LogError("[StandaloneSmoke] title screen never became ready");
+            log.Fail("title screen never became ready");
             Finish(log, 1);
             yield break;
         }
 
-        Debug.Log("[StandaloneSmoke] main menu ready: "
-                  + SceneManager.GetActiveScene().name);
-
-        log.Check("boot enters the main menu scene",
+        log.Check("boot enters the title screen scene",
             SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
         log.Check("exactly one MainMenuController",
             UnityEngine.Object.FindObjectsByType<MainMenuController>().Length == 1);
@@ -125,123 +122,181 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("exactly one authoritative GameSession",
             session != null
             && UnityEngine.Object.FindObjectsByType<GameSession>().Length == 1);
+        log.Check("a fresh launch has no started run",
+            session != null && !session.HasStartedRun);
 
-        // The menu is presentation only: showing it never resets the state.
-        log.Check("main menu shows launch defaults without resetting",
-            session != null && session.Energy == 74 && session.Food == 51
-            && session.Minerals == 20 && session.Fuel == 8 && session.Alloy == 5
-            && session.OutpostLevel == 1 && session.RefineryLevel == 1);
+        // ---- 2. Minimal copy: 活下去 + exactly four options ----
+        Label title = menu.UiRoot?.Q<Label>(MainMenuNames.Title);
+        log.Check("the only headline is 活下去", title != null && title.text == "活下去");
+        log.Check("exactly four options", menu.MenuItems.Count == 4);
 
-        Button cta = menu.EnterMissionButton;
-        Label ctaLabel = cta != null ? cta.Q<Label>(MainMenuNames.EnterMissionLabel) : null;
-        log.Check("进入任务 CTA visible, enabled and labelled",
-            cta != null && cta.enabledSelf
-            && cta.resolvedStyle.display != DisplayStyle.None
-            && ctaLabel != null && ctaLabel.text == "进入任务");
+        string[] expectedOptions = { "新游戏", "继续游戏", "选项", "退出" };
+        for (int i = 0; i < expectedOptions.Length && i < menu.MenuItems.Count; i++)
+        {
+            Label optionLabel = menu.MenuItems[i].Q<Label>(className: "menu-item-label");
+            log.Check("option " + (i + 1) + " reads " + expectedOptions[i],
+                optionLabel != null && optionLabel.text == expectedOptions[i]);
+        }
 
-        VisualElement settingsButton = menu.UiRoot?.Q<Button>(MainMenuNames.SettingsButton);
-        VisualElement creditsButton = menu.UiRoot?.Q<Button>(MainMenuNames.CreditsButton);
-        Button exitButton = menu.UiRoot?.Q<Button>(MainMenuNames.ExitButton);
-        log.Check("系统设置 / 制作信息 / 退出 all present",
-            settingsButton != null && creditsButton != null && exitButton != null);
+        var copy = new System.Text.StringBuilder();
+        menu.UiRoot?.Query<Label>().ForEach(label => copy.Append(label.text).Append('\n'));
+        string screenCopy = copy.ToString();
+        bool copyClean = true;
+        foreach (string removed in MainMenuNames.RemovedCopy)
+        {
+            if (screenCopy.Contains(removed))
+            {
+                copyClean = false;
+                log.Line("  still visible: " + removed);
+            }
+        }
 
-        // Hero visual: the REAL 3D ship asset on the left + the procedural
-        // deep-space backdrop behind it (Phase 08 Revision composition).
+        log.Check("no removed HUD / telemetry copy is visible", copyClean);
+        log.Check("no 制作信息 button and no top bar / footer / telemetry",
+            menu.UiRoot?.Q<Button>("CreditsButton") == null
+            && menu.UiRoot?.Q<VisualElement>("MenuTopBar") == null
+            && menu.UiRoot?.Q<VisualElement>("MenuFooter") == null
+            && menu.UiRoot?.Q<VisualElement>("HeroTelemetry") == null);
+
+        // ---- 3. Hero ship + deep space ----
         MainMenuShipHero hero = UnityEngine.Object.FindAnyObjectByType<MainMenuShipHero>();
         MainMenuStarfield stars = UnityEngine.Object.FindAnyObjectByType<MainMenuStarfield>();
-        log.Check("hero is the real 3D main-menu ship asset (46 meshes, 2 nozzles)",
+        log.Check("hero is the real 3D ship asset (" + (hero != null ? hero.ShipRendererCount : 0)
+                  + " renderers, " + (hero != null ? hero.NozzleCount : 0) + " nozzles)",
             hero != null && hero.IsShipPresent && hero.ShipRendererCount >= 40
-            && hero.NozzleCount == 2 && menu.IsHeroShipActive);
-        log.Check("hero ship sits in the LEFT half of the frame",
-            hero != null && HeroScreenX(hero) < 0.62f);
-        log.Check("deep-space starfield is built behind the ship",
-            stars != null && menu.IsStarfieldActive && stars.LayerCount == 3
-            && stars.StarCount > 1000);
-        log.Check("start cinematic is authored and idle before 进入任务",
-            menu.Cinematic != null && !menu.Cinematic.IsPlaying);
+            && hero.NozzleCount == 2);
+        log.Check("deep-space starfield is built (" + (stars != null ? stars.StarCount : 0) + " stars)",
+            stars != null && stars.IsActive && stars.LayerCount == 3 && stars.StarCount > 1000);
+        log.Check("star layers drift with parallax and twinkle",
+            stars != null && stars.ScrollSpeedOf(2) > stars.ScrollSpeedOf(0)
+            && stars.TwinkleAmountOf(1) > 0.2f);
 
-        // ---- 2. 系统设置 real click ----
-        yield return RealClick(settingsButton, "系统设置", log);
-        yield return WaitFor(() => menu.IsSettingsOpen, 5f);
-        log.Check("系统设置 opens the settings modal",
-            menu.IsSettingsOpen && menu.OpenModalCount == 1);
+        Camera stageCamera = UnityEngine.Object.FindAnyObjectByType<Camera>();
+        if (stageCamera != null && hero != null)
+        {
+            stageCamera.aspect = 16f / 9f;
+            float shipX = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
+            log.Check("the ship sits in the left half (x=" + shipX.ToString("F3") + ")", shipX < 0.5f);
 
-        // ---- 3. Background is blocked while the modal is open (§20) ----
-        bool clickedBehind = UiToolkitPointerSimulator.Click(cta);
+            float hereX = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
+            float aheadX = stageCamera.WorldToViewportPoint(
+                hero.WorldBounds.center + hero.ForwardWorld * 8f).x;
+            log.Check("the ship nose points to the RIGHT (" + hereX.ToString("F3") + " -> "
+                      + aheadX.ToString("F3") + ")", aheadX > hereX);
+            stageCamera.ResetAspect();
+        }
+
+        // ---- 4. Focus navigation, disabled continue, controller hint ----
+        log.Check("continuing is unavailable before the first run",
+            !menu.IsContinueAvailable && !menu.ContinueButton.enabledSelf);
+        log.Check("focus starts on 新游戏",
+            menu.FocusIndex == 0 && menu.NewGameButton.ClassListContains("menu-item-focused"));
+
+        menu.FocusNext();
+        log.Check("focus skips the disabled 继续游戏 and lands on 选项",
+            menu.FocusIndex == 2 && menu.OptionsButton.ClassListContains("menu-item-focused"));
+        menu.FocusNext();
+        log.Check("focus reaches 退出", menu.FocusIndex == 3);
+        menu.FocusNext();
+        log.Check("focus wraps back to 新游戏", menu.FocusIndex == 0);
+        menu.FocusPrevious();
+        log.Check("focus wraps backwards to 退出", menu.FocusIndex == 3);
+        menu.SetFocus(0);
+
+        InputDeviceTracker.NotifyGamepad();
         yield return null;
+        log.Check("the controller hint appears for a gamepad",
+            menu.IsGamepadHintVisible && menu.InputHintText == "(A) 确认");
+        InputDeviceTracker.NotifyKeyboardMouse();
         yield return null;
-        log.Check("modal blocks the background CTA (no navigation)",
-            clickedBehind && !menu.IsTransitioning
-            && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName
-            && menu.IsSettingsOpen);
-
-        yield return RealClick(menu.UiRoot?.Q<Button>(MainMenuNames.SettingsCloseButton),
-            "设置关闭", log);
-        yield return WaitFor(() => !menu.IsSettingsOpen, 5f);
-        yield return WaitFor(() => menu.OpenModalCount == 0, 5f);
-        log.Check("设置关闭 hides the settings modal",
-            !menu.IsSettingsOpen && menu.OpenModalCount == 0);
-
-        // ---- 4. 制作信息 real click (and no modal stacking) ----
-        // Opening settings first proves the background is blocked; the stacking
-        // rule itself is then checked through the menu's own API.
-        yield return RealClick(settingsButton, "系统设置(2)", log);
-        yield return WaitFor(() => menu.IsSettingsOpen, 5f);
-        bool blockedCredits = UiToolkitPointerSimulator.Click(creditsButton);
+        log.Check("the controller hint disappears for mouse/keyboard",
+            !menu.IsGamepadHintVisible);
+        InputDeviceTracker.NotifyGamepad();
         yield return null;
-        yield return null;
-        log.Check("制作信息 behind the modal is blocked",
-            blockedCredits && !menu.IsCreditsOpen && menu.IsSettingsOpen);
 
-        menu.ShowCredits();
-        yield return WaitFor(() => menu.IsCreditsOpen, 5f);
-        // The outgoing modal is only LOGICALLY closed at this point: it keeps
-        // fading (and stays displayed) for a few frames, so the "exactly one
-        // modal" invariant is asserted once that fade has finished.
-        yield return WaitFor(() => menu.OpenModalCount == 1, 5f);
-        log.Check("制作信息 opens the credits modal without stacking",
-            menu.IsCreditsOpen && !menu.IsSettingsOpen && menu.OpenModalCount == 1);
+        // ---- 5. 选项 open -> back closes ----
+        VisualElement optionsButton = menu.UiRoot?.Q<Button>(MainMenuNames.OptionsButton);
+        yield return RealClick(optionsButton, "选项", log);
+        yield return WaitFor(() => menu.IsOptionsOpen, 5f);
+        log.Check("选项 opens", menu.IsOptionsOpen && menu.OpenModalCount == 1);
+        log.Check("the modal is titled 选项",
+            menu.UiRoot?.Q<Label>(MainMenuNames.OptionsTitle)?.text == "选项");
+        log.Check("the options hint offers confirm and back",
+            menu.InputHintText == "(A) 确认    (B) 返回");
 
-        yield return RealClick(menu.UiRoot?.Q<Button>(MainMenuNames.CreditsCloseButton),
-            "制作信息关闭", log);
-        yield return WaitFor(() => !menu.IsCreditsOpen, 5f);
-        yield return WaitFor(() => menu.OpenModalCount == 0, 5f);
-        log.Check("制作信息关闭 hides the credits modal",
-            !menu.IsCreditsOpen && menu.OpenModalCount == 0 && !menu.IsSettingsOpen);
+        menu.HandleBackInput();
+        yield return WaitFor(() => !menu.IsOptionsOpen, 5f);
+        log.Check("back closes 选项", !menu.IsOptionsOpen);
 
-        // ---- 5. 进入任务 real click -> start cinematic -> first-person ship ----
-        yield return RealClick(cta, "进入任务", log);
-
+        // ---- 6. A confirms 新游戏 -> cinematic -> ship interior ----
+        // The mouse click above moved the focus onto 选项 (hover feeds focus on
+        // purpose), so the player's next step is to select 新游戏 again.
+        menu.SetFocus(0);
+        log.Check("focus is back on 新游戏",
+            menu.FocusIndex == 0 && menu.NewGameButton.ClassListContains("menu-item-focused"));
+        log.Check("A confirms the focused 新游戏", menu.ConfirmFocused());
         MainMenuCinematic cinematic = menu.Cinematic;
-        log.Check("进入任务 starts the cinematic instead of cutting scenes",
-            cinematic != null && cinematic.IsPlaying
-            && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
+        yield return null;
+        log.Check("新游戏 starts the cinematic", cinematic != null && cinematic.IsPlaying);
+        log.Check("新游戏 starts a run and enables 继续游戏",
+            session.HasStartedRun && menu.IsContinueAvailable);
+        log.Check("新游戏 resets the authoritative session",
+            session.Minerals == GameSession.DefaultMinerals && session.Fuel == GameSession.DefaultFuel);
 
-        // The shot must pass through menu fade -> engine boost -> departure ->
-        // blackout (PASS 3), and only then load the ship.
-        yield return WaitFor(() => cinematic == null
-                                   || cinematic.CurrentPhase == MainMenuCinematic.Phase.ShipDeparture
-                                   || cinematic.CurrentPhase == MainMenuCinematic.Phase.FadeToBlack, 4f);
-        log.Check("cinematic fades the menu out (title/CTA/navigation)",
-            cinematic == null || cinematic.MenuAlpha < 0.6f);
-        log.Check("cinematic boosts the thrusters before departure",
-            hero == null || hero.EngineTarget > 0.3f);
-        log.Check("cinematic starts the ship departure",
-            cinematic == null
-            || cinematic.CurrentPhase == MainMenuCinematic.Phase.ShipDeparture
-            || cinematic.CurrentPhase == MainMenuCinematic.Phase.FadeToBlack
-            || hero.IsDeparting);
+        float departureStartX = -1f;
+        float departureEndX = -1f;
+        bool sawFade = false;
+        bool sawBoost = false;
+        bool sawBlack = false;
+        int guard = 0;
+        while (guard < 1200
+               && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName)
+        {
+            guard++;
+            if (cinematic != null)
+            {
+                if (!sawFade && cinematic.MenuAlpha < 0.4f)
+                {
+                    sawFade = true;
+                }
 
-        // The phase only just started when the check above ran, so the travel
-        // distance is asserted once the ship has really accelerated.
-        yield return WaitFor(() => hero == null || !hero.IsDeparting
-                                   || hero.DepartureProgress > 0.35f, 4f);
-        log.Check("departing ship actually leaves its authored pose",
-            hero == null || !hero.IsDeparting
-            || Vector3.Distance(hero.transform.position, hero.SpawnPosition) > 1f);
+                if (!sawBoost && hero != null && hero.EngineTarget > 0.6f)
+                {
+                    sawBoost = true;
+                }
 
-        // 进入任务 now lands in the WALKABLE SHIP in every host (Editor and
-        // player): the cover no longer routes into the 2D Hub.
+                if (!sawBlack && cinematic.BlackAlpha > 0.85f)
+                {
+                    sawBlack = true;
+                }
+
+                if (hero != null && hero.IsDeparting && stageCamera != null)
+                {
+                    stageCamera.aspect = 16f / 9f;
+                    float x = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
+                    stageCamera.ResetAspect();
+                    if (departureStartX < 0f)
+                    {
+                        departureStartX = x;
+                    }
+
+                    departureEndX = x;
+                }
+            }
+
+            yield return null;
+        }
+
+        log.Check("the menu faded out", sawFade);
+        log.Check("the thrusters boosted", sawBoost);
+        log.Check("the shot reached the blackout", sawBlack);
+        log.Check("the ship departed LEFT to RIGHT (" + departureStartX.ToString("F3") + " -> "
+                  + departureEndX.ToString("F3") + ")",
+            departureStartX >= 0f && departureEndX > departureStartX);
+        log.Check("the title screen scene is gone",
+            UnityEngine.Object.FindObjectsByType<MainMenuController>().Length == 0);
+
+        // ---- 7. Ship interior: eyelids, then first person ----
         ShipGameController ship = null;
         yield return WaitFor(() =>
         {
@@ -251,51 +306,61 @@ public class StandaloneSmoke : MonoBehaviour
 
         if (ship == null)
         {
-            log.Fail("进入任务 never reached the walkable ship interior");
+            log.Fail("新游戏 never reached the ship interior");
             Finish(log, 1);
             yield break;
         }
 
-        log.Check("进入任务 lands in the ship interior (not the Hub/Overview)",
+        log.Check("新游戏 lands in the walkable ship interior (never Overview)",
             SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName
-            && ship.Player != null && ship.Interactor != null
-            && ship.Player.EyeCamera != null);
-        log.Check("the landing spawn is the ship's default marker",
-            Vector3.Distance(ship.Player.transform.position,
-                new Vector3(0f, 0f, 3.6f)) < 1.5f);
-        log.Check("the first-person entry plays the blink fade (PASS 4)",
-            ship.EntryBlink != null && ship.EntryBlink.IsPlaying);
-        log.Check("no terminal UI covers the frame on entry",
-            ship.IsConsoleFocusActive == false && ship.IsOverlayOpen == false);
-        log.Check("the player is in first person and controllable",
-            ship.Player.EyeCamera.enabled && ship.Player.InputEnabled);
+            && UnityEngine.Object.FindObjectsByType<AppController>().Length == 0);
+        log.Check("the eyelids were armed and control is locked",
+            ship.EntryBlinkArmed && ship.IsEntryInputLocked);
 
-        // The blink must actually open the view again. A destroyed component
-        // compares equal to null only after Unity retires it, so the wait keys on
-        // the reference itself rather than on IsPlaying.
-        yield return WaitFor(() => ship.EntryBlink == null, 6f);
-        log.Check("the blink fade finishes and removes its overlay",
-            ship.EntryBlink == null);
-        Debug.Log("[StandaloneSmoke] step 5b: blink done, entering terminal checks");
-
-        log.Check("the menu scene is gone after entering the mission",
-            UnityEngine.Object.FindObjectsByType<MainMenuController>().Length == 0);
-
-        // ---- 5b. Walk-in terminal flow: the ship's 总览 terminal hosts it ----
-        Debug.Log("[StandaloneSmoke] step 5b: terminal flow");
-        ShipConsoleInteractable overviewConsole = null;
-        foreach (ShipConsoleInteractable candidate in ship.Consoles)
+        var stages = new System.Collections.Generic.HashSet<string>();
+        guard = 0;
+        while (ship.EntryBlink != null && guard < 1200)
         {
-            if (candidate.ConsoleId == 1)
+            guard++;
+            stages.Add(ship.EntryBlink.StageLabel);
+            yield return null;
+        }
+
+        log.Check("the eyelid beats played (stages: " + string.Join(",", stages) + ")",
+            stages.Contains("beat1") && stages.Contains("beat2") && stages.Contains("beat3"));
+        log.Check("the eyelid overlay was removed", ship.EntryBlink == null);
+        log.Check("control is released after the eyes open",
+            !ship.IsEntryInputLocked && ship.Player != null && ship.Player.InputEnabled);
+        log.Check("the first-person camera renders",
+            ship.Player.EyeCamera != null && ship.Player.EyeCamera.enabled);
+        log.Check("no terminal UI covers the frame on entry",
+            !ship.IsConsoleFocusActive && !ship.IsOverlayOpen);
+
+        // ---- 8. Walk-in terminal flow: A / E on the 总览 terminal ----
+        Debug.Log("[StandaloneSmoke] step 8: terminal flow");
+        InputDeviceTracker.NotifyGamepad();
+        yield return null;
+
+        ShipConsoleInteractable overviewConsole = null;
+        foreach (ShipConsoleInteractable console in ship.Consoles)
+        {
+            if (console.ConsoleId == 1)
             {
-                overviewConsole = candidate;
+                overviewConsole = console;
                 break;
             }
         }
 
-        log.Check("the ship bridge carries the 总览 (Overview) terminal",
-            overviewConsole != null
-            && UnityEngine.Object.FindObjectsByType<ShipConsoleScreenHost>().Length >= 3);
+        log.Check("the 总览 terminal exists on the bridge", overviewConsole != null);
+        if (overviewConsole != null)
+        {
+            log.Check("the gamepad prompt names A, not E",
+                overviewConsole.GetInteractionPrompt().StartsWith("(A)"));
+            InputDeviceTracker.NotifyKeyboardMouse();
+            yield return null;
+            log.Check("the keyboard prompt names E",
+                overviewConsole.GetInteractionPrompt().StartsWith("E"));
+        }
 
         if (overviewConsole != null && ship.Focus != null)
         {
@@ -346,8 +411,7 @@ public class StandaloneSmoke : MonoBehaviour
                 }
             }
 
-            log.Check("all four terminals are wired (" + surfaces + " surfaces)",
-                surfaces == 4);
+            log.Check("all four terminals are wired (" + surfaces + " surfaces)", surfaces == 4);
             log.Check("Preparation / Processing / Outpost terminals remain available",
                 available.Contains(AppScreen.Overview)
                 && available.Contains(AppScreen.Preparation)
@@ -360,19 +424,17 @@ public class StandaloneSmoke : MonoBehaviour
                 !ship.Focus.FocusActive && ship.Player.InputEnabled);
         }
 
-        // ---- 6. existing Phase 01-05 state journey (scene independent) ----
-        // The four-screen 2D Hub is no longer part of the product path, so the
-        // journey runs in its state form here and the full UI journey stays with
-        // the Hub's own probe (-bootHub automation).
-        Debug.Log("[StandaloneSmoke] step 6: session + processing journey");
+        // ---- 9. existing Phase 01-05 state journey (scene independent) ----
+        Debug.Log("[StandaloneSmoke] step 9: session + processing journey");
         RunSessionJourney(log, session);
         yield return RunProcessJourney(log, session, null);
 
-        // ---- 7. Main Menu round trip: the session must be preserved ----
-        Debug.Log("[StandaloneSmoke] step 7: main menu round trip");
+        // ---- 10. Title screen round trip + 继续游戏 (no reset) ----
+        Debug.Log("[StandaloneSmoke] step 10: continue journey");
         int mineralsBefore = session.Minerals;
+        int fuelBefore = session.Fuel;
         int alloyBefore = session.Alloy;
-        int refineryBefore = session.RefineryLevel;
+
         SceneRouting.EnterMainMenu();
         MainMenuController menuAgain = null;
         yield return WaitFor(() =>
@@ -381,32 +443,44 @@ public class StandaloneSmoke : MonoBehaviour
             return menuAgain != null && menuAgain.IsReady;
         }, 25f);
 
-        log.Check("main menu is re-enterable after the mission entry",
+        log.Check("the title screen is re-enterable after the mission entry",
             menuAgain != null
             && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
-        log.Check("returning to the main menu never resets the session",
+        log.Check("returning to the title screen never resets the session",
             GameSession.Instance == session
-            && session.Minerals == mineralsBefore && session.Alloy == alloyBefore
-            && session.RefineryLevel == refineryBefore);
-        log.Check("still exactly one shared planet rig after re-entry",
-            UnityEngine.Object.FindObjectsByType<OverviewPlanetPreview>().Length <= 1);
-        log.Check("no duplicated persistent GameSession",
-            UnityEngine.Object.FindObjectsByType<GameSession>().Length == 1);
+            && session.Minerals == mineralsBefore && session.Fuel == fuelBefore
+            && session.Alloy == alloyBefore);
+        log.Check("继续游戏 is available once a run has started",
+            menuAgain != null && menuAgain.IsContinueAvailable
+            && menuAgain.ContinueButton.enabledSelf);
 
-        // ---- 8. 进入任务 again -> the same demo flow ----
-        yield return RealClick(menuAgain?.EnterMissionButton, "进入任务(2)", log);
-        ShipGameController secondShip = null;
-        yield return WaitFor(() =>
+        if (menuAgain != null)
         {
-            secondShip = FindFirstObjectByTypeHelper.Find<ShipGameController>();
-            return secondShip != null && secondShip.IsReady;
-        }, 30f);
-        log.Check("进入任务 works a second time", secondShip != null && secondShip.IsReady);
-        log.Check("the cover is stable on a second entry (ship + backdrop rebuilt once)",
-            UnityEngine.Object.FindObjectsByType<MainMenuShipHero>().Length == 0
-            && UnityEngine.Object.FindObjectsByType<MainMenuStarfield>().Length == 0);
+            menuAgain.SetFocus(1);
+            log.Check("focus can rest on 继续游戏", menuAgain.FocusIndex == 1);
+            log.Check("A confirms 继续游戏", menuAgain.ConfirmFocused());
+            log.Check("继续游戏 plays the short shot",
+                menuAgain.Cinematic != null && menuAgain.Cinematic.IsContinueShot);
 
-        // ---- 9. 退出 must terminate the application ----
+            ShipGameController resumed = null;
+            yield return WaitFor(() =>
+            {
+                resumed = FindFirstObjectByTypeHelper.Find<ShipGameController>();
+                return resumed != null && resumed.IsReady;
+            }, 30f);
+
+            log.Check("继续游戏 returns to the existing ship state",
+                resumed != null
+                && SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
+            log.Check("继续游戏 never resets the session",
+                GameSession.Instance == session
+                && session.Minerals == mineralsBefore && session.Fuel == fuelBefore
+                && session.Alloy == alloyBefore);
+            log.Check("继续游戏 uses the short eyelid entry",
+                resumed != null && resumed.EntryBlinkArmed);
+        }
+
+        // ---- 11. 退出 must terminate the application ----
         SceneRouting.EnterMainMenu();
         MainMenuController menuExit = null;
         yield return WaitFor(() =>
@@ -414,14 +488,13 @@ public class StandaloneSmoke : MonoBehaviour
             menuExit = FindFirstObjectByTypeHelper.Find<MainMenuController>();
             return menuExit != null && menuExit.IsReady;
         }, 25f);
-        log.Check("main menu is ready for the exit smoke", menuExit != null);
+        log.Check("title screen is ready for the exit smoke", menuExit != null);
 
-        log.Line("EXIT: clicking 退出 (the process must terminate)");
+        log.Line("EXIT: confirming 退出 (the process must terminate)");
         WriteResult(log, log.Failures == 0);
         yield return RealClick(menuExit?.UiRoot?.Q<Button>(MainMenuNames.ExitButton), "退出", log);
 
-        // Still alive after ~1.5 s means the exit action is broken; the
-        // watchdog must not be allowed to hide that.
+        // Still alive after ~1.5 s means the exit action is broken.
         for (int i = 0; i < 90; i++)
         {
             yield return null;
@@ -431,23 +504,6 @@ public class StandaloneSmoke : MonoBehaviour
         WriteResult(log, false);
         Application.Quit(1);
     }
-
-    /// <summary>
-    /// Horizontal viewport position (0 = left edge, 1 = right edge) of the hero
-    /// ship's centre, measured through the stage camera. This is what proves the
-    /// composition is "ship on the LEFT" instead of trusting a screenshot.
-    /// </summary>
-    private static float HeroScreenX(MainMenuShipHero hero)
-    {
-        Camera stageCamera = UnityEngine.Object.FindAnyObjectByType<Camera>();
-        if (stageCamera == null || hero == null)
-        {
-            return 1f;
-        }
-
-        return stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
-    }
-
     /// <summary>
     /// Phase 01-05 authoritative STATE journey. Scene independent, so it runs in
     /// every host (the four-screen UI app or the walkable ship).

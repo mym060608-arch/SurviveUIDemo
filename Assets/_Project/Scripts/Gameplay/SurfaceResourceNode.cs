@@ -71,7 +71,7 @@ public class SurfaceResourceNode : MonoBehaviour, IFirstPersonInteractable
         switch (State)
         {
             case NodeState.Available:
-                return "E  部署采集器";
+                return InputDeviceTracker.FormatPrompt("部署采集器");
             case NodeState.Harvesting:
                 return "采集中";
             case NodeState.Transmitting:

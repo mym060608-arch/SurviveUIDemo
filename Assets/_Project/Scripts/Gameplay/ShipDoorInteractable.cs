@@ -371,7 +371,7 @@ public class ShipDoorInteractable : MonoBehaviour, IFirstPersonInteractable
     public string GetInteractionPrompt()
     {
         bool openingOrOpen = State == ShipDoorState.Open || State == ShipDoorState.Opening;
-        return openingOrOpen ? "E  关门" : "E  开门";
+        return InputDeviceTracker.FormatPrompt(openingOrOpen ? "关门" : "开门");
     }
 
     public void Interact()

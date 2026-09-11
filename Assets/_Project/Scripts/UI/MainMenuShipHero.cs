@@ -39,6 +39,21 @@ public class MainMenuShipHero : MonoBehaviour
     /// <summary>Departure duration in seconds (PASS 3 §11.4).</summary>
     public const float DepartureSeconds = 1.15f;
 
+    /// <summary>
+    /// Idle cruise: the ship creeps FORWARD (screen right) by this many metres,
+    /// then eases back so slowly that the return never reads as reverse motion.
+    /// The composition therefore stays stable forever while the ship always
+    /// looks like it is travelling to the right.
+    /// </summary>
+    public const float CruiseDistance = 2.6f;
+
+    /// <summary>Length of one cruise cycle in seconds.</summary>
+    public const float CruiseCycleSeconds = 64f;
+
+    /// <summary>Fraction of the cycle spent pushing forward (the rest is the
+    /// very slow settle back).</summary>
+    public const float CruisePushFraction = 0.15f;
+
     [SerializeField]
     private Material plumeMaterial;
 
@@ -100,6 +115,19 @@ public class MainMenuShipHero : MonoBehaviour
 
     /// <summary>Ship-space aft direction (towards the thrusters).</summary>
     public Vector3 AftDirection => _aftLocal;
+
+    /// <summary>
+    /// World-space direction the NOSE points. On the title screen this is screen
+    /// RIGHT: the ship flies left to right, and the plumes stream backwards to
+    /// the left because they follow <see cref="AftDirection"/>.
+    /// </summary>
+    public Vector3 ForwardWorld => _forwardWorld;
+
+    /// <summary>Current idle cruise offset in metres along the nose direction.</summary>
+    public float CruiseOffset { get; private set; }
+
+    /// <summary>Current world-space velocity estimate (cruise or departure).</summary>
+    public Vector3 VelocityWorld { get; private set; }
 
     /// <summary>Authored idle position the hero returns to (and departs from).</summary>
     public Vector3 SpawnPosition => _basePosition;
@@ -261,6 +289,13 @@ public class MainMenuShipHero : MonoBehaviour
 
     private void ApplyPose(float time)
     {
+        Vector3 previous = transform.position;
+
+        // Cruise: always along the NOSE direction, so the ship visibly travels
+        // left to right even while it holds its place in the composition.
+        CruiseOffset = MainMenuSettings.MotionEnabled ? CruiseOffsetAt(time) : 0f;
+        Vector3 cruise = _forwardWorld * CruiseOffset;
+
         if (MainMenuSettings.MotionEnabled)
         {
             float bob = Mathf.Sin(time * (Mathf.PI * 2f / bobSeconds)) * bobAmplitude;
@@ -272,6 +307,7 @@ public class MainMenuShipHero : MonoBehaviour
 
             transform.position = _basePosition
                                  + new Vector3(driftX, bob, 0f)
+                                 + cruise
                                  + DepartureOffset();
             transform.rotation = _baseRotation * Quaternion.Euler(pitch, yaw, 0f);
         }
@@ -290,6 +326,38 @@ public class MainMenuShipHero : MonoBehaviour
             transform.rotation *= Quaternion.AngleAxis(
                 Mathf.SmoothStep(0f, 1f, t) * 7f, _forwardWorld);
         }
+
+        float delta = Mathf.Max(0.0001f, Time.unscaledDeltaTime);
+        VelocityWorld = (transform.position - previous) / delta;
+    }
+
+    /// <summary>
+    /// Idle cruise offset in metres along the nose direction at a given time:
+    /// a smooth forward push over the first 15% of the cycle, then an extremely
+    /// slow settle back. Pure function, so automation can verify the direction
+    /// without waiting for the live phase.
+    /// </summary>
+    public static float CruiseOffsetAt(float time)
+    {
+        if (time <= 0f)
+        {
+            return 0f;
+        }
+
+        float u = Mathf.Repeat(time / CruiseCycleSeconds, 1f);
+        if (u < CruisePushFraction)
+        {
+            return CruiseDistance * Mathf.SmoothStep(0f, 1f, u / CruisePushFraction);
+        }
+
+        return CruiseDistance * (1f - Mathf.SmoothStep(0f, 1f,
+            (u - CruisePushFraction) / (1f - CruisePushFraction)));
+    }
+
+    /// <summary>True while the cruise is currently moving FORWARD (screen right).</summary>
+    public static bool CruiseIsRightwardAt(float time)
+    {
+        return CruiseOffsetAt(time + 0.1f) > CruiseOffsetAt(time);
     }
 
     private Vector3 DepartureOffset()

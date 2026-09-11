@@ -30,6 +30,10 @@ public class MainMenuCinematic : MonoBehaviour
         EngineBoost,
         ShipDeparture,
         FadeToBlack,
+
+        /// <summary>继续游戏: a short blackout, no departure.</summary>
+        ContinueBlackout,
+
         LoadShipInterior,
         Done
     }
@@ -40,6 +44,9 @@ public class MainMenuCinematic : MonoBehaviour
     public const float ShipDepartureSeconds = 1.15f;
     public const float FadeToBlackSeconds = 0.55f;
     public const float BlackHoldSeconds = 0.25f;
+
+    /// <summary>继续游戏 shot length: a short blackout only.</summary>
+    public const float ContinueSeconds = 0.45f;
 
     /// <summary>Total shot length: 2.95 s.</summary>
     public const float TotalSeconds = MenuFadeOutSeconds + EngineBoostSeconds
@@ -76,15 +83,19 @@ public class MainMenuCinematic : MonoBehaviour
     private bool _playing;
     private bool _departureStarted;
     private bool _routeRequested;
+    private bool _continueMode;
     private Vector3 _cameraHome;
 
     /// <summary>True while the shot is playing (or while the scene swap is pending).</summary>
     public bool IsPlaying => _playing;
 
+    /// <summary>True while the 继续游戏 (resume) shot is the one playing.</summary>
+    public bool IsContinueShot => _continueMode;
+
     /// <summary>Current phase.</summary>
     public Phase CurrentPhase { get; private set; } = Phase.Idle;
 
-    /// <summary>Seconds since 进入任务 was pressed.</summary>
+    /// <summary>Seconds since the option was confirmed.</summary>
     public float ElapsedSeconds => _elapsed;
 
     /// <summary>Opacity of the whole menu layer (1 = fully readable).</summary>
@@ -150,12 +161,39 @@ public class MainMenuCinematic : MonoBehaviour
     /// </summary>
     public void Begin()
     {
+        BeginNewGame();
+    }
+
+    /// <summary>
+    /// 新游戏: menu fade -> engine boost -> ship departure (LEFT to RIGHT) ->
+    /// blackout -> ship interior with the three-beat eyelid open.
+    /// </summary>
+    public void BeginNewGame()
+    {
+        StartShot(false);
+        Debug.Log("[MainMenuCinematic] new game cinematic (" + TotalSeconds + "s)");
+    }
+
+    /// <summary>
+    /// 继续游戏: the run is already in progress, so the ship does not take off
+    /// again. A short blackout hands the player straight back to the ship
+    /// interior, which opens with the SHORT eyelid beat.
+    /// </summary>
+    public void BeginContinue()
+    {
+        StartShot(true);
+        Debug.Log("[MainMenuCinematic] continue cinematic (" + ContinueSeconds + "s)");
+    }
+
+    private void StartShot(bool continueMode)
+    {
         if (_playing)
         {
             return;
         }
 
         _playing = true;
+        _continueMode = continueMode;
         _elapsed = 0f;
         _departureStarted = false;
         _routeRequested = false;
@@ -168,8 +206,6 @@ public class MainMenuCinematic : MonoBehaviour
         {
             menu.SetCinematicBlackoutVisible(true);
         }
-
-        Debug.Log("[MainMenuCinematic] start cinematic (" + TotalSeconds + "s)");
     }
 
     private void Update()
@@ -183,7 +219,7 @@ public class MainMenuCinematic : MonoBehaviour
         _elapsed += Time.unscaledDeltaTime;
         ApplyVisuals();
 
-        if (_elapsed >= TotalSeconds)
+        if (_elapsed >= ShotSeconds)
         {
             _routeRequested = true;
             CurrentPhase = Phase.LoadShipInterior;
@@ -191,11 +227,32 @@ public class MainMenuCinematic : MonoBehaviour
         }
     }
 
+    /// <summary>Length of the shot currently playing.</summary>
+    public float ShotSeconds => _continueMode ? ContinueSeconds : TotalSeconds;
+
     private void ApplyVisuals()
     {
         float t = _elapsed;
 
-        // ---- MenuFadeOut: title, subtitle, CTA, HUD and annotations ----
+        if (_continueMode)
+        {
+            // Continue: only the title screen and a short blackout; the ship
+            // stays exactly where it is cruising.
+            float continueT = Mathf.Clamp01(t / ContinueSeconds);
+            MenuAlpha = 1f - Mathf.Clamp01(continueT * 2.4f);
+            BlackAlpha = Mathf.SmoothStep(0f, 1f, continueT);
+            CurrentPhase = Phase.ContinueBlackout;
+            hero?.SetEngineLevel(0.25f);
+            if (menu != null)
+            {
+                menu.SetCinematicMenuAlpha(MenuAlpha);
+                menu.SetCinematicBlackoutAlpha(BlackAlpha);
+            }
+
+            return;
+        }
+
+        // ---- MenuFadeOut: title, options and the controller hint ----
         float fadeT = Mathf.Clamp01(t / MenuFadeOutSeconds);
         MenuAlpha = 1f - fadeT;
         float engineIdle = Mathf.SmoothStep(0f, 1f, fadeT) * 0.35f;
@@ -263,14 +320,19 @@ public class MainMenuCinematic : MonoBehaviour
     }
 
     /// <summary>
-    /// Leaves the menu for the walkable ship interior in first person. The blink
-    /// entry request is what makes the ship scene open with the eyelid fade
-    /// instead of a hard cut (PASS 4).
+    /// Leaves the title screen for the walkable ship interior in first person.
+    /// The eyelid mode is what makes the ship scene open with the three-beat
+    /// eyelid animation (新游戏) or the short one (继续游戏) instead of a cut.
     /// </summary>
     private void LoadShipInterior()
     {
-        Debug.Log("[MainMenuCinematic] blackout complete -> ship interior (blink entry)");
-        SceneRouting.EnterShipInterior(SceneRouting.ShipEntry.FromMainMenu);
+        SceneRouting.EntryEyelid eyelid = _continueMode
+            ? SceneRouting.EntryEyelid.Quick
+            : SceneRouting.EntryEyelid.Full;
+
+        Debug.Log("[MainMenuCinematic] blackout complete -> ship interior (eyelid "
+                  + eyelid + ")");
+        SceneRouting.EnterShipInterior(SceneRouting.ShipEntry.FromMainMenu, eyelid);
     }
 
     /// <summary>Explicitly finishes the shot (automation / tests).</summary>
@@ -278,10 +340,10 @@ public class MainMenuCinematic : MonoBehaviour
     {
         if (!_playing)
         {
-            Begin();
+            BeginNewGame();
         }
 
-        _elapsed = TotalSeconds;
+        _elapsed = ShotSeconds;
         ApplyVisuals();
     }
 }

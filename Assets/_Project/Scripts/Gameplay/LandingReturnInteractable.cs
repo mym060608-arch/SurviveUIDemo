@@ -31,7 +31,7 @@ public class LandingReturnInteractable : MonoBehaviour, IFirstPersonInteractable
 
     public string GetInteractionPrompt()
     {
-        return "E  返回舰船";
+        return InputDeviceTracker.FormatPrompt("返回舰船");
     }
 
     public void Interact()

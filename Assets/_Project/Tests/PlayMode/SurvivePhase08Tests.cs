@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -6,499 +7,425 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Phase 08 Main Menu (REVISED composition) — runtime smoke + interaction
-/// validation.
+/// Phase 08 Revision 2 — title screen runtime validation.
 ///
-/// Every menu action is exercised through REAL UI Toolkit pointer events
-/// (<see cref="UiToolkitPointerSimulator"/>), never by calling a private
-/// shortcut: a green suite here means the button wiring itself works.
-///
-/// Covered contracts (revision):
-/// - Boot -> Main Menu, LEFT 3D hero ship / RIGHT menu, deep-space backdrop,
-/// - 系统设置 / 制作信息 open + close, no modal stacking, ESC closes,
-/// - background clicks are blocked while a modal is open,
-/// - 动态效果 / 界面提示 really change runtime behavior (ship + plume + stars),
-/// - 进入任务 plays the cinematic (menu fade -> engine boost -> departure ->
-///   blackout) and lands in the FIRST-PERSON ship interior, never in Overview,
-/// - the ship's terminals still reach Overview / Preparation / Processing /
-///   Outpost,
-/// - the session survives the cover (opening the menu is not "new game"),
+/// Covered contracts:
+/// - Boot lands on a MINIMAL title screen: the headline 活下去 and exactly four
+///   options (新游戏 / 继续游戏 / 选项 / 退出), with the previous cover's HUD,
+///   telemetry and 制作信息 gone,
+/// - the hero ship stays on the LEFT and the menu on the RIGHT, and the ship's
+///   NOSE points screen right (idle cruise and departure are left to right),
+/// - focus is the primary state: navigation, skipping the disabled 继续游戏 and
+///   confirmation all go through the same methods the gamepad handler calls,
+/// - 新游戏 resets the ONE authoritative session, plays the cinematic and lands
+///   in the first-person ship interior behind the three-beat eyelids,
+/// - 继续游戏 resumes without resetting the session and uses the short eyelid,
+/// - 选项 opens and closes (ESC / B / 返回) and still drives the presentation
+///   switches,
 /// - no EventSystem / AudioListener is introduced anywhere.
 ///
 /// Timing note: every animated wait is bounded in REAL TIME. A batch-mode
 /// PlayMode editor runs at thousands of frames per second, so a frame budget
-/// cannot express "wait for the 2.95 s start cinematic".
+/// cannot express "wait for the eyelid beats".
 /// </summary>
 public class SurvivePhase08Tests
 {
     private const int MaxWaitFrames = 900;
 
     [SetUp]
-    public void ResetPresentationSettings()
+    public void ResetState()
     {
         MainMenuSettings.ResetToDefaults();
+        InputDeviceTracker.ResetToDefaults();
+
+        // A fresh session per test: HasStartedRun is runtime-only state, so the
+        // test must start from "nothing has been started yet".
+        GameSession session = GameSession.Instance;
+        if (session != null)
+        {
+            Object.Destroy(session.gameObject);
+        }
     }
 
-    /// <summary>Boot -> Main Menu composition (ship left / menu right / space).</summary>
+    /// <summary>The title screen is minimal, and the hero ship is on the left.</summary>
     [UnityTest]
-    public IEnumerator Boot_MainMenu_LeftShipRightMenu_Green()
+    public IEnumerator TitleScreen_MinimalComposition_Green()
     {
         MainMenuController menu = null;
-        yield return BootToMainMenu(m => menu = m);
+        yield return BootToTitleScreen(m => menu = m);
         Assert.IsNotNull(menu, "MainMenuController must be ready after Boot");
 
         Assert.AreEqual(SceneRouting.MainMenuSceneName, SceneManager.GetActiveScene().name,
-            "boot must land on the Main Menu scene");
-        Assert.AreEqual(1, Object.FindObjectsByType<MainMenuController>().Length,
-            "exactly one menu controller");
+            "boot must land on the title screen");
         Assert.AreEqual(0, Object.FindObjectsByType<AppController>().Length,
-            "the menu scene must not author a second UI application");
+            "the title screen must not author a second UI application");
 
-        // Structural contract.
-        Assert.IsNotNull(menu.UiRoot.Q<VisualElement>(MainMenuNames.Root), "menu root exists");
-        Assert.IsNotNull(menu.UiRoot.Q<VisualElement>(MainMenuNames.Layer), "menu layer exists");
-        Assert.IsNotNull(menu.UiRoot.Q<Label>(MainMenuNames.Title), "brand title exists");
-        Assert.IsNotNull(menu.UiRoot.Q<Label>(MainMenuNames.Subtitle), "Chinese subtitle exists");
-        Assert.IsNotNull(menu.EnterMissionButton, "primary CTA exists");
-        Assert.IsNotNull(menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton), "settings button exists");
-        Assert.IsNotNull(menu.UiRoot.Q<Button>(MainMenuNames.CreditsButton), "credits button exists");
-        Assert.IsNotNull(menu.UiRoot.Q<Button>(MainMenuNames.ExitButton), "exit button exists");
-        Assert.IsNotNull(menu.UiRoot.Q<VisualElement>(MainMenuNames.SettingsModal), "settings modal exists");
-        Assert.IsNotNull(menu.UiRoot.Q<VisualElement>(MainMenuNames.CreditsModal), "credits modal exists");
+        // ---- The only headline ----
+        Label title = menu.UiRoot.Q<Label>(MainMenuNames.Title);
+        Assert.IsNotNull(title, "the title exists");
+        Assert.AreEqual("活下去", title.text, "the only headline is 活下去");
+        float childCount = menu.UiRoot.Query<Label>().ToList().Count;
+        Assert.LessOrEqual(childCount, 15,
+            "the title screen carries a handful of labels, not a HUD (" + childCount + ")");
 
-        // Chinese-first copy contract.
-        Assert.AreEqual("SURVIVE // DRIFT", menu.UiRoot.Q<Label>(MainMenuNames.Title).text,
-            "brand wordmark copy");
-        Assert.AreEqual("边境生存协议", menu.UiRoot.Q<Label>(MainMenuNames.Subtitle).text,
-            "subtitle copy");
-        Assert.AreEqual("进入任务",
-            menu.EnterMissionButton.Q<Label>(MainMenuNames.EnterMissionLabel).text, "CTA copy");
-        Assert.AreEqual("系统设置",
-            menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton)
-                .Q<Label>(className: "menu-secondary-label").text, "settings copy");
-        Assert.AreEqual("制作信息",
-            menu.UiRoot.Q<Button>(MainMenuNames.CreditsButton)
-                .Q<Label>(className: "menu-secondary-label").text, "credits copy");
-        Assert.AreEqual("退出",
-            menu.UiRoot.Q<Button>(MainMenuNames.ExitButton)
-                .Q<Label>(className: "menu-secondary-label").text, "exit copy");
+        // ---- Exactly four options, in order ----
+        Assert.AreEqual(4, menu.MenuItems.Count, "exactly four options");
+        string[] expected = { "新游戏", "继续游戏", "选项", "退出" };
+        for (int i = 0; i < expected.Length; i++)
+        {
+            Button item = menu.MenuItems[i];
+            Assert.IsNotNull(item, "option " + i + " exists");
+            Label label = item.Q<Label>(className: "menu-item-label");
+            Assert.IsNotNull(label, "option " + i + " carries a label");
+            Assert.AreEqual(expected[i], label.text, "option " + i + " copy");
+        }
 
-        // The CTA is really interactable and the dominant action on screen.
-        Assert.IsTrue(menu.EnterMissionButton.enabledSelf, "CTA enabled");
-        Assert.AreNotEqual(DisplayStyle.None, menu.EnterMissionButton.resolvedStyle.display,
-            "CTA visible");
-        Button settingsButton = menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton);
-        Label ctaLabelElement = menu.EnterMissionButton.Q<Label>(MainMenuNames.EnterMissionLabel);
-        Label rowLabelElement = settingsButton.Q<Label>(className: "menu-secondary-label");
-        Assert.Greater(menu.EnterMissionButton.worldBound.height,
-            settingsButton.worldBound.height * 1.5f, "CTA is the tallest action");
-        Assert.Greater(menu.EnterMissionButton.resolvedStyle.backgroundColor.a, 0.9f,
-            "CTA carries the primary fill treatment");
-        Assert.Less(settingsButton.resolvedStyle.backgroundColor.a, 0.1f,
-            "secondary rows stay unfilled");
-        Assert.Greater(ctaLabelElement.resolvedStyle.fontSize,
-            rowLabelElement.resolvedStyle.fontSize * 1.3f, "CTA label is visually dominant");
+        // ---- The previous cover's copy is really gone ----
+        var copy = new System.Text.StringBuilder();
+        menu.UiRoot.Query<Label>().ForEach(label => copy.Append(label.text).Append('\n'));
+        string screen = copy.ToString();
+        foreach (string removed in MainMenuNames.RemovedCopy)
+        {
+            Assert.IsFalse(screen.Contains(removed),
+                "the title screen must not show: " + removed);
+        }
 
-        // ---- The revision's core composition contract ----
+        Assert.IsNull(menu.UiRoot.Q<Button>("CreditsButton"), "no 制作信息 button");
+        Assert.IsNull(menu.UiRoot.Q<VisualElement>("MenuTopBar"), "no top system bar");
+        Assert.IsNull(menu.UiRoot.Q<VisualElement>("MenuFooter"), "no footer bar");
+        Assert.IsNull(menu.UiRoot.Q<VisualElement>("HeroTelemetry"), "no telemetry strip");
+        Assert.IsNull(menu.UiRoot.Q<VisualElement>("MenuHintLayer"), "no annotation layer");
+
+        // ---- Composition: ship left, menu right ----
         VisualElement heroZone = menu.UiRoot.Q<VisualElement>(MainMenuNames.HeroColumn);
         VisualElement menuColumn = menu.UiRoot.Q<VisualElement>(MainMenuNames.ContentColumn);
         Rect rootRect = menu.UiRoot.worldBound;
-        Assert.IsNotNull(heroZone, "hero column exists");
+        Assert.IsNotNull(heroZone, "hero window exists");
         Assert.IsNotNull(menuColumn, "menu column exists");
         Assert.LessOrEqual(heroZone.worldBound.xMax, menuColumn.worldBound.xMin + 1f,
-            "the hero zone is strictly LEFT of the menu column");
+            "the hero window is strictly LEFT of the menu column");
         Assert.Greater(menuColumn.worldBound.xMin, rootRect.width * 0.55f,
             "the menu column lives in the right part of the frame");
         Assert.Greater(menuColumn.worldBound.width, rootRect.width * 0.25f,
             "the menu column is wide enough to read");
-        Assert.LessOrEqual(menuColumn.worldBound.xMax, rootRect.xMax + 1f,
-            "the menu column stays inside the frame");
 
-        // The cover really paints almost nothing on the left: the 3D stage shows
-        // through instead of a UI panel covering it.
+        // Nothing is painted over the hero window or the root: the 3D stage IS
+        // the background.
         Assert.Less(menu.UiRoot.Q<VisualElement>(MainMenuNames.Root)
-                .resolvedStyle.backgroundColor.a, 0.05f,
-            "the menu root stays transparent so the 3D stage shows");
+            .resolvedStyle.backgroundColor.a, 0.05f, "the root stays transparent");
         Assert.Less(heroZone.resolvedStyle.backgroundColor.a, 0.05f,
-            "the hero zone stays transparent (window onto the 3D ship)");
+            "the hero window stays transparent");
 
-        // ---- The hero is the real asset, not a picture ----
+        // ---- The hero is the real ship, in the left half ----
         MainMenuShipHero hero = Object.FindAnyObjectByType<MainMenuShipHero>();
-        Assert.IsNotNull(hero, "hero ship component exists");
-        Assert.IsTrue(hero.IsShipPresent, "the ship mesh hierarchy is present");
+        Assert.IsNotNull(hero, "hero ship exists");
+        Assert.IsTrue(hero.IsShipPresent, "the ship hierarchy is present");
         Assert.GreaterOrEqual(hero.ShipRendererCount, 40,
-            "the whole authored ship is instantiated (" + hero.ShipRendererCount + " renderers)");
-        Assert.AreEqual(2, hero.NozzleCount, "both authored exhaust anchors drive a plume");
-        Assert.IsTrue(menu.IsHeroShipActive, "the menu reports the 3D hero as active");
+            "the whole authored ship is instantiated (" + hero.ShipRendererCount + ")");
+        Assert.AreEqual(2, hero.NozzleCount, "both exhaust anchors drive a plume");
 
-        // The ship must sit in the LEFT half of the frame, left of the menu
-        // column. The composition is authored for the 16:9 panel reference, so
-        // the projection is pinned to that aspect: a batch-mode Game View can be
-        // square, which would squeeze the projection and make this meaningless.
         Camera stageCamera = Object.FindAnyObjectByType<Camera>();
         Assert.IsNotNull(stageCamera, "stage camera exists");
         stageCamera.aspect = 16f / 9f;
         float shipX = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
-        float menuStart = menuColumn.worldBound.xMin / Mathf.Max(1f, rootRect.xMax);
-        Assert.Less(shipX, menuStart,
-            "the hero ship is LEFT of the menu column (ship x=" + shipX.ToString("F3")
-            + ", menu starts at " + menuStart.ToString("F3")
-            + ", authored aspect=" + stageCamera.aspect.ToString("F3")
-            + ", pixel=" + stageCamera.pixelWidth + "x" + stageCamera.pixelHeight
-            + ", camPos=" + stageCamera.transform.position.ToString("F2")
-            + ", shipCenter=" + hero.WorldBounds.center.ToString("F2") + ")");
-        Assert.Less(shipX, 0.62f,
-            "the ship centre is in the left half at the authored 16:9 aspect (x="
-            + shipX.ToString("F3") + ")");
-        Assert.Greater(shipX, 0.02f,
-            "the ship is on screen (x=" + shipX.ToString("F3") + ")");
+        Assert.Less(shipX, 0.5f, "the ship centre is in the left half (x="
+                                 + shipX.ToString("F3") + ")");
+        Assert.Greater(shipX, 0.02f, "the ship is on screen");
         stageCamera.ResetAspect();
 
-        // Deep-space backdrop behind it.
+        // ---- Direction: nose to the RIGHT, plumes to the left ----
+        AssertShipFliesRight(hero, stageCamera);
+
+        // ---- Deep space ----
         MainMenuStarfield stars = Object.FindAnyObjectByType<MainMenuStarfield>();
-        Assert.IsNotNull(stars, "starfield component exists");
-        Assert.IsTrue(stars.IsActive, "the starfield is built");
+        Assert.IsNotNull(stars, "starfield exists");
+        Assert.IsTrue(stars.IsActive, "starfield is built");
         Assert.AreEqual(3, stars.LayerCount, "three parallax layers");
         Assert.Greater(stars.StarCount, 1000, "the sky carries a real star count");
+        Assert.Greater(stars.ScrollSpeedOf(2), stars.ScrollSpeedOf(0),
+            "the near layer drifts faster than the far one (parallax)");
+        Assert.Greater(stars.TwinkleAmountOf(2), 0.2f,
+            "the near layer twinkles visibly");
 
-        // The cinematic is authored and idle before 进入任务.
-        Assert.IsNotNull(menu.Cinematic, "start cinematic exists");
-        Assert.IsFalse(menu.Cinematic.IsPlaying, "the cinematic is idle on the cover");
-        Assert.AreEqual(MainMenuCinematic.Phase.Idle, menu.Cinematic.CurrentPhase,
-            "cinematic starts in Idle");
+        // ---- Continue starts unavailable, and is not focusable ----
+        Assert.IsFalse(menu.IsContinueAvailable,
+            "nothing has been started in this process yet");
+        Assert.IsFalse(menu.ContinueButton.enabledSelf, "继续游戏 is disabled");
+        Assert.IsTrue(menu.ContinueButton.ClassListContains("menu-item-disabled"),
+            "继续游戏 carries the weaker treatment");
+        Assert.AreEqual(0, menu.FocusIndex, "focus starts on 新游戏");
 
-        AssertNoEventSystemOrAudioListener("menu scene");
-
-        // Opening the cover must not have touched the session.
-        GameSession session = GameSession.Instance;
-        Assert.IsNotNull(session, "authoritative session exists");
+        AssertNoEventSystemOrAudioListener("title screen");
+        Assert.IsNotNull(GameSession.Instance, "the authoritative session exists");
         Assert.AreEqual(1, Object.FindObjectsByType<GameSession>().Length, "exactly one session");
     }
 
-    /// <summary>Real clicks: modals, blocking, ESC, then 进入任务 -> ship interior.</summary>
+    /// <summary>Focus navigation, disabled skipping and confirmation.</summary>
     [UnityTest]
-    public IEnumerator MainMenu_RealClicks_ModalsAndShipEntry_Green()
+    public IEnumerator TitleScreen_FocusNavigation_Green()
     {
         MainMenuController menu = null;
-        yield return BootToMainMenu(m => menu = m);
-        Assert.IsNotNull(menu, "MainMenuController must be ready");
+        yield return BootToTitleScreen(m => menu = m);
+
+        // Focus is the primary state and it is visible on the tree.
+        Assert.AreEqual(0, menu.FocusIndex, "focus starts on 新游戏");
+        Assert.IsTrue(menu.NewGameButton.ClassListContains("menu-item-focused"),
+            "the focused option carries the focused class");
+        Assert.IsFalse(menu.OptionsButton.ClassListContains("menu-item-focused"),
+            "only one option is focused");
+
+        // Down / Up move the focus and WRAP. 继续游戏 is disabled here, so the
+        // focus must skip it.
+        menu.FocusNext();
+        Assert.AreEqual(2, menu.FocusIndex, "focus skips the disabled 继续游戏");
+        Assert.IsTrue(menu.OptionsButton.ClassListContains("menu-item-focused"),
+            "选项 is now focused");
+        menu.FocusNext();
+        Assert.AreEqual(3, menu.FocusIndex, "focus reaches 退出");
+        menu.FocusNext();
+        Assert.AreEqual(0, menu.FocusIndex, "focus wraps to 新游戏");
+        menu.FocusPrevious();
+        Assert.AreEqual(3, menu.FocusIndex, "focus wraps backwards to 退出");
+        menu.FocusPrevious();
+        Assert.AreEqual(2, menu.FocusIndex, "focus moves back to 选项");
+
+        // Navigating upward again skips the disabled entry as well.
+        menu.FocusPrevious();
+        Assert.AreEqual(0, menu.FocusIndex, "focus skips 继续游戏 going up");
+
+        // The device-aware hint only appears for a gamepad, and it names A/B.
+        InputDeviceTracker.NotifyKeyboardMouse();
+        yield return null;
+        Assert.IsFalse(menu.IsGamepadHintVisible, "no controller hint for mouse/keyboard");
+
+        InputDeviceTracker.NotifyGamepad();
+        yield return null;
+        Assert.IsTrue(menu.IsGamepadHintVisible, "the controller hint appears on gamepad");
+        Assert.AreEqual("(A) 确认", menu.InputHintText, "the hint names the A button");
+
+        // Confirmation is the same call the A button makes.
+        menu.SetFocus(2);
+        Assert.IsTrue(menu.ConfirmFocused(), "A confirms the focused option");
+        yield return WaitUntilReal(() => menu.IsOptionsOpen, 4f);
+        Assert.IsTrue(menu.IsOptionsOpen, "选项 opened from the focused option");
+
+        InputDeviceTracker.NotifyGamepad();
+        yield return null;
+        Assert.AreEqual("(A) 确认    (B) 返回", menu.InputHintText,
+            "the options hint adds B");
+
+        // Back (B / ESC) closes it.
+        menu.HandleBackInput();
+        yield return WaitUntilReal(() => !menu.IsOptionsOpen, 4f);
+        Assert.IsFalse(menu.IsOptionsOpen, "back closes 选项");
+        Assert.AreEqual(2, menu.FocusIndex, "closing the modal keeps the focus");
+
+        InputDeviceTracker.ResetToDefaults();
+    }
+
+    /// <summary>新游戏: session reset, cinematic, left-to-right departure, eyelids.</summary>
+    [UnityTest]
+    public IEnumerator NewGame_Cinematic_Eyelids_ShipInterior_Green()
+    {
+        MainMenuController menu = null;
+        yield return BootToTitleScreen(m => menu = m);
 
         GameSession session = GameSession.Instance;
         session.ResetSession();
-        session.AddMinerals(7);
-        Assert.AreEqual(27, session.Minerals, "session prepared with 27 minerals");
+        session.AddMinerals(13);
+        Assert.AreEqual(33, session.Minerals, "session prepared");
+        Assert.IsFalse(session.HasStartedRun, "no run has started yet");
 
-        VisualElement settings = menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton);
-        VisualElement credits = menu.UiRoot.Q<Button>(MainMenuNames.CreditsButton);
-
-        // ---- 系统设置: open, block the background, close ----
-        yield return RealClick(settings, "系统设置");
-        yield return WaitUntil(() => menu.IsSettingsOpen, 60);
-        Assert.IsTrue(menu.IsSettingsOpen, "系统设置 opens the settings modal");
-        Assert.AreEqual(1, menu.OpenModalCount, "exactly one modal is shown");
-        Assert.AreEqual(DisplayStyle.Flex,
-            menu.UiRoot.Q<VisualElement>(MainMenuNames.SettingsModal).resolvedStyle.display,
-            "settings modal is displayed");
-
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(menu.EnterMissionButton),
-            "background click dispatched");
-        yield return null;
-        yield return null;
-        Assert.IsFalse(menu.IsTransitioning, "background CTA click is blocked by the modal");
-        Assert.AreEqual(SceneRouting.MainMenuSceneName, SceneManager.GetActiveScene().name,
-            "no navigation happened behind the modal");
-        Assert.IsFalse(menu.Cinematic.IsPlaying, "the cinematic never starts behind a modal");
-
-        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.SettingsCloseButton), "设置关闭");
-        yield return WaitUntil(() => !menu.IsSettingsOpen, 60);
-        Assert.IsFalse(menu.IsSettingsOpen, "设置关闭 closes the modal");
-        yield return WaitUntilReal(() => menu.OpenModalCount == 0, 6f);
-        Assert.AreEqual(0, menu.OpenModalCount, "no modal remains open");
-
-        // ---- ESC closes a modal and never quits ----
-        yield return RealClick(settings, "系统设置 (ESC path)");
-        yield return WaitUntil(() => menu.IsSettingsOpen, 60);
-        menu.HandleEscapeKey();
-        yield return WaitUntil(() => !menu.IsSettingsOpen, 60);
-        Assert.IsFalse(menu.IsSettingsOpen, "ESC closes the open modal");
-        yield return WaitUntilReal(() => menu.OpenModalCount == 0, 6f);
-        Assert.AreEqual(0, menu.OpenModalCount, "ESC leaves no modal open");
-        Assert.AreEqual(SceneRouting.MainMenuSceneName, SceneManager.GetActiveScene().name,
-            "ESC never leaves the main menu (and never exits)");
-
-        // ---- 制作信息: real click, no stacking ----
-        yield return RealClick(settings, "系统设置 (stacking check)");
-        yield return WaitUntil(() => menu.IsSettingsOpen, 60);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(credits), "blocked credits click dispatched");
-        yield return null;
-        yield return null;
-        Assert.IsFalse(menu.IsCreditsOpen, "制作信息 behind the modal is blocked");
-        Assert.IsTrue(menu.IsSettingsOpen, "settings stays open after the blocked click");
-
-        menu.ShowCredits();
-        yield return WaitUntil(() => menu.IsCreditsOpen, 60);
-        Assert.IsTrue(menu.IsCreditsOpen, "制作信息 opens");
-        Assert.IsFalse(menu.IsSettingsOpen, "opening credits closes settings (no stacking)");
-        // The previous modal keeps fading for a few frames; the "exactly one modal
-        // shown" invariant is reached once that fade is over.
-        yield return WaitUntilReal(() => menu.OpenModalCount == 1, 6f);
-        Assert.AreEqual(1, menu.OpenModalCount, "modal stacking is impossible");
-
-        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.CreditsCloseButton),
-            "制作信息关闭");
-        yield return WaitUntil(() => !menu.IsCreditsOpen, 60);
-        yield return WaitUntilReal(() => menu.OpenModalCount == 0, 6f);
-        Assert.AreEqual(0, menu.OpenModalCount, "no modal remains open before the mission");
-
-        // ---- 进入任务 -> cinematic -> first-person ship interior ----
         MainMenuCinematic cinematic = menu.Cinematic;
         MainMenuShipHero hero = Object.FindAnyObjectByType<MainMenuShipHero>();
-        Assert.IsNotNull(cinematic, "cinematic available");
-        Assert.IsNotNull(hero, "hero available");
+        Camera stageCamera = Object.FindAnyObjectByType<Camera>();
+        stageCamera.aspect = 16f / 9f;
 
-        yield return RealClick(menu.EnterMissionButton, "进入任务");
-        Assert.IsTrue(cinematic.IsPlaying, "进入任务 starts the cinematic");
+        menu.SetFocus(0);
+        Assert.IsTrue(menu.ConfirmFocused(), "A starts 新游戏");
+
+        // ---- New game semantics ----
+        Assert.IsTrue(session.HasStartedRun, "新游戏 starts a run");
+        Assert.AreEqual(GameSession.DefaultMinerals, session.Minerals,
+            "新游戏 resets the authoritative session");
+        Assert.IsTrue(menu.IsContinueAvailable, "继续游戏 becomes available after 新游戏");
+        Assert.IsTrue(menu.ContinueButton.enabledSelf, "继续游戏 is now enabled");
+        Assert.IsTrue(cinematic.IsPlaying, "the cinematic started");
+        Assert.IsFalse(cinematic.IsContinueShot, "新游戏 plays the full shot");
         Assert.AreEqual(SceneRouting.MainMenuSceneName, SceneManager.GetActiveScene().name,
-            "the cinematic plays inside the menu scene (no hard cut)");
+            "the shot plays inside the title screen scene");
 
-        // Menu fade first: the ship and the starfield stay.
+        // Menu fade first, then boost, then a LEFT -> RIGHT departure.
         yield return WaitUntilReal(() => cinematic.MenuAlpha < 0.5f, 6f);
-        Assert.Less(cinematic.MenuAlpha, 0.5f, "the menu layer fades out first");
-        Assert.IsTrue(hero.IsShipPresent, "the ship stays visible while the menu fades");
+        Assert.Less(cinematic.MenuAlpha, 0.5f, "the menu fades out first");
 
-        // Engine boost before the ship leaves.
-        yield return WaitUntilReal(
-            () => cinematic.CurrentPhase == MainMenuCinematic.Phase.EngineBoost
-                  || cinematic.CurrentPhase == MainMenuCinematic.Phase.ShipDeparture
-                  || cinematic.CurrentPhase == MainMenuCinematic.Phase.FadeToBlack, 6f);
-        Assert.Greater(hero.EngineTarget, 0.3f, "the thrusters are boosted before departure");
+        yield return WaitUntilReal(() => hero.IsDeparting, 8f);
+        Assert.IsTrue(hero.IsDeparting, "the ship departs");
+        yield return WaitUntilReal(() => hero.DepartureProgress > 0.3f, 8f);
 
-        // Departure: the ship really moves out of its authored pose.
-        yield return WaitUntilReal(
-            () => cinematic.CurrentPhase == MainMenuCinematic.Phase.ShipDeparture
-                  || cinematic.CurrentPhase == MainMenuCinematic.Phase.FadeToBlack, 6f);
-        Assert.IsTrue(hero.IsDeparting, "the ship is departing");
-        yield return WaitUntilReal(() => hero.DepartureProgress > 0.35f, 6f);
-        Assert.Greater(Vector3.Distance(hero.transform.position, hero.SpawnPosition), 1f,
-            "the ship actually left its idle pose");
-        Assert.Greater(hero.EngineLevel, 0.5f, "the plumes are at boost while it accelerates");
+        Vector3 moved = hero.transform.position - hero.SpawnPosition;
+        Assert.Greater(moved.magnitude, 1f, "the ship actually moved");
+        Vector3 screenRight = stageCamera.transform.right;
+        Assert.Greater(Vector3.Dot(moved, screenRight), 0.5f,
+            "the departure moves the ship to the RIGHT of the screen (dot="
+            + Vector3.Dot(moved, screenRight).ToString("F2") + ")");
+        Assert.Greater(hero.EngineLevel, 0.4f, "the thrusters are boosted");
 
-        // Blackout, then the ship interior.
-        yield return WaitUntilReal(
-            () => cinematic.BlackAlpha > 0.5f
-                  || SceneManager.GetActiveScene().name != SceneRouting.MainMenuSceneName, 8f);
-
+        // ---- Ship interior ----
         ShipGameController ship = null;
         yield return WaitUntilReal(() =>
         {
             ship = Object.FindAnyObjectByType<ShipGameController>();
             return ship != null && ship.IsReady;
         }, 30f);
-        Assert.IsNotNull(ship, "进入任务 lands in the walkable ship interior");
+        Assert.IsNotNull(ship, "新游戏 lands in the ship interior");
         Assert.AreEqual(GameSession.ShipInteriorSceneName, SceneManager.GetActiveScene().name,
-            "the landing scene is 03_ShipInterior");
-        Assert.AreEqual(0, Object.FindObjectsByType<MainMenuController>().Length,
-            "the menu scene is unloaded");
+            "landing scene");
         Assert.AreEqual(0, Object.FindObjectsByType<AppController>().Length,
-            "进入任务 does NOT land in the Overview/Hub UI application");
+            "新游戏 does NOT land in the Overview/Hub UI");
 
-        // First person + blink fade-in (PASS 4).
-        Assert.IsNotNull(ship.Player, "the player exists");
-        Assert.IsNotNull(ship.Player.EyeCamera, "the first-person eye camera exists");
-        Assert.IsTrue(ship.Player.EyeCamera.enabled, "the first-person camera renders");
-        Assert.IsTrue(ship.Player.InputEnabled, "the player is controllable");
-        Assert.IsTrue(ship.EntryBlinkArmed,
-            "the menu hand-over armed the first-person blink fade");
-        Assert.IsTrue(ship.EntryBlink == null || ship.EntryBlink.IsPlaying,
-            "the entry blink is playing (or already finished cleanly)");
-        Assert.IsFalse(ship.IsConsoleFocusActive, "no terminal UI covers the frame on entry");
-        Assert.IsFalse(ship.IsOverlayOpen, "no shipboard modal covers the frame on entry");
+        // ---- Three-beat eyelids ----
+        Assert.IsTrue(ship.EntryBlinkArmed, "the eyelids were armed by the hand-over");
+        Assert.IsTrue(ship.IsEntryInputLocked, "control is locked while the eyes are shut");
 
-        // The eyelid curve is a blink, not a linear fade.
-        Assert.AreEqual(1f, ShipEntryBlinkFade.AlphaAt(0f), 0.001f, "eyes start shut");
-        Assert.Greater(ShipEntryBlinkFade.AlphaAt(0.1f), 0.9f, "still shut at 0.1 s");
-        Assert.Less(ShipEntryBlinkFade.AlphaAt(0.3f), 0.6f, "first crack open");
-        Assert.Greater(ShipEntryBlinkFade.AlphaAt(0.4f), ShipEntryBlinkFade.AlphaAt(0.3f),
-            "reflexive re-close");
-        Assert.AreEqual(0f, ShipEntryBlinkFade.AlphaAt(ShipEntryBlinkFade.BlinkSeconds + 0.1f),
-            0.001f, "the blink ends fully open");
+        var stages = new HashSet<string>();
+        ShipEntryBlinkFade blink = ship.EntryBlink;
+        Assert.IsNotNull(blink, "the eyelid component is running");
+        Assert.AreEqual(SceneRouting.EntryEyelid.Full, blink.Mode, "新游戏 plays the full eyelid");
+        Assert.IsFalse(blink.TopEyelid == null, "the TOP eyelid exists");
+        Assert.IsFalse(blink.BottomEyelid == null, "the BOTTOM eyelid exists");
+        Assert.IsTrue(blink.TopEyelid.name == "TopEyelid", "top eyelid is named");
+        Assert.IsTrue(blink.BottomEyelid.name == "BottomEyelid", "bottom eyelid is named");
+        Assert.GreaterOrEqual(blink.CoveredFraction, 0.49f,
+            "the eyes start fully shut (both curtains meet on the centre line)");
+        Assert.AreEqual(PickingMode.Ignore, blink.TopEyelid.pickingMode,
+            "the eyelids never block input");
 
-        yield return WaitUntilReal(() => ship.EntryBlink == null, 8f);
-        // NUnit's IsNull does a reference comparison, which cannot see Unity's
-        // destroyed-object null: the Unity operator is the correct check here.
-        Assert.IsTrue(ship.EntryBlink == null,
-            "the blink removes its overlay when it finishes");
-
-        // Spawn is the ship's default marker, in front of the bridge terminals.
-        Assert.Less(Vector3.Distance(ship.Player.transform.position,
-            new Vector3(0f, 0f, 3.6f)), 1.5f, "the player spawns on the ship's default marker");
-
-        // ---- Terminal flow: the ship still reaches Overview et al. ----
-        ShipConsoleInteractable overviewConsole = null;
-        foreach (ShipConsoleInteractable console in ship.Consoles)
+        float deadline = Time.realtimeSinceStartup + 8f;
+        while (ship.EntryBlink != null && Time.realtimeSinceStartup < deadline)
         {
-            if (console.ConsoleId == 1)
+            stages.Add(ship.EntryBlink.StageLabel);
+            if (ship.EntryBlink.CoveredFraction > 0.5f)
             {
-                overviewConsole = console;
-                break;
-            }
-        }
-
-        Assert.IsNotNull(overviewConsole, "the 总览 terminal exists on the bridge");
-        Assert.IsTrue(ship.Focus.RequestEnter(overviewConsole),
-            "the player can enter the 总览 terminal");
-        yield return WaitUntilReal(() => ship.Focus.FocusActive, 8f);
-        Assert.IsTrue(ship.Focus.FocusActive, "the terminal focus is active");
-
-        // Console 02 (仓库总览) hosts the dedicated warehouse / 出发准备 tree
-        // instead of a ShipConsoleScreenHost, so the mapping is read from the
-        // console surfaces rather than from one component type.
-        ShipConsoleScreenHost overviewHost = null;
-        var available = new System.Collections.Generic.HashSet<AppScreen>();
-        int surfaces = 0;
-        foreach (ShipConsoleInteractable console in ship.Consoles)
-        {
-            var surface = console.GetComponent<WorldConsoleSurface>();
-            if (surface == null)
-            {
-                continue;
+                Assert.Fail("an eyelid curtain covered more than half the screen");
             }
 
-            surfaces++;
-            if (surface.ScreenHost != null)
-            {
-                available.Add(surface.ScreenHost.MappedScreen);
-                if (surface.ScreenHost.MappedScreen == AppScreen.Overview)
-                {
-                    overviewHost = surface.ScreenHost;
-                }
-            }
-
-            if (surface.WarehouseHost != null)
-            {
-                available.Add(AppScreen.Preparation);
-            }
-        }
-
-        Assert.AreEqual(4, surfaces, "all four ship terminals are wired");
-        Assert.IsNotNull(overviewHost, "a terminal hosts the Overview screen");
-        Assert.IsTrue(overviewHost.IsBound, "the Overview terminal bound its UI");
-        Assert.AreEqual(1, overviewHost.CountVisibleScreens(),
-            "exactly one production screen is visible in the terminal");
-        Assert.IsTrue(available.Contains(AppScreen.Overview), "Overview reachable");
-        Assert.IsTrue(available.Contains(AppScreen.Preparation), "Preparation reachable");
-        Assert.IsTrue(available.Contains(AppScreen.Processing), "Processing reachable");
-        Assert.IsTrue(available.Contains(AppScreen.Outpost), "Outpost reachable");
-
-        ship.Focus.RequestExit();
-        yield return WaitUntilReal(() => !ship.Focus.FocusActive, 8f);
-        Assert.IsFalse(ship.Focus.FocusActive, "leaving the terminal returns to first person");
-        Assert.IsTrue(ship.Player.InputEnabled, "the player can move again");
-
-        // The session survived the whole hand-over.
-        Assert.AreSame(session, GameSession.Instance, "the same session survives the cover");
-        Assert.AreEqual(27, session.Minerals, "进入任务 never resets the session");
-    }
-
-    /// <summary>动态效果 / 界面提示 must really change runtime behavior.</summary>
-    [UnityTest]
-    public IEnumerator MainMenu_Settings_ReallyChangeBehavior_Green()
-    {
-        MainMenuController menu = null;
-        yield return BootToMainMenu(m => menu = m);
-        Assert.IsNotNull(menu, "MainMenuController must be ready");
-
-        MainMenuShipHero hero = Object.FindAnyObjectByType<MainMenuShipHero>();
-        Assert.IsNotNull(hero, "hero ship exists");
-
-        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton), "系统设置");
-        yield return WaitUntil(() => menu.IsSettingsOpen, 60);
-
-        VisualElement title = menu.UiRoot.Q<Label>(MainMenuNames.Title);
-        Rect titleBefore = title.worldBound;
-        Rect ctaBefore = menu.EnterMissionButton.worldBound;
-
-        // ---- 动态效果 off: the hero and its plumes freeze ----
-        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.MotionOffButton), "动态效果关闭");
-        yield return null;
-        Assert.IsFalse(MainMenuSettings.MotionEnabled, "motion setting is off");
-        Assert.IsTrue(menu.UiRoot.Q<Button>(MainMenuNames.MotionOffButton)
-            .ClassListContains("segment-active"), "关闭 segment shows the active state");
-
-        Vector3 frozenPosition = hero.transform.position;
-        float frozenPlume = hero.Flames[0].PlumeLength;
-        // Real time, not frames: a batch-mode editor runs at thousands of fps.
-        yield return new WaitForSecondsRealtime(0.6f);
-
-        Assert.AreEqual(frozenPosition.x, hero.transform.position.x, 0.0001f,
-            "motion off stops the hero drift");
-        Assert.AreEqual(frozenPosition.y, hero.transform.position.y, 0.0001f,
-            "motion off stops the hero bob");
-        Assert.AreEqual(frozenPlume, hero.Flames[0].PlumeLength, 0.0001f,
-            "motion off stops the plume flicker");
-        Assert.AreEqual(2, hero.NozzleCount, "the plumes stay on screen when motion is off");
-
-        // ---- 动态效果 on: motion resumes ----
-        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.MotionOnButton), "动态效果开启");
-        yield return null;
-        Assert.IsTrue(MainMenuSettings.MotionEnabled, "motion setting is back on");
-
-        float resumePlume = hero.Flames[0].PlumeLength;
-        float moved = 0f;
-        float deadline = Time.realtimeSinceStartup + 0.8f;
-        while (Time.realtimeSinceStartup < deadline)
-        {
-            moved = Mathf.Max(moved, Mathf.Abs(hero.Flames[0].PlumeLength - resumePlume));
             yield return null;
         }
 
-        Assert.Greater(moved, 0.0005f, "motion on really resumes the plume flicker");
+        Assert.IsTrue(stages.Contains("beat1"), "beat 1 happened (stages: "
+                                                + string.Join(",", stages) + ")");
+        Assert.IsTrue(stages.Contains("beat2"), "beat 2 happened (stages: "
+                                                + string.Join(",", stages) + ")");
+        Assert.IsTrue(stages.Contains("beat3"), "beat 3 happened (stages: "
+                                                + string.Join(",", stages) + ")");
 
-        // ---- 界面提示 hidden: the annotation layer goes away, layout does not ----
-        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.HintsHideButton), "界面提示隐藏");
-        yield return null;
-        Assert.IsFalse(MainMenuSettings.HintsVisible, "hints setting is off");
-        Assert.AreEqual(DisplayStyle.None,
-            menu.UiRoot.Q<VisualElement>(MainMenuNames.HintLayer).resolvedStyle.display,
-            "annotation layer hidden");
-        AssertRectUnchanged(titleBefore, title.worldBound, "title");
-        AssertRectUnchanged(ctaBefore, menu.EnterMissionButton.worldBound, "CTA");
+        // The controller releases the lock in its own Update, one frame after the
+        // eyelid component destroys itself.
+        yield return WaitUntilReal(() => !ship.IsEntryInputLocked, 4f);
+        Assert.IsFalse(ship.IsEntryInputLocked,
+            "control is released when the eyes are open");
+        Assert.IsTrue(ship.Player.InputEnabled, "the player can move");
+        Assert.IsFalse(ship.IsConsoleFocusActive, "no terminal UI covers the frame");
 
-        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.HintsShowButton), "界面提示显示");
-        yield return null;
-        Assert.IsTrue(MainMenuSettings.HintsVisible, "hints setting is back on");
-        Assert.AreEqual(DisplayStyle.Flex,
-            menu.UiRoot.Q<VisualElement>(MainMenuNames.HintLayer).resolvedStyle.display,
-            "annotation layer visible again");
-
-        MainMenuSettings.ResetToDefaults();
+        // The overlay is gone: nothing is left to block input or picking.
+        ShipHudController hud = Object.FindAnyObjectByType<ShipHudController>();
+        Assert.IsNotNull(hud, "the ship HUD exists");
+        var hudDocument = hud.GetComponent<UIDocument>();
+        Assert.IsNotNull(hudDocument, "the ship HUD document exists");
+        Assert.IsNull(hudDocument.rootVisualElement.Q<VisualElement>("TopEyelid"),
+            "no leftover top eyelid element");
+        Assert.IsNull(hudDocument.rootVisualElement.Q<VisualElement>("BottomEyelid"),
+            "no leftover bottom eyelid element");
+        Assert.AreEqual(0, Object.FindObjectsByType<MainMenuController>().Length,
+            "the title screen scene is unloaded");
     }
 
-    /// <summary>Main Menu &lt;-&gt; Ship round trip: one session, no duplicates.</summary>
+    /// <summary>The eyelid curve itself: small crack, bigger crack, full open.</summary>
     [UnityTest]
-    public IEnumerator MainMenu_ShipInterior_RoundTrip_NoDuplicates_Green()
+    public IEnumerator EyelidCurve_ThreeBeats_Green()
+    {
+        yield return null;
+
+        const SceneRouting.EntryEyelid full = SceneRouting.EntryEyelid.Full;
+
+        // Closed at the start, and both curtains meet exactly on the centre line.
+        Assert.AreEqual(0f, ShipEntryBlinkFade.OpennessAt(0f, full), 0.0001f,
+            "the eyes start shut");
+        Assert.AreEqual(0.5f, ShipEntryBlinkFade.CoveredFractionFor(0f), 0.0001f,
+            "a shut eye covers half the screen with each curtain");
+
+        // Beat 1: a small crack only.
+        float beat1 = ShipEntryBlinkFade.OpennessAt(ShipEntryBlinkFade.Beat1OpenEnd, full);
+        Assert.Greater(beat1, 0.15f, "beat 1 opens");
+        Assert.Less(beat1, 0.3f, "beat 1 stays small (openness " + beat1.ToString("F2") + ")");
+
+        // Back to shut.
+        Assert.AreEqual(0f,
+            ShipEntryBlinkFade.OpennessAt(ShipEntryBlinkFade.Beat1CloseEnd, full), 0.0001f,
+            "the eyes close again after beat 1");
+
+        // Beat 2: clearly bigger, still not open.
+        float beat2 = ShipEntryBlinkFade.OpennessAt(ShipEntryBlinkFade.Beat2OpenEnd, full);
+        Assert.Greater(beat2, beat1 + 0.1f,
+            "beat 2 opens further than beat 1 (" + beat2.ToString("F2") + ")");
+        Assert.Less(beat2, 0.6f, "beat 2 is still not fully open");
+
+        Assert.AreEqual(0f,
+            ShipEntryBlinkFade.OpennessAt(ShipEntryBlinkFade.Beat2CloseEnd, full), 0.0001f,
+            "the eyes close again after beat 2");
+
+        // Beat 3: fully open and it stays open.
+        Assert.AreEqual(1f,
+            ShipEntryBlinkFade.OpennessAt(ShipEntryBlinkFade.Beat3OpenEnd, full), 0.0001f,
+            "beat 3 opens completely");
+        Assert.AreEqual(1f, ShipEntryBlinkFade.OpennessAt(10f, full), 0.0001f,
+            "the eyes stay open");
+        Assert.AreEqual(0f,
+            ShipEntryBlinkFade.CoveredFractionFor(ShipEntryBlinkFade.OpennessAt(10f, full)),
+            0.0001f, "nothing is covered once open");
+
+        // The whole animation is inside the 0.8-1.3 s budget.
+        Assert.GreaterOrEqual(ShipEntryBlinkFade.BlinkSeconds, 0.8f, "not too fast");
+        Assert.LessOrEqual(ShipEntryBlinkFade.BlinkSeconds, 1.3f, "not too slow");
+
+        // The short (继续游戏) variant opens once and stays open.
+        const SceneRouting.EntryEyelid quick = SceneRouting.EntryEyelid.Quick;
+        Assert.AreEqual(0f, ShipEntryBlinkFade.OpennessAt(0f, quick), 0.0001f, "quick starts shut");
+        Assert.AreEqual(1f, ShipEntryBlinkFade.OpennessAt(1f, quick), 0.0001f,
+            "quick ends fully open");
+        Assert.Less(ShipEntryBlinkFade.DurationSeconds(quick),
+            ShipEntryBlinkFade.DurationSeconds(full), "quick is shorter than full");
+
+        // Stage names describe the beats (used by the probes).
+        Assert.AreEqual("beat1", ShipEntryBlinkFade.StageAt(0.10f, full), "beat 1 stage");
+        Assert.AreEqual("beat2", ShipEntryBlinkFade.StageAt(0.35f, full), "beat 2 stage");
+        Assert.AreEqual("beat3", ShipEntryBlinkFade.StageAt(0.80f, full), "beat 3 stage");
+        Assert.AreEqual("open", ShipEntryBlinkFade.StageAt(1.20f, full), "open stage");
+    }
+
+    /// <summary>继续游戏 resumes the run without resetting it.</summary>
+    [UnityTest]
+    public IEnumerator Continue_ResumesWithoutReset_Green()
     {
         MainMenuController menu = null;
-        yield return BootToMainMenu(m => menu = m);
-        Assert.IsNotNull(menu, "MainMenuController must be ready");
+        yield return BootToTitleScreen(m => menu = m);
 
-        GameSession session = GameSession.Instance;
-        session.ResetSession();
-        session.AddMinerals(9);
-
-        Assert.AreEqual(1, Object.FindObjectsByType<MainMenuShipHero>().Length,
-            "exactly one hero ship in the cover");
-        Assert.AreEqual(1, Object.FindObjectsByType<MainMenuStarfield>().Length,
-            "exactly one starfield in the cover");
-
-        yield return RealClick(menu.EnterMissionButton, "进入任务 (round trip out)");
+        // Start a run through the real 新游戏 path, then come back to the title.
+        menu.SetFocus(0);
+        Assert.IsTrue(menu.ConfirmFocused(), "新游戏 starts a run");
         ShipGameController ship = null;
         yield return WaitUntilReal(() =>
         {
             ship = Object.FindAnyObjectByType<ShipGameController>();
             return ship != null && ship.IsReady;
         }, 30f);
-        Assert.IsNotNull(ship, "ship interior reached");
+        Assert.IsNotNull(ship, "first entry reaches the ship");
+
+        GameSession session = GameSession.Instance;
+        session.AddMinerals(11);
+        int minerals = session.Minerals;
+        int alloy = session.Alloy;
 
         SceneRouting.EnterMainMenu();
         MainMenuController back = null;
@@ -507,41 +434,157 @@ public class SurvivePhase08Tests
             back = Object.FindAnyObjectByType<MainMenuController>();
             return back != null && back.IsReady;
         }, 30f);
-        Assert.IsNotNull(back, "main menu re-enterable");
-        Assert.AreEqual(1, Object.FindObjectsByType<MainMenuController>().Length,
-            "no duplicated menu controller");
-        Assert.AreEqual(1, Object.FindObjectsByType<GameSession>().Length,
-            "no duplicated persistent session");
-        Assert.AreEqual(1, Object.FindObjectsByType<MainMenuShipHero>().Length,
-            "no duplicated hero ship after re-entry");
-        Assert.AreEqual(1, Object.FindObjectsByType<MainMenuStarfield>().Length,
-            "no duplicated starfield after re-entry");
-        Assert.AreEqual(0, Object.FindObjectsByType<ShipGameController>().Length,
-            "the ship scene is unloaded");
-        Assert.AreSame(session, GameSession.Instance, "same session instance");
-        Assert.AreEqual(29, session.Minerals, "returning to the menu never resets the session");
-        Assert.IsTrue(back.IsHeroShipActive, "the 3D hero is active again after re-entry");
-        Assert.IsTrue(back.IsStarfieldActive, "the backdrop is active again after re-entry");
+        Assert.IsNotNull(back, "the title screen is re-enterable");
 
-        yield return RealClick(back.EnterMissionButton, "进入任务 (round trip back)");
-        ShipGameController again = null;
+        // ---- Continue is available and resumes ----
+        Assert.IsTrue(back.IsContinueAvailable, "继续游戏 is available after a run started");
+        Assert.IsTrue(back.ContinueButton.enabledSelf, "继续游戏 is enabled");
+        Assert.IsFalse(back.ContinueButton.ClassListContains("menu-item-disabled"),
+            "继续游戏 no longer carries the disabled treatment");
+
+        back.SetFocus(1);
+        Assert.AreEqual(1, back.FocusIndex, "focus can sit on 继续游戏 when it is available");
+        MainMenuCinematic cinematic = back.Cinematic;
+        Assert.IsTrue(back.ConfirmFocused(), "A confirms 继续游戏");
+        Assert.IsTrue(cinematic.IsPlaying, "the continue shot started");
+        Assert.IsTrue(cinematic.IsContinueShot, "继续游戏 plays the short shot");
+        Assert.IsTrue(session.HasStartedRun, "the run stays started");
+
+        ShipGameController resumed = null;
         yield return WaitUntilReal(() =>
         {
-            again = Object.FindAnyObjectByType<ShipGameController>();
-            return again != null && again.IsReady;
+            resumed = Object.FindAnyObjectByType<ShipGameController>();
+            return resumed != null && resumed.IsReady;
         }, 30f);
-        Assert.IsNotNull(again, "ship interior reached again");
-        Assert.AreEqual(GameSession.ShipInteriorSceneName, SceneManager.GetActiveScene().name,
-            "the second entry lands in the ship as well");
-        Assert.AreEqual(29, GameSession.Instance.Minerals,
-            "session value preserved through the whole round trip");
+        Assert.IsNotNull(resumed, "继续游戏 returns to the ship");
+        Assert.AreSame(session, GameSession.Instance, "the same session object is reused");
+        Assert.AreEqual(minerals, session.Minerals, "继续游戏 never resets the session");
+        Assert.AreEqual(alloy, session.Alloy, "the whole session is preserved");
+        Assert.IsTrue(resumed.EntryBlinkArmed, "the short eyelid was armed");
+    }
+
+    /// <summary>选项 opens/closes and still drives the presentation switches.</summary>
+    [UnityTest]
+    public IEnumerator Options_Modal_Green()
+    {
+        MainMenuController menu = null;
+        yield return BootToTitleScreen(m => menu = m);
+
+        VisualElement options = menu.UiRoot.Q<Button>(MainMenuNames.OptionsButton);
+        Assert.IsNotNull(options, "选项 exists");
+
+        yield return RealClick(options, "选项");
+        yield return WaitUntilReal(() => menu.IsOptionsOpen, 4f);
+        Assert.IsTrue(menu.IsOptionsOpen, "选项 opens");
+        Assert.AreEqual(1, menu.OpenModalCount, "exactly one modal is shown");
+        Assert.AreEqual("选项",
+            menu.UiRoot.Q<Label>(MainMenuNames.OptionsTitle).text, "the modal is titled 选项");
+
+        // The menu behind it is blocked: confirming does nothing.
+        menu.SetFocus(0);
+        Assert.IsFalse(menu.ConfirmFocused(), "the blocked title screen cannot start a game");
+        Assert.IsFalse(menu.Cinematic.IsPlaying, "no cinematic behind the modal");
+
+        // ---- The switches still work ----
+        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.MotionOffButton), "动态效果关闭");
+        yield return null;
+        Assert.IsFalse(MainMenuSettings.MotionEnabled, "动态效果 off");
+        Assert.IsTrue(menu.UiRoot.Q<Button>(MainMenuNames.MotionOffButton)
+            .ClassListContains("segment-active"), "the active segment is shown");
+
+        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.HintsHideButton), "界面提示隐藏");
+        yield return null;
+        Assert.IsFalse(MainMenuSettings.HintsVisible, "界面提示 off");
+
+        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.MotionOnButton), "动态效果开启");
+        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.HintsShowButton), "界面提示显示");
+        yield return null;
+        Assert.IsTrue(MainMenuSettings.MotionEnabled, "动态效果 back on");
+        Assert.IsTrue(MainMenuSettings.HintsVisible, "界面提示 back on");
+
+        // ---- 返回 closes it ----
+        yield return RealClick(menu.UiRoot.Q<Button>(MainMenuNames.OptionsCloseButton), "返回");
+        yield return WaitUntilReal(() => !menu.IsOptionsOpen, 4f);
+        Assert.IsFalse(menu.IsOptionsOpen, "返回 closes 选项");
+        yield return WaitUntilReal(() => menu.OpenModalCount == 0, 4f);
+        Assert.AreEqual(0, menu.OpenModalCount, "the modal is fully gone");
+
+        // ESC path.
+        yield return RealClick(options, "选项 (ESC path)");
+        yield return WaitUntilReal(() => menu.IsOptionsOpen, 4f);
+        menu.HandleEscapeKey();
+        yield return WaitUntilReal(() => !menu.IsOptionsOpen, 4f);
+        Assert.IsFalse(menu.IsOptionsOpen, "ESC closes 选项");
+        Assert.AreEqual(SceneRouting.MainMenuSceneName, SceneManager.GetActiveScene().name,
+            "ESC never leaves the title screen");
+
+        MainMenuSettings.ResetToDefaults();
+    }
+
+    /// <summary>
+    /// The ship's screen-space direction is LEFT to RIGHT: the nose points right,
+    /// the plumes point left, and the idle cruise drifts forward only.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator ShipDirection_LeftToRight_Green()
+    {
+        MainMenuController menu = null;
+        yield return BootToTitleScreen(m => menu = m);
+
+        MainMenuShipHero hero = Object.FindAnyObjectByType<MainMenuShipHero>();
+        Camera stageCamera = Object.FindAnyObjectByType<Camera>();
+        Assert.IsNotNull(hero, "hero exists");
+        Assert.IsNotNull(stageCamera, "camera exists");
+        AssertShipFliesRight(hero, stageCamera);
+
+        // The plumes stream backwards (screen left), opposite the flight.
+        Assert.AreEqual(2, hero.Flames.Count, "two plumes");
+        Vector3 plumeDirection = hero.AftDirection;
+        Vector3 plumeWorld = hero.transform.TransformDirection(plumeDirection);
+        stageCamera.aspect = 16f / 9f;
+        float tailX = stageCamera.WorldToViewportPoint(
+            hero.WorldBounds.center + plumeWorld * 6f).x;
+        float noseX = stageCamera.WorldToViewportPoint(
+            hero.WorldBounds.center - plumeWorld * 6f).x;
+        Assert.Greater(noseX, tailX, "the nose is to the RIGHT of the tail on screen");
+        stageCamera.ResetAspect();
+
+        // The idle cruise only ever pushes forward; the settle back is so slow
+        // that it never reads as reverse flight.
+        Assert.AreEqual(0f, MainMenuShipHero.CruiseOffsetAt(0f), 0.0001f, "cruise starts at rest");
+        Assert.IsTrue(MainMenuShipHero.CruiseIsRightwardAt(1f),
+            "the cruise is moving forward shortly after entry");
+        Assert.Greater(MainMenuShipHero.CruiseOffsetAt(6f),
+            MainMenuShipHero.CruiseOffsetAt(1f), "the cruise keeps moving forward");
+        Assert.LessOrEqual(MainMenuShipHero.CruiseOffsetAt(64f),
+            MainMenuShipHero.CruiseDistance + 0.001f, "the cruise stays inside its box");
+        Assert.GreaterOrEqual(MainMenuShipHero.CruiseOffsetAt(64f), 0f,
+            "the cruise never goes behind its start");
     }
 
     // ---- helpers ----
 
-    private static IEnumerator BootToMainMenu(System.Action<MainMenuController> capture)
+    /// <summary>
+    /// Asserts the ship flies LEFT to RIGHT on screen: the nose points along the
+    /// camera's right axis and the plumes point the other way. Comparing world
+    /// directions against the camera's right axis is aspect independent and needs
+    /// no projection, so it cannot be fooled by a Game View that is square.
+    /// </summary>
+    private static void AssertShipFliesRight(MainMenuShipHero hero, Camera camera)
     {
-        GameSession.Ensure().ResetSession();
+        Vector3 screenRight = camera.transform.right;
+        float noseDot = Vector3.Dot(hero.ForwardWorld, screenRight);
+        Assert.Greater(noseDot, 0.2f,
+            "the nose points toward the screen RIGHT (dot=" + noseDot.ToString("F3") + ")");
+
+        float plumeDot = Vector3.Dot(
+            hero.transform.TransformDirection(hero.AftDirection), screenRight);
+        Assert.Less(plumeDot, -0.2f,
+            "the plumes stream toward the screen LEFT (dot=" + plumeDot.ToString("F3") + ")");
+    }
+
+    private static IEnumerator BootToTitleScreen(System.Action<MainMenuController> capture)
+    {
         SceneManager.LoadScene("00_Boot");
         yield return WaitUntil(() => SceneManager.GetActiveScene().name
                                     == SceneRouting.MainMenuSceneName);
@@ -554,7 +597,6 @@ public class SurvivePhase08Tests
         });
         capture(menu);
 
-        // Two extra frames so the first layout pass is fully resolved.
         yield return null;
         yield return null;
     }
@@ -562,7 +604,6 @@ public class SurvivePhase08Tests
     private static IEnumerator RealClick(VisualElement element, string label)
     {
         Assert.IsNotNull(element, "clickable element exists: " + label);
-        // Let the panel lay the element out: a click uses the element centre.
         yield return null;
         Assert.IsTrue(element.worldBound.width > 1f && element.worldBound.height > 1f,
             "element is laid out before the click: " + label);
@@ -581,11 +622,6 @@ public class SurvivePhase08Tests
         }
     }
 
-    /// <summary>
-    /// Real-time bounded wait. A frame budget cannot express "wait for the 2.95 s
-    /// start cinematic": a batch-mode editor runs at thousands of frames per
-    /// second, so 900 frames can be well under a second of wall time.
-    /// </summary>
     private static IEnumerator WaitUntilReal(System.Func<bool> condition, float seconds)
     {
         float deadline = Time.realtimeSinceStartup + seconds;
@@ -593,16 +629,6 @@ public class SurvivePhase08Tests
         {
             yield return null;
         }
-    }
-
-    /// <summary>Asserts a layout rect did not move (sub-pixel tolerant).</summary>
-    private static void AssertRectUnchanged(Rect before, Rect after, string label)
-    {
-        const float tolerance = 0.5f;
-        Assert.AreEqual(before.xMin, after.xMin, tolerance, label + " x unchanged");
-        Assert.AreEqual(before.yMin, after.yMin, tolerance, label + " y unchanged");
-        Assert.AreEqual(before.width, after.width, tolerance, label + " width unchanged");
-        Assert.AreEqual(before.height, after.height, tolerance, label + " height unchanged");
     }
 
     /// <summary>No EventSystem / AudioListener anywhere in the active scene.</summary>

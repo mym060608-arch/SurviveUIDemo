@@ -6,27 +6,30 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Main Menu cover capture + journey probe (Phase 08 Revision, validation
+/// Title screen capture + journey probe (Phase 08 Revision 2, validation
 /// instrumentation only).
 ///
 /// Inert during normal play: it only activates when the player is launched with
 /// <c>-menuCaptureDir &lt;absolute path&gt;</c>. It then drives the real product
-/// flow through REAL UI Toolkit clicks and captures the composited frame (3D
-/// stage + UI overlay) at 1920x1080:
+/// flow through REAL UI clicks and captures the composited frame (3D stage + UI)
+/// at 1920x1080:
 ///
-///   01  Main Menu idle (left ship / right menu / deep space)
-///   01b Main Menu idle 1.6 s later (proves the cover is alive)
-///   02  Main Menu 系统设置
-///   03a cinematic: menu fade-out
-///   03b cinematic: engine boost + ship departure
-///   03c cinematic: blackout
-///   04a ship interior: first-person blink fade-in
-///   04b ship interior: first-person, terminal ahead
-///   05  ship terminal: the Overview screen, reached by walking in
+///   01  Title screen idle (活下去 + four options, ship on the left)
+///   01b The same shot later (proves the cruise, the star drift and the twinkle)
+///   02  选项 open
+///   03a Cinematic: menu fade
+///   03b Cinematic: engine boost / ship departure (LEFT to RIGHT)
+///   03c Cinematic: blackout
+///   04a Eyelids: beat 1 (small crack)
+///   04b Eyelids: beat 2 (bigger)
+///   04c Eyelids: beat 3 (fully open)
+///   04d Ship interior: first person, control released
+///   05a Ship terminal approach
+///   05b Ship terminal: the Overview screen
 ///
-/// It also asserts the revision contracts (ship on the left, menu on the right,
-/// starfield present, plumes present, cinematic phases in order, ship interior
-/// reached, terminal reachable) and writes
+/// It also asserts the Revision 2 contracts (minimal copy, four options,
+/// continue availability, left-to-right flight, three eyelid beats, first-person
+/// landing, terminal reachable) and writes
 /// <c>main_menu_capture_report.txt</c> next to the images.
 /// </summary>
 public class MainMenuCapture : MonoBehaviour
@@ -52,8 +55,7 @@ public class MainMenuCapture : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         // Automation must not depend on the window having OS focus: a background
-        // player stops ticking, which would freeze the cinematic mid-shot (and
-        // would also stall the coroutine that captures it).
+        // player stops ticking, which would freeze the cinematic mid-shot.
         Application.runInBackground = true;
         Application.targetFrameRate = 60;
     }
@@ -93,10 +95,9 @@ public class MainMenuCapture : MonoBehaviour
     private IEnumerator RunCapture()
     {
         Directory.CreateDirectory(_captureDir);
-        _report.AppendLine("SURVIVE // DRIFT - Phase 08 Revision Main Menu capture");
+        _report.AppendLine("SURVIVE // DRIFT - Phase 08 Revision 2 title screen capture");
         _report.AppendLine("scene at start: " + SceneManager.GetActiveScene().name);
 
-        // ---- Window: the review pack is captured at 1920x1080 ----
         Screen.SetResolution(1920, 1080, false);
         int settle = 0;
         while ((Screen.width != 1920 || Screen.height != 1080) && settle < 240)
@@ -105,11 +106,9 @@ public class MainMenuCapture : MonoBehaviour
             yield return null;
         }
 
-        _report.AppendLine("resolution: " + Screen.width + "x" + Screen.height
-                           + " (settled after " + settle + " frames)");
+        _report.AppendLine("resolution: " + Screen.width + "x" + Screen.height);
         Check("capture resolution is 1920x1080", Screen.width == 1920 && Screen.height == 1080);
 
-        // ---- Main Menu ready ----
         MainMenuController menu = null;
         yield return WaitUntil(() =>
         {
@@ -119,12 +118,11 @@ public class MainMenuCapture : MonoBehaviour
 
         if (menu == null)
         {
-            Fail("main menu never became ready");
+            Fail("title screen never became ready");
             Finish(1);
             yield break;
         }
 
-        // Let the starfield generate and the first frames settle.
         yield return new WaitForSecondsRealtime(1.2f);
 
         // ---- Composition contract ----
@@ -133,84 +131,121 @@ public class MainMenuCapture : MonoBehaviour
         Camera stageCamera = Object.FindAnyObjectByType<Camera>();
         MainMenuCinematic cinematic = menu.Cinematic;
 
+        // ---- Minimal copy ----
+        Label title = menu.UiRoot.Q<Label>(MainMenuNames.Title);
+        Check("the only headline is 活下去",
+            title != null && title.text == "活下去");
+        Check("exactly four options exist", menu.MenuItems.Count == 4);
+        string[] expected = { "新游戏", "继续游戏", "选项", "退出" };
+        for (int i = 0; i < expected.Length && i < menu.MenuItems.Count; i++)
+        {
+            Label label = menu.MenuItems[i].Q<Label>(className: "menu-item-label");
+            Check("option " + (i + 1) + " reads " + expected[i],
+                label != null && label.text == expected[i]);
+        }
+
+        var copy = new StringBuilder();
+        menu.UiRoot.Query<Label>().ForEach(label => copy.Append(label.text).Append('\n'));
+        string screen = copy.ToString();
+        bool clean = true;
+        foreach (string removed in MainMenuNames.RemovedCopy)
+        {
+            if (screen.Contains(removed))
+            {
+                clean = false;
+                _report.AppendLine("  still visible: " + removed);
+            }
+        }
+
+        Check("no removed HUD / telemetry copy is visible", clean);
+        Check("no 制作信息 button", menu.UiRoot.Q<Button>("CreditsButton") == null);
+        Check("no top system bar", menu.UiRoot.Q<VisualElement>("MenuTopBar") == null);
+        Check("no footer bar", menu.UiRoot.Q<VisualElement>("MenuFooter") == null);
+        Check("no telemetry strip", menu.UiRoot.Q<VisualElement>("HeroTelemetry") == null);
+
+        // ---- Hero + sky ----
         Check("hero ship present (" + (hero != null ? hero.ShipRendererCount : 0) + " renderers)",
             hero != null && hero.IsShipPresent && hero.ShipRendererCount >= 40);
         Check("two thruster plumes built from the asset anchors",
             hero != null && hero.NozzleCount == 2);
         Check("deep-space starfield built (" + (stars != null ? stars.StarCount : 0) + " stars)",
             stars != null && stars.IsActive && stars.LayerCount == 3 && stars.StarCount > 1000);
+        Check("star layers drift sideways in the shader (parallax)",
+            stars != null && stars.ScrollSpeedOf(2) > stars.ScrollSpeedOf(0));
+        Check("star layers twinkle", stars != null && stars.TwinkleAmountOf(1) > 0.2f);
         Check("cinematic authored and idle", cinematic != null && !cinematic.IsPlaying);
 
-        VisualElement heroZone = menu.UiRoot.Q<VisualElement>(MainMenuNames.HeroColumn);
-        VisualElement menuColumn = menu.UiRoot.Q<VisualElement>(MainMenuNames.ContentColumn);
-        Rect rootRect = menu.UiRoot.worldBound;
-        Check("menu column is on the RIGHT of the hero window",
-            heroZone != null && menuColumn != null
-            && heroZone.worldBound.xMax <= menuColumn.worldBound.xMin + 1f);
-        Check("menu column starts past 55% of the frame width",
-            menuColumn != null && menuColumn.worldBound.xMin > rootRect.width * 0.55f);
-
+        // ---- Direction: LEFT to RIGHT ----
         if (stageCamera != null && hero != null)
         {
+            stageCamera.aspect = 16f / 9f;
             float shipX = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
-            Check("ship centre is in the left half (x=" + shipX.ToString("F3") + ")", shipX < 0.62f);
+            Check("ship centre is in the left half (x=" + shipX.ToString("F3") + ")", shipX < 0.5f);
+
+            float hereX = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
+            float aheadX = stageCamera.WorldToViewportPoint(
+                hero.WorldBounds.center + hero.ForwardWorld * 8f).x;
+            Check("ship nose points to the RIGHT of the screen ("
+                  + hereX.ToString("F3") + " -> " + aheadX.ToString("F3") + ")",
+                aheadX > hereX);
+
+            float plumeX = stageCamera.WorldToViewportPoint(
+                hero.WorldBounds.center
+                + hero.transform.TransformDirection(hero.AftDirection) * 8f).x;
+            Check("plumes stream to the LEFT, opposite the flight ("
+                  + plumeX.ToString("F3") + " < " + hereX.ToString("F3") + ")",
+                plumeX < hereX);
+            stageCamera.ResetAspect();
         }
 
-        // ---- 01 / 01b: idle cover (motion proof) ----
-        yield return Capture("01_main_menu_idle");
+        // ---- 01 / 01b: idle, then idle later ----
+        yield return Capture("01_title_screen_idle");
 
         Vector3 positionA = hero != null ? hero.transform.position : Vector3.zero;
-        float plumeA = hero != null && hero.Flames.Count > 0 ? hero.Flames[0].PlumeLength : 0f;
+        float engineA = hero != null && hero.Flames.Count > 0 ? hero.Flames[0].PlumeLength : 0f;
         yield return new WaitForSecondsRealtime(1.6f);
-        yield return Capture("01b_main_menu_idle_later");
+        yield return Capture("01b_title_screen_idle_later");
 
         if (hero != null && hero.Flames.Count > 0)
         {
-            Vector3 positionB = hero.transform.position;
-            float plumeB = hero.Flames[0].PlumeLength;
-            Check("idle cover is alive: hero moved "
-                  + Vector3.Distance(positionA, positionB).ToString("F4") + " m",
-                Vector3.Distance(positionA, positionB) > 0.0005f);
-            Check("idle plume flickers (" + plumeA.ToString("F3") + " -> "
-                  + plumeB.ToString("F3") + " m)", Mathf.Abs(plumeA - plumeB) > 0.0005f);
-            Check("idle plume is a real flame (" + plumeB.ToString("F2") + " m / intensity "
-                  + hero.Flames[0].Intensity.ToString("F2") + ")",
-                plumeB > 3f && hero.Flames[0].Intensity > 0.4f);
+            Vector3 moved = hero.transform.position - positionA;
+            float engineB = hero.Flames[0].PlumeLength;
+            _report.AppendLine("idle motion: moved " + moved.magnitude.ToString("F4")
+                               + " m, plume " + engineA.ToString("F2") + " -> "
+                               + engineB.ToString("F2") + " m");
+            Check("the title screen is alive (hero moved or plume flickered)",
+                moved.magnitude > 0.0005f || Mathf.Abs(engineA - engineB) > 0.0005f);
         }
 
-        // ---- 02: settings modal ----
-        VisualElement settingsButton = menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton);
-        if (settingsButton != null)
+        // ---- 02: 选项 ----
+        VisualElement optionsButton = menu.UiRoot.Q<Button>(MainMenuNames.OptionsButton);
+        if (optionsButton != null)
         {
-            UiToolkitPointerSimulator.Click(settingsButton);
-            yield return WaitUntil(() => menu.IsSettingsOpen, 120);
-            Check("系统设置 opens from a real click", menu.IsSettingsOpen);
+            UiToolkitPointerSimulator.Click(optionsButton);
+            yield return WaitUntil(() => menu.IsOptionsOpen, 120);
+            Check("选项 opens from a real click", menu.IsOptionsOpen);
             yield return new WaitForSecondsRealtime(0.4f);
-            yield return Capture("02_main_menu_settings");
+            yield return Capture("02_options");
 
-            VisualElement close = menu.UiRoot.Q<Button>(MainMenuNames.SettingsCloseButton);
-            if (close != null)
-            {
-                UiToolkitPointerSimulator.Click(close);
-                yield return WaitUntil(() => !menu.IsSettingsOpen, 120);
-            }
-
-            Check("系统设置 closes again", !menu.IsSettingsOpen);
+            menu.HandleBackInput();
+            yield return WaitUntil(() => !menu.IsOptionsOpen, 120);
+            Check("选项 closes again", !menu.IsOptionsOpen);
         }
 
-        // ---- 03: 进入任务 -> the start cinematic ----
+        // ---- 03: 新游戏 -> cinematic ----
         yield return new WaitForSecondsRealtime(0.5f);
-        Button cta = menu.EnterMissionButton;
-        Check("进入任务 CTA exists", cta != null);
-        if (cta == null)
-        {
-            Finish(1);
-            yield break;
-        }
+        GameSession session = GameSession.Instance;
+        Check("新游戏 resets the authoritative session",
+            session != null && !session.HasStartedRun);
+        Check("继续游戏 is disabled before the first run",
+            menu.ContinueButton != null && !menu.ContinueButton.enabledSelf);
 
-        UiToolkitPointerSimulator.Click(cta);
+        menu.SetFocus(0);
+        Check("A confirms 新游戏", menu.ConfirmFocused());
         yield return null;
-        Check("进入任务 starts the cinematic", cinematic != null && cinematic.IsPlaying);
+        Check("the cinematic started", cinematic != null && cinematic.IsPlaying);
+        Check("新游戏 started a run (继续游戏 becomes available)",
+            session != null && session.HasStartedRun);
 
         bool sawFade = false;
         bool sawBoost = false;
@@ -219,8 +254,9 @@ public class MainMenuCapture : MonoBehaviour
         bool capturedFade = false;
         bool capturedDeparture = false;
         bool capturedBlack = false;
-        float maxBlackAlign = 0f;
-        float maxMenuAlphaSeen = 1f;
+        float maxBlack = 0f;
+        float departureStartX = -1f;
+        float departureEndX = -1f;
         int frames = 0;
 
         while (frames < MaxFrames
@@ -229,50 +265,58 @@ public class MainMenuCapture : MonoBehaviour
             frames++;
             if (cinematic != null)
             {
-                maxBlackAlign = Mathf.Max(maxBlackAlign, cinematic.BlackAlpha);
-                maxMenuAlphaSeen = Mathf.Min(maxMenuAlphaSeen, cinematic.MenuAlpha);
+                maxBlack = Mathf.Max(maxBlack, cinematic.BlackAlpha);
 
                 if (!sawFade && cinematic.MenuAlpha < 0.35f)
                 {
                     sawFade = true;
-                    _report.AppendLine("phase MenuFadeOut observed at t="
-                                       + cinematic.ElapsedSeconds.ToString("F2") + "s");
                     if (!capturedFade)
                     {
                         capturedFade = true;
-                        yield return Capture("03a_cinematic_menu_fadeout");
+                        yield return Capture("03a_cinematic_menu_fade");
                     }
                 }
 
                 if (!sawBoost && hero != null && hero.EngineTarget > 0.6f)
                 {
                     sawBoost = true;
-                    _report.AppendLine("phase EngineBoost observed at t="
-                                       + cinematic.ElapsedSeconds.ToString("F2") + "s"
-                                       + " (plume " + (hero.Flames.Count > 0
+                    _report.AppendLine("engine boost at t="
+                                       + cinematic.ElapsedSeconds.ToString("F2") + "s (plume "
+                                       + (hero.Flames.Count > 0
                                            ? hero.Flames[0].PlumeLength.ToString("F2")
                                            : "-") + " m)");
                 }
 
-                if (!sawDeparture && hero != null && hero.DepartureProgress > 0.35f)
+                if (hero != null && hero.IsDeparting && stageCamera != null)
                 {
-                    sawDeparture = true;
-                    _report.AppendLine("phase ShipDeparture observed at t="
-                                       + cinematic.ElapsedSeconds.ToString("F2") + "s"
-                                       + " moved " + Vector3.Distance(hero.transform.position,
-                                           hero.SpawnPosition).ToString("F1") + " m");
-                    if (!capturedDeparture)
+                    stageCamera.aspect = 16f / 9f;
+                    float x = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
+                    stageCamera.ResetAspect();
+                    if (departureStartX < 0f)
                     {
-                        capturedDeparture = true;
-                        yield return Capture("03b_cinematic_ship_departure");
+                        departureStartX = x;
+                    }
+
+                    departureEndX = x;
+
+                    if (!sawDeparture && hero.DepartureProgress > 0.35f)
+                    {
+                        sawDeparture = true;
+                        _report.AppendLine("departure at t="
+                                           + cinematic.ElapsedSeconds.ToString("F2") + "s: screen x "
+                                           + departureStartX.ToString("F3") + " -> "
+                                           + departureEndX.ToString("F3"));
+                        if (!capturedDeparture)
+                        {
+                            capturedDeparture = true;
+                            yield return Capture("03b_cinematic_ship_departure");
+                        }
                     }
                 }
 
                 if (!sawBlack && cinematic.BlackAlpha > 0.85f)
                 {
                     sawBlack = true;
-                    _report.AppendLine("phase FadeToBlack observed at t="
-                                       + cinematic.ElapsedSeconds.ToString("F2") + "s");
                     if (!capturedBlack)
                     {
                         capturedBlack = true;
@@ -284,17 +328,16 @@ public class MainMenuCapture : MonoBehaviour
             yield return null;
         }
 
-        _report.AppendLine("cinematic sampled: frames=" + frames
-                           + " minMenuAlpha=" + maxMenuAlphaSeen.ToString("F2")
-                           + " maxBlackAlpha=" + maxBlackAlign.ToString("F2"));
-        Check("cinematic faded the menu out (min alpha "
-              + maxMenuAlphaSeen.ToString("F2") + ")", sawFade);
-        Check("cinematic boosted the thrusters", sawBoost);
-        Check("cinematic departed the ship", sawDeparture);
-        Check("cinematic reached the blackout (max alpha "
-              + maxBlackAlign.ToString("F2") + ")", sawBlack || maxBlackAlign > 0.85f);
+        Check("the menu faded out", sawFade);
+        Check("the thrusters boosted", sawBoost);
+        Check("the ship departed", sawDeparture);
+        Check("the shot reached the blackout (max alpha " + maxBlack.ToString("F2") + ")",
+            sawBlack || maxBlack > 0.85f);
+        Check("the ship departed LEFT to RIGHT on screen ("
+              + departureStartX.ToString("F3") + " -> " + departureEndX.ToString("F3") + ")",
+            departureStartX >= 0f && departureEndX > departureStartX);
 
-        // ---- 04: the ship interior opens in first person with a blink ----
+        // ---- 04: ship interior + the three eyelid beats ----
         ShipGameController ship = null;
         yield return WaitUntil(() =>
         {
@@ -304,47 +347,82 @@ public class MainMenuCapture : MonoBehaviour
 
         if (ship == null)
         {
-            Fail("进入任务 never reached the ship interior");
+            Fail("新游戏 never reached the ship interior");
             Finish(1);
             yield break;
         }
 
-        yield return new WaitForSecondsRealtime(0.35f);
         Check("landing scene is the ship interior",
             SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
-        Check("first-person camera is rendering",
-            ship.Player != null && ship.Player.EyeCamera != null && ship.Player.EyeCamera.enabled);
-        Check("no terminal UI covers the frame on entry",
-            !ship.IsConsoleFocusActive && !ship.IsOverlayOpen);
-        Check("the menu hand-over armed the first-person blink", ship.EntryBlinkArmed);
+        Check("the eyelids were armed", ship.EntryBlinkArmed);
+        Check("control is locked while the eyes are shut", ship.IsEntryInputLocked);
 
-        float liveBlinkAlpha = ship.EntryBlink != null ? ship.EntryBlink.Alpha : -1f;
-        _report.AppendLine("live blink alpha at sample: " + liveBlinkAlpha.ToString("F2")
-                           + (ship.EntryBlink != null ? " (playing)" : " (already open)"));
-        yield return Capture("04a_ship_interior_blink");
+        ShipEntryBlinkFade blink = ship.EntryBlink;
+        Check("the eyelid component exposes both curtains",
+            blink != null && blink.TopEyelid != null && blink.BottomEyelid != null);
 
-        yield return WaitUntil(() => ship.EntryBlink == null, 400);
-        yield return new WaitForSecondsRealtime(0.4f);
-        Check("the blink finished and the interior is fully visible",
-            ship.EntryBlink == null && ship.Player.InputEnabled);
-
-        // The blink lasts under a second, so a slow first frame can finish it
-        // before the capture above. When that happened the pack replays the SAME
-        // production component once, so the review image always shows the real
-        // eyelid presentation instead of an already-open cockpit.
-        if (liveBlinkAlpha < 0.5f)
+        string beat1 = null;
+        string beat2 = null;
+        string beat3 = null;
+        int guard = 0;
+        while (ship.EntryBlink != null && guard < MaxFrames)
         {
-            ShipEntryBlinkFade replay = ship.gameObject.AddComponent<ShipEntryBlinkFade>();
-            yield return new WaitForSecondsRealtime(0.5f);
-            _report.AppendLine("replayed the entry blink for the review frame (alpha "
-                               + (replay != null ? replay.Alpha.ToString("F2") : "-") + ")");
-            yield return Capture("04a_ship_interior_blink");
-            yield return WaitUntil(() => replay == null, 400);
+            guard++;
+            ShipEntryBlinkFade current = ship.EntryBlink;
+            if (current != null)
+            {
+                // Capture each beat near its PEAK (the eyes are actually open a
+                // crack at that moment), not on its first frame.
+                if (beat1 == null && current.StageLabel == "beat1"
+                    && current.Openness > 0.12f)
+                {
+                    beat1 = current.Openness.ToString("F3");
+                    yield return Capture("04a_eyelid_beat1");
+                    continue;
+                }
+
+                if (beat2 == null && current.StageLabel == "beat2"
+                    && current.Openness > 0.32f)
+                {
+                    beat2 = current.Openness.ToString("F3");
+                    yield return Capture("04b_eyelid_beat2");
+                    continue;
+                }
+
+                if (beat3 == null && current.StageLabel == "beat3"
+                    && current.Openness > 0.85f)
+                {
+                    beat3 = current.Openness.ToString("F3");
+                    yield return Capture("04c_eyelid_beat3");
+                    continue;
+                }
+            }
+
+            yield return null;
         }
 
-        yield return Capture("04b_ship_interior_firstperson");
+        _report.AppendLine("eyelid beats (openness): beat1=" + (beat1 ?? "-")
+                           + ", beat2=" + (beat2 ?? "-")
+                           + ", beat3=" + (beat3 ?? "-"));
+        Check("beat 1 was observed", beat1 != null);
+        Check("beat 2 was observed", beat2 != null);
+        Check("beat 3 was observed", beat3 != null);
+        Check("the eyes opened progressively",
+            beat1 != null && beat2 != null && beat3 != null
+            && float.Parse(beat1) < float.Parse(beat2)
+            && float.Parse(beat2) < float.Parse(beat3));
+        Check("the curtains were removed when the eyes opened", ship.EntryBlink == null);
+        Check("control is released after the eyes open", !ship.IsEntryInputLocked);
+        Check("the first-person camera renders",
+            ship.Player != null && ship.Player.EyeCamera != null && ship.Player.EyeCamera.enabled);
+        Check("the player can move", ship.Player.InputEnabled);
+        Check("no terminal UI covers the frame",
+            !ship.IsConsoleFocusActive && !ship.IsOverlayOpen);
 
-        // ---- 05: the 总览 terminal is reachable from inside the ship ----
+        yield return new WaitForSecondsRealtime(0.4f);
+        yield return Capture("04d_ship_interior_firstperson");
+
+        // ---- 05: terminal -> Overview ----
         ShipConsoleInteractable overviewConsole = null;
         foreach (ShipConsoleInteractable console in ship.Consoles)
         {
@@ -358,8 +436,6 @@ public class MainMenuCapture : MonoBehaviour
         Check("the 总览 terminal exists on the bridge", overviewConsole != null);
         if (overviewConsole != null && ship.Focus != null)
         {
-            // Walk-in presentation: the player stands in the terminal trigger and
-            // the HUD prompt is what a human sees before pressing E.
             if (ship.Player != null)
             {
                 ship.Player.TeleportTo(overviewConsole.transform.position
@@ -396,13 +472,6 @@ public class MainMenuCapture : MonoBehaviour
                 !ship.Focus.FocusActive && ship.Player.InputEnabled);
         }
 
-        string bootstrap = "";
-        if (hero != null)
-        {
-            bootstrap += " heroBounds=" + hero.WorldBounds.size.ToString("F2");
-        }
-
-        _report.AppendLine("stage:" + bootstrap);
         Finish(_failures == 0 ? 0 : 1);
     }
 
@@ -412,8 +481,6 @@ public class MainMenuCapture : MonoBehaviour
     {
         string path = Path.Combine(_captureDir, label + ".png");
 
-        // Always start from a clean slate: a stale file from an earlier capture
-        // would otherwise be mistaken for the new frame.
         try
         {
             if (File.Exists(path))
@@ -448,10 +515,8 @@ public class MainMenuCapture : MonoBehaviour
 
         Vector2Int size = ReadPngSize(path);
         _report.AppendLine("capture " + label + " -> " + path + " ("
-                           + size.x + "x" + size.y + ", "
-                           + new FileInfo(path).Length + " bytes)");
-        Check("capture " + label + " is " + 1920 + "x" + 1080,
-            size.x == 1920 && size.y == 1080);
+                           + size.x + "x" + size.y + ")");
+        Check("capture " + label + " is 1920x1080", size.x == 1920 && size.y == 1080);
     }
 
     private IEnumerator WaitUntil(System.Func<bool> condition, int maxFrames = MaxFrames)

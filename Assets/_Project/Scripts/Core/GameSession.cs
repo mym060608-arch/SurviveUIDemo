@@ -443,6 +443,23 @@ public class GameSession : MonoBehaviour
 
     private bool _initialized;
 
+    /// <summary>
+    /// Runtime-only "a run has been started in this process" flag (Phase 08
+    /// Revision 2). It exists purely so the title screen can offer 继续游戏 with
+    /// a real meaning: after 新游戏 has started a run, the same session can be
+    /// resumed for the rest of the process lifetime. It is deliberately NOT a
+    /// save system - nothing is written to disk, and the flag resets with the
+    /// process.
+    /// </summary>
+    public bool HasStartedRun { get; private set; }
+
+    /// <summary>Marks the current session as a started run (新游戏 / continue).</summary>
+    public void BeginRun()
+    {
+        HasStartedRun = true;
+        OnStateChanged?.Invoke();
+    }
+
     /// <summary>Returns the single authoritative session, creating it when absent.</summary>
     public static GameSession Ensure()
     {

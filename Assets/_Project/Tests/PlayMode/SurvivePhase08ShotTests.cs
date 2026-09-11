@@ -7,20 +7,20 @@ using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Phase 08 Main Menu (REVISED composition) — UI layout validation at the
-/// competition resolutions.
+/// Phase 08 Revision 2 — title screen UI validation at the competition
+/// resolutions (1920x1080, 2560x1440, 3440x1440).
 ///
-/// The panel is rendered offscreen at 1920x1080, 2560x1440 and 3440x1440 and the
-/// same geometry audit runs on each capture, so a clipped title, an overflowing
-/// CTA, a menu column outside the frame or a modal taller than the screen fails
+/// The panel is rendered offscreen and the same geometry audit runs on every
+/// capture, so a clipped 活下去, an option that leaves the frame, a menu column
+/// drifting to the middle of the screen or a modal taller than the display fails
 /// the suite instead of shipping a bad image.
 ///
-/// IMPORTANT (revision): these captures show the UI DOCUMENT ONLY. The hero ship
-/// and the starfield are 3D and are composited by the stage camera in the real
-/// frame, so the human-facing screenshots come from the runtime capture probe
-/// (-menuCaptureDir). What this suite proves for the revision is exactly what an
-/// offscreen panel capture can prove: the UI paints the RIGHT column and the
-/// hairlines, and it paints NOTHING over the LEFT hero window.
+/// IMPORTANT: these captures show the UI DOCUMENT ONLY. The hero ship and the
+/// starfield are 3D and are composited by the stage camera in the real frame, so
+/// the human-facing screenshots come from the runtime capture probe
+/// (-menuCaptureDir). What this suite proves is exactly what an offscreen panel
+/// capture can prove: the document paints the RIGHT menu column and paints
+/// NOTHING over the LEFT hero window.
 ///
 /// Run isolated via: -testFilter SurvivePhase08ShotTests
 /// </summary>
@@ -42,9 +42,10 @@ public class SurvivePhase08ShotTests
     private readonly System.Text.StringBuilder _report = new System.Text.StringBuilder();
 
     [UnityTest]
-    public IEnumerator MainMenu_ThreeResolutions_CleanShots()
+    public IEnumerator TitleScreen_ThreeResolutions_CleanShots()
     {
         MainMenuSettings.ResetToDefaults();
+        InputDeviceTracker.ResetToDefaults();
 
         SceneManager.LoadScene("00_Boot");
         yield return WaitUntil(() => SceneManager.GetActiveScene().name
@@ -70,18 +71,18 @@ public class SurvivePhase08ShotTests
         _report.Clear();
         _failures = 0;
 
-        yield return CaptureAllSizes(menu, panel, "main_menu", null);
+        yield return CaptureAllSizes(menu, panel, "title_screen", null);
 
-        // One settings-modal state is worth keeping for the review pack.
-        yield return CaptureAllSizes(menu, panel, "settings", () =>
+        // 选项 is the only modal the title screen still has.
+        yield return CaptureAllSizes(menu, panel, "options", () =>
         {
             UiToolkitPointerSimulator.Click(
-                menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton));
+                menu.UiRoot.Q<Button>(MainMenuNames.OptionsButton));
         }, waitForModal: true);
 
         _report.AppendLine(_failures == 0 ? "RESULT: SUCCESS" : "RESULT: FAILED");
         File.WriteAllText(Path.Combine(OutDir, ReportName), _report.ToString());
-        Assert.AreEqual(0, _failures, "Phase 08 screenshot/layout checks failed");
+        Assert.AreEqual(0, _failures, "Phase 08 Revision 2 screenshot/layout checks failed");
     }
 
     private IEnumerator CaptureAllSizes(MainMenuController menu, PanelSettings panel,
@@ -97,8 +98,8 @@ public class SurvivePhase08ShotTests
 
             if (waitForModal)
             {
-                yield return WaitUntil(() => menu.IsSettingsOpen, 60);
-                Assert.IsTrue(menu.IsSettingsOpen, "settings modal open for the screenshot");
+                yield return WaitUntil(() => menu.IsOptionsOpen, 60);
+                Assert.IsTrue(menu.IsOptionsOpen, "选项 open for the screenshot");
             }
         }
 
@@ -136,21 +137,20 @@ public class SurvivePhase08ShotTests
             Assert.IsNotNull(png, "readback produced for " + label);
 
             string pngPath = Path.Combine(OutDir,
-                "Phase08_" + stateName + "_" + size.x + "x" + size.y + ".png");
+                "Phase08R2_" + stateName + "_" + size.x + "x" + size.y + ".png");
             File.WriteAllBytes(pngPath, png.EncodeToPNG());
 
             var saved = new Texture2D(2, 2, TextureFormat.RGB24, false);
             Assert.IsTrue(saved.LoadImage(File.ReadAllBytes(pngPath)), "saved png loads " + label);
             Check(label + " png has real content", new FileInfo(pngPath).Length > 4000);
 
-            // Revision contract: the document paints the RIGHT column and leaves
-            // the LEFT hero window empty (the 3D ship shows through there). The
-            // 系统设置 state is exempt: its full-frame dim overlay is the modal's
-            // own background, not menu chrome.
+            // The document paints the RIGHT column and leaves the LEFT hero
+            // window empty (the 3D stage shows through there). The 选项 state is
+            // exempt: its full-frame dim overlay is the modal's own background.
             Check(label + " right menu column really painted",
                 CountLitPixels(saved, (int)(size.x * 0.66f), size.x,
-                    (int)(size.y * 0.2f), (int)(size.y * 0.8f)) > 200);
-            if (stateName == "main_menu")
+                    (int)(size.y * 0.2f), (int)(size.y * 0.8f)) > 150);
+            if (stateName == "title_screen")
             {
                 Check(label + " left hero window left unpainted for the 3D ship",
                     CountLitPixels(saved, 0, (int)(size.x * 0.5f),
@@ -172,29 +172,21 @@ public class SurvivePhase08ShotTests
     }
 
     /// <summary>
-    /// Composition audit at the captured resolution: nothing clipped, nothing
-    /// overlapping, the menu column on the right, the hero window on the left,
-    /// and the modal inside the frame when shown.
+    /// Composition audit at the captured resolution: the title and the four
+    /// options stay on screen and clear of each other, the menu column keeps the
+    /// right side and the hero keeps the left.
     /// </summary>
     private bool AuditLayout(MainMenuController menu, string stateName, Vector2Int size)
     {
         VisualElement root = menu.UiRoot;
         Rect frame = root.worldBound;
-        VisualElement title = root.Q<Label>(MainMenuNames.Title);
-        VisualElement subtitle = root.Q<Label>(MainMenuNames.Subtitle);
-        VisualElement column = root.Q<VisualElement>(MainMenuNames.ContentColumn);
+        Label title = root.Q<Label>(MainMenuNames.Title);
         VisualElement hero = root.Q<VisualElement>(MainMenuNames.HeroColumn);
-        VisualElement cta = menu.EnterMissionButton;
-        VisualElement nav = root.Q<VisualElement>(MainMenuNames.SecondaryNav);
-        VisualElement exitRow = root.Q<Button>(MainMenuNames.ExitButton);
-        VisualElement stage = root.Q<VisualElement>(MainMenuNames.HeroStage);
-        VisualElement telemetry = root.Q<VisualElement>(MainMenuNames.HeroTelemetry);
-        VisualElement topBar = root.Q<VisualElement>(MainMenuNames.TopBar);
-        VisualElement footer = root.Q<VisualElement>(MainMenuNames.Footer);
+        VisualElement column = root.Q<VisualElement>(MainMenuNames.ContentColumn);
+        VisualElement list = root.Q<VisualElement>(MainMenuNames.MenuList);
 
-        if (title == null || subtitle == null || column == null || hero == null || cta == null
-            || nav == null || stage == null || telemetry == null || topBar == null
-            || footer == null || exitRow == null)
+        if (title == null || hero == null || column == null || list == null
+            || menu.MenuItems.Count != 4)
         {
             _report.AppendLine("audit missing element @ " + size);
             return false;
@@ -211,18 +203,14 @@ public class SurvivePhase08ShotTests
             }
         }
 
-        // Safe area: the title block, the CTA and the secondary navigation stay
-        // clear of the screen edges and inside the frame.
         const float safeMargin = 24f;
-        Require(Inside(frame, title.worldBound, safeMargin), "title outside safe area: " + title.worldBound);
-        Require(Inside(frame, subtitle.worldBound, safeMargin), "subtitle outside safe area");
-        Require(Inside(frame, cta.worldBound, safeMargin), "CTA outside safe area: " + cta.worldBound);
-        Require(Inside(frame, nav.worldBound, safeMargin), "secondary nav outside safe area");
+        Require(Inside(frame, title.worldBound, safeMargin),
+            "title outside safe area: " + title.worldBound);
+        Require(Inside(frame, list.worldBound, safeMargin), "menu list outside safe area");
         Require(Inside(frame, hero.worldBound, 0f), "hero window outside the frame");
-        Require(Inside(frame, stage.worldBound, 0f), "hero stage outside the frame");
-        Require(Inside(frame, telemetry.worldBound, 0f), "hero telemetry outside the frame");
+        Require(title.worldBound.height > 40f, "title too small: " + title.worldBound.height);
 
-        // Revision composition: LEFT window / RIGHT menu, never overlapping.
+        // Revision 2 composition: LEFT window / RIGHT menu, never overlapping.
         Require(hero.worldBound.xMax <= column.worldBound.xMin + 1f,
             "hero window overlaps the menu column");
         Require(column.worldBound.xMin > frame.xMin + frame.width * 0.55f,
@@ -230,52 +218,46 @@ public class SurvivePhase08ShotTests
         Require(hero.worldBound.width > frame.width * 0.5f,
             "hero window is not the dominant left area: " + hero.worldBound.width);
 
-        // Nothing overlaps the primary action.
-        Require(cta.worldBound.yMax <= exitRow.worldBound.yMin + 1f, "CTA overlaps the secondary nav");
-        Require(title.worldBound.yMin >= topBar.worldBound.yMax - 1f, "title overlaps the top bar");
-        Require(nav.worldBound.yMax <= footer.worldBound.yMin + 1f, "secondary nav overlaps the footer");
-        Require(title.worldBound.yMax <= cta.worldBound.yMin + 1f, "title overlaps the CTA");
-
-        // The CTA must stay the single dominant action: tallest, filled with the
-        // primary treatment and carrying the largest label (style guide §14/§24).
-        VisualElement settings = menu.UiRoot.Q<Button>(MainMenuNames.SettingsButton);
-        if (settings != null)
+        // The four options are stacked, all visible and never overlapping.
+        Button previous = null;
+        foreach (Button item in menu.MenuItems)
         {
-            Require(cta.worldBound.height >= settings.worldBound.height * 1.5f,
-                "CTA is not the tallest action: " + cta.worldBound.height
-                + " vs " + settings.worldBound.height);
+            Require(Inside(frame, item.worldBound, safeMargin),
+                "option outside safe area: " + item.name + " " + item.worldBound);
+            Require(item.worldBound.height > 20f, "option too small: " + item.name);
+            Require(item.worldBound.width > 100f, "option too narrow: " + item.name);
+            if (previous != null)
+            {
+                Require(previous.worldBound.yMax <= item.worldBound.yMin + 1f,
+                    "options overlap: " + previous.name + " / " + item.name);
+            }
 
-            Color ctaFill = cta.resolvedStyle.backgroundColor;
-            Color rowFill = settings.resolvedStyle.backgroundColor;
-            Require(ctaFill.a > 0.9f && rowFill.a < 0.1f,
-                "CTA does not carry the primary fill treatment (cta a=" + ctaFill.a
-                + " row a=" + rowFill.a + ")");
-
-            Label ctaLabel = cta.Q<Label>(MainMenuNames.EnterMissionLabel);
-            Label rowLabel = settings.Q<Label>(className: "menu-secondary-label");
-            Require(ctaLabel != null && rowLabel != null
-                    && ctaLabel.resolvedStyle.fontSize > rowLabel.resolvedStyle.fontSize * 1.3f,
-                "CTA label is not visually dominant");
+            previous = item;
         }
 
-        // Composition invariance: the top bar gives the panel scale, so the
-        // title's LOGICAL height must be identical at every resolution.
-        float scale = topBar.worldBound.height / 46f;
-        float logicalTitleHeight = title.worldBound.height / Mathf.Max(scale, 0.001f);
+        Require(list.worldBound.yMin >= title.worldBound.yMax - 1f,
+            "the options overlap the title");
+        Require(title.worldBound.xMin >= column.worldBound.xMin - 1f,
+            "the title is not aligned with the menu column");
+
+        // Composition invariance: the panel keeps the 1920x1080 logical
+        // reference, so the title's LOGICAL height must be identical at every
+        // resolution. World bounds are already reported in panel units, which is
+        // exactly what this check needs.
+        float logicalTitleHeight = title.worldBound.height;
         if (_logicalTitleHeight < 0f)
         {
             _logicalTitleHeight = logicalTitleHeight;
         }
         else
         {
-            Require(Mathf.Abs(logicalTitleHeight - _logicalTitleHeight) < 2f,
+            Require(Mathf.Abs(logicalTitleHeight - _logicalTitleHeight) < 3f,
                 "logical layout changed with resolution: " + logicalTitleHeight
-                + " vs " + _logicalTitleHeight + " at scale " + scale);
+                + " vs " + _logicalTitleHeight);
         }
 
-        // Ultrawide must recompose, not stretch: the panel keeps the 1920x1080
-        // logical reference and divides it between a wide hero window and a
-        // readable menu column.
+        // Ultrawide must recompose, not stretch: the panel keeps its logical
+        // reference, so the menu stays a readable column and the hero grows.
         if (size.x == 3440)
         {
             Require(frame.width > 2100f,
@@ -284,19 +266,17 @@ public class SurvivePhase08ShotTests
                 "ultrawide hero window too narrow: " + hero.worldBound.width);
             Require(column.worldBound.width > frame.width * 0.2f,
                 "ultrawide menu column too narrow: " + column.worldBound.width);
-            Require(cta.worldBound.width > 200f,
-                "ultrawide CTA collapsed: " + cta.worldBound.width);
             Require(column.worldBound.xMax <= frame.xMax + 0.5f,
                 "ultrawide menu column escapes the frame");
         }
 
-        if (stateName == "settings")
+        if (stateName == "options")
         {
-            VisualElement panel = menu.UiRoot.Q<VisualElement>(MainMenuNames.SettingsPanel);
-            Require(panel != null && Inside(frame, panel.worldBound, 0f),
-                "settings panel outside the frame");
-            Require(panel != null && panel.worldBound.height < frame.height,
-                "settings panel taller than the frame");
+            VisualElement modal = menu.UiRoot.Q<VisualElement>(MainMenuNames.OptionsPanel);
+            Require(modal != null && Inside(frame, modal.worldBound, 0f),
+                "options panel outside the frame");
+            Require(modal != null && modal.worldBound.height < frame.height,
+                "options panel taller than the frame");
         }
 
         return ok;

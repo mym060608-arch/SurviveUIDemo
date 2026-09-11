@@ -59,9 +59,24 @@ public class FirstPersonInteractor : MonoBehaviour
     {
         RefreshTarget();
 
-        // E world interaction (disabled while the wrist is open).
+        // World interaction is offered on E (keyboard) and A (gamepad); the
+        // device that was used last decides which one the HUD prompt shows.
+        InputDeviceTracker.Poll();
+
+        bool pressed = false;
         Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.eKey.wasPressedThisFrame && IsInteractionAllowed())
+        if (keyboard != null && keyboard.eKey.wasPressedThisFrame)
+        {
+            pressed = true;
+        }
+
+        Gamepad pad = Gamepad.current;
+        if (pad != null && pad.buttonSouth.wasPressedThisFrame)
+        {
+            pressed = true;
+        }
+
+        if (pressed && IsInteractionAllowed())
         {
             TryInteract();
         }

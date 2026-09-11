@@ -1880,98 +1880,80 @@ Semantics notes:
 
 ---
 
-# 63. Main Menu Terms (Phase 08)
+# 63. Title Screen Terms (Phase 08, Revision 2)
 
-Main Menu (`04_MainMenu`) is the product cover and the only human entry into the
-demo. The REVISED product flow (Phase 08 Main Menu Revision) is:
-
-```text
-Boot → Main Menu → 进入任务 → 飞船离场过场 → 黑场
-     → 第一人称眨眼淡入 → 飞船内部
-     → 玩家走到终端并按 E → 总览 / 终端 UI
-```
-
-进入任务 does **not** land in the Overview screen any more: it lands in the
-walkable ship interior in first person, and Overview / 出发准备 / 资源加工 /
-据点 are reached from the ship's own physical terminals. Canonical copy:
+Main Menu (`04_MainMenu`) is the product's console-style TITLE SCREEN and the
+only human entry into the demo. Revision 2 reduced it to the minimum:
 
 ```text
-SURVIVE // DRIFT
-边境生存协议
-深空前哨生存与生产控制系统
+活下去              ← the only headline
 
-FRONTIER OPERATIONS INTERFACE
+新游戏              ← focus starts here; resets the authoritative session
+继续游戏            ← disabled until a run has started in this process
+选项                ← opens the options modal
+退出
 ```
 
-Primary action (the only primary CTA):
+Product flow (binding):
 
 ```text
-进入任务
-ENTER MISSION
+Boot → Title Screen（深空 + 左侧飞船 + 右侧菜单）
+     → 新游戏 → 菜单淡出 / 推进器增强 / 飞船从左向右加速离场 / 黑场
+     → 飞船内部（上下黑色眼帘：小幅 → 更大幅 → 完全睁开）
+     → 第一人称可控 → 走到终端 → 交互 → 总览 / Overview
+     → 继续游戏：不 Reset session，短黑场 + 较短眼帘睁眼
 ```
 
-Secondary actions (Chinese only — no mechanical English duplication):
+Removed from the title screen in Revision 2 (kept nowhere else on this screen):
+the top system bar, the footer, the hero telemetry strip, the mission/sector
+codes, the annotation rails, the corner brackets, the wordmark block, the
+primary CTA copy 进入任务 and the 制作信息 modal. The title screen must read as
+"deep space + ship + four options", never as a control panel.
+
+Canonical copy:
 
 ```text
-01  系统设置      SETTINGS
-02  制作信息      CREDITS
-03  退出          EXIT
+活下去
+新游戏
+继续游戏
+选项
+退出
+
+选项 modal:
+选项
+动态效果      开启 / 关闭
+界面提示      显示 / 隐藏
+返回
 ```
 
-Hero telemetry (left, under the ship):
+Controller (Phase 08 Revision 2 scope only — the full console UX is Phase 09):
 
 ```text
-舰船        ARK-07
-任务编号    MISSION   FRONTIER-08
-作业星区    SECTOR    N-04
+D-Pad ↑↓ / 左摇杆 ↑↓   → 切换 Focus（跳过 disabled 项）
+A                      → 确认
+B / ESC                → 关闭 选项（返回）
+提示                   → 手柄操作时显示 "(A) 确认"，鼠标键盘时不显示
 ```
 
-System / footer metadata:
+- Focus is the PRIMARY state: the focused row brightens, gains a `›` marker and
+  a 1 px accent hairline. Hover feeds the focus instead of being a separate
+  treatment.
+- 继续游戏 is disabled (weaker colour, not focusable) until 新游戏 has started a
+  run in the current process. It is a runtime-session continue only: no disk,
+  JSON, slot, cloud or profile persistence exists or should be added.
 
-```text
-BUILD // PHASE 08
-SYSTEM // READY
-```
+Visual notes (binding for this screen; §35 exception approved for the cover):
 
-Settings terms:
+- Deep-space canvas, the real 3D hero ship on the LEFT with its nose pointing
+  screen RIGHT, the starfield behind it, and the menu column on the RIGHT.
+- The ship cruises left to right and departs left to right; both thruster plumes
+  stream backwards to the left. Screen-space direction is a hard requirement.
+- The star plates are generated once; drift and twinkle are shader-side, so the
+  sky never rebuilds a texture at runtime.
+- Ship interior entry uses two black curtains (TopEyelid / BottomEyelid) that
+  really change height: closed → small crack → closed → bigger crack → closed →
+  fully open, then they are removed. Movement, look and interaction stay locked
+  until the eyes are open.
 
-```text
-系统设置
-动态效果      开启 / 关闭      (飞船待机动态、推进器喷焰、星空视差)
-界面提示      显示 / 隐藏      (外围技术标注)
-关闭
-```
-
-Credits terms:
-
-```text
-制作信息
-SURVIVE UI DEMO
-科幻生存控制界面设计演示
-引擎 / 界面 / 构建 / 语言
-```
-
-Visual notes (binding for this screen, superseding §35 for this one screen):
-
-- **§35 exception — approved by the user for the cover only.** The Main Menu is
-  a cinematic deep-space shot, not a light dashboard page: the canvas is deep
-  space (near-black, star field) because the left half of the frame is the
-  player's own ship flying in space. The four production screens
-  (总览 / 出发准备 / 资源加工 / 据点) keep the Phase 02 light canvas and are
-  unchanged.
-- Composition: **LEFT = the real 3D hero ship** (the authored
-  `Artsource/MainMenuShip` asset, imported at
-  `Assets/_Project/Models/MainMenuShip`), **RIGHT = the menu column**
-  (title / subtitle / 进入任务 / secondary navigation). The menu document paints
-  only the right column, the hairlines and the modals; the left hero window is
-  transparent so the 3D stage shows through.
-- The ship keeps a low idle thruster flame on both authored exhaust nozzles;
-  进入任务 boosts the plumes, flies the ship out of frame, fades to black and
-  then opens the ship interior with a first-person eyelid blink.
-- `动态效果` off freezes the ship's idle motion, the plume flicker and the
-  starfield parallax without changing the layout or any function; `界面提示`
-  off only hides the peripheral annotation layer.
-- Accent family stays teal (§37); the ship's own orange livery is 3D asset
-  material, not UI colour.
 
 

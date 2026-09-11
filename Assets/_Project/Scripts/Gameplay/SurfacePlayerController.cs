@@ -23,6 +23,12 @@ public class SurfacePlayerController : MonoBehaviour
     public float pitchLimitDegrees = 80f;
     public float eyeHeight = 1.65f;
 
+    /// <summary>Gamepad look rate in degrees per second (right stick).</summary>
+    public float gamepadLookDegreesPerSecond = 150f;
+
+    /// <summary>Left stick dead zone.</summary>
+    public float gamepadMoveDeadZone = 0.18f;
+
     private CharacterController _controller;
     private Camera _eyeCamera;
     private Vector3 _velocity;
@@ -59,6 +65,11 @@ public class SurfacePlayerController : MonoBehaviour
             return;
         }
 
+        // Phase 08 Revision 2: this is where the gamepad becomes a first-class
+        // device, and where the shared device tracker learns what the player is
+        // holding (which is what the interaction prompts follow).
+        InputDeviceTracker.Poll();
+
         Mouse mouse = Mouse.current;
         if (mouse != null)
         {
@@ -69,13 +80,32 @@ public class SurfacePlayerController : MonoBehaviour
             }
         }
 
+        Gamepad pad = Gamepad.current;
+        Vector2 stick = Vector2.zero;
+        if (pad != null)
+        {
+            Vector2 look = pad.rightStick.ReadValue();
+            if (look.sqrMagnitude > 0.01f)
+            {
+                // Sticks are absolute: degrees per second, not per delta.
+                ApplyLook(look.x * gamepadLookDegreesPerSecond * Time.deltaTime,
+                    -look.y * gamepadLookDegreesPerSecond * Time.deltaTime);
+            }
+
+            stick = pad.leftStick.ReadValue();
+            if (stick.magnitude < gamepadMoveDeadZone)
+            {
+                stick = Vector2.zero;
+            }
+        }
+
         Keyboard keyboard = Keyboard.current;
         Vector2 input = keyboard == null
             ? Vector2.zero
             : new Vector2(
                 (keyboard.dKey.isPressed ? 1f : 0f) - (keyboard.aKey.isPressed ? 1f : 0f),
                 (keyboard.wKey.isPressed ? 1f : 0f) - (keyboard.sKey.isPressed ? 1f : 0f));
-        MoveByInput(input, Time.deltaTime);
+        MoveByInput(input + stick, Time.deltaTime);
     }
 
     /// <summary>Applies look deltas in degrees: horizontal on body yaw,

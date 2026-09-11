@@ -14,7 +14,7 @@ using UnityEngine;
 public class ShipAirlockInteractable : MonoBehaviour, IFirstPersonInteractable
 {
     /// <summary>Chinese-first deployment prompt (surface scene name stays English).</summary>
-    public string PromptText => "E  前往 NEREID-04 地表";
+    public string PromptText => InputDeviceTracker.FormatPrompt("前往 NEREID-04 地表");
 
     public bool CanInteract()
     {

@@ -1,429 +1,123 @@
 /* ============================================================
-   Phase 08 Revision — MAIN MENU (cinematic deep-space cover)
-   Loaded after AppTheme.uss. Coordinates target 1920x1080.
+   Phase 08 Revision 2 — TITLE SCREEN
+   Loaded after AppTheme.uss. Coordinates target the 1920x1080 reference.
 
-   Binding rules for this screen (see Docs/UI_LANGUAGE_STYLE.md §63):
-   - The 3D stage (hero ship + starfield) is the background: the root,
-     the layer and the LEFT hero zone stay transparent.
-   - Only the right menu column, the hairline chrome and the two modals
-     are painted UI.
-   - Typography hierarchy, 1 px hairlines, the single teal accent family
-     and the Chinese-first copy rules stay in force; only the canvas moved
-     from the light Overview grey to deep space, because the cover is now
-     a space shot instead of a dashboard page.
+   Rules for this screen:
+   - The screen IS the shot: deep space + the hero ship on the left come from
+     the scene camera, so almost nothing here is painted. No top bar, no
+     footer, no telemetry, no card background, no HUD brackets.
+   - Only two things are drawn: the right-hand menu block and the black
+     transition overlay (plus the 选项 modal while it is open).
+   - Focus is the primary state, not hover: the focused row brightens, gains a
+     marker and a hairline accent. It never becomes a heavy filled button.
    ============================================================ */
 
 /* ---------- Shell ---------- */
 
 .main-menu-root {
     flex-grow: 1;
-    flex-direction: column;
-    /* Fully transparent: this is a window onto the 3D hero, not a canvas. */
+    flex-direction: row;
+    /* Fully transparent: a window onto the 3D stage, not a canvas. */
     background-color: rgba(0, 0, 0, 0);
 }
 
 .menu-layer {
     flex-grow: 1;
-    flex-direction: column;
-}
-
-/* ---------- Top system bar ---------- */
-
-.menu-topbar {
-    flex-shrink: 0;
-    height: 46px;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding-left: 34px;
-    padding-right: 34px;
-    background-color: rgba(4, 8, 13, 0.55);
-    border-bottom-width: 1px;
-    border-bottom-color: rgba(120, 200, 220, 0.14);
-}
-
-.topbar-left,
-.topbar-right {
-    flex-direction: row;
-    align-items: center;
-}
-
-.topbar-brand {
-    color: #E7F1F8;
-    font-size: 14px;
-    letter-spacing: 2.4px;
-    -unity-font-style: bold;
-}
-
-.topbar-divider-v {
-    width: 1px;
-    height: 14px;
-    margin-left: 14px;
-    margin-right: 14px;
-    background-color: rgba(160, 200, 220, 0.28);
-}
-
-.topbar-role {
-    color: #9FB6C6;
-    font-size: 13px;
-    letter-spacing: 0.6px;
-}
-
-.topbar-cell {
-    color: #93A9BA;
-    font-size: 11px;
-    letter-spacing: 1.6px;
-}
-
-.topbar-cellsep {
-    width: 1px;
-    height: 11px;
-    margin-left: 14px;
-    margin-right: 14px;
-    background-color: rgba(160, 200, 220, 0.22);
-}
-
-.topbar-system {
-    flex-direction: row;
-    align-items: center;
-}
-
-.status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 4px;
-    margin-right: 8px;
-    background-color: #3FD3E4;
-}
-
-/* ---------- Frame: hero window (left) / menu column (right) ---------- */
-
-.menu-frame {
-    flex-grow: 1;
     flex-direction: row;
 }
 
+/* LEFT: the hero window. Nothing is painted here. */
 .menu-hero {
     flex-grow: 1;
-    /* Transparent window: the 3D ship and the starfield live here. */
     background-color: rgba(0, 0, 0, 0);
 }
 
-.hero-stage {
-    flex-grow: 1;
-    margin-left: 40px;
-    margin-right: 18px;
-    margin-top: 26px;
-    margin-bottom: 26px;
-}
-
-.hero-bracket {
-    position: absolute;
-    width: 26px;
-    height: 26px;
-    border-color: rgba(140, 210, 230, 0.34);
-}
-
-.hero-bracket-tl {
-    left: 0;
-    top: 0;
-    border-left-width: 1px;
-    border-top-width: 1px;
-}
-
-.hero-bracket-tr {
-    right: 0;
-    top: 0;
-    border-right-width: 1px;
-    border-top-width: 1px;
-}
-
-.hero-bracket-bl {
-    left: 0;
-    bottom: 0;
-    border-left-width: 1px;
-    border-bottom-width: 1px;
-}
-
-.hero-bracket-br {
-    right: 0;
-    bottom: 0;
-    border-right-width: 1px;
-    border-bottom-width: 1px;
-}
-
-/* Slow survey sweep across the hero window. */
-.hero-sweep {
-    position: absolute;
-    left: 44px;
-    top: 54%;
-    width: 190px;
-    height: 1px;
-    background-color: rgba(120, 220, 240, 0.55);
-}
-
-.hero-hint-layer {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    bottom: 0;
-}
-
-.hero-rail {
-    position: absolute;
-    flex-direction: column;
-}
-
-.hero-rail-left {
-    left: 6px;
-    top: 46px;
-}
-
-.hero-rail-right {
-    right: 6px;
-    top: 46px;
-    align-items: flex-end;
-}
-
-.annotation-label {
-    color: rgba(163, 198, 214, 0.72);
-    font-size: 10px;
-    letter-spacing: 2.2px;
-    margin-bottom: 4px;
-}
-
-.annotation-dim {
-    color: rgba(140, 172, 190, 0.5);
-}
-
-.annotation-rule {
-    width: 52px;
-    height: 1px;
-    margin-bottom: 8px;
-    background-color: rgba(120, 200, 220, 0.35);
-}
-
-.lock-line {
-    width: 96px;
-    height: 1px;
-    margin-bottom: 8px;
-    background-color: rgba(120, 200, 220, 0.28);
-}
-
-/* Ship telemetry strip, bottom-left of the hero window. */
-.hero-telemetry {
-    position: absolute;
-    left: 0;
-    bottom: 6px;
-    flex-direction: row;
-    align-items: flex-end;
-}
-
-.telemetry-cell {
-    flex-direction: column;
-}
-
-.telemetry-key {
-    color: #A8BECC;
-    font-size: 11px;
-    margin-bottom: 2px;
-}
-
-.telemetry-english {
-    color: rgba(150, 178, 194, 0.62);
-    font-size: 9px;
-    letter-spacing: 1.6px;
-    margin-bottom: 2px;
-}
-
-.telemetry-value {
-    color: #E7F1F8;
-    font-size: 15px;
-    letter-spacing: 1.2px;
-    -unity-font-style: bold;
-}
-
-.telemetry-sep {
-    width: 1px;
-    height: 30px;
-    margin-left: 20px;
-    margin-right: 20px;
-    margin-bottom: 2px;
-    background-color: rgba(150, 195, 215, 0.24);
-}
-
-/* ---------- Right column: the menu ---------- */
-
+/* RIGHT: title + menu, floating directly in the starfield. */
 .menu-column {
-    width: 34%;
+    width: 36%;
     flex-direction: column;
     justify-content: center;
-    padding-left: 12px;
-    padding-right: 76px;
+    padding-right: 96px;
+    padding-left: 24px;
 }
 
-.menu-eyebrow {
-    color: rgba(150, 180, 198, 0.78);
-    font-size: 11px;
-    letter-spacing: 3.4px;
-    margin-bottom: 14px;
-}
+/* ---------- Title ---------- */
 
 .menu-title {
-    color: #F2F7FB;
-    font-size: 52px;
-    letter-spacing: 1.5px;
+    color: #F4F9FD;
+    font-size: 76px;
+    letter-spacing: 6px;
     -unity-font-style: bold;
+    margin-bottom: 42px;
 }
 
-.menu-subtitle {
-    color: #CFE0EA;
-    font-size: 26px;
-    letter-spacing: 1.2px;
-    margin-top: 6px;
+/* ---------- Menu list ---------- */
+
+.menu-list {
+    flex-direction: column;
 }
 
-.menu-tagline {
-    color: rgba(160, 188, 204, 0.82);
-    font-size: 13px;
-    margin-top: 10px;
-}
-
-.menu-rule {
-    height: 1px;
-    margin-top: 22px;
-    margin-bottom: 26px;
-    background-color: rgba(140, 205, 225, 0.22);
-}
-
-/* Primary CTA: the only primary action on the screen. */
-.menu-cta {
-    height: 84px;
+.menu-item {
+    height: 62px;
     flex-direction: row;
     align-items: center;
     padding-left: 0;
-    padding-right: 22px;
-    background-color: #12A0B4;
-    border-width: 0;
-    border-radius: 2px;
-}
-
-.menu-cta:hover {
-    background-color: #16B4CB;
-}
-
-.menu-cta:active {
-    background-color: #0D8698;
-}
-
-.menu-cta-mark {
-    width: 5px;
-    height: 84px;
-    margin-right: 20px;
-    background-color: #EAFBFF;
-}
-
-.menu-cta-copy {
-    flex-direction: column;
-    justify-content: center;
-}
-
-.menu-cta-label {
-    color: #04161C;
-    font-size: 30px;
-    letter-spacing: 2px;
-    -unity-font-style: bold;
-}
-
-.menu-cta-sub {
-    color: rgba(4, 22, 28, 0.72);
-    font-size: 11px;
-    letter-spacing: 2.6px;
-    margin-top: 2px;
-}
-
-.menu-cta-micro {
-    flex-grow: 1;
-    color: rgba(4, 22, 28, 0.62);
-    font-size: 10px;
-    letter-spacing: 2px;
-    -unity-text-align: middle-right;
-}
-
-/* Secondary navigation: index + Chinese label, English only as metadata. */
-.menu-secondary {
-    flex-direction: column;
-    margin-top: 30px;
-}
-
-.menu-secondary-row {
-    height: 50px;
-    flex-direction: row;
-    align-items: center;
-    padding-left: 4px;
-    padding-right: 4px;
+    padding-right: 0;
     background-color: rgba(0, 0, 0, 0);
     border-width: 0;
-    border-top-width: 1px;
-    border-top-color: rgba(150, 195, 215, 0.14);
+    border-left-width: 2px;
+    border-left-color: rgba(0, 0, 0, 0);
 }
 
-.menu-secondary-row:hover {
-    background-color: rgba(120, 200, 225, 0.10);
+.menu-item-marker {
+    width: 26px;
+    color: rgba(120, 216, 236, 0);
+    font-size: 30px;
+    -unity-text-align: middle-left;
 }
 
-.menu-secondary-row:active {
-    background-color: rgba(120, 200, 225, 0.18);
+.menu-item-label {
+    color: #9EB2C2;
+    font-size: 30px;
+    letter-spacing: 3px;
 }
 
-.menu-secondary-index {
-    width: 34px;
-    color: rgba(120, 205, 225, 0.85);
-    font-size: 12px;
-    letter-spacing: 1.6px;
+/* Focused row: clearly the current selection, still restrained. */
+.menu-item-focused {
+    border-left-color: #4FD4E6;
 }
 
-.menu-secondary-label {
-    color: #E2ECF3;
-    font-size: 19px;
-    letter-spacing: 0.8px;
+.menu-item-focused .menu-item-marker {
+    color: #4FD4E6;
 }
 
-.menu-secondary-hint {
-    flex-grow: 1;
-    color: rgba(148, 176, 192, 0.62);
-    font-size: 10px;
+.menu-item-focused .menu-item-label {
+    color: #FFFFFF;
+}
+
+/* Unavailable row (继续游戏 with no resumable run): weaker, still readable. */
+.menu-item-disabled .menu-item-label {
+    color: rgba(158, 178, 194, 0.38);
+}
+
+.menu-item-disabled .menu-item-marker {
+    color: rgba(0, 0, 0, 0);
+}
+
+.menu-item:hover .menu-item-label {
+    color: #DCE9F2;
+}
+
+/* ---------- Controller hint ---------- */
+
+.input-hint {
+    margin-top: 42px;
+    color: rgba(168, 196, 212, 0.82);
+    font-size: 16px;
     letter-spacing: 2px;
-    -unity-text-align: middle-right;
 }
 
-/* ---------- Footer ---------- */
-
-.menu-footer {
-    flex-shrink: 0;
-    height: 40px;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    padding-left: 34px;
-    padding-right: 34px;
-    background-color: rgba(4, 8, 13, 0.55);
-    border-top-width: 1px;
-    border-top-color: rgba(120, 200, 220, 0.12);
-}
-
-.menu-footer-cell {
-    color: rgba(140, 168, 186, 0.62);
-    font-size: 10px;
-    letter-spacing: 1.8px;
-}
-
-.menu-footer-center {
-    color: rgba(160, 190, 206, 0.72);
-}
-
-/* ---------- Modals (behaviour unchanged, re-skinned for the dark cover) ---------- */
+/* ---------- Options modal ---------- */
 
 .menu-modal {
     position: absolute;
@@ -446,61 +140,29 @@
 }
 
 .menu-modal-panel {
-    width: 560px;
+    width: 520px;
     flex-direction: column;
-    padding-left: 28px;
-    padding-right: 28px;
-    padding-top: 26px;
-    padding-bottom: 24px;
+    padding-left: 34px;
+    padding-right: 34px;
+    padding-top: 28px;
+    padding-bottom: 26px;
     background-color: #0B141C;
     border-width: 1px;
     border-color: rgba(120, 200, 220, 0.24);
     border-radius: 3px;
 }
 
-.menu-modal-head {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
-}
-
-.menu-modal-head-copy {
-    flex-direction: column;
-}
-
 .menu-modal-title {
-    color: #EFF6FB;
-    font-size: 24px;
-    letter-spacing: 1.2px;
+    color: #F2F8FC;
+    font-size: 30px;
+    letter-spacing: 3px;
     -unity-font-style: bold;
-}
-
-.menu-modal-subtitle {
-    color: rgba(150, 186, 204, 0.7);
-    font-size: 10px;
-    letter-spacing: 2.6px;
-    margin-top: 4px;
-}
-
-.menu-modal-close {
-    width: 66px;
-    height: 30px;
-    color: #CFE3EC;
-    font-size: 13px;
-    background-color: rgba(120, 200, 225, 0.10);
-    border-width: 1px;
-    border-color: rgba(120, 200, 220, 0.26);
-    border-radius: 2px;
-}
-
-.menu-modal-close:hover {
-    background-color: rgba(120, 200, 225, 0.20);
 }
 
 .menu-modal-rule {
     height: 1px;
-    margin-top: 18px;
-    margin-bottom: 18px;
+    margin-top: 20px;
+    margin-bottom: 22px;
     background-color: rgba(140, 200, 220, 0.18);
 }
 
@@ -508,24 +170,13 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
-}
-
-.menu-setting-copy {
-    flex-direction: column;
-    flex-grow: 1;
-    padding-right: 18px;
+    margin-bottom: 20px;
 }
 
 .menu-setting-name {
     color: #E4EEF5;
-    font-size: 16px;
-}
-
-.menu-setting-note {
-    color: rgba(150, 180, 196, 0.68);
-    font-size: 11px;
-    margin-top: 3px;
+    font-size: 20px;
+    letter-spacing: 1px;
 }
 
 .menu-segment {
@@ -533,11 +184,11 @@
 }
 
 .menu-segment-button {
-    width: 62px;
-    height: 30px;
-    margin-left: 6px;
+    width: 72px;
+    height: 34px;
+    margin-left: 8px;
     color: #C6D8E2;
-    font-size: 13px;
+    font-size: 15px;
     background-color: rgba(255, 255, 255, 0.05);
     border-width: 1px;
     border-color: rgba(140, 190, 210, 0.22);
@@ -554,60 +205,20 @@
     border-color: #17AEC4;
 }
 
-.menu-modal-footnote {
-    color: rgba(140, 168, 186, 0.6);
-    font-size: 10px;
-    letter-spacing: 1.2px;
-}
-
-/* ---------- Credits ---------- */
-
-.menu-credits-panel {
-    width: 520px;
-}
-
-.credits-brand {
-    color: #F2F7FB;
-    font-size: 26px;
-    letter-spacing: 2.4px;
-    -unity-font-style: bold;
-}
-
-.credits-subtitle {
-    color: #CFE0EA;
+.menu-modal-close {
+    width: 100%;
+    height: 42px;
+    color: #CFE3EC;
     font-size: 17px;
-    margin-top: 6px;
-}
-
-.credits-english {
-    color: rgba(150, 186, 204, 0.72);
-    font-size: 11px;
     letter-spacing: 2px;
-    margin-top: 3px;
+    background-color: rgba(120, 200, 225, 0.10);
+    border-width: 1px;
+    border-color: rgba(120, 200, 220, 0.26);
+    border-radius: 2px;
 }
 
-.credits-copy {
-    color: rgba(170, 196, 210, 0.82);
-    font-size: 12px;
-    margin-top: 14px;
-}
-
-.credits-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    height: 28px;
-}
-
-.credits-key {
-    color: rgba(158, 188, 204, 0.8);
-    font-size: 13px;
-}
-
-.credits-value {
-    color: #E4EEF5;
-    font-size: 13px;
-    letter-spacing: 0.8px;
+.menu-modal-close:hover {
+    background-color: rgba(120, 200, 225, 0.20);
 }
 
 /* ---------- Start cinematic blackout ---------- */
