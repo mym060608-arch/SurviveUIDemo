@@ -1994,9 +1994,16 @@ Navigate  = Gamepad.dpad / leftStick | arrow keys
 
 `UiInput.BindingTable` is the authoritative table; `AButton` / `BButton` /
 `StartButton` names must never appear as logical semantics. Escape is shared
-between Pause (gameplay layers) and Back (overlay layers) on purpose: the pause
-menu owns the whole input context while it is open, so the two can never fight
-over one press.
+between Pause (gameplay layers) and Back (overlay layers) on purpose: the ASKING
+LAYER resolves it (`UiInput.PausePressed(UiInput.UiLayer)`), so the two can never
+fight over one press. Menu/Start is unambiguous - it is always Pause.
+
+```text
+layer Gameplay (free first person / console view / wrist)
+    Escape = Pause
+layer Modal (an open device panel / deployment confirmation / loadout)
+    Escape = Back for that layer, Menu/Start = Pause above it
+```
 
 ## 64.3 Behaviour
 
@@ -2034,6 +2041,71 @@ HUD (1) and the shipboard modals (30/31).
 - Console-internal navigation (D-Pad page selection, A on the terminal UI, B
   stepping back inside it, LB/RB tabs) is deliberately NOT implemented here -
   that is Phase 09. The prompt therefore only promises 查看 / 返回.
+
+---
+
+# 65. Airlock Device Panels (Phase 08 device-panel hotfix)
+
+The two devices in the 气闸舱 are the SAME panel state as Phase 07B.2, now with a
+complete controller loop. No second panel, no second modal manager and no second
+input system exists:
+
+```text
+装备整理    EquipmentLockerInteractable -> ShipOverlayUi.OpenLoadoutFromLocker
+            -> ShipLoadoutPage (the shared loadout view, GameSession authority)
+出征前准备  ShipAirlockInteractable     -> ShipOverlayUi.OpenDeploymentConfirm
+            -> ShipDeployConfirmPage    (no scene load until 确认降临)
+```
+
+## 65.1 Panel copy
+
+```text
+装备整理 (ShipLoadoutPage)     top-right: [B] 返回   +  返回 button
+出征前准备 (ShipDeployConfirm) bottom:    [B] 返回   (device line)
+```
+
+The hint is device-aware (`InputDeviceTracker.FormatPrompt(UiAction.Back, "返回")`):
+`[B] 返回` on a controller, `[Esc] 返回` on the keyboard. `[A] 确认` is NOT shown -
+the panels have no focus navigation yet (Phase 09), so the copy must not promise
+it.
+
+## 65.2 Back contract
+
+```text
+open panel + B / Escape
+    -> the panel closes, exactly ONE action, no quit, no title screen,
+       no scene change, GameSession untouched
+    -> movement, look, world interaction, the gaze prompt and the cursor are
+       exactly what they were before the panel opened
+出征前准备 --调整装备--> 装备整理 + B
+    -> one step back to 出征前准备 (not straight out)
+open panel + Menu/Start
+    -> 暂停 opens ABOVE the panel: Time.timeScale = 0, the panel stays as the
+       frozen underlying state
+    -> 继续游戏 / B / Menu-Start returns to that same panel (it does not close it)
+    -> 返回主菜单 cleans the panel and its UI focus before leaving the ship
+```
+
+Dispatch chain (one press = one action, the consumer consumes it):
+
+```text
+Pause Menu  >  Active Device Panel / Modal  >  Console Focus  >  Free First Person
+```
+
+## 65.3 Implementation notes
+
+- `ShipOverlayUi` is the single authority: `HandleBack()` is the layer's Back
+  action and `BackActionCount` counts consumed presses (tests pin one action per
+  press).
+- The pause is checked FIRST: a panel may stay open underneath it, and Back there
+  must only resume the game.
+- Closing a panel releases any UI Toolkit focus it held (`ReleaseFocus`), so no
+  hidden element can keep swallowing input.
+- The gamepad confirm press that OPENS a panel is also turned into a synthetic
+  pointer click by Unity's runtime UI; on the opening frame that click is the
+  opening press, not a second action, so the panels drop it
+  (`IsOpeningPressEcho`). This is the same defect class as the title screen's
+  退出 activation.
 
 
 

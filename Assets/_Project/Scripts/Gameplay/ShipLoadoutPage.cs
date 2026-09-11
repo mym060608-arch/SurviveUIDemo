@@ -23,6 +23,12 @@ using UnityEngine.UIElements;
 public class ShipLoadoutPage : MonoBehaviour
 {
     public const string CloseButtonName = "LoadoutCloseButton";
+    public const string CloseHintName = "LoadoutCloseHint";
+
+    /// <summary>The panel's own copy of the Back verb (the device glyph is added
+    /// by InputDeviceTracker, so it reads "[B] 返回" on a controller and
+    /// "[Esc] 返回" on the keyboard).</summary>
+    public const string BackHintVerb = "返回";
 
     [SerializeField]
     public StyleSheet themeStyleSheet;
@@ -43,10 +49,12 @@ public class ShipLoadoutPage : MonoBehaviour
     private VisualElement _root;
     private GameSession _session;
     private PreparationScreen _preparation;
+    private Label _backHint;
     private bool _bound;
     private bool _visible;
+    private int _shownFrame = -1000;
 
-    /// <summary>User closed the loadout view (Esc / 返回 button).</summary>
+    /// <summary>User closed the loadout view (Back action / 返回 button).</summary>
     public event Action CloseRequested;
 
     public bool IsBound => _bound;
@@ -56,6 +64,10 @@ public class ShipLoadoutPage : MonoBehaviour
     public UIDocument Document => _document;
 
     public bool IsVisible => _visible;
+
+    /// <summary>The device-aware Back hint the panel really shows
+    /// ("[B] 返回" on a controller, "[Esc] 返回" on the keyboard).</summary>
+    public string BackHintText => _backHint != null ? _backHint.text : string.Empty;
 
     private void Awake()
     {
@@ -72,6 +84,14 @@ public class ShipLoadoutPage : MonoBehaviour
             && _document.rootVisualElement.childCount > 0)
         {
             EnsureBound();
+        }
+
+        // The Back hint names the device the player is actually holding, so it
+        // is refreshed while the panel is on screen (gamepad <-> keyboard).
+        if (_bound && _visible)
+        {
+            InputDeviceTracker.Poll();
+            RefreshBackHint();
         }
     }
 
@@ -119,6 +139,21 @@ public class ShipLoadoutPage : MonoBehaviour
 
         ApplyUiCjkFont();
 
+        // The gamepad confirm press that OPENED this panel is also turned into a
+        // synthetic pointer click by Unity's runtime UI (the same echo that once
+        // activated 退出 on the title screen). On the frame the panel appears
+        // that click IS the opening press, not a second action: it must not
+        // toggle an equipment row or hit 返回 behind the player's back.
+        _root.RegisterCallback<PointerUpEvent>(evt =>
+        {
+            if (IsOpeningPressEcho())
+            {
+                Debug.Log("[OVERLAY] ignored the click produced by the press "
+                          + "that opened 装备整理");
+                evt.StopPropagation();
+            }
+        }, TrickleDown.TrickleDown);
+
         _session = GameSession.Ensure();
         _preparation = new PreparationScreen(
             Container(ElementNames.PreparationScreen), _session);
@@ -127,8 +162,34 @@ public class ShipLoadoutPage : MonoBehaviour
         _session.OnStateChanged += HandleSessionChanged;
 
         BuildCloseBar();
+        RefreshBackHint();
         _bound = true;
         _root.style.display = _visible ? DisplayStyle.Flex : DisplayStyle.None;
+    }
+
+    /// <summary>
+    /// True while a click can only be the echo of the press that opened the
+    /// panel (the opening frame, plus one frame of delivery slack).
+    /// </summary>
+    private bool IsOpeningPressEcho()
+    {
+        return Time.frameCount <= _shownFrame + 1
+               && UiInput.GamepadConfirmPressedThisFrame();
+    }
+
+    /// <summary>Rewrites the panel's Back hint for the current device.</summary>
+    private void RefreshBackHint()
+    {
+        if (_backHint == null)
+        {
+            return;
+        }
+
+        string text = InputDeviceTracker.FormatPrompt(UiAction.Back, BackHintVerb);
+        if (_backHint.text != text)
+        {
+            _backHint.text = text;
+        }
     }
 
     private void BuildCloseBar()
@@ -145,9 +206,11 @@ public class ShipLoadoutPage : MonoBehaviour
         bar.style.flexDirection = FlexDirection.Row;
         bar.style.alignItems = Align.Center;
 
-        var hint = new Label { text = "Esc 返回" };
-        hint.AddToClassList("loadout-close-hint");
-        bar.Add(hint);
+        // The hint names the Back control of the device in hand - the same
+        // "[B] 返回" / "[Esc] 返回" wording the rest of the ship uses.
+        _backHint = new Label { name = CloseHintName };
+        _backHint.AddToClassList("loadout-close-hint");
+        bar.Add(_backHint);
 
         var closeButton = new Button(() => CloseRequested?.Invoke())
         {
@@ -208,9 +271,44 @@ public class ShipLoadoutPage : MonoBehaviour
     public void SetVisible(bool visible)
     {
         _visible = visible;
+        if (visible)
+        {
+            _shownFrame = Time.frameCount;
+            RefreshBackHint();
+        }
+        else
+        {
+            ReleaseFocus();
+        }
+
         if (_root != null)
         {
             _root.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+        }
+    }
+
+    /// <summary>
+    /// Drops any UI Toolkit focus this page still holds, so a closed panel can
+    /// never keep swallowing input (Phase 08 device-panel hotfix: no hidden UI
+    /// may own the keyboard focus after Back closed it).
+    /// </summary>
+    private void ReleaseFocus()
+    {
+        if (_root == null || _root.focusController == null)
+        {
+            return;
+        }
+
+        Focusable focused = _root.focusController.focusedElement;
+        if (focused == null)
+        {
+            return;
+        }
+
+        var element = focused as VisualElement;
+        if (element != null && _root.Contains(element))
+        {
+            focused.Blur();
         }
     }
 

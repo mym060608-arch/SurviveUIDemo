@@ -454,6 +454,59 @@ public class MainMenuCapture : MonoBehaviour
             Fail("the pause menu is not available in the ship interior");
         }
 
+        // ---- 04g/04h: Airlock device panels carry their Back binding (§14) ----
+        // 装备整理 (equipment locker) and 出征前准备 (deployment station) are the
+        // two modes of the ONE overlay authority; both must show the panel's real
+        // Back binding and both must close with it.
+        if (ship.Overlay != null && ship.Overlay.DeployPage != null
+            && ship.Overlay.LoadoutPage != null)
+        {
+            ShipOverlayUi overlay = ship.Overlay;
+
+            InputDeviceTracker.NotifyGamepad();
+            bool loadoutOpened = overlay.OpenLoadoutFromLocker();
+            yield return WaitUntil(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.Loadout, 240);
+            yield return new WaitForSecondsRealtime(0.5f);
+            Check("装备整理 opens and shows the controller Back binding (actual: "
+                  + overlay.BackHintText + ")",
+                loadoutOpened && overlay.IsOpen && overlay.BackHintText == "[B] 返回");
+            yield return Capture("04g_airlock_loadout_panel");
+
+            overlay.HandleBack();
+            yield return WaitUntil(() => !overlay.IsOpen && ship.Player.InputEnabled, 240);
+            Check("装备整理 closes and restores first-person control",
+                !overlay.IsOpen && ship.Player.InputEnabled);
+
+            bool deployOpened = overlay.OpenDeploymentConfirm();
+            yield return WaitUntil(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm, 240);
+            yield return new WaitForSecondsRealtime(0.5f);
+            Check("出征前准备 opens and shows the controller Back binding (actual: "
+                  + overlay.BackHintText + ")",
+                deployOpened && overlay.IsOpen && overlay.BackHintText == "[B] 返回");
+            yield return Capture("04h_airlock_deploy_panel");
+
+            // The same panel follows the device in hand.
+            InputDeviceTracker.NotifyKeyboardMouse();
+            yield return new WaitForSecondsRealtime(0.25f);
+            Check("the panel hint follows the device (keyboard: "
+                  + overlay.BackHintText + ")",
+                overlay.BackHintText == "[Esc] 返回");
+
+            overlay.HandleBack();
+            yield return WaitUntil(() => !overlay.IsOpen && ship.Player.InputEnabled, 240);
+            Check("出征前准备 closes and restores first-person control",
+                !overlay.IsOpen && ship.Player.InputEnabled);
+            Check("closing both device panels never quit",
+                AppQuit.RequestCount == 0);
+            InputDeviceTracker.ResetToDefaults();
+        }
+        else
+        {
+            Fail("the ship interior has no airlock device panels to capture");
+        }
+
         // ---- 05: terminal -> Overview ----
         ShipConsoleInteractable overviewConsole = null;
         foreach (ShipConsoleInteractable console in ship.Consoles)

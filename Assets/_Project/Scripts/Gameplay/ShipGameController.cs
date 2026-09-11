@@ -112,6 +112,14 @@ public class ShipGameController : MonoBehaviour, IWristContext
     /// loadout) is open - movement, world E and the wrist stay gated.</summary>
     public bool IsOverlayOpen => _overlayUi != null && _overlayUi.IsOpen;
 
+    /// <summary>
+    /// The single shipboard overlay authority (deployment confirmation + the
+    /// shared loadout page reached from the airlock locker). Exposed so the
+    /// pause and the tests can address the SAME panel state - never a second
+    /// panel, never a second input path.
+    /// </summary>
+    public ShipOverlayUi Overlay => _overlayUi;
+
     /// <summary>True while ANY modal interface is open (console focus, wrist
     /// or overlay) - used by HUD suppression and input gating.</summary>
     public bool IsAnyModalActive => IsConsoleFocusActive || _isWristOpen

@@ -576,6 +576,9 @@ public class StandaloneSmoke : MonoBehaviour
                     !ship.Focus.FocusActive && ship.Player.InputEnabled);
             }
 
+            // ---- 8e. Airlock device panels: A opens, B closes (Phase 08 §14) ----
+            yield return RunAirlockDevicePanels(log, ship, pad, session);
+
             // ---- 9. existing Phase 01-05 state journey (scene independent) ----
             Debug.Log("[StandaloneSmoke] step 9: session + processing journey");
             RunSessionJourney(log, session);
@@ -892,6 +895,177 @@ public class StandaloneSmoke : MonoBehaviour
         while (!condition() && Time.realtimeSinceStartup < deadline)
         {
             yield return null;
+        }
+    }
+
+    /// <summary>
+    /// Phase 08 §14: the two Airlock device panels, driven with a REAL gamepad
+    /// (queued Input System state events, the real interactor, the real pages).
+    ///
+    ///   装备整理   (equipment locker)     A opens, B closes, control restored
+    ///   出征前准备 (deployment station)   A opens, Menu/Start pauses above it,
+    ///                                     B resumes the pause WITHOUT closing
+    ///                                     the panel, the next B closes it
+    ///
+    /// Every step is asserted against the LIVE panel state (ShipOverlayUi) and
+    /// against the budget: no quit, no scene change, no session reset.
+    /// </summary>
+    private static IEnumerator RunAirlockDevicePanels(SmokeLog log,
+        ShipGameController ship, Gamepad pad, GameSession session)
+    {
+        if (ship == null || ship.Overlay == null)
+        {
+            log.Fail("the ship has no device-panel authority (ShipOverlayUi)");
+            yield break;
+        }
+
+        ShipOverlayUi overlay = ship.Overlay;
+        Debug.Log("[StandaloneSmoke] step 8e: airlock device panels");
+
+        // The whole section is driven with the virtual gamepad: the panel hints
+        // must therefore read the controller binding.
+        InputDeviceTracker.NotifyGamepad();
+
+        // ---- 装备整理: equipment locker -> shared loadout ----
+        var locker = UnityEngine.Object.FindAnyObjectByType<EquipmentLockerInteractable>();
+        log.Check("the Airlock equipment locker exists", locker != null);
+
+        if (locker != null)
+        {
+            int lockerBackBaseline = overlay.BackActionCount;
+
+            ship.Player.TeleportTo(new Vector3(-1.55f, 0f, -12.6f));
+            ship.Player.SetFacing(270f, 0f);
+            yield return WaitFor(() =>
+                ReferenceEquals(ship.Interactor.CurrentTarget,
+                    (IFirstPersonInteractable)locker), 4f);
+            log.Check("gazing at 装备整理 offers the interaction",
+                ReferenceEquals(ship.Interactor.CurrentTarget,
+                    (IFirstPersonInteractable)locker));
+
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.Loadout, 5f);
+
+            log.Check("A opens 装备整理 (the shared loadout page)",
+                overlay.IsOpen && overlay.Mode == ShipOverlayUi.OverlayMode.Loadout);
+            log.Check("the panel shows the controller Back binding ("
+                      + overlay.BackHintText + ")",
+                overlay.BackHintText == "[B] 返回");
+            log.Check("movement and look are frozen inside the panel",
+                !ship.Player.InputEnabled);
+            log.Check("the panel owns the pointer",
+                ship.PointerOwner == ShipGameController.ShipPointerOwner.ScreenModal);
+            log.Check("opening 装备整理 never quits", AppQuit.RequestCount == 0);
+            log.Check("opening 装备整理 never leaves the ship",
+                SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
+            log.Check("opening 装备整理 keeps the same session",
+                GameSession.Instance == session);
+
+            yield return PressGamepadButton(pad, GamepadButton.East);
+            yield return WaitFor(() => !overlay.IsOpen && ship.Player.InputEnabled, 5f);
+
+            log.Check("B closes 装备整理", !overlay.IsOpen);
+            log.Check("the panel restored first-person control",
+                ship.Player.InputEnabled
+                && ship.PointerOwner == ShipGameController.ShipPointerOwner.None);
+            log.Check("closing is exactly ONE action ("
+                      + (overlay.BackActionCount - lockerBackBaseline) + ")",
+                overlay.BackActionCount == lockerBackBaseline + 1);
+            log.Check("B does not open the pause", !ship.PauseMenu.IsOpen);
+            log.Check("B closes nothing else (still inside the ship)",
+                SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
+            log.Check("B never quits", AppQuit.RequestCount == 0);
+
+            yield return WaitFor(() =>
+                ReferenceEquals(ship.Interactor.CurrentTarget,
+                    (IFirstPersonInteractable)locker), 4f);
+            log.Check("the world interaction prompt is back after the panel closes",
+                ReferenceEquals(ship.Interactor.CurrentTarget,
+                    (IFirstPersonInteractable)locker)
+                && ship.Interactor.ResolvePrompt().Contains("调整远征装备"));
+        }
+
+        // ---- 出征前准备: deployment station -> pause above the panel ----
+        log.Check("the Airlock deployment station exists", ship.Airlock != null);
+
+        if (ship.Airlock != null)
+        {
+            // BackActionCount is CUMULATIVE on the one overlay authority, so this
+            // section asserts DELTAS from the baseline it starts with.
+            int backBaseline = overlay.BackActionCount;
+
+            ship.Player.TeleportTo(new Vector3(0f, 0f, -12.3f));
+            ship.Player.SetFacing(180f, 0f);
+            yield return WaitFor(() =>
+                ReferenceEquals(ship.Interactor.CurrentTarget,
+                    (IFirstPersonInteractable)ship.Airlock), 4f);
+
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm, 5f);
+
+            log.Check("A opens 出征前准备 (the deployment confirmation)",
+                overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm);
+            log.Check("the panel shows the controller Back binding ("
+                      + overlay.BackHintText + ")",
+                overlay.BackHintText == "[B] 返回");
+            log.Check("opening 出征前准备 does NOT route to the surface",
+                SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
+
+            // Menu/Start pauses ABOVE the panel and must not close it.
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+
+            log.Check("Menu/Start opens the pause over 出征前准备", ship.PauseMenu.IsOpen);
+            log.Check("the pause freezes time", Mathf.Approximately(Time.timeScale, 0f));
+            log.Check("the panel stays as the frozen underlying state",
+                overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm);
+            log.Check("Menu/Start is not a Back action ("
+                      + (overlay.BackActionCount - backBaseline) + " since the panel opened)",
+                overlay.BackActionCount == backBaseline);
+
+            // Back belongs to the pause: it resumes and leaves the panel open.
+            yield return PressGamepadButton(pad, GamepadButton.East);
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+
+            log.Check("B resumes the pause", !ship.PauseMenu.IsOpen);
+            log.Check("time resumes", Mathf.Approximately(Time.timeScale, 1f));
+            log.Check("the panel is STILL open after the pause",
+                overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm);
+            log.Check("resuming the pause did not close the panel ("
+                      + (overlay.BackActionCount - backBaseline) + " Back actions)",
+                overlay.BackActionCount == backBaseline);
+            log.Check("the panel still owns the input",
+                !ship.Player.InputEnabled);
+
+            // The next B closes the panel for real.
+            yield return PressGamepadButton(pad, GamepadButton.East);
+            yield return WaitFor(() => !overlay.IsOpen && ship.Player.InputEnabled, 5f);
+
+            log.Check("B closes 出征前准备", !overlay.IsOpen);
+            log.Check("closing 出征前准备 restored first-person control",
+                ship.Player.InputEnabled
+                && ship.PointerOwner == ShipGameController.ShipPointerOwner.None);
+            log.Check("the whole loop performed exactly one Back action ("
+                      + (overlay.BackActionCount - backBaseline) + ")",
+                overlay.BackActionCount == backBaseline + 1);
+            log.Check("closing 出征前准备 never quits", AppQuit.RequestCount == 0);
+            log.Check("closing 出征前准备 stays inside the ship",
+                SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
+            log.Check("closing 出征前准备 keeps the same session",
+                GameSession.Instance == session);
+
+            yield return WaitFor(() =>
+                ReferenceEquals(ship.Interactor.CurrentTarget,
+                    (IFirstPersonInteractable)ship.Airlock), 4f);
+            log.Check("the deployment prompt is back after the panel closes",
+                ReferenceEquals(ship.Interactor.CurrentTarget,
+                    (IFirstPersonInteractable)ship.Airlock)
+                && ship.Interactor.ResolvePrompt().Contains("前往 NEREID-04 地表"));
         }
     }
 

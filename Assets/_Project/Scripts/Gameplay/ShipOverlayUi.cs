@@ -1,6 +1,5 @@
 using System;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 /// <summary>
 /// Explicit ship overlay modes (Phase 07B.2):
@@ -9,13 +8,33 @@ using UnityEngine.InputSystem;
 ///      -> Loadout (from deploy) (调整装备)
 ///   ShipExplore
 ///   -> Loadout (from locker)    (E on the Airlock equipment locker)
-///      -> ShipExplore           (Esc / 返回)
+///      -> ShipExplore           (Back / 返回)
 ///
 /// Single overlay authority: owns the two page documents, the current mode,
-/// input freezing, the unlocked cursor, Esc handling and the shared GameSession
-/// loadout flow. Wrist / console focus can never stack on an overlay; the
-/// console focus machine (ShipConsoleFocusController) and this overlay are
-/// mutually exclusive by gating in ShipGameController.
+/// input freezing, the unlocked cursor, the Back action and the shared
+/// GameSession loadout flow. Wrist / console focus can never stack on an
+/// overlay; the console focus machine (ShipConsoleFocusController) and this
+/// overlay are mutually exclusive by gating in ShipGameController.
+///
+/// Back contract (Phase 08 device-panel hotfix). The 装备整理 (equipment
+/// locker) and 出征前准备 (deployment station) panels are exactly the two
+/// modes above - there is no second panel implementation and no second input
+/// path. Back is the logical action (<see cref="UiInput.BackPressed"/>:
+/// Xbox B or Escape), never a raw key read, and it follows the ship dispatch
+/// chain:
+///
+///   pause menu open  >  THIS layer  >  console focus  >  free first person
+///
+/// so ONE press performs ONE action:
+///   - the pause is checked first, because a device panel can stay open
+///     underneath it (Menu/Start pauses above the panel, 继续游戏 returns to
+///     it) and Back there must only resume the game;
+///   - this layer consumes Back whenever it is open: the deployment
+///     confirmation closes back to ShipExplore, the locker loadout closes
+///     back to ShipExplore, and the loadout opened FROM the deployment
+///     confirmation steps back to that confirmation instead of leaving it;
+///   - nothing below may see the press, and closing never quits, never
+///     returns to the title screen and never resets GameSession.
 /// </summary>
 public class ShipOverlayUi : MonoBehaviour
 {
@@ -52,6 +71,32 @@ public class ShipOverlayUi : MonoBehaviour
     public ShipDeployConfirmPage DeployPage => _deployPage;
 
     public ShipLoadoutPage LoadoutPage => _loadoutPage;
+
+    /// <summary>
+    /// How many Back presses this authority consumed. Tests use it to pin
+    /// "one press = one action": one B must move the chain exactly one step.
+    /// </summary>
+    public int BackActionCount { get; private set; }
+
+    /// <summary>Device-aware "返回" hint currently shown by the open panel
+    /// ("" when nothing is open) - the visible half of the Back contract.</summary>
+    public string BackHintText
+    {
+        get
+        {
+            if (_mode == OverlayMode.DeploymentConfirm)
+            {
+                return _deployPage != null ? _deployPage.BackHintText : string.Empty;
+            }
+
+            if (_mode == OverlayMode.Loadout)
+            {
+                return _loadoutPage != null ? _loadoutPage.BackHintText : string.Empty;
+            }
+
+            return string.Empty;
+        }
+    }
 
     private void Start()
     {
@@ -114,28 +159,78 @@ public class ShipOverlayUi : MonoBehaviour
             return;
         }
 
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+        // Dispatch priority, step 1: the pause menu is the TOP layer and it
+        // owns the input context while it is open. A device panel can stay open
+        // underneath it (§14.4), so Back here must NOT close that panel - the
+        // press belongs to the pause, which only resumes the game.
+        if (_ship != null && _ship.IsPaused)
         {
-            if (_mode == OverlayMode.Loadout
-                && _loadoutReturn == LoadoutReturnTarget.DeploymentConfirm)
-            {
-                ShowDeploymentConfirmPage();
-            }
-            else
-            {
-                CloseToExplore();
-            }
+            return;
+        }
+
+        // Dispatch priority, step 2: this modal layer consumes Back.
+        // UiInput is the only place that names the physical control (Xbox B /
+        // Escape); nothing here reads a key directly.
+        if (UiInput.BackPressed())
+        {
+            HandleBack();
         }
     }
 
     // ---- Public entry points (interactables / tests) ----
 
+    /// <summary>
+    /// The Back action of this modal layer: exactly one step out.
+    ///
+    ///   DeploymentConfirm                     -> ShipExplore (panel closed)
+    ///   Loadout opened from the locker        -> ShipExplore (panel closed)
+    ///   Loadout opened from the deployment
+    ///   confirmation (调整装备)               -> the deployment confirmation
+    ///
+    /// Returns true when the press was consumed by this layer. Closing restores
+    /// the pre-panel Ship Interior state (movement, look, world interaction,
+    /// HUD prompt and cursor): it never quits, never reaches the title screen
+    /// and never resets GameSession.
+    /// </summary>
+    public bool HandleBack()
+    {
+        if (!_ready || !IsOpen)
+        {
+            return false;
+        }
+
+        if (_ship != null && _ship.IsPaused)
+        {
+            // Defensive: the pause owns Back while it is open (see Update).
+            return false;
+        }
+
+        BackActionCount++;
+
+        // The press is consumed HERE for this frame: whichever layer saw it
+        // first owns it (see UiInput.ConsumeBackForFrame), so closing this panel
+        // can never also resume a pause or open one.
+        UiInput.ConsumeBackForFrame();
+
+        if (_mode == OverlayMode.Loadout
+            && _loadoutReturn == LoadoutReturnTarget.DeploymentConfirm)
+        {
+            ShowDeploymentConfirmPage();
+            Debug.Log("[OVERLAY] Back -> 出征前准备 (deployment confirmation)");
+            return true;
+        }
+
+        OverlayMode from = _mode;
+        CloseToExplore();
+        Debug.Log("[OVERLAY] Back -> ShipExplore (closed " + from + ")");
+        return true;
+    }
+
     /// <summary>E on the Airlock deployment station: show the deployment
     /// confirmation (no scene load yet).</summary>
     public bool OpenDeploymentConfirm()
     {
-        if (!_ready || IsOpen || (_ship != null && _ship.IsConsoleFocusActive))
+        if (!CanOpen())
         {
             return false;
         }
@@ -143,6 +238,7 @@ public class ShipOverlayUi : MonoBehaviour
         _mode = OverlayMode.DeploymentConfirm;
         ShowDeploymentConfirmPage();
         EnterOverlayInput();
+        Debug.Log("[OVERLAY] opened 出征前准备 (deployment confirmation)");
         return true;
     }
 
@@ -156,7 +252,7 @@ public class ShipOverlayUi : MonoBehaviour
     /// <summary>Opens the shared loadout view with the given return context.</summary>
     public bool OpenLoadout(LoadoutReturnTarget returnTarget)
     {
-        if (!_ready || IsOpen || (_ship != null && _ship.IsConsoleFocusActive))
+        if (!CanOpen())
         {
             return false;
         }
@@ -165,7 +261,19 @@ public class ShipOverlayUi : MonoBehaviour
         _loadoutReturn = returnTarget;
         ShowLoadoutPage();
         EnterOverlayInput();
+        Debug.Log("[OVERLAY] opened 装备整理 (loadout, return=" + returnTarget + ")");
         return true;
+    }
+
+    /// <summary>
+    /// A page may open only from plain ShipExplore: never on top of an already
+    /// open page, a focused console or the pause menu (the pause freezes the
+    /// whole input context and must stay the only layer receiving input).
+    /// </summary>
+    private bool CanOpen()
+    {
+        return _ready && !IsOpen
+               && (_ship == null || (!_ship.IsConsoleFocusActive && !_ship.IsPaused));
     }
 
     /// <summary>Closes every page and restores ShipExplore input/cursor.</summary>
@@ -188,6 +296,27 @@ public class ShipOverlayUi : MonoBehaviour
         }
 
         ExitOverlayInput();
+    }
+
+    /// <summary>
+    /// Drops every open page and every local UI focus for a scene change
+    /// (pause -> 返回主菜单). Nothing of the panel survives into the title
+    /// screen: no page stays visible, no document keeps the keyboard focus and
+    /// the pointer owner goes back to None, so the menu scene starts clean.
+    /// </summary>
+    public void CleanupForSceneChange()
+    {
+        if (!_ready)
+        {
+            return;
+        }
+
+        if (IsOpen)
+        {
+            Debug.Log("[OVERLAY] cleanup for scene change (was " + _mode + ")");
+        }
+
+        CloseToExplore();
     }
 
     // ---- Page/action routing ----

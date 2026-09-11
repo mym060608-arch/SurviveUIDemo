@@ -41,7 +41,10 @@
                 <ui:Button name="DeployCancelButton" class="modal-btn modal-btn-plain" text="取消" />
             </ui:VisualElement>
 
-            <ui:Label class="modal-hint" text="Esc 返回" />
+            <!-- Back = Xbox B / Escape (UiInput.BackPressed). The runtime
+                 rewrites this line for the device in hand: "[B] 返回" on a
+                 controller, "[Esc] 返回" on the keyboard. -->
+            <ui:Label name="DeployBackHint" class="modal-hint" text="[Esc] 返回" />
         </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>

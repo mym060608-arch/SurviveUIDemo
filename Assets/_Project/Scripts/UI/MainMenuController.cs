@@ -316,6 +316,10 @@ public class MainMenuController : MonoBehaviour
         // physical mapping lives in UiInput.
         if (UiInput.BackPressed())
         {
+            // The title screen owns Back while it is showing: consume it so no
+            // other layer (and not the Escape-as-Pause path) sees the same press.
+            UiInput.ConsumeBackForFrame();
+
             if (InputDeviceTracker.GamepadProducedInput())
             {
                 InputDeviceTracker.NotifyGamepad();

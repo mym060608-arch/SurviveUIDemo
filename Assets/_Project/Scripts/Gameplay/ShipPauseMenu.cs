@@ -252,9 +252,18 @@ public class ShipPauseMenu : MonoBehaviour
 
         if (!_open)
         {
-            if (UiInput.PausePressed())
+            // Escape means different things per layer: inside an open device
+            // panel it is that panel's Back key (the panel closes itself), while
+            // in gameplay it is the global pause. Menu/Start pauses above an open
+            // panel and leaves it as the frozen underlying state.
+            bool overlayOpen = _ship != null && _ship.IsOverlayOpen;
+            UiInput.UiLayer layer = overlayOpen ? UiInput.UiLayer.Modal : UiInput.UiLayer.Gameplay;
+
+            if (UiInput.PausePressed(layer))
             {
                 Debug.Log("[PAUSE] pause input seen: canPause=" + CanPause()
+                          + " layer=" + layer
+                          + " overlayOpen=" + overlayOpen
                           + " device=" + (Gamepad.current != null ? Gamepad.current.name : "-")
                           + "/" + (Keyboard.current != null ? Keyboard.current.name : "-"));
                 if (CanPause())
@@ -295,16 +304,27 @@ public class ShipPauseMenu : MonoBehaviour
             return;
         }
 
-        if (UiInput.BackPressed() || UiInput.PausePressed())
+        // The pause is the TOP layer: while it is open, a Back press belongs to
+        // it (resume) and never to the device panel that may be open underneath.
+        // Consuming the press makes that independent of update order.
+        bool backPressed = UiInput.BackPressed();
+        if (backPressed || UiInput.PausePressed())
         {
+            if (backPressed)
+            {
+                UiInput.ConsumeBackForFrame();
+            }
+
             ResumeGame();
         }
     }
 
     /// <summary>
     /// Menu/Start and Escape are GLOBAL pause actions: they work in free first
-    /// person and inside the console view, and they are never blocked by another
-    /// mode (the pause freezes whatever it was).
+    /// person, inside the console view and above an OPEN device panel (the panel
+    /// stays as the frozen underlying state, so 继续游戏 returns straight to it).
+    /// Escape is resolved by layer in Update: inside a device panel it is that
+    /// panel's Back key instead.
     /// </summary>
     private bool CanPause()
     {
@@ -352,14 +372,19 @@ public class ShipPauseMenu : MonoBehaviour
     /// <summary>
     /// 返回主菜单: real product loop. The session is NOT reset, so the title
     /// screen's 继续游戏 becomes available and returns to this same ship state.
+    /// Any device panel / loadout page that was open (possibly underneath this
+    /// pause) is cleaned first, so no panel visibility or UI focus survives into
+    /// the title screen.
     /// </summary>
     public void ReturnToMainMenu()
     {
         Debug.Log("[PAUSE] Execute = ReturnToMainMenu");
         Close();
 
-        // The pause state and the console view must not survive the scene change.
+        // The pause state, the console view and the device panels must not
+        // survive the scene change.
         _focus?.CleanupForSceneChange();
+        _ship?.Overlay?.CleanupForSceneChange();
         SceneRouting.EnterMainMenu();
     }
 

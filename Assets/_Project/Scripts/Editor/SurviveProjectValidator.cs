@@ -37,6 +37,7 @@ public static class SurviveProjectValidator
         "Assets/_Project/Models/MainMenuShip/MainMenuShip.fbx";
     private const string PauseUxmlPath = "Assets/_Project/Resources/ShipPauseMenu.uxml";
     private const string PauseUssPath = "Assets/_Project/Resources/ShipPauseMenu.uss";
+    private const string DeployUxmlPath = "Assets/_Project/UI/UXML/ShipDeployConfirm.uxml";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
@@ -405,6 +406,26 @@ public static class SurviveProjectValidator
                 "03_ShipInterior authors no pause menu (runtime-created, found "
                 + CountInScene<ShipPauseMenu>() + ")");
 
+            // ---- Phase 08 §14: the two Airlock device panels ----
+            // 出征前准备 must show its real Back binding ("[B] 返回" on a
+            // controller / "[Esc] 返回" on the keyboard), rewritten at runtime by
+            // ShipDeployConfirmPage for the device in hand.
+            var deployUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(DeployUxmlPath);
+            Record(deployUxml != null, "deployment panel uxml imports: " + DeployUxmlPath);
+            if (deployUxml != null)
+            {
+                TemplateContainer deployTemplate = deployUxml.Instantiate();
+                Label deployHint = deployTemplate.Q<Label>(ShipDeployConfirmPage.BackHintName);
+                Record(deployHint != null,
+                    "出征前准备 carries its Back hint line (element "
+                    + ShipDeployConfirmPage.BackHintName + ")");
+                Record(deployHint != null && deployHint.text.Contains("返回"),
+                    "the 出征前准备 Back hint really reads 返回 (actual: "
+                    + (deployHint != null ? deployHint.text : "<missing>") + ")");
+                Record(deployTemplate.Q<Button>(ShipDeployConfirmPage.CancelButtonName) != null,
+                    "出征前准备 keeps its 取消 button (the same Back action)");
+            }
+
             // Revision 2: the title screen carries 活下去 and exactly four
             // options as real Buttons, and none of the previous cover's chrome.
             Label menuTitle = menuTemplate.Q<Label>(MainMenuNames.Title);
@@ -617,6 +638,23 @@ public static class SurviveProjectValidator
             Record(CountInScene<ShipSpawnMarker>() == 2,
                 "03_ShipInterior has exactly 2 spawn markers (found "
                 + CountInScene<ShipSpawnMarker>() + ")");
+
+            // Phase 08 §14: ONE authoritative device-panel state. The two Airlock
+            // panels (装备整理 / 出征前准备) are the two modes of this single
+            // coordinator plus the two existing pages - never a duplicate panel,
+            // a second modal manager or a second input system.
+            Record(CountInScene<ShipOverlayUi>() == 1,
+                "03_ShipInterior has exactly one device-panel authority "
+                + "ShipOverlayUi (found " + CountInScene<ShipOverlayUi>() + ")");
+            Record(CountInScene<ShipDeployConfirmPage>() == 1,
+                "03_ShipInterior has exactly one 出征前准备 page (found "
+                + CountInScene<ShipDeployConfirmPage>() + ")");
+            Record(CountInScene<ShipLoadoutPage>() == 1,
+                "03_ShipInterior has exactly one 装备整理 page (found "
+                + CountInScene<ShipLoadoutPage>() + ")");
+            Record(CountInScene<EquipmentLockerInteractable>() == 1,
+                "03_ShipInterior has exactly one equipment locker interactable "
+                + "(found " + CountInScene<EquipmentLockerInteractable>() + ")");
 
             // Console identities must be the four production screens in order.
             var consoleIds = new List<int>();
