@@ -1,53 +1,71 @@
-# Phase09A_1 HANDOFF — First-Person EVA Arms Revision02
+# Phase09A_1 HANDOFF — First-Person EVA Arms Revision03
 
-Status: **Revision02 asset package complete and ready for visual review.**
+Status: **Revision03 asset package complete and visually validated.**
 
-This was a **Codex-owned Blender asset workflow**. Unity integration was **NOT**
-performed. No runtime prefab, Animator Controller, camera mount, input wiring,
-gameplay code, or production Wrist UI object was created or changed.
+This revision is a Codex-owned Blender asset correction. It changes only the
+Phase09A_1 source package. **Unity integration was NOT performed.** No Unity
+scene, prefab, Animator Controller, camera mount, input binding, gameplay code,
+Wrist UI object, ProjectSettings, or Packages file was created or changed.
 
-## 1. Revision02 visual redesign
-
-The previous Phase09A_1 asset was retained only as a rig/export/animation
-baseline. Its visible mesh direction was replaced.
-
-- Both forearms now use a tapered pressurised sleeve, three graphite pressure
-  bellows, a broad suit ring, three separate dorsal armour plates, side rails,
-  and a restrained orange identification strip.
-- Both hands now read as thick graphite EVA gloves with a rigid dorsal plate,
-  reinforced thumb saddle, padded fingers, and segmented knuckle protection.
-- The normal resting pose was widened: shoulders and wrists sit farther left
-  and right, leaving a large clear central view.
-- The **right glove was re-authored after visual review**. Its lateral finger
-  order, index edge, thumb mesh, thumb bones, and thumb reinforcement are on
-  the opposite local side from the left glove. Normals were recalculated
-  outward. `right_hand_check.png` is a palm/thumb-side verification view.
-- The left wrist terminal was redesigned again from the user's latest sketch.
-  It is **not an eight-segment mechanical ring**. It has:
-  - four diagonal cyan screen-like structures;
-  - four long cardinal rectangular divider structures;
-  - two fore/aft cylindrical side buttons with narrow orange collars;
-  - one large physical off-white centre cap;
-  - one small recessed cyan projector aperture;
-  - a long layered carrier plate integrated into the left forearm armour.
-
-Palette: off-white/light grey suit shell, graphite pressure/glove areas,
-restrained orange ID details, and limited cyan emission on the four small
-screens and centre aperture.
-
-## 2. Output paths
+## 1. Authoritative outputs
 
 | Artifact | Path |
 | --- | --- |
 | Blender source | `ArtSource/Phase09A_1/output/FP_PlayerArms.blend` |
 | FBX export | `ArtSource/Phase09A_1/output/FP_PlayerArms.fbx` |
-| Builder | `ArtSource/Phase09A_1/scripts/build_fp_arms.py` |
-| Render driver | `ArtSource/Phase09A_1/scripts/render_validation.py` |
-| Validation folder | `ArtSource/Phase09A_1/validation/revision02/` |
+| Deterministic builder | `ArtSource/Phase09A_1/scripts/build_fp_arms.py` |
+| Validation renderer | `ArtSource/Phase09A_1/scripts/render_validation.py` |
+| Validation analysis | `ArtSource/Phase09A_1/scripts/analyze_validation.py` |
+| FBX verifier | `ArtSource/Phase09A_1/scripts/verify_fbx.py` |
+| Revision03 evidence | `ArtSource/Phase09A_1/validation/revision03/` |
 
-No production output was placed under `Assets/`.
+The builder starts from an empty Blender file, recreates the five runtime mesh
+objects and 20-bone rig, overwrites the two authority outputs, and creates no
+duplicate runtime objects or Actions when rerun.
 
-## 3. Final object package
+## 2. Revision03 visual redesign
+
+### EVA arms and gloves
+
+- Off-white tapered pressure sleeves retain segmented dorsal armour, graphite
+  bellows, rigid wrist rings, side rails, and restrained orange ID strips.
+- Graphite EVA gloves retain reinforced dorsal plates, thumb saddles, padded
+  fingers, and low-poly knuckle protection.
+- The corrected right-hand construction from Revision02 is preserved: its
+  thumb/index side is authored opposite the left hand. In the 52-degree
+  look-down validation, both thumbs face naturally inward and the right hand is
+  not mirrored.
+- No torso, head, legs, full character, or humanoid rig was added.
+
+### Compact wrist terminal
+
+Revision02's long carrier slab, large circular under-frame, and shield-like
+outer structure were removed rather than scaled down.
+
+The new left-wrist device uses:
+
+- one dominant cut-corner central cyan main screen;
+- four small inset cyan function panes;
+- one thin **green upper status arc**;
+- one thin **orange lower status arc**;
+- four short protective separators;
+- two compact fore/aft cylindrical side buttons with narrow orange collars;
+- a shallow graphite/off-white chassis and a narrow clamp centred on the wrist
+  axis;
+- rigid `WristDevice_L` weighting, with the terminal moved 58 mm toward the
+  elbow so it does not overlap the hand armour.
+
+Measured design comparison:
+
+| Measure | Revision02 reference | Revision03 | Reduction |
+| --- | ---: | ---: | ---: |
+| Face/chassis width | 130 mm | 84 mm | 35.38% |
+| Face stack thickness | 46 mm | 17.5 mm | 61.96% |
+
+The terminal now reads as a compact physical support for the Wrist UI, not a
+large mechanical shield or Pip-Boy-sized interface.
+
+## 3. Runtime object and material package
 
 ```text
 SK_FPArms
@@ -59,31 +77,33 @@ SK_FPArms
     └── GEO_Hand_R
 ```
 
-Final geometry is 4,576 triangles:
+Geometry total: **4,604 triangles**.
 
 | Mesh | Triangles |
 | --- | ---: |
 | `GEO_Arm_L` | 764 |
 | `GEO_Hand_L` | 788 |
-| `GEO_WristDevice_L` | 1,412 |
+| `GEO_WristDevice_L` | 1,440 |
 | `GEO_Arm_R` | 764 |
 | `GEO_Hand_R` | 848 |
 
-All five meshes have applied object transforms, one UV set, stable material
-slots, an Armature modifier, and are parented to `RIG_FPArms`.
-
-Material slots, in stable order:
+Stable material-slot order:
 
 1. `MAT_Glove`
 2. `MAT_Sleeve`
 3. `MAT_DeviceBody`
 4. `MAT_DeviceAccent`
 5. `MAT_DeviceEmissive`
+6. `MAT_DeviceGreen`
 
-## 4. Rig summary
+`MAT_DeviceEmissive` is used by the main screen and four cyan function panes.
+`MAT_DeviceGreen` is the independently controllable green upper arc;
+`MAT_DeviceAccent` contains the restrained orange lower arc and ID accents.
 
-The lightweight 20-bone first-person rig and all public bone names were kept.
-No torso, humanoid skeleton, IK constraints, or full-body bones were added.
+## 4. Rig contract
+
+**Rig contract preserved from Revision02.** Bone names and hierarchy are
+unchanged; FBX raw readback confirms exactly 20 limb nodes.
 
 ```text
 Root
@@ -102,128 +122,164 @@ Root
             └── Fingers_R → Fingers_02_R
 ```
 
-Revision02 rig changes:
+Revision03 changes bone placement only where required by the new deformation
+and presentation:
 
-- shoulder and rest-wrist positions were widened;
-- dorsal roll hints were changed so armour plates face the first-person camera;
-- right index/finger lateral positions and fan direction were mirrored;
-- right thumb base, direction, mesh weights, and both thumb bones were moved to
-  the corrected opposite local side;
-- the left wrist hold target was revised for the larger embedded terminal;
-- bone names and hierarchy remain stable.
+- both rest wrists were placed at body-space coordinates
+  `L=(0.255,-0.110,-0.715)`, `R=(-0.255,-0.110,-0.715)` in the documented
+  Blender authoring frame;
+- elbow poles were revised for a relaxed natural bend;
+- `WristDevice_L` was moved toward the elbow with the compact face;
+- the device bone now preserves its exact rest-relative transform to
+  `Forearm_L`, preventing roll flips and keeping the rigid terminal stable.
 
-## 5. Animation clips
+There are no renamed or removed bones, no hierarchy changes, and no breaking
+rig change.
 
-All clips are baked at 30 FPS. Timing and required clip names remain unchanged.
-Raw FBX `AnimationStack` names were verified as exactly the names below.
+## 5. Animation contract
 
-| Clip | Frames | Duration | Loop |
-| --- | ---: | ---: | --- |
-| `FP_Idle` | 1–61 | 2.000 s | yes |
-| `FP_Walk` | 1–41 | 1.333 s | yes |
-| `Wrist_Raise` | 1–25 | 0.800 s | no |
-| `Wrist_Idle` | 1–91 | 3.000 s | yes |
-| `Wrist_Lower` | 1–21 | 0.667 s | no |
-| `Interact_Right` | 1–31 | 1.000 s | no; optional |
+All clips are baked at **30 FPS**, Generic-rig compatible, and FBX raw readback
+confirms the six exact public take names.
 
-- `FP_Idle`: low, side-based arms with subtle breathing and a clear centre.
-- `FP_Walk`: mild opposing swing and body bob; no weapon-style exaggeration.
-- `Wrist_Raise`: lifts the left arm inward/upward and presents the terminal.
-- `Wrist_Idle`: stable UI-support pose with small looped micro motion.
-- `Wrist_Lower`: eased return to the new wide rest pose without snapping.
+| Clip | Frames | Duration | Loop | Revision03 presentation |
+| --- | ---: | ---: | --- | --- |
+| `FP_Idle` | 1–61 | 2.000 s | yes | natural hanging body-space rest, subtle micro motion |
+| `FP_Walk` | 1–41 | 1.333 s | yes | restrained opposing body-space swing |
+| `Wrist_Raise` | 1–25 | 0.800 s | no | lifts from hanging rest, bends elbow, turns watch toward eye |
+| `Wrist_Idle` | 1–91 | 3.000 s | yes | stable raised hold with small looped motion |
+| `Wrist_Lower` | 1–21 | 0.667 s | no | smooth return to the new hanging rest pose |
+| `Interact_Right` | 1–31 | 1.000 s | no | preserved optional right-hand interaction |
 
-The three loop clips have identical first/last poses. Measured maximum matrix
-element deviation is `0.0`.
+Loop validation for `FP_Idle`, `FP_Walk`, and `Wrist_Idle`: first/last pose
+maximum matrix-element deviation = **0.0**.
 
-**Root Motion = OFF.** The `Root` bone remains at identity throughout every
-frame of every clip; measured maximum deviation is `0.0`.
+**Root Motion = OFF.** `Root` remains at identity for every frame in every
+clip; measured maximum root-basis deviation = **0.0**.
 
-## 6. Wrist UI contract
+## 6. FIRST-PERSON BODY-SPACE CONTRACT
 
-The existing Wrist UI is authoritative and was treated as read-only.
+**The rest arms are authored in BODY SPACE.**
 
-- Camera vertical FOV: **70 degrees**
-- Aspect ratio used for validation: **16:9**
-- Wrist UI frame reference relative to camera:
-  **`(-0.265, -0.335, 0.69)`**
-- Wrist UI itself was **not moved, scaled, rebuilt, or redesigned**.
-- The arm/device was adapted to the UI.
+- Validation camera vertical FOV: **70 degrees**, aspect **16:9**.
+- At camera pitch `0°`, `FP_Idle` and `FP_Walk` show no hand, glove, sleeve, or
+  watch pixels. Projected runtime vertices inside the frustum: `0 / 2596`.
+- At camera pitch `52°` down, the same camera position naturally reveals the
+  left arm at lower-left and right arm at lower-right.
+- Look-down visible vertex fractions: left `91.54%`, right `84.95%`.
+- Look-down projected bounding boxes remain separated by a clear centre:
+  left NDC x `[-0.8675,-0.1715]`, right NDC x `[0.1715,0.8675]`.
+- The rendered central 40% safe area remains **93.77% clear** in Idle and
+  **94.87% clear** in Walk.
 
-Final `Wrist_Idle` measured presentation:
+### Critical Phase09A_2 integration instruction
 
-- device face NDC: `(-0.56, -0.80)`;
-- device centre, Unity camera-local: `(-0.23701, -0.19046, 0.34)`;
-- device-to-UI-pivot distance: `0.37971 m`;
-- device face aim dot-to-eye: `0.97`;
-- device remains below and left of the holographic composition.
+Do **NOT** permanently pitch or rotate the entire arm rig into the forward
+camera view. Do **NOT** reproduce a fixed `restPitchDegrees=-40` (or similar)
+presentation workaround.
 
-198 UI reference samples were ray-tested in the final hold pose:
+Recommended Unity behavior:
 
-- map: `0 / 96` occluded;
-- status ring: `0 / 54` occluded;
-- upper-left, upper-right, and lower-right panels: `0` occluded;
-- lower-left edge panel: `7 / 12` samples occluded by the physical wrist;
-- total: `7 / 198` (`3.54%`).
+- the arms root follows player body/root position and **yaw**;
+- the resting arms do not blindly inherit Eye Camera pitch;
+- camera pitch down naturally reveals the hanging body-space arms;
+- `Wrist_Raise` independently brings the left wrist into forward view;
+- no fixed rest rotation should be added merely to keep hands on-screen.
 
-The remaining overlap is confined to the lower-left edge where the physical
-emitter enters the composition. Major map and status content remain clear.
+The previous Unity checkpoint is intentionally untouched. Removing/replacing
+its temporary rest-pitch workaround belongs to the next DSH Phase09A_2 asset
+integration revision, not this asset commit.
 
-## 7. Validation renders
+## 7. WRIST PRESENTATION CONTRACT
 
-All required renders were generated at 1280×720 with Blender Eevee Next and
-were visually inspected, not accepted from numeric checks alone.
+The existing Wrist UI is authoritative and remains unchanged.
 
-| Render | Status | Review purpose |
-| --- | --- | --- |
-| `fp_idle.png` | PASS | wide side placement and clear centre |
-| `fp_walk_lookdown.png` | PASS | mild readable locomotion swing |
-| `wrist_raise.png` | PASS | smooth approach to presentation area |
-| `wrist_idle.png` | PASS | stable below-left emitter composition |
-| `wrist_device_closeup.png` | PASS | 4 screens, 4 dividers, 2 cylinder buttons |
-| `right_hand_check.png` | PASS | corrected right palm/thumb-side silhouette |
-| `external_front.png` | PASS | full spacesuit armour read |
-| `external_side.png` | PASS | layered sleeve/device depth |
+- Camera FOV: **70°**.
+- Wrist UI reference relative to camera: **`(-0.265, -0.335, 0.69)`**.
+- `Wrist_Raise` starts from the body-space hanging pose.
+- `Wrist_Idle` holds the physical device at NDC `(-0.56,-0.80)`, below/left
+  and behind the intended UI presentation region.
+- Device face-to-eye alignment dot at Hold: `0.9684`; the main screen is
+  readable with a small amount of real 3D perspective.
+- Device viewport NDC bbox: `[-0.7466,-1.0909,-0.4117,-0.5478]`.
+- UI central proxy NDC bbox: `[-0.4659,-0.7661,0.3378,0.6627]`.
+- Device/UI-central bbox overlap is **1.03% of the UI central bbox**.
+- Ray testing of 198 authoritative UI samples found `4 / 198` blocked
+  (`2.02%`), confined to the lower-left panel edge. Map `0 / 96`, status ring
+  `0 / 54`, and all other panel samples remain clear.
 
-Additional evidence:
+Unity should render the authoritative Wrist UI above the physical watch. The
+3D watch is presentation support, not UI authority. Physical arm/watch
+dimming, softening, blur, and final compositing may be implemented by DSH in
+the next Unity revision; the UI itself should remain sharp. **No blur or Unity
+composition work was attempted in Blender or Unity in this revision.**
 
-- `wrist_alignment_guide.png` — validation-only read-only UI wireframe;
-- `asset_report.json` — geometry, rig, hold and occlusion measurements;
-- `render_report.json` — render metadata;
-- `validation_analysis.json` — image, loop and root-motion checks;
-- `fbx_verify.json` — FBX re-import structure and action ranges.
+## 8. Revision03 validation evidence
 
-Validation-only camera, lights, UI guide, and presentation objects are not
-included in the FBX export.
+All 16 required PNGs were generated at 1280×720 and actually inspected. The
+three acceptance-gate images pass visually, not only numerically.
 
-## 8. Exact Unity handoff notes for Phase09A_2
+| File | Visual result |
+| --- | --- |
+| `01_wrist_device_top.png` | PASS — main screen, four cyan panes, green top/orange bottom arcs |
+| `02_wrist_device_front.png` | PASS — compact controls and reduced footprint |
+| `03_wrist_device_side.png` | PASS — shallow layered face profile |
+| `04_wrist_device_on_arm.png` | PASS — integrated forearm scale, no shield silhouette |
+| `05_fp_forward_view.png` | PASS — level 70° view contains no arms |
+| `06_fp_look_down.png` | PASS — both hanging arms visible at 52°, centre clear |
+| `07_fp_walk_forward.png` | PASS — level walk contains no arms |
+| `08_fp_walk_look_down.png` | PASS — mild side-based swing, centre clear |
+| `09_wrist_raise_25.png` | PASS — fixed external path view leaving hanging rest |
+| `10_wrist_raise_50.png` | PASS — elbow flexion and upward/forward travel |
+| `11_wrist_raise_75.png` | PASS — late raise approaches eye-facing Hold |
+| `12_wrist_hold.png` | PASS — small readable device in lower-left |
+| `13_wrist_hold_ui_proxy.png` | PASS — UI centre unobstructed above/forward of watch |
+| `14_wrist_lower_50.png` | PASS — clean return path, no snap |
+| `15_external_front.png` | PASS — arms hang under their respective shoulders |
+| `16_external_side.png` | PASS — body-space placement rather than camera-space reach |
 
-These are integration instructions only. They were **not executed** here.
+Machine-readable evidence in the same folder:
 
-1. Import `FP_PlayerArms.fbx` as a **Generic** rig.
-2. Use the project’s established Blender FBX mapping. The export uses
-   `axis_forward=-Z`, `axis_up=Y`, metre units, no added leaf bones, and the
-   same convention as `MainMenuShip`.
-3. Parent the imported asset under `FirstPersonCamera`. Keep the imported root
-   conversion transform produced by Unity; do not casually zero its conversion
-   rotation/scale.
-4. Set `Animator.applyRootMotion = false`.
-5. Mark `FP_Idle`, `FP_Walk`, and `Wrist_Idle` as loop clips. Leave
-   `Wrist_Raise`, `Wrist_Lower`, and optional `Interact_Right` non-looping.
-6. Drive `FP_Idle`/`FP_Walk` from locomotion and
-   `Wrist_Raise → Wrist_Idle → Wrist_Lower` from existing Wrist UI events.
-7. Do not move or rescale the Wrist UI to compensate for the arm. Preserve FOV
-   70 and the reference `(-0.265, -0.335, 0.69)`.
-8. Map the five imported material slots to project URP materials by the exact
-   `MAT_*` names above.
-9. If a projector/VFX anchor is required, expose `WristDevice_L` or disable
-   Optimize Game Objects for that transform.
-10. Any prefab, Animator Controller, camera attachment, input wiring, or final
-    presentation nudge belongs to Phase09A_2.
+- `asset_report.json` — geometry, materials, rig, clips, hold and ray checks;
+- `render_report.json` — camera/view metadata for all 16 images;
+- `validation_analysis.json` — image coverage, side visibility, safe area,
+  loop, root-motion, and proxy-overlap checks;
+- `fbx_verify.json` — FBX 7400 raw take names, 20 raw limb nodes, hierarchy,
+  action ranges, mesh/material contents, and bounds.
 
-## 9. Scope confirmation
+`BodyReference`, `HeadReference`, `Shoulder_L`, `Shoulder_R`,
+`EyeCameraReference`, `CAM_FP_Forward`, `CAM_FP_LookDown`, and `WristUIProxy`
+are validation-only objects created by the render script. They are not saved as
+runtime content and are not exported in the FBX.
 
-- Wrist UI was **NOT changed**.
-- Unity integration was **NOT performed**.
-- No runtime prefab or Animator Controller was created.
-- No torso, head, legs, full character, or unrelated environment asset was
-  created.
+## 9. Exact Unity handoff notes for the next DSH pass
+
+These instructions were **not executed** in Revision03:
+
+1. Import the authority `FP_PlayerArms.fbx` as a **Generic** rig and preserve
+   the existing Blender FBX conversion (`axis_forward=-Z`, `axis_up=Y`, metre
+   authoring units, no added leaf bones).
+2. Preserve all 20 bone names and use `WristDevice_L` as the optional exposed
+   physical-device/VFX anchor.
+3. Set `Animator.applyRootMotion = false`.
+4. Loop only `FP_Idle`, `FP_Walk`, and `Wrist_Idle`.
+5. Anchor the arm root to player body position/yaw. Do not force the body-space
+   rest pose into the camera with `restPitchDegrees=-40` or any fixed pitch.
+6. Let camera pitch reveal the rest arms naturally; use the authored
+   `Wrist_Raise → Wrist_Idle → Wrist_Lower` sequence for wrist presentation.
+7. Preserve the authoritative Wrist UI, FOV `70°`, and reference
+   `(-0.265,-0.335,0.69)`. Do not move/rescale UI to chase the arm.
+8. Map the six imported material slots by exact `MAT_*` names. The central
+   display/four cyan panes, green arc, and orange accents have separate control
+   channels as described above.
+9. Render the UI sharply above the physical watch. Any physical-only
+   blur/softening/compositing is DSH work in Phase09A_2 Revision.
+
+## 10. Compatibility and scope confirmation
+
+- Bone names changed: **NO**
+- Bone hierarchy changed: **NO**
+- Animation names changed: **NO**
+- Breaking change: **NO**
+- Wrist UI changed: **NO**
+- Unity integration performed: **NO**
+- Files outside `ArtSource/Phase09A_1`: **NO**

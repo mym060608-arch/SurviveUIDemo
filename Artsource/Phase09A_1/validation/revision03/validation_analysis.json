@@ -1,0 +1,665 @@
+{
+ "revision": "Revision03",
+ "images": [
+  {
+   "file": "01_wrist_device_top.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.3836,
+   "central_safe_area_fraction": 0.1471,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2289,
+    "top": 0.0,
+    "right": 0.7711,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "02_wrist_device_front.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.3912,
+   "central_safe_area_fraction": 0.1532,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2141,
+    "top": 0.0,
+    "right": 0.8031,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "03_wrist_device_side.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.3667,
+   "central_safe_area_fraction": 0.3785,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0,
+    "top": 0.0,
+    "right": 0.7266,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "04_wrist_device_on_arm.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.2477,
+   "central_safe_area_fraction": 0.4155,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2484,
+    "top": 0.0,
+    "right": 0.6898,
+    "bottom": 0.7153
+   }
+  },
+  {
+   "file": "05_fp_forward_view.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0,
+   "central_safe_area_fraction": 1.0
+  },
+  {
+   "file": "06_fp_look_down.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0752,
+   "central_safe_area_fraction": 0.9377,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0047,
+    "top": 0.8264,
+    "right": 0.9945,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "07_fp_walk_forward.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0,
+   "central_safe_area_fraction": 1.0
+  },
+  {
+   "file": "08_fp_walk_look_down.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0776,
+   "central_safe_area_fraction": 0.9487,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0195,
+    "top": 0.7556,
+    "right": 1.0,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "09_wrist_raise_25.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.1336,
+   "central_safe_area_fraction": 0.7438,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2914,
+    "top": 0.3417,
+    "right": 0.825,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "10_wrist_raise_50.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.1244,
+   "central_safe_area_fraction": 0.6937,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2914,
+    "top": 0.3014,
+    "right": 0.7102,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "11_wrist_raise_75.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.1331,
+   "central_safe_area_fraction": 0.6714,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2914,
+    "top": 0.1417,
+    "right": 0.7195,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "12_wrist_hold.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0422,
+   "central_safe_area_fraction": 0.9924,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0719,
+    "top": 0.7306,
+    "right": 0.3281,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "13_wrist_hold_ui_proxy.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0675,
+   "central_safe_area_fraction": 0.9575,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0719,
+    "top": 0.0,
+    "right": 0.7812,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "14_wrist_lower_50.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.1174,
+   "central_safe_area_fraction": 0.7386,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2914,
+    "top": 0.3431,
+    "right": 0.7727,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "15_external_front.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.2049,
+   "central_safe_area_fraction": 0.8633,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2211,
+    "top": 0.2153,
+    "right": 0.9375,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "16_external_side.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.1792,
+   "central_safe_area_fraction": 0.5659,
+   "asset_bbox_frame_fraction": {
+    "left": 0.3516,
+    "top": 0.2,
+    "right": 0.7539,
+    "bottom": 1.0
+   }
+  }
+ ],
+ "poses": [
+  {
+   "clip": "FP_Idle",
+   "frame": 1,
+   "pitch_deg": 0.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 0,
+   "frustum_coverage": 0.0,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    }
+   }
+  },
+  {
+   "clip": "FP_Idle",
+   "frame": 1,
+   "pitch_deg": 52.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 2315,
+   "frustum_coverage": 0.8918,
+   "ndc_bbox": [
+    -0.8675,
+    -0.9995,
+    0.8675,
+    -0.654
+   ],
+   "viewport_bbox_area_fraction": 0.1498,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 1525,
+     "visible_vertex_fraction": 0.9154,
+     "ndc_bbox": [
+      -0.8675,
+      -0.9995,
+      -0.1715,
+      -0.654
+     ],
+     "viewport_bbox_area_fraction": 0.0601
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 790,
+     "visible_vertex_fraction": 0.8495,
+     "ndc_bbox": [
+      0.1715,
+      -0.9995,
+      0.8675,
+      -0.654
+     ],
+     "viewport_bbox_area_fraction": 0.0601
+    }
+   }
+  },
+  {
+   "clip": "FP_Walk",
+   "frame": 11,
+   "pitch_deg": 0.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 0,
+   "frustum_coverage": 0.0,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    }
+   }
+  },
+  {
+   "clip": "FP_Walk",
+   "frame": 11,
+   "pitch_deg": 52.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 2164,
+   "frustum_coverage": 0.8336,
+   "ndc_bbox": [
+    -0.8286,
+    -0.9997,
+    0.9183,
+    -0.5102
+   ],
+   "viewport_bbox_area_fraction": 0.2138,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 1312,
+     "visible_vertex_fraction": 0.7875,
+     "ndc_bbox": [
+      -0.8286,
+      -0.9997,
+      -0.2081,
+      -0.8015
+     ],
+     "viewport_bbox_area_fraction": 0.0307
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 852,
+     "visible_vertex_fraction": 0.9161,
+     "ndc_bbox": [
+      0.1723,
+      -0.9886,
+      0.9183,
+      -0.5102
+     ],
+     "viewport_bbox_area_fraction": 0.0892
+    }
+   }
+  },
+  {
+   "clip": "Wrist_Raise",
+   "frame": 7,
+   "pitch_deg": 0.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 0,
+   "frustum_coverage": 0.0,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    }
+   }
+  },
+  {
+   "clip": "Wrist_Raise",
+   "frame": 13,
+   "pitch_deg": 0.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 2,
+   "frustum_coverage": 0.0008,
+   "ndc_bbox": [
+    -0.5219,
+    -0.9952,
+    -0.5148,
+    -0.9876
+   ],
+   "viewport_bbox_area_fraction": 0.0,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 2,
+     "visible_vertex_fraction": 0.0012,
+     "ndc_bbox": [
+      -0.5219,
+      -0.9952,
+      -0.5148,
+      -0.9876
+     ],
+     "viewport_bbox_area_fraction": 0.0
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    }
+   }
+  },
+  {
+   "clip": "Wrist_Raise",
+   "frame": 19,
+   "pitch_deg": 0.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 1076,
+   "frustum_coverage": 0.4145,
+   "ndc_bbox": [
+    -0.8324,
+    -0.9997,
+    -0.3481,
+    -0.497
+   ],
+   "viewport_bbox_area_fraction": 0.0609,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 1076,
+     "visible_vertex_fraction": 0.6459,
+     "ndc_bbox": [
+      -0.8324,
+      -0.9997,
+      -0.3481,
+      -0.497
+     ],
+     "viewport_bbox_area_fraction": 0.0609
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    }
+   }
+  },
+  {
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "pitch_deg": 0.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 1213,
+   "frustum_coverage": 0.4673,
+   "ndc_bbox": [
+    -0.8226,
+    -0.9997,
+    -0.3448,
+    -0.463
+   ],
+   "viewport_bbox_area_fraction": 0.0641,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 1213,
+     "visible_vertex_fraction": 0.7281,
+     "ndc_bbox": [
+      -0.8226,
+      -0.9997,
+      -0.3448,
+      -0.463
+     ],
+     "viewport_bbox_area_fraction": 0.0641
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    }
+   }
+  },
+  {
+   "clip": "Wrist_Lower",
+   "frame": 11,
+   "pitch_deg": 0.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 0,
+   "frustum_coverage": 0.0,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 0,
+     "visible_vertex_fraction": 0.0
+    }
+   }
+  },
+  {
+   "clip": "Interact_Right",
+   "frame": 16,
+   "pitch_deg": 42.0,
+   "vertices": 2596,
+   "vertices_inside_frustum": 901,
+   "frustum_coverage": 0.3471,
+   "ndc_bbox": [
+    -0.4011,
+    -0.9991,
+    0.7287,
+    0.0473
+   ],
+   "viewport_bbox_area_fraction": 0.2956,
+   "sides": {
+    "left": {
+     "vertices": 1666,
+     "vertices_inside_frustum": 19,
+     "visible_vertex_fraction": 0.0114,
+     "ndc_bbox": [
+      -0.4011,
+      -0.9991,
+      -0.282,
+      -0.9854
+     ],
+     "viewport_bbox_area_fraction": 0.0004
+    },
+    "right": {
+     "vertices": 930,
+     "vertices_inside_frustum": 882,
+     "visible_vertex_fraction": 0.9484,
+     "ndc_bbox": [
+      -0.0084,
+      -0.9979,
+      0.7287,
+      0.0473
+     ],
+     "viewport_bbox_area_fraction": 0.1926
+    }
+   }
+  }
+ ],
+ "loops": [
+  {
+   "clip": "FP_Idle",
+   "first_frame": 1,
+   "last_frame": 61,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "FP_Walk",
+   "first_frame": 1,
+   "last_frame": 41,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "Wrist_Idle",
+   "first_frame": 1,
+   "last_frame": 91,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  }
+ ],
+ "root_motion": {
+  "max_root_basis_deviation_from_identity": 0.0
+ },
+ "wrist_ui_proxy": {
+  "clip": "Wrist_Idle",
+  "frame": 46,
+  "device_ndc_bbox": [
+   -0.7466,
+   -1.0909,
+   -0.4117,
+   -0.5478
+  ],
+  "ui_central_ndc_bbox": [
+   -0.4659,
+   -0.7661,
+   0.3378,
+   0.6627
+  ],
+  "overlap_fraction_of_ui_central_bbox": 0.0103,
+  "overlap_fraction_of_device_bbox": 0.065,
+  "ray_sample_occlusion_fraction": 0.0202
+ }
+}

@@ -1,5 +1,5 @@
 """
-SurviveUIDemo -- Phase09A_1 Revision02
+SurviveUIDemo -- Phase09A_1 Revision03
 First-person EVA arms + left survival terminal: geometry, rig, animation and export.
 
 Run:
@@ -59,7 +59,7 @@ rad = math.radians
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE = os.path.dirname(SCRIPT_DIR)
 OUT_DIR = os.path.join(BASE, "output")
-VAL_DIR = os.path.join(BASE, "validation", "revision02")
+VAL_DIR = os.path.join(BASE, "validation", "revision03")
 for folder in (OUT_DIR, VAL_DIR):
     os.makedirs(folder, exist_ok=True)
 
@@ -114,8 +114,8 @@ def ui_design_to_blender(px, py):
 UPPER_LEN = 0.300
 FORE_LEN = 0.275
 HAND_LEN = 0.185
-DEVICE_STANDOFF = 0.050     # device face centre above the forearm axis
-DEVICE_AXIAL = 0.030        # device centre offset toward the elbow
+DEVICE_STANDOFF = 0.043     # compact terminal mount above the forearm axis
+DEVICE_AXIAL = 0.058        # compact face sits fully on the forearm, clear of hand armour
 DEVICE_BONE_HALF = 0.034
 
 SHOULDER = {
@@ -123,16 +123,16 @@ SHOULDER = {
     "R": Vector((-0.225, 0.060, -0.205)),
 }
 IDLE_WRIST = {
-    "L": Vector((0.278, -0.265, -0.650)),
-    "R": Vector((-0.278, -0.265, -0.650)),
+    "L": Vector((0.255, -0.110, -0.715)),
+    "R": Vector((-0.255, -0.110, -0.715)),
 }
 IDLE_POLE = {
-    "L": Vector((0.40, 0.42, -0.82)),
-    "R": Vector((-0.40, 0.42, -0.82)),
+    "L": Vector((0.405, 0.080, -0.510)),
+    "R": Vector((-0.405, 0.080, -0.510)),
 }
 IDLE_HAND = {
-    "L": Vector((-0.10, -0.56, -0.82)).normalized(),
-    "R": Vector((0.10, -0.56, -0.82)).normalized(),
+    "L": Vector((0.025, -0.120, -0.992)).normalized(),
+    "R": Vector((-0.025, -0.120, -0.992)).normalized(),
 }
 
 # Wrist_Raise end pose.  Stated in the SAME terms as the UI contract -- screen
@@ -183,6 +183,9 @@ MATERIAL_SPECS = [
     # Kept deliberately dim and small; the housing, not the glow, leads.
     ("MAT_DeviceEmissive", (0.015, 0.185, 0.250), 0.12, 0.25,
      (0.02, 0.62, 0.82), 1.35),
+    # Dedicated restrained green status channel for the upper watch arc.
+    ("MAT_DeviceGreen", (0.025, 0.255, 0.120), 0.10, 0.30,
+     (0.03, 0.72, 0.28), 1.15),
 ]
 MAT = {spec[0]: index for index, spec in enumerate(MATERIAL_SPECS)}
 
@@ -759,93 +762,106 @@ def build_hand(part, side, wrist, hand_dir, dorsal):
 
 
 def build_wrist_device(part, device_center, fdir, dorsal):
-    """Sketch-led terminal: 4 screens, 4 dividers, 2 fore/aft side buttons."""
+    """Revision03 compact terminal: main screen, 4 status panes and 2 buttons.
+
+    The face is rebuilt instead of uniformly scaling Revision02.  It has no
+    carrier slab and no large mechanical ring; every surrounding element is a
+    shallow inset, short separator, or small side control close to the screen.
+    """
     fd = frame(device_center, fdir, dorsal)
     weights = {"WristDevice_L": 1.0}
 
-    # Flexible inner clamp still wraps the wrist, but most of it is hidden by
-    # the long armoured carrier so the device reads as embedded equipment.
-    outer = [(0.060 * math.cos(TAU * i / 12), 0.054 * math.sin(TAU * i / 12))
+    # A narrow flexible clamp integrates the terminal into the forearm armour.
+    # Profiles are centred on the wrist axis (the device frame origin is
+    # already DEVICE_STANDOFF above that axis), so the clamp cannot pass over
+    # and occlude the thin screen assembly.
+    outer = [(0.050 * math.cos(TAU * i / 12),
+              -DEVICE_STANDOFF + 0.041 * math.sin(TAU * i / 12))
              for i in range(12)]
-    inner = [(0.052 * math.cos(TAU * i / 12), 0.046 * math.sin(TAU * i / 12))
+    inner = [(0.044 * math.cos(TAU * i / 12),
+              -DEVICE_STANDOFF + 0.035 * math.sin(TAU * i / 12))
              for i in range(12)]
-    strap = band_around_y(outer, inner, -0.034, 0.034)
+    strap = band_around_y(outer, inner, -0.027, 0.027)
     part.add(transform_verts(fd, strap[0]), strap[1], MAT["MAT_Glove"], weights, strap[2])
 
-    # Long carrier plate ties the terminal into the left forearm armour.
-    carrier = plate(rect_profile(0.065, 0.074, 0.012), 0.020, 0.035,
-                    chamfer=0.006)
-    part.add(transform_verts(fd, carrier[0]), carrier[1], MAT["MAT_DeviceBody"],
-             weights, carrier[2])
-    carrier_inset = plate(rect_profile(0.057, 0.066, 0.010), 0.035, 0.040,
-                          chamfer=0.004)
-    part.add(transform_verts(fd, carrier_inset[0]), carrier_inset[1],
-             MAT["MAT_Glove"], weights, carrier_inset[2])
+    # Thin cut-corner chassis: only slightly larger than its central screen.
+    chassis = plate(rect_profile(0.042, 0.048, 0.008), -0.002, 0.007,
+                    chamfer=0.0025)
+    part.add(transform_verts(fd, chassis[0]), chassis[1], MAT["MAT_DeviceBody"],
+             weights, chassis[2])
+    face_inset = plate(rect_profile(0.038, 0.044, 0.007), 0.007, 0.010,
+                       chamfer=0.002)
+    part.add(transform_verts(fd, face_inset[0]), face_inset[1], MAT["MAT_Glove"],
+             weights, face_inset[2])
 
-    # Circular under-frame beneath the controls; it is deliberately continuous,
-    # not an eight-segment mechanical ring.
-    base_disc = plate(poly_ngon(0.062, 16, TAU / 32.0), 0.039, 0.048,
-                      chamfer=0.004)
-    part.add(transform_verts(fd, base_disc[0]), base_disc[1], MAT["MAT_DeviceBody"],
-             weights, base_disc[2])
+    # Central main display is the dominant visual element and a dedicated
+    # material region suitable for later Unity emission/RenderTexture use.
+    main_bezel = plate(rect_profile(0.0295, 0.0305, 0.006), 0.010, 0.013,
+                       chamfer=0.002)
+    part.add(transform_verts(fd, main_bezel[0]), main_bezel[1], MAT["MAT_DeviceBody"],
+             weights, main_bezel[2])
+    main_screen = plate(rect_profile(0.0260, 0.0270, 0.005), 0.013, 0.0155,
+                        chamfer=0.0015)
+    part.add(transform_verts(fd, main_screen[0]), main_screen[1],
+             MAT["MAT_DeviceEmissive"], weights, main_screen[2])
 
-    # Four diagonal cyan screen-like structures.  Each is a shallow trapezoid
-    # with a graphite bezel and a smaller luminous face.
-    for angle_deg in (45.0, 135.0, 225.0, 315.0):
-        angle = rad(angle_deg)
-        a0, a1 = angle - rad(18.0), angle + rad(18.0)
-        bezel = band(arc_profile(0.059, a0, a1, 3),
-                     arc_profile(0.037, a0, a1, 3), 0.047, 0.055,
-                     closed=False)
-        part.add(transform_verts(fd, bezel[0]), bezel[1], MAT["MAT_Glove"],
+    # Four thin cyan function panes echo the sketch without forming a heavy
+    # segmented frame.  Their shallow graphite bezels remain close to the face.
+    for x, y, angle_deg in ((-0.0325, 0.0335, -12.0),
+                            (0.0325, 0.0335, 12.0),
+                            (-0.0325, -0.0335, 12.0),
+                            (0.0325, -0.0335, -12.0)):
+        pane_frame = fd @ Matrix.Translation(Vector((x, y, 0.0))) \
+                     @ Matrix.Rotation(rad(angle_deg), 4, "Z")
+        bezel = plate(rect_profile(0.0080, 0.0065, 0.0018), 0.010, 0.013,
+                      chamfer=0.001)
+        part.add(transform_verts(pane_frame, bezel[0]), bezel[1], MAT["MAT_DeviceBody"],
                  weights, bezel[2])
-        screen = band(arc_profile(0.055, a0 + rad(3.0), a1 - rad(3.0), 3),
-                      arc_profile(0.041, a0 + rad(3.0), a1 - rad(3.0), 3),
-                      0.055, 0.059, closed=False)
-        part.add(transform_verts(fd, screen[0]), screen[1],
-                 MAT["MAT_DeviceEmissive"], weights, screen[2])
+        pane = plate(rect_profile(0.0062, 0.0048, 0.0012), 0.013, 0.015,
+                     chamfer=0.0008)
+        part.add(transform_verts(pane_frame, pane[0]), pane[1],
+                 MAT["MAT_DeviceEmissive"], weights, pane[2])
 
-    # Four long rectangular dividers at the cardinal directions, sunk into the
-    # carrier/armour rather than presented as petals.
-    divider = plate(rect_profile(0.006, 0.018, 0.002), 0.048, 0.061,
-                    chamfer=0.0015)
-    for angle_deg in (0.0, 90.0, 180.0, 270.0):
-        divider_frame = (fd @ Matrix.Rotation(rad(angle_deg), 4, "Z")
-                         @ Matrix.Translation(Vector((0.0, 0.047, 0.0))))
-        part.add(transform_verts(divider_frame, divider[0]), divider[1],
-                 MAT["MAT_DeviceBody"], weights, divider[2])
+    # Thin top/bottom status arcs are display marks, never armour segments.
+    upper_arc = band(arc_profile(0.040, rad(233.0), rad(307.0), 7),
+                     arc_profile(0.0365, rad(237.0), rad(303.0), 7),
+                     0.0125, 0.0152, closed=False)
+    part.add(transform_verts(fd, upper_arc[0]), upper_arc[1],
+             MAT["MAT_DeviceGreen"], weights, upper_arc[2])
+    lower_arc = band(arc_profile(0.040, rad(53.0), rad(127.0), 7),
+                     arc_profile(0.0365, rad(57.0), rad(123.0), 7),
+                     0.0125, 0.0152, closed=False)
+    part.add(transform_verts(fd, lower_arc[0]), lower_arc[1],
+             MAT["MAT_DeviceAccent"], weights, lower_arc[2])
 
-    # Large physical centre cap with only a small cyan projector aperture.
-    centre_gasket = band(poly_ngon(0.039, 16, TAU / 32.0),
-                         poly_ngon(0.034, 16, TAU / 32.0), 0.050, 0.060)
-    part.add(transform_verts(fd, centre_gasket[0]), centre_gasket[1],
-             MAT["MAT_Glove"], weights, centre_gasket[2])
-    centre_cap = plate(poly_ngon(0.034, 16, TAU / 32.0), 0.052, 0.063,
-                       chamfer=0.004)
-    part.add(transform_verts(fd, centre_cap[0]), centre_cap[1], MAT["MAT_Sleeve"],
-             weights, centre_cap[2])
-    emitter = plate(poly_ngon(0.007, 12, TAU / 24.0), 0.063, 0.066,
-                    chamfer=0.0015)
-    part.add(transform_verts(fd, emitter[0]), emitter[1],
-             MAT["MAT_DeviceEmissive"], weights, emitter[2])
+    # Four very short protective separators connect the display assembly to
+    # the chassis.  They are compact ribs, not an eight-part mechanical cage.
+    short_rib = plate(rect_profile(0.0026, 0.0055, 0.001), 0.010, 0.014,
+                      chamfer=0.0007)
+    for x, y, angle_deg in ((-0.037, 0.0, 90.0), (0.037, 0.0, 90.0),
+                            (0.0, -0.042, 0.0), (0.0, 0.042, 0.0)):
+        rib_frame = fd @ Matrix.Translation(Vector((x, y, 0.0))) \
+                    @ Matrix.Rotation(rad(angle_deg), 4, "Z")
+        part.add(transform_verts(rib_frame, short_rib[0]), short_rib[1],
+                 MAT["MAT_DeviceBody"], weights, short_rib[2])
 
-    # Fore/aft cylindrical side buttons (local +/-Y along the forearm).  A thin
-    # orange centre collar is the sole identification accent on the terminal.
+    # Fore/aft cylindrical side buttons (local +/-Y along the forearm).  Their
+    # orange collars remain readable in side view without widening the body.
     for sign in (-1.0, 1.0):
-        y = sign * 0.064
-        bracket = plate(rect_profile(0.019, 0.009, 0.003), 0.038, 0.050,
-                        chamfer=0.002)
+        y = sign * 0.0505
+        bracket = plate(rect_profile(0.010, 0.0035, 0.0015), 0.002, 0.010,
+                        chamfer=0.001)
         bracket_frame = fd @ Matrix.Translation(Vector((0.0, y, 0.0)))
         part.add(transform_verts(bracket_frame, bracket[0]), bracket[1],
                  MAT["MAT_Glove"], weights, bracket[2])
-        button = tube_polyline([Vector((-0.016, y, 0.055)),
-                               Vector((0.016, y, 0.055))],
-                              [0.0075, 0.0075], n=10, phase=TAU / 20.0)
+        button = tube_polyline([Vector((-0.011, y, 0.0115)),
+                               Vector((0.011, y, 0.0115))],
+                              [0.0050, 0.0050], n=10, phase=TAU / 20.0)
         part.add(transform_verts(fd, button[0]), button[1], MAT["MAT_DeviceBody"],
                  weights, button[2])
-        collar = tube_polyline([Vector((-0.004, y, 0.055)),
-                               Vector((0.004, y, 0.055))],
-                              [0.0082, 0.0082], n=10, phase=TAU / 20.0)
+        collar = tube_polyline([Vector((-0.003, y, 0.0115)),
+                               Vector((0.003, y, 0.0115))],
+                              [0.0056, 0.0056], n=10, phase=TAU / 20.0)
         part.add(transform_verts(fd, collar[0]), collar[1],
                  MAT["MAT_DeviceAccent"], weights, collar[2])
 
@@ -1061,8 +1077,17 @@ def apply_pose(rig, lift, swing_l, swing_r, bob, breathe, curl_l, curl_r,
         set_bone_world(rig, "Hand_" + side, state["wrist"],
                        state["hand_dir"], state["dorsal"])
         if side == "L":
-            head = state["device_center"] - state["fdir"] * DEVICE_BONE_HALF
-            set_bone_world(rig, "WristDevice_L", head, state["fdir"], state["dorsal"])
+            # The terminal is a rigid forearm-mounted part.  Preserve its edit-
+            # bone rest transform relative to Forearm_L instead of rebuilding a
+            # new roll from a direction vector every frame.  The latter could
+            # choose the opposite roll hemisphere and expose the chassis back
+            # plate to the camera even though the forearm dorsal normal was
+            # correct.  This keeps weights rigid and the face consistently out.
+            fore_rest = rig.data.bones["Forearm_L"].matrix_local
+            device_rest = rig.data.bones["WristDevice_L"].matrix_local
+            relative = fore_rest.inverted() @ device_rest
+            rig.pose.bones["WristDevice_L"].matrix = (
+                rig.pose.bones["Forearm_L"].matrix @ relative)
     apply_fingers(rig, "L", curl_l)
     apply_fingers(rig, "R", curl_r, index_extend=index_extend_r)
     bpy.context.view_layer.update()
@@ -1105,10 +1130,14 @@ def clip_pose(clip, frame):
                     interact=0.0, index_extend_r=0.0)
     if clip == "Wrist_Raise":
         t = (frame - 1) / 24.0
-        return dict(lift=smoothstep(0.0, 1.0, t),
+        # A gentle early forearm arc lets the wrist emerge from below the
+        # forward frustum before the final face-to-eye rotation settles.
+        lift = min(1.0, smoothstep(0.0, 1.0, t)
+                   + 0.28 * math.sin(math.pi * t) ** 2)
+        return dict(lift=lift,
                     swing_l=0.0, swing_r=0.0,
                     bob=0.0, breathe=0.0015 * math.sin(TAU * t),
-                    curl_l=lerp(0.18, 0.85, smoothstep(0.15, 0.85, t)),
+                    curl_l=lerp(0.18, 0.55, smoothstep(0.15, 0.85, t)),
                     curl_r=0.18,
                     interact=0.0, index_extend_r=0.0)
     if clip == "Wrist_Idle":
@@ -1117,7 +1146,7 @@ def clip_pose(clip, frame):
                     swing_l=rad(0.35) * math.sin(TAU * t),
                     swing_r=rad(-0.5) * math.sin(TAU * t),
                     bob=0.0, breathe=0.0022 * math.sin(TAU * t),
-                    curl_l=0.85 + 0.02 * math.sin(TAU * t),
+                    curl_l=0.55 + 0.02 * math.sin(TAU * t),
                     curl_r=0.18 + 0.03 * math.sin(TAU * t),
                     interact=0.0, index_extend_r=0.0)
     if clip == "Wrist_Lower":
@@ -1125,7 +1154,7 @@ def clip_pose(clip, frame):
         return dict(lift=1.0 - smoothstep(0.0, 1.0, t),
                     swing_l=0.0, swing_r=0.0,
                     bob=0.0, breathe=0.0012 * math.sin(TAU * t),
-                    curl_l=lerp(0.85, 0.18, smoothstep(0.1, 0.9, t)),
+                    curl_l=lerp(0.55, 0.18, smoothstep(0.1, 0.9, t)),
                     curl_r=0.18,
                     interact=0.0, index_extend_r=0.0)
     if clip == "Interact_Right":
@@ -1374,8 +1403,8 @@ def main():
                              for obj in meshes for p in obj.data.polygons})
 
     report = {
-        "generated_by": "scripts/build_fp_arms.py (Phase09A_1 Revision02)",
-        "revision": "Revision02 visual redesign",
+        "generated_by": "scripts/build_fp_arms.py (Phase09A_1 Revision03)",
+        "revision": "Revision03 compact watch and body-space presentation",
         "blender_version": bpy.app.version_string,
         "fps": FPS,
         "units": "metric, 1 Blender unit = 1 m, scale_length = 1.0",
@@ -1420,6 +1449,30 @@ def main():
             "triangles_total": sum(triangles.values()),
             "materials": [spec[0] for spec in MATERIAL_SPECS],
             "materials_used_by_geometry": materials_used,
+        },
+        "wrist_device_revision03": {
+            "construction": "compact cut-corner terminal integrated into left forearm",
+            "removed": ["Revision02 long carrier slab", "large circular under-frame",
+                        "eight-segment / shield-like outer cage"],
+            "main_screen": "dominant independent MAT_DeviceEmissive face region",
+            "cyan_function_panels": 4,
+            "upper_status_arc": "MAT_DeviceGreen",
+            "lower_status_arc": "MAT_DeviceAccent",
+            "fore_aft_cylindrical_buttons": 2,
+            "revision02_reference_face_width_m": 0.130,
+            "revision03_chassis_face_width_m": 0.084,
+            "width_reduction_fraction": 0.3538,
+            "revision02_reference_face_stack_thickness_m": 0.046,
+            "revision03_face_stack_thickness_m": 0.0175,
+            "face_stack_thickness_reduction_fraction": 0.6196,
+            "rigid_weight_bone": "WristDevice_L",
+        },
+        "body_space_contract": {
+            "rest_pose": "arms hang below the shoulders beside the player body",
+            "forward_camera_pitch_deg": 0.0,
+            "look_down_camera_pitch_deg": 52.0,
+            "arms_root_behavior": "follow player body position/yaw, not eye-camera pitch",
+            "fixed_rest_pitch_workaround_allowed": False,
         },
         "bones": [
             {"name": bone.name,

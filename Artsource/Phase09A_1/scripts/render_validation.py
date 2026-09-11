@@ -1,5 +1,5 @@
 """
-SurviveUIDemo -- Phase09A_1 Revision02 validation renders.
+SurviveUIDemo -- Phase09A_1 Revision03 validation renders.
 
 Opens output/FP_PlayerArms.blend and writes the first-person validation set.
 
@@ -73,8 +73,8 @@ BASE_ORIENTATION = Matrix((
     (0.0, 0.0, 0.0, 1.0),
 ))
 
-cam_data = bpy.data.cameras.new("VALIDATION_Camera_70deg")
-cam = bpy.data.objects.new("VALIDATION_Camera_70deg", cam_data)
+cam_data = bpy.data.cameras.new("CAM_FP_Forward")
+cam = bpy.data.objects.new("CAM_FP_Forward", cam_data)
 scene.collection.objects.link(cam)
 cam_data.type = "PERSP"
 cam_data.sensor_fit = "VERTICAL"
@@ -110,10 +110,10 @@ add_light("VALIDATION_Bounce", (0.10, -0.55, -1.30), (0.18, -0.40, -0.35), 22.0,
 # ---------------------------------------------------------------------
 # Wrist UI reference wireframe (validation only; NEVER exported)
 # ---------------------------------------------------------------------
-guide_collection = bpy.data.collections.new("VALIDATION_UIReference")
+guide_collection = bpy.data.collections.new("WristUIProxy")
 scene.collection.children.link(guide_collection)
 
-guide_material = bpy.data.materials.new("VALIDATION_UIReference")
+guide_material = bpy.data.materials.new("MAT_WristUIProxy_ValidationOnly")
 guide_material.use_nodes = True
 guide_nodes = guide_material.node_tree.nodes
 for node in list(guide_nodes):
@@ -174,7 +174,7 @@ for top, bottom, label in ((205.0, 345.0, "upper"), (455.0, 595.0, "lower")):
 pivot = B.UI_PIVOT_UNITY + B.UI_DISPLAY_OFFSET_UNITY
 half_w = B.UI_DISPLAY_SCALE_UNITY.x * 0.5
 half_h = B.UI_DISPLAY_SCALE_UNITY.y * 0.5
-guide_curve("VALIDATION_HologramPlane", [
+guide_curve("WristUIProxy", [
     B.u2b(Vector((pivot.x - half_w, pivot.y - half_h, pivot.z))),
     B.u2b(Vector((pivot.x + half_w, pivot.y - half_h, pivot.z))),
     B.u2b(Vector((pivot.x + half_w, pivot.y + half_h, pivot.z))),
@@ -261,68 +261,39 @@ def landmarks():
     return out
 
 
-RENDERS = [
-    # Required human-review first-person set.  Normal locomotion uses a modest
-    # look-down so the low side-mounted arms are visible without falsifying FOV.
-    ("fp_idle", "FP_Idle", 1, ("fp", 40.0),
-     "Revision02 FP_Idle: wide lower-left/lower-right EVA arms, clear centre"),
-    ("fp_walk_lookdown", "FP_Walk", 11, ("fp", 52.0),
-     "Revision02 walk swing at a readable look-down angle"),
-    ("wrist_raise", "Wrist_Raise", 22, ("fp", 0.0),
-     "Late Wrist_Raise approaching the established UI presentation area"),
-    ("wrist_idle", "Wrist_Idle", 46, ("fp", 0.0),
-     "Stable raised pose; physical terminal remains below/left of Wrist UI"),
-    ("wrist_alignment_guide", "Wrist_Idle", 46, ("fp", 0.0),
-     "Read-only shipped Wrist UI geometry reference; never exported"),
-]
-
 FP_LENS = 12.0 / math.tan(math.radians(FOV_DEG * 0.5))
-
 results = []
-for name, action, frame, view, note in RENDERS:
-    guide = name == "wrist_alignment_guide"
-    rig_view = name == "rig_overview"
 
-    if view[0] == "fp":
-        cam_data.sensor_fit = "VERTICAL"
-        cam_data.sensor_height = 24.0
-        cam_data.lens = FP_LENS
-        set_pitch(view[1])
-    else:
-        _kind, location, target, lens = view
-        cam_data.sensor_fit = "AUTO"
-        cam_data.lens = lens
-        cam.matrix_world = (Matrix.Translation(Vector(location))
-                            @ (Vector(target) - Vector(location))
-                            .to_track_quat("-Z", "Y").to_matrix().to_4x4())
 
+def render_image(name, action, frame, pitch=None, guide=False, note=""):
+    """Render one authoritative 70-degree first-person validation image."""
+    scene.camera = cam
+    cam_data.sensor_fit = "VERTICAL"
+    cam_data.sensor_height = 24.0
+    cam_data.lens = FP_LENS
+    set_pitch(0.0 if pitch is None else pitch)
     set_action(action, frame)
     show_guide(guide)
-    show_rig(rig_view)
-
+    show_rig(False)
     path = os.path.join(VAL_DIR, name + ".png")
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
     results.append({"file": os.path.basename(path), "clip": action, "frame": frame,
-                    "view": "first-person" if view[0] == "fp" else "external",
-                    "camera_pitch_deg": view[1] if view[0] == "fp" else None,
-                    "ui_reference_wireframe": guide, "rig_overlay": rig_view,
-                    "note": note, "bytes": os.path.getsize(path),
-                    "landmarks_ndc": landmarks() if view[0] == "fp" else None})
+                    "view": "first-person", "camera_pitch_deg": pitch,
+                    "ui_proxy_wireframe": guide, "note": note,
+                    "bytes": os.path.getsize(path), "landmarks_ndc": landmarks()})
     print("RENDER_OK", name, action, frame, os.path.getsize(path))
 
-# ---------------------------------------------------------------------
-# Mesh presentation views (neutral studio; not first-person)
-# ---------------------------------------------------------------------
-show_guide(False)
-show_rig(False)
-background.inputs[0].default_value = (0.055, 0.065, 0.078, 1.0)
-background.inputs[1].default_value = 0.8
 
-set_action("FP_Idle", 1)
-
-
-def external(name, location, target, lens, clip="FP_Idle", frame=1):
+def external(name, location, target, lens, note, clip="FP_Idle", frame=1,
+             guide=False, visible_meshes=None):
+    scene.camera = cam
+    set_action(clip, frame)
+    show_guide(guide)
+    show_rig(False)
+    for mesh_obj in meshes:
+        mesh_obj.hide_render = (visible_meshes is not None
+                                and mesh_obj.name not in visible_meshes)
     cam_data.sensor_fit = "AUTO"
     cam_data.lens = lens
     cam.matrix_world = (Matrix.Translation(Vector(location))
@@ -332,62 +303,153 @@ def external(name, location, target, lens, clip="FP_Idle", frame=1):
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
     results.append({"file": os.path.basename(path), "clip": clip, "frame": frame,
-                    "camera": "external", "note": "mesh presentation view",
-                    "bytes": os.path.getsize(path)})
+                    "view": "external", "ui_proxy_wireframe": guide,
+                    "note": note, "bytes": os.path.getsize(path)})
     print("RENDER_OK", name, "external", os.path.getsize(path))
-external("external_front", (0.75, -1.35, -0.10), (0.16, -0.30, -0.48), 50.0)
-external("external_side", (1.65, -0.55, -0.30), (0.15, -0.32, -0.46), 50.0)
+    for mesh_obj in meshes:
+        mesh_obj.hide_render = False
 
-# Wrist device close-up, viewed along its own rest face normal.  Read from the
-# armature's rest bone data so this stays valid without the builder's globals.
-device_bone = rig.data.bones["WristDevice_L"]
-rest_device = (device_bone.head_local + device_bone.tail_local) * 0.5
-rest_normal = device_bone.matrix_local.to_3x3().col[2].normalized()
-external("wrist_device_closeup", tuple(rest_device + rest_normal * 0.46),
-         tuple(rest_device), 60.0)
 
-# Dedicated right-hand inspection from the palm/thumb side.  This view is
-# intentionally different from the external dorsal view so handedness cannot
-# be hidden by the back-of-hand armour plate.
+# Validation-only named camera references.  They share one eye position and
+# differ only by pitch; neither object exists in the exported FBX.
+look_data = cam_data.copy()
+look_data.name = "CAM_FP_LookDown"
+look_camera = bpy.data.objects.new("CAM_FP_LookDown", look_data)
+scene.collection.objects.link(look_camera)
+look_camera.matrix_world = BASE_ORIENTATION @ Matrix.Rotation(math.radians(-52.0), 4, "X")
+
+# Validation-only body-space hierarchy.  Empties are intentionally non-rendering
+# and never saved/exported; they make the shoulder/eye contract explicit.
+body_root = bpy.data.objects.new("BodyReference", None)
+head_ref = bpy.data.objects.new("HeadReference", None)
+shoulder_l = bpy.data.objects.new("Shoulder_L", None)
+shoulder_r = bpy.data.objects.new("Shoulder_R", None)
+eye_ref = bpy.data.objects.new("EyeCameraReference", None)
+for obj in (body_root, head_ref, shoulder_l, shoulder_r, eye_ref):
+    scene.collection.objects.link(obj)
+head_ref.parent = body_root
+shoulder_l.parent = body_root
+shoulder_r.parent = body_root
+eye_ref.parent = head_ref
+head_ref.location = (0.0, 0.0, -0.08)
+eye_ref.location = (0.0, 0.0, 0.08)
+shoulder_l.location = B.SHOULDER["L"]
+shoulder_r.location = B.SHOULDER["R"]
+
+# ---------------------------------------------------------------------
+# PASS 1: compact wrist-device inspection views.
+# ---------------------------------------------------------------------
+background.inputs[0].default_value = (0.055, 0.065, 0.078, 1.0)
+background.inputs[1].default_value = 0.8
 set_action("FP_Idle", 1)
-right_hand = rig.pose.bones["Hand_R"]
-right_center = (right_hand.head + right_hand.tail) * 0.5
-right_dorsal = right_hand.matrix.to_3x3().col[2].normalized()
-right_side = right_hand.matrix.to_3x3().col[0].normalized()
-right_axis = (right_hand.tail - right_hand.head).normalized()
-external("right_hand_check",
-         tuple(right_center - right_dorsal * 0.44 - right_side * 0.18
-               - right_axis * 0.05),
-         tuple(right_center + right_axis * 0.015), 50.0,
-         clip="FP_Idle", frame=1)
+device_bone = rig.pose.bones["WristDevice_L"]
+rest_device = (device_bone.head + device_bone.tail) * 0.5
+rest_axis = (device_bone.tail - device_bone.head).normalized()
+rest_normal = B.forearm_dorsal("L", rest_axis)
+rest_side = device_bone.matrix.to_3x3().col[0].normalized()
 
+external("01_wrist_device_top", tuple(rest_device + rest_normal * 0.31),
+         tuple(rest_device), 57.0,
+         "Face-on: central main screen, four cyan panes and restrained status arcs",
+         visible_meshes={"GEO_WristDevice_L"})
+external("02_wrist_device_front",
+         tuple(rest_device + rest_normal * 0.28 - rest_axis * 0.15),
+         tuple(rest_device - rest_axis * 0.005), 60.0,
+         "Three-quarter front view showing the compact fore/aft button layout",
+         visible_meshes={"GEO_WristDevice_L"})
+external("03_wrist_device_side",
+         tuple(rest_device + rest_side * 0.30 + rest_normal * 0.035),
+         tuple(rest_device), 62.0,
+         "Side profile proving reduced face thickness and close forearm integration",
+         visible_meshes={"GEO_WristDevice_L"})
+left_mid = (rig.pose.bones["Forearm_L"].head + rig.pose.bones["Hand_L"].tail) * 0.5
+external("04_wrist_device_on_arm",
+         tuple(rest_device + rest_normal * 0.48 + rest_axis * 0.18 + rest_side * 0.10),
+         tuple(left_mid), 58.0,
+         "Compact terminal in proportion to the left EVA forearm",
+         visible_meshes={"GEO_Arm_L", "GEO_WristDevice_L"})
+
+# ---------------------------------------------------------------------
+# PASS 2: body-space rest and walk.  Forward images intentionally contain no
+# arms; the same eye position at 48 degrees down naturally reveals both sides.
+# ---------------------------------------------------------------------
+background.inputs[0].default_value = (GAME_BACKGROUND[0], GAME_BACKGROUND[1],
+                                       GAME_BACKGROUND[2], 1.0)
+background.inputs[1].default_value = 0.45
+render_image("05_fp_forward_view", "FP_Idle", 1, 0.0, False,
+             "Hard gate: body-space resting arms are invisible at level 70-degree FOV")
+render_image("06_fp_look_down", "FP_Idle", 1, 52.0, False,
+             "Same eye position, camera pitched down 52 degrees; both side-hanging arms appear")
+render_image("07_fp_walk_forward", "FP_Walk", 11, 0.0, False,
+             "Forward walk hard gate: restrained swing remains out of level view")
+render_image("08_fp_walk_look_down", "FP_Walk", 11, 52.0, False,
+             "Look-down walk: mild body-space counter-swing with an open centre")
+
+# ---------------------------------------------------------------------
+# PASS 3: natural raise/hold/lower and read-only UI proxy alignment.
+# ---------------------------------------------------------------------
+# A fixed external left-front camera makes the path readable while its early
+# frames are still correctly below the level first-person frustum.
+raise_camera = (1.24, -1.48, -0.16)
+raise_target = (0.14, -0.19, -0.40)
+external("09_wrist_raise_25", raise_camera, raise_target, 48.0,
+         "Fixed path-review view: quarter point leaving body-space rest",
+         clip="Wrist_Raise", frame=7)
+external("10_wrist_raise_50", raise_camera, raise_target, 48.0,
+         "Fixed path-review view: elbow flexion and forward lift at midpoint",
+         clip="Wrist_Raise", frame=13)
+external("11_wrist_raise_75", raise_camera, raise_target, 48.0,
+         "Fixed path-review view: wrist rotates toward the eye near hold",
+         clip="Wrist_Raise", frame=19)
+render_image("12_wrist_hold", "Wrist_Idle", 46, 0.0, False,
+             "Stable hold: compact physical device below the authoritative UI region")
+render_image("13_wrist_hold_ui_proxy", "Wrist_Idle", 46, 0.0, True,
+             "Read-only WristUIProxy; physical watch remains below/behind its central area")
+external("14_wrist_lower_50", raise_camera, raise_target, 48.0,
+         "Same fixed path-review view: lower midpoint returning to body-space rest",
+         clip="Wrist_Lower", frame=11)
+
+# Neutral external body-space views.
+background.inputs[0].default_value = (0.055, 0.065, 0.078, 1.0)
+background.inputs[1].default_value = 0.8
+external("15_external_front", (0.78, -1.40, -0.18), (0.0, -0.04, -0.48), 52.0,
+         "External front: arms hang under their respective shoulders")
+external("16_external_side", (1.55, -0.18, -0.36), (0.04, -0.02, -0.49), 52.0,
+         "External side: wrists remain in body space rather than projected before the camera")
+
+# Return to a stable, reproducible scene state.
+show_guide(False)
 cam_data.sensor_fit = "VERTICAL"
 cam_data.sensor_height = 24.0
-cam_data.lens = 12.0 / math.tan(math.radians(FOV_DEG * 0.5))
+cam_data.lens = FP_LENS
 cam.matrix_world = BASE_ORIENTATION
-set_pitch(0.0)
+scene.camera = cam
 set_action("FP_Idle", 1)
-scene.frame_set(1)
 
 with open(REPORT, "w", encoding="utf-8") as handle:
     json.dump({
+        "revision": "Revision03",
         "camera": {
             "vertical_fov_deg": FOV_DEG,
             "resolution": [RES_X, RES_Y],
             "sensor_fit": "VERTICAL",
             "sensor_height_mm": 24.0,
-            "lens_mm": round(12.0 / math.tan(math.radians(FOV_DEG * 0.5)), 6),
-            "orientation": "located at the armature origin (the player's eye), "
-                           "looking along -Y, +Z up; screen right = -X",
+            "lens_mm": round(FP_LENS, 6),
+            "forward_pitch_deg": 0.0,
+            "look_down_pitch_deg": 52.0,
+            "orientation": "eye at armature origin, looking -Y, +Z up; screen right=-X",
         },
+        "validation_only_scene_objects": [
+            "BodyReference", "HeadReference", "Shoulder_L", "Shoulder_R",
+            "EyeCameraReference", "CAM_FP_Forward", "CAM_FP_LookDown", "WristUIProxy"
+        ],
         "engine": "Blender Eevee Next",
         "background": list(GAME_BACKGROUND),
-        "note": "No Wrist UI geometry is rendered. The only UI drawing is the "
-                "VALIDATION_UIReference wireframe in wrist_idle_guide.png, which "
-                "reproduces the shipped pivot/offset/scale constants read from "
-                "NereidSurfaceBuilder.cs and is never exported.",
+        "note": "WristUIProxy is a read-only validation wireframe reconstructed from "
+                "the shipped UI constants. It is not saved into the authority blend, "
+                "not exported, and does not modify the Unity Wrist UI.",
         "renders": results,
     }, handle, indent=1)
 
 print("RENDER_REPORT", REPORT)
-print("VALIDATION_RENDER_COMPLETE")
+print("VALIDATION_RENDER_COMPLETE", len(results))

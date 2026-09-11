@@ -1,5 +1,5 @@
 """
-Phase09A_1 Revision02 objective validation of the rendered PNGs and poses.
+Phase09A_1 Revision03 objective validation of the rendered PNGs and poses.
 
 For every validation image it reports
   * the detected background colour and the fraction of the frame the asset covers,
@@ -58,6 +58,9 @@ def image_stats(path):
         "resolution": [width, height],
         "background_rgb8": [int(v) for v in background],
         "coverage_fraction": round(covered / (width * height), 4),
+        "central_safe_area_fraction": round(
+            1.0 - int(mask[:, int(width * 0.30):int(width * 0.70)].sum())
+            / max(1, height * (int(width * 0.70) - int(width * 0.30))), 4),
     }
     if covered:
         rows = np.where(mask.any(axis=1))[0]
@@ -71,52 +74,111 @@ def image_stats(path):
     return stats
 
 
-def project_pose(clip, frame, pitch_deg):
-    """Bounding box and frustum coverage of the posed arm geometry.
+def project_point(point, pitch_deg):
+    """Return NDC for the 70-degree validation camera, or None if behind it."""
+    pitch = math.radians(pitch_deg)
+    cos_p, sin_p = math.cos(pitch), math.sin(pitch)
+    camera_x = -point.x
+    camera_y = point.z * cos_p - point.y * sin_p
+    camera_z = point.z * sin_p + point.y * cos_p
+    depth = -camera_z
+    if depth <= 0.02:
+        return None
+    half_h = depth * math.tan(math.radians(B.CAM_FOV_DEG * 0.5))
+    return camera_x / (half_h * B.CAM_ASPECT), camera_y / half_h
 
-    Camera basis: looks along -Y with +Z up, screen right = -X (so a Blender +X
-    point is on the player's left, i.e. screen left).  A downward pitch of P
-    degrees rotates the view direction toward -Z.
-    """
+
+def bbox_stats(xs, ys):
+    if not xs:
+        return None
+    box = [min(xs), min(ys), max(xs), max(ys)]
+    area = max(0.0, box[2] - box[0]) * max(0.0, box[3] - box[1]) / 4.0
+    return {"ndc_bbox": [round(v, 4) for v in box],
+            "viewport_bbox_area_fraction": round(area, 4)}
+
+
+def project_pose(clip, frame, pitch_deg):
+    """Frustum coverage of posed geometry, split by physical body side."""
     rig.animation_data.action = bpy.data.actions[clip]
     scene.frame_set(frame)
     bpy.context.view_layer.update()
     depsgraph = bpy.context.evaluated_depsgraph_get()
-    pitch = math.radians(pitch_deg)
-    cos_p, sin_p = math.cos(pitch), math.sin(pitch)
-    tan_half = math.tan(math.radians(B.CAM_FOV_DEG * 0.5))
-
     inside = 0
     total = 0
     xs, ys = [], []
+    sides = {"left": {"inside": 0, "total": 0, "xs": [], "ys": []},
+             "right": {"inside": 0, "total": 0, "xs": [], "ys": []}}
     for obj in meshes:
+        side = "left" if obj.name.endswith("_L") else "right"
         evaluated = obj.evaluated_get(depsgraph)
         mesh = evaluated.to_mesh()
         matrix = evaluated.matrix_world
         for vertex in mesh.vertices:
             point = matrix @ vertex.co
             total += 1
-            camera_x = -point.x
-            camera_y = point.z * cos_p - point.y * sin_p
-            camera_z = point.z * sin_p + point.y * cos_p
-            depth = -camera_z
-            if depth <= 0.02:
+            sides[side]["total"] += 1
+            ndc = project_point(point, pitch_deg)
+            if ndc is None:
                 continue
-            half_h = depth * tan_half
-            ndc_x = camera_x / (half_h * B.CAM_ASPECT)
-            ndc_y = camera_y / half_h
+            ndc_x, ndc_y = ndc
             if -1.0 <= ndc_x <= 1.0 and -1.0 <= ndc_y <= 1.0:
                 inside += 1
                 xs.append(ndc_x)
                 ys.append(ndc_y)
+                sides[side]["inside"] += 1
+                sides[side]["xs"].append(ndc_x)
+                sides[side]["ys"].append(ndc_y)
         evaluated.to_mesh_clear()
     result = {"clip": clip, "frame": frame, "pitch_deg": pitch_deg,
               "vertices": total, "vertices_inside_frustum": inside,
               "frustum_coverage": round(inside / max(1, total), 4)}
     if xs:
-        result["ndc_bbox"] = [round(min(xs), 4), round(min(ys), 4),
-                              round(max(xs), 4), round(max(ys), 4)]
+        result.update(bbox_stats(xs, ys))
+    result["sides"] = {}
+    for side, data in sides.items():
+        entry = {"vertices": data["total"], "vertices_inside_frustum": data["inside"],
+                 "visible_vertex_fraction": round(data["inside"] / max(1, data["total"]), 4)}
+        if data["xs"]:
+            entry.update(bbox_stats(data["xs"], data["ys"]))
+        result["sides"][side] = entry
     return result
+
+
+def wrist_ui_proxy_overlap():
+    """Compare physical watch viewport bounds with the authoritative UI centre."""
+    rig.animation_data.action = bpy.data.actions["Wrist_Idle"]
+    scene.frame_set(46)
+    bpy.context.view_layer.update()
+    obj = bpy.data.objects["GEO_WristDevice_L"]
+    evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
+    mesh = evaluated.to_mesh()
+    points = [project_point(evaluated.matrix_world @ v.co, 0.0) for v in mesh.vertices]
+    evaluated.to_mesh_clear()
+    points = [p for p in points if p is not None]
+    device = [min(p[0] for p in points), min(p[1] for p in points),
+              max(p[0] for p in points), max(p[1] for p in points)]
+    ui_world = [B.ui_design_to_blender(640.0 + x, 400.0 + y)
+                for x, y in ((-235.0, 0.0), (235.0, 0.0),
+                             (0.0, -235.0), (0.0, 235.0))]
+    ui_points = [B.camera_ndc(point) for point in ui_world]
+    ui = [min(p[0] for p in ui_points), min(p[1] for p in ui_points),
+          max(p[0] for p in ui_points), max(p[1] for p in ui_points)]
+    ix = max(0.0, min(device[2], ui[2]) - max(device[0], ui[0]))
+    iy = max(0.0, min(device[3], ui[3]) - max(device[1], ui[1]))
+    overlap = ix * iy
+    ui_area = max(1e-9, (ui[2] - ui[0]) * (ui[3] - ui[1]))
+    device_area = max(1e-9, (device[2] - device[0]) * (device[3] - device[1]))
+    with open(B.REPORT_PATH, "r", encoding="utf-8") as handle:
+        asset_report = json.load(handle)
+    ray_fraction = next(
+        item["occluded_fraction"] for item in asset_report["occlusion"]
+        if item["clip"] == "Wrist_Idle" and item["frame"] == 46)
+    return {"clip": "Wrist_Idle", "frame": 46,
+            "device_ndc_bbox": [round(v, 4) for v in device],
+            "ui_central_ndc_bbox": [round(v, 4) for v in ui],
+            "overlap_fraction_of_ui_central_bbox": round(overlap / ui_area, 4),
+            "overlap_fraction_of_device_bbox": round(overlap / device_area, 4),
+            "ray_sample_occlusion_fraction": ray_fraction}
 
 
 def loop_check(clip, length):
@@ -152,20 +214,24 @@ def root_motion_check():
     return {"max_root_basis_deviation_from_identity": round(worst, 9)}
 
 
-report = {"images": [], "poses": [], "loops": [], "root_motion": None}
+report = {"revision": "Revision03", "images": [], "poses": [], "loops": [],
+          "root_motion": None, "wrist_ui_proxy": None}
 for name in sorted(os.listdir(VAL)):
     if name.lower().endswith(".png"):
         report["images"].append(image_stats(os.path.join(VAL, name)))
 
-for clip, frame, pitch in (("FP_Idle", 1, 0.0), ("FP_Idle", 1, 40.0),
-                           ("FP_Walk", 11, 52.0), ("Wrist_Raise", 22, 0.0),
-                           ("Wrist_Idle", 46, 0.0), ("Wrist_Lower", 5, 0.0),
+for clip, frame, pitch in (("FP_Idle", 1, 0.0), ("FP_Idle", 1, 52.0),
+                           ("FP_Walk", 11, 0.0), ("FP_Walk", 11, 52.0),
+                           ("Wrist_Raise", 7, 0.0), ("Wrist_Raise", 13, 0.0),
+                           ("Wrist_Raise", 19, 0.0),
+                           ("Wrist_Idle", 46, 0.0), ("Wrist_Lower", 11, 0.0),
                            ("Interact_Right", 16, 42.0)):
     report["poses"].append(project_pose(clip, frame, pitch))
 
 report["loops"] = [loop_check(name, length) for name, length, loop, _usage in B.CLIPS
                    if loop]
 report["root_motion"] = root_motion_check()
+report["wrist_ui_proxy"] = wrist_ui_proxy_overlap()
 
 with open(OUT, "w", encoding="utf-8") as handle:
     json.dump(report, handle, indent=1)
@@ -185,5 +251,6 @@ for entry in report["loops"]:
           % (entry["clip"], entry["first_frame"], entry["last_frame"],
              entry["max_element_deviation"], entry["worst_bone"]))
 print("ROOT_MOTION", report["root_motion"])
+print("WRIST_UI_PROXY", report["wrist_ui_proxy"])
 print("ANALYSIS_WROTE", OUT)
 print("ANALYSIS_DONE")

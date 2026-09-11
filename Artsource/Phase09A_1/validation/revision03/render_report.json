@@ -1,0 +1,377 @@
+{
+ "revision": "Revision03",
+ "camera": {
+  "vertical_fov_deg": 70.0,
+  "resolution": [
+   1280,
+   720
+  ],
+  "sensor_fit": "VERTICAL",
+  "sensor_height_mm": 24.0,
+  "lens_mm": 17.137776,
+  "forward_pitch_deg": 0.0,
+  "look_down_pitch_deg": 52.0,
+  "orientation": "eye at armature origin, looking -Y, +Z up; screen right=-X"
+ },
+ "validation_only_scene_objects": [
+  "BodyReference",
+  "HeadReference",
+  "Shoulder_L",
+  "Shoulder_R",
+  "EyeCameraReference",
+  "CAM_FP_Forward",
+  "CAM_FP_LookDown",
+  "WristUIProxy"
+ ],
+ "engine": "Blender Eevee Next",
+ "background": [
+  0.68,
+  0.71,
+  0.74
+ ],
+ "note": "WristUIProxy is a read-only validation wireframe reconstructed from the shipped UI constants. It is not saved into the authority blend, not exported, and does not modify the Unity Wrist UI.",
+ "renders": [
+  {
+   "file": "01_wrist_device_top.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Face-on: central main screen, four cyan panes and restrained status arcs",
+   "bytes": 989079
+  },
+  {
+   "file": "02_wrist_device_front.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Three-quarter front view showing the compact fore/aft button layout",
+   "bytes": 978384
+  },
+  {
+   "file": "03_wrist_device_side.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Side profile proving reduced face thickness and close forearm integration",
+   "bytes": 918124
+  },
+  {
+   "file": "04_wrist_device_on_arm.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Compact terminal in proportion to the left EVA forearm",
+   "bytes": 923352
+  },
+  {
+   "file": "05_fp_forward_view.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_proxy_wireframe": false,
+   "note": "Hard gate: body-space resting arms are invisible at level 70-degree FOV",
+   "bytes": 877066,
+   "landmarks_ndc": {
+    "Forearm_L.head": null,
+    "Forearm_L.tail": [
+     -1.8623,
+     -9.283
+    ],
+    "Hand_L.head": [
+     -1.8623,
+     -9.283
+    ],
+    "Hand_L.tail": [
+     -1.5775,
+     -9.7068
+    ],
+    "WristDevice_L.head": [
+     -2.2029,
+     -8.5564
+    ],
+    "WristDevice_L.tail": [
+     -1.5661,
+     -7.0835
+    ],
+    "Hand_R.head": [
+     1.8623,
+     -9.283
+    ],
+    "Hand_R.tail": [
+     1.5775,
+     -9.7068
+    ]
+   }
+  },
+  {
+   "file": "06_fp_look_down.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "first-person",
+   "camera_pitch_deg": 52.0,
+   "ui_proxy_wireframe": false,
+   "note": "Same eye position, camera pitched down 52 degrees; both side-hanging arms appear",
+   "bytes": 919876,
+   "landmarks_ndc": {
+    "Forearm_L.head": null,
+    "Forearm_L.tail": [
+     -1.8623,
+     -9.283
+    ],
+    "Hand_L.head": [
+     -1.8623,
+     -9.283
+    ],
+    "Hand_L.tail": [
+     -1.5775,
+     -9.7068
+    ],
+    "WristDevice_L.head": [
+     -2.2029,
+     -8.5564
+    ],
+    "WristDevice_L.tail": [
+     -1.5661,
+     -7.0835
+    ],
+    "Hand_R.head": [
+     1.8623,
+     -9.283
+    ],
+    "Hand_R.tail": [
+     1.5775,
+     -9.7068
+    ]
+   }
+  },
+  {
+   "file": "07_fp_walk_forward.png",
+   "clip": "FP_Walk",
+   "frame": 11,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_proxy_wireframe": false,
+   "note": "Forward walk hard gate: restrained swing remains out of level view",
+   "bytes": 877066,
+   "landmarks_ndc": {
+    "Forearm_L.head": null,
+    "Forearm_L.tail": [
+     -4.2026,
+     -21.2076
+    ],
+    "Hand_L.head": [
+     -4.2026,
+     -21.2076
+    ],
+    "Hand_L.tail": [
+     -2.9479,
+     -18.2843
+    ],
+    "WristDevice_L.head": [
+     -3.7501,
+     -15.0441
+    ],
+    "WristDevice_L.tail": [
+     -2.5938,
+     -12.0904
+    ],
+    "Hand_R.head": [
+     1.2504,
+     -5.9161
+    ],
+    "Hand_R.tail": [
+     1.1234,
+     -6.607
+    ]
+   }
+  },
+  {
+   "file": "08_fp_walk_look_down.png",
+   "clip": "FP_Walk",
+   "frame": 11,
+   "view": "first-person",
+   "camera_pitch_deg": 52.0,
+   "ui_proxy_wireframe": false,
+   "note": "Look-down walk: mild body-space counter-swing with an open centre",
+   "bytes": 915985,
+   "landmarks_ndc": {
+    "Forearm_L.head": null,
+    "Forearm_L.tail": [
+     -4.2026,
+     -21.2076
+    ],
+    "Hand_L.head": [
+     -4.2026,
+     -21.2076
+    ],
+    "Hand_L.tail": [
+     -2.9479,
+     -18.2843
+    ],
+    "WristDevice_L.head": [
+     -3.7501,
+     -15.0441
+    ],
+    "WristDevice_L.tail": [
+     -2.5938,
+     -12.0904
+    ],
+    "Hand_R.head": [
+     1.2504,
+     -5.9161
+    ],
+    "Hand_R.tail": [
+     1.1234,
+     -6.607
+    ]
+   }
+  },
+  {
+   "file": "09_wrist_raise_25.png",
+   "clip": "Wrist_Raise",
+   "frame": 7,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Fixed path-review view: quarter point leaving body-space rest",
+   "bytes": 953415
+  },
+  {
+   "file": "10_wrist_raise_50.png",
+   "clip": "Wrist_Raise",
+   "frame": 13,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Fixed path-review view: elbow flexion and forward lift at midpoint",
+   "bytes": 944875
+  },
+  {
+   "file": "11_wrist_raise_75.png",
+   "clip": "Wrist_Raise",
+   "frame": 19,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Fixed path-review view: wrist rotates toward the eye near hold",
+   "bytes": 951788
+  },
+  {
+   "file": "12_wrist_hold.png",
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_proxy_wireframe": false,
+   "note": "Stable hold: compact physical device below the authoritative UI region",
+   "bytes": 911619,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.2194,
+     -2.5417
+    ],
+    "Forearm_L.tail": [
+     -0.4955,
+     -0.6297
+    ],
+    "Hand_L.head": [
+     -0.4955,
+     -0.6297
+    ],
+    "Hand_L.tail": [
+     -0.4468,
+     -0.8868
+    ],
+    "WristDevice_L.head": [
+     -0.6211,
+     -0.9614
+    ],
+    "WristDevice_L.tail": [
+     -0.5078,
+     -0.662
+    ],
+    "Hand_R.head": [
+     1.8623,
+     -9.283
+    ],
+    "Hand_R.tail": [
+     1.5775,
+     -9.7068
+    ]
+   }
+  },
+  {
+   "file": "13_wrist_hold_ui_proxy.png",
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_proxy_wireframe": true,
+   "note": "Read-only WristUIProxy; physical watch remains below/behind its central area",
+   "bytes": 987318,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.2194,
+     -2.5417
+    ],
+    "Forearm_L.tail": [
+     -0.4955,
+     -0.6297
+    ],
+    "Hand_L.head": [
+     -0.4955,
+     -0.6297
+    ],
+    "Hand_L.tail": [
+     -0.4468,
+     -0.8868
+    ],
+    "WristDevice_L.head": [
+     -0.6211,
+     -0.9614
+    ],
+    "WristDevice_L.tail": [
+     -0.5078,
+     -0.662
+    ],
+    "Hand_R.head": [
+     1.8623,
+     -9.283
+    ],
+    "Hand_R.tail": [
+     1.5775,
+     -9.7068
+    ]
+   }
+  },
+  {
+   "file": "14_wrist_lower_50.png",
+   "clip": "Wrist_Lower",
+   "frame": 11,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "Same fixed path-review view: lower midpoint returning to body-space rest",
+   "bytes": 942081
+  },
+  {
+   "file": "15_external_front.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "External front: arms hang under their respective shoulders",
+   "bytes": 913218
+  },
+  {
+   "file": "16_external_side.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "external",
+   "ui_proxy_wireframe": false,
+   "note": "External side: wrists remain in body space rather than projected before the camera",
+   "bytes": 909750
+  }
+ ]
+}
