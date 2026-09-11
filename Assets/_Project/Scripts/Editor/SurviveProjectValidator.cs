@@ -877,6 +877,9 @@ public static class SurviveProjectValidator
                 + CountInScene<OverviewPlanetPreview>() + ")");
         }
 
+        // ---- Phase 09A_2 first-person arms / wrist integration ----
+        ValidateFirstPersonArms(Record);
+
         bool ok = failures == 0;
         log.AppendLine(ok ? "RESULT: SUCCESS" : "RESULT: FAILED");
         log.AppendLine("CHECKS: " + CountCheckLines(log) + " | FAILURES: " + failures);
@@ -900,6 +903,136 @@ public static class SurviveProjectValidator
         }
 
         return ok;
+    }
+
+    /// <summary>
+    /// Phase 09A_2 structural contract: the Codex first-person arms asset, its
+    /// import contract, the runtime prefab and the wrist presentation bridge all
+    /// exist and are wired the way the phase requires - and the arms are never
+    /// authored into a scene (they are created at runtime exactly once, so a
+    /// "Continue Game" round trip cannot duplicate them).
+    /// </summary>
+    private static void ValidateFirstPersonArms(Action<bool, string> record)
+    {
+        const string modelPath = FirstPersonArmsImportContract.ModelPath;
+        const string controllerPath = FirstPersonArmsAssetsBuilder.ControllerPath;
+        const string prefabPath = FirstPersonArmsAssetsBuilder.PrefabPath;
+        const string sourceFbx = SurviveFirstPersonArmsSetup.SourceFbxPath;
+
+        record(File.Exists(modelPath), "first-person arms fbx imported: " + modelPath);
+        record(File.Exists(sourceFbx), "codex source fbx present (Artsource): " + sourceFbx);
+        record(File.Exists(controllerPath), "arms animator controller exists: " + controllerPath);
+        record(File.Exists(prefabPath), "arms prefab exists: " + prefabPath);
+
+        for (int i = 0; i < FirstPersonArmsImportContract.MaterialSlotNames.Length; i++)
+        {
+            string materialPath = FirstPersonArmsImportContract.MaterialsFolder + "/"
+                                  + FirstPersonArmsImportContract.MaterialSlotNames[i] + ".mat";
+            record(File.Exists(materialPath),
+                "arms material exists: " + FirstPersonArmsImportContract.MaterialSlotNames[i]);
+        }
+
+        int layer = LayerMask.NameToLayer(FirstPersonArmsController.ArmsLayerName);
+        record(layer > 0, "layer " + FirstPersonArmsController.ArmsLayerName + " exists (index "
+                          + layer + ")");
+
+        // ---- import contract ----
+        var importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
+        record(importer != null
+               && importer.animationType == ModelImporterAnimationType.Generic,
+            "arms fbx imports as a Generic rig");
+        record(importer != null && importer.addCollider == false,
+            "arms fbx imports without colliders");
+
+        var clips = new List<AnimationClip>();
+        Avatar avatar = null;
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(modelPath))
+        {
+            if (asset is AnimationClip clip
+                && !clip.name.StartsWith("__preview__", StringComparison.Ordinal))
+            {
+                clips.Add(clip);
+            }
+
+            if (asset is Avatar candidate)
+            {
+                avatar = candidate;
+            }
+        }
+
+        record(avatar != null && avatar.isValid && !avatar.isHuman,
+            "arms avatar is a valid generic avatar");
+
+        for (int i = 0; i < FirstPersonArmsImportContract.ClipNames.Length; i++)
+        {
+            string name = FirstPersonArmsImportContract.ClipNames[i];
+            AnimationClip clip = clips.Find(c => string.Equals(c.name, name, StringComparison.Ordinal));
+            bool shouldLoop = FirstPersonArmsImportContract.IsLoopClip(name);
+            record(clip != null && clip.isLooping == shouldLoop,
+                "clip " + name + (shouldLoop ? " loops" : " does not loop"));
+        }
+
+        // ---- prefab contract ----
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (prefab != null)
+        {
+            var animator = prefab.GetComponentInChildren<Animator>(true);
+            record(animator != null && animator.avatar != null && animator.avatar.isValid
+                   && animator.runtimeAnimatorController != null && !animator.applyRootMotion,
+                "prefab animator: generic avatar + controller + Root Motion OFF");
+            record(prefab.GetComponent<FirstPersonArmsController>() != null,
+                "prefab root carries FirstPersonArmsController");
+            record(prefab.GetComponentsInChildren<Collider>(true).Length == 0,
+                "prefab authors no collider");
+
+            var skinnedRenderers = prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            bool boundsOk = skinnedRenderers.Length > 0;
+            foreach (SkinnedMeshRenderer skinned in skinnedRenderers)
+            {
+                if (!skinned.updateWhenOffscreen)
+                {
+                    boundsOk = false;
+                }
+            }
+
+            record(boundsOk,
+                "every skinned renderer recomputes its bounds (the raised arm can never be culled)");
+
+            Transform device = null;
+            foreach (Transform transform in prefab.GetComponentsInChildren<Transform>(true))
+            {
+                if (transform.name == "WristDevice_L")
+                {
+                    device = transform;
+                    break;
+                }
+            }
+
+            record(device != null, "prefab exposes WristDevice_L");
+        }
+
+        // ---- runtime ownership: never authored into a scene ----
+        EditorSceneManager.OpenScene(ShipScenePath, OpenSceneMode.Single);
+        record(CountInScene<FirstPersonArmsController>() == 0,
+            "03_ShipInterior authors no arms instance (created at runtime exactly once)");
+        record(CountInScene<WristPresentationBridge>() == 0,
+            "03_ShipInterior authors no wrist bridge (created at runtime)");
+        record(CountInScene<SurfaceWristController>() == 1,
+            "03_ShipInterior keeps exactly one existing wrist terminal host");
+
+        Camera eye = null;
+        foreach (Camera camera in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include))
+        {
+            if (camera.CompareTag("MainCamera"))
+            {
+                eye = camera;
+            }
+        }
+
+        record(eye != null && (eye.cullingMask & (1 << layer)) != 0,
+            "the authoritative eye camera renders the arms layer");
+        record(eye != null && Mathf.Abs(eye.fieldOfView - 70f) < 0.01f,
+            "the eye camera keeps the Phase 08 FOV of 70");
     }
 
     private static int CountCheckLines(StringBuilder sb)

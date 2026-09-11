@@ -350,6 +350,79 @@ public class StandaloneSmoke : MonoBehaviour
         InputDeviceTracker.NotifyGamepad();
         yield return null;
 
+        // ---- 8a. Phase 09A_2: first-person arms + the wrist presentation ----
+        // Runs on the real device path: the locomotion push and the Wrist press
+        // are Input System gamepad events, never direct API calls, so this is the
+        // standalone proof of  "Wrist binding -> existing wrist system ->
+        // presentation bridge -> Animator".
+        Debug.Log("[StandaloneSmoke] step 8a: first-person arms + wrist");
+        log.Check("the first-person arms exist exactly once after the eyes open",
+            CountArms() == 1);
+        log.Check("the arms follow the authoritative eye camera",
+            ship.Arms != null
+            && ship.Arms.transform.IsChildOf(ship.Player.EyeCamera.transform));
+        log.Check("the arms are presented in free first person",
+            ship.Arms != null && ship.Arms.IsVisible);
+        log.Check("the arms present Idle while standing still",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Idle");
+
+        InputSystem.QueueStateEvent(pad, new GamepadState
+        {
+            leftStick = new Vector2(0f, 0.9f)
+        });
+        bool sawWalk = false;
+        float walkDeadline = Time.realtimeSinceStartup + 0.9f;
+        while (Time.realtimeSinceStartup < walkDeadline)
+        {
+            sawWalk |= ship.Arms != null && ship.Arms.CurrentStateName == "Walk";
+            yield return null;
+        }
+
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        yield return new WaitForSecondsRealtime(0.6f);
+        log.Check("the arms present Walk while the player really moves", sawWalk);
+        log.Check("the arms return to Idle when the player stops",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Idle");
+        log.Check("walking never applies root motion to the arms",
+            ship.Arms != null && !ship.Arms.Animator.applyRootMotion);
+
+        // The Wrist binding opens the AUTHORITY at once; the existing terminal
+        // only appears once the left wrist has risen into view.
+        yield return PressGamepadButton(pad, GamepadButton.North);
+        log.Check("the Wrist binding opens the wrist authority", ship.IsWristOpen);
+        log.Check("the wrist terminal is NOT presented yet (the arm raises first)",
+            !ship.IsWristTerminalRevealed);
+        log.Check("the arm starts raising",
+            ship.Arms != null
+            && ship.Arms.CurrentWristPhase == FirstPersonArmsController.WristPhase.Raise);
+
+        yield return WaitFor(() => ship.IsWristTerminalRevealed, 4f);
+        log.Check("the existing wrist terminal is revealed after the raise",
+            ship.IsWristTerminalRevealed && ship.Wrist.Display != null
+            && ship.Wrist.Display.Visible);
+        log.Check("the reveal waited for the raise animation (progress "
+                  + ship.WristPresentation.LastRaiseProgress.ToString("0.00") + ")",
+            ship.WristPresentation.LastRaiseProgress > 0.7f);
+        yield return WaitFor(() => ship.Arms != null
+            && ship.Arms.CurrentStateName == "WristHold", 4f);
+        log.Check("the wrist presentation settles into the hold loop",
+            ship.Arms != null && ship.Arms.CurrentStateName == "WristHold");
+        log.Check("the wrist screens glow while the terminal is presented",
+            ship.Arms != null && ship.Arms.IsWristScreenActive);
+
+        yield return PressGamepadButton(pad, GamepadButton.North);
+        log.Check("the Wrist binding closes the wrist authority", !ship.IsWristOpen);
+        log.Check("the terminal releases before the arm lowers",
+            !ship.IsWristTerminalRevealed && !ship.Wrist.Display.Visible);
+        log.Check("the arm starts lowering",
+            ship.Arms != null
+            && ship.Arms.CurrentWristPhase == FirstPersonArmsController.WristPhase.Lower);
+        yield return WaitFor(() => ship.Arms != null
+            && ship.Arms.CurrentWristPhase == FirstPersonArmsController.WristPhase.Rest, 4f);
+        log.Check("the arm returns to the Idle presentation",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Idle"
+            && ship.Player.InputEnabled);
+
         ShipConsoleInteractable overviewConsole = null;
         foreach (ShipConsoleInteractable console in ship.Consoles)
         {
@@ -397,6 +470,8 @@ public class StandaloneSmoke : MonoBehaviour
                 ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipConsoleFocus, 4f);
             log.Check("the camera reached the console view anchor",
                 Vector3.Distance(ship.Player.EyeCamera.transform.position, anchor.position) < 0.06f);
+            log.Check("the first-person arms are hidden in the console view",
+                ship.Arms != null && !ship.Arms.IsVisible);
 
             // Menu/Start -> pause over the frozen console view.
             yield return PressGamepadButton(pad, GamepadButton.Start);
@@ -421,6 +496,8 @@ public class StandaloneSmoke : MonoBehaviour
                 ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore);
             yield return WaitFor(() => ship.Player.InputEnabled, 3f);
             log.Check("movement and look are restored", ship.Player.InputEnabled);
+            log.Check("the first-person arms come back after leaving the console view",
+                ship.Arms != null && ship.Arms.IsVisible);
             log.Check("no quit from the console view", AppQuit.RequestCount == 0);
 
             // ---- 8b. Pause: open / continue / back / return to main menu ----
@@ -429,12 +506,17 @@ public class StandaloneSmoke : MonoBehaviour
             log.Check("Menu/Start opens the pause in gameplay", ship.PauseMenu.IsOpen);
             log.Check("the pause freezes gameplay",
                 Mathf.Approximately(Time.timeScale, 0f) && !ship.Player.InputEnabled);
+            log.Check("the pause freezes the arms presentation too",
+                ship.Arms != null && ship.Arms.IsFrozen);
 
             yield return PressGamepadButton(pad, GamepadButton.Start);
             yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
             log.Check("Menu/Start again continues the game",
                 !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f)
                 && ship.Player.InputEnabled);
+            yield return WaitFor(() => ship.Arms != null && !ship.Arms.IsFrozen, 2f);
+            log.Check("continue releases the frozen arms presentation",
+                ship.Arms != null && !ship.Arms.IsFrozen);
 
             yield return PressGamepadButton(pad, GamepadButton.Start);
             yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
@@ -468,6 +550,8 @@ public class StandaloneSmoke : MonoBehaviour
                 GameSession.Instance == session && session.Minerals == mineralsBefore);
             log.Check("the run is still resumable and 继续游戏 is enabled",
                 session.HasStartedRun && menuBack != null && menuBack.ContinueButton.enabledSelf);
+            log.Check("no arms instance survives the return to the title screen",
+                CountArms() == 0);
             log.Check("no quit has happened yet", AppQuit.RequestCount == 0);
 
             // ---- 8c. 继续游戏 -> the same ship state ----
@@ -486,6 +570,8 @@ public class StandaloneSmoke : MonoBehaviour
                 && SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
             log.Check("继续游戏 keeps the same session",
                 GameSession.Instance == session && session.Minerals == mineralsBefore);
+            log.Check("继续游戏 creates the arms exactly once (no duplicates)",
+                resumed != null && CountArms() == 1);
 
             ship = resumed;
 
@@ -624,6 +710,13 @@ public class StandaloneSmoke : MonoBehaviour
         InputSystem.QueueStateEvent(pad, new GamepadState());
         yield return null;
         yield return null;
+    }
+
+    /// <summary>Live first-person arms instances (Phase 09A_2 duplicate guard).</summary>
+    private static int CountArms()
+    {
+        return UnityEngine.Object.FindObjectsByType<FirstPersonArmsController>(
+            FindObjectsInactive.Include).Length;
     }
     /// <summary>
     /// Phase 01-05 authoritative STATE journey. Scene independent, so it runs in

@@ -171,7 +171,8 @@ public class SurvivePhase08ControllerTests
         Assert.AreEqual(0, MainMenuController.QuitRequestCount, "X has no function");
 
         yield return PressButton(GamepadButton.North);
-        Assert.AreEqual(0, MainMenuController.QuitRequestCount, "Y has no function");
+        Assert.AreEqual(0, MainMenuController.QuitRequestCount,
+            "Y has no title-screen function (Phase 09A_2 binds it to Wrist inside the ship)");
 
         Assert.IsFalse(menu.Cinematic.IsPlaying,
             "B / X / Y never start the new game either");

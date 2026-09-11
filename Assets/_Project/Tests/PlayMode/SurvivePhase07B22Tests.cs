@@ -422,6 +422,9 @@ public class SurvivePhase07B22Tests
         yield return ApproachConsole(controller, 2, 4.6f);
         controller.SetWristOpen(true);
         yield return WaitUntil(() => controller.IsWristOpen);
+        // Phase 09A_2: the existing terminal is revealed once the wrist raise
+        // animation reaches its presentation point (immediately without arms).
+        yield return WaitUntil(() => controller.IsWristTerminalRevealed);
         yield return null;
         yield return null;
         Assert.IsTrue(controller.IsWristOpen, "wrist opened in ShipExplore");

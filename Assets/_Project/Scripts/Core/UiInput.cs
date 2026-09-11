@@ -39,7 +39,12 @@ public enum UiAction
     Pause,
 
     /// <summary>Context interaction (Xbox A / E) - gaze-driven in the world.</summary>
-    Interact
+    Interact,
+
+    /// <summary>Wrist terminal toggle (Xbox Y / M / I) - Phase 09A_2 adds the
+    /// gamepad binding the ship wrist never had; the semantic name stays
+    /// platform neutral.</summary>
+    Wrist
 }
 
 /// <summary>
@@ -84,11 +89,13 @@ public static class UiInput
         "Interact=Gamepad.buttonSouth,Keyboard.eKey",
         "Back=Gamepad.buttonEast,Keyboard.escapeKey",
         "Pause=Gamepad.startButton,Keyboard.escapeKey",
+        "Wrist=Gamepad.buttonNorth,Keyboard.mKey|iKey",
         "Navigate=Gamepad.dpad|leftStick,Keyboard.arrowKeys"
     };
 
     private static int _injectedPauseFrame = -1000;
     private static int _injectedEscapeFrame = -1000;
+    private static int _injectedWristFrame = -1000;
     private static int _backConsumedFrame = -1000;
 
     /// <summary>
@@ -270,6 +277,44 @@ public static class UiInput
 
         Keyboard keyboard = Keyboard.current;
         return keyboard != null && keyboard.eKey.wasPressedThisFrame;
+    }
+
+    /// <summary>
+    /// Automation seam: reports a Wrist press for the next frame, so a test can
+    /// drive the REAL wrist layer (authority -> presentation bridge -> animator)
+    /// on harnesses that cannot deliver device state to the batch-mode player.
+    /// </summary>
+    public static void InjectWristForAutomation()
+    {
+        _injectedWristFrame = Time.frameCount + 1;
+    }
+
+    /// <summary>
+    /// True when the Wrist action was pressed this frame.
+    ///
+    /// The ship wrist had no gamepad binding before Phase 09A_2 (only the M / I
+    /// keys), so the Xbox Y / PlayStation triangle control is bound here as the
+    /// semantic Wrist action: it is the one face control that neither Confirm
+    /// (buttonSouth), Back (buttonEast) nor Pause (Menu/Start) uses, so no
+    /// existing contract is disturbed. Physical mapping stays in this file - no
+    /// gameplay class names a control directly.
+    /// </summary>
+    public static bool WristPressed()
+    {
+        if (Time.frameCount == _injectedWristFrame)
+        {
+            return true;
+        }
+
+        Gamepad pad = Gamepad.current;
+        if (pad != null && pad.buttonNorth.wasPressedThisFrame)
+        {
+            return true;
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null
+               && (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame);
     }
 
     /// <summary>

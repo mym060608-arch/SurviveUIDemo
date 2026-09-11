@@ -599,6 +599,9 @@ public class SurvivePhase07B2Tests
         // Live wrist: floorplan element + player marker present.
         controller.SetWristOpen(true);
         yield return WaitSeconds(0.5f);
+        // Phase 09A_2: with the arms present the existing terminal is revealed
+        // after the wrist raise animation (without them it opens immediately).
+        yield return WaitUntil(() => controller.IsWristTerminalRevealed);
         SurfaceWristController wrist = controller.Wrist;
         VisualElement root = wrist.RootElement;
         Assert.IsNotNull(root.Q<VisualElement>("ShipSchematicVisual"),
