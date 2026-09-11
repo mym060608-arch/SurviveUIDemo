@@ -804,15 +804,47 @@ public class Ship09A2ShotProbe : MonoBehaviour
         CameraClearFlags savedFlags = _eye.clearFlags;
         Color savedBackground = _eye.backgroundColor;
 
+        // The ship coordinator re-asserts pointer ownership every frame and the
+        // world pointer router picks into the very panels that are being
+        // disabled here (a pick during a panel rebuild trips a UI Toolkit
+        // NullReferenceException), so both are parked for the few frames of the
+        // measurement. Nothing about the product changes - this only keeps the
+        // instrumentation from fighting the runtime.
+        bool shipWasEnabled = _ship != null && _ship.enabled;
+        if (_ship != null)
+        {
+            _ship.enabled = false;
+        }
+
+        var disabledRouters = new List<WorldUiPointerRouter>();
+        foreach (WorldUiPointerRouter router in UnityEngine.Object
+                     .FindObjectsByType<WorldUiPointerRouter>(FindObjectsInactive.Include))
+        {
+            if (router.enabled)
+            {
+                router.enabled = false;
+                disabledRouters.Add(router);
+            }
+        }
+
         var disabledDocuments = new List<UIDocument>();
         foreach (UIDocument document in UnityEngine.Object.FindObjectsByType<UIDocument>(
                      FindObjectsInactive.Include))
         {
-            if (document.enabled)
+            // Only SCREEN-SPACE documents composite into the captured frame.
+            // Documents that render into their own RenderTexture (the console
+            // screens and the wrist terminal) never appear here, and toggling
+            // them breaks their panel layout state - which a later pointer pick
+            // then trips over inside UI Toolkit.
+            if (!document.enabled
+                || (document.panelSettings != null
+                    && document.panelSettings.targetTexture != null))
             {
-                document.enabled = false;
-                disabledDocuments.Add(document);
+                continue;
             }
+
+            document.enabled = false;
+            disabledDocuments.Add(document);
         }
 
         var disabledCameras = new List<Camera>();
@@ -853,6 +885,21 @@ public class Ship09A2ShotProbe : MonoBehaviour
             }
         }
 
+        foreach (WorldUiPointerRouter router in disabledRouters)
+        {
+            if (router != null)
+            {
+                router.enabled = true;
+            }
+        }
+
+        if (_ship != null)
+        {
+            _ship.enabled = shipWasEnabled;
+        }
+
+        // Let the rebuilt panels settle before any pointer pick runs again.
+        yield return null;
         yield return null;
     }
 
