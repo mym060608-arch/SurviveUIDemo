@@ -426,6 +426,34 @@ public class MainMenuCapture : MonoBehaviour
         yield return new WaitForSecondsRealtime(0.4f);
         yield return Capture("04d_ship_interior_firstperson");
 
+        // ---- 04e: pause menu (Phase 08 pause work) ----
+        if (ship.PauseMenu != null && ship.PauseMenu.IsReady)
+        {
+            ship.PauseMenu.Open();
+            yield return WaitUntil(() => ship.PauseMenu.IsOpen, 120);
+            yield return new WaitForSecondsRealtime(0.4f);
+            Check("the pause menu opens and freezes time",
+                ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 0f));
+            Check("the pause menu focuses 继续游戏",
+                ship.PauseMenu.FocusedItemId == "Resume");
+            Check("the pause menu carries exactly three options",
+                ship.PauseMenu.Items.Count == 3);
+            yield return Capture("04e_pause_menu");
+
+            ship.PauseMenu.SetFocus(1);
+            yield return new WaitForSecondsRealtime(0.3f);
+            yield return Capture("04f_pause_menu_return_to_main_menu");
+
+            ship.PauseMenu.ResumeGame();
+            yield return WaitUntil(() => !ship.PauseMenu.IsOpen, 120);
+            Check("继续游戏 closes the pause and restores time",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+        }
+        else
+        {
+            Fail("the pause menu is not available in the ship interior");
+        }
+
         // ---- 05: terminal -> Overview ----
         ShipConsoleInteractable overviewConsole = null;
         foreach (ShipConsoleInteractable console in ship.Consoles)

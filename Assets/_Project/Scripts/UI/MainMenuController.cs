@@ -264,8 +264,7 @@ public class MainMenuController : MonoBehaviour
     /// </summary>
     private void TrackGamepadPresses()
     {
-        Gamepad pad = Gamepad.current;
-        if (pad != null && pad.buttonSouth.wasPressedThisFrame)
+        if (UiInput.GamepadConfirmPressedThisFrame())
         {
             _lastGamepadConfirmFrame = Time.frameCount;
         }
@@ -313,17 +312,15 @@ public class MainMenuController : MonoBehaviour
 
     private void HandleEscapeAndBack()
     {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+        // One logical Back action (Xbox B / Escape) for the whole screen; the
+        // physical mapping lives in UiInput.
+        if (UiInput.BackPressed())
         {
-            HandleBackInput();
-        }
+            if (InputDeviceTracker.GamepadProducedInput())
+            {
+                InputDeviceTracker.NotifyGamepad();
+            }
 
-        Gamepad pad = Gamepad.current;
-        if (pad != null && pad.buttonEast.wasPressedThisFrame && _optionsOpen)
-        {
-            // B = Back, the console convention for leaving a submenu.
-            InputDeviceTracker.NotifyGamepad();
             HandleBackInput();
         }
     }
@@ -595,8 +592,9 @@ public class MainMenuController : MonoBehaviour
     }
 
     /// <summary>
-    /// D-Pad / left stick / arrow keys move the focus; A confirms. Repeat uses a
-    /// short delay then a steady rate so a held stick cannot race the menu.
+    /// D-Pad / left stick / arrow keys move the focus; confirm activates. Repeat
+    /// uses a short delay then a steady rate so a held stick cannot race the menu.
+    /// The physical mapping lives in <see cref="UiInput"/>.
     /// </summary>
     private void UpdateNavigation()
     {
@@ -605,7 +603,7 @@ public class MainMenuController : MonoBehaviour
             return;
         }
 
-        int direction = ReadNavigationDirection();
+        int direction = UiInput.NavigationDirection();
         if (direction == 0)
         {
             _navigateHeld = 0f;
@@ -630,64 +628,21 @@ public class MainMenuController : MonoBehaviour
         }
     }
 
-    private static int ReadNavigationDirection()
-    {
-        Gamepad pad = Gamepad.current;
-        if (pad != null)
-        {
-            float stick = pad.leftStick.ReadValue().y;
-            if (stick > NavigateStickThreshold)
-            {
-                return -1;
-            }
-
-            if (stick < -NavigateStickThreshold)
-            {
-                return 1;
-            }
-
-            Vector2 dpad = pad.dpad.ReadValue();
-            if (dpad.y > 0.5f)
-            {
-                return -1;
-            }
-
-            if (dpad.y < -0.5f)
-            {
-                return 1;
-            }
-        }
-
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null)
-        {
-            if (keyboard.upArrowKey.wasPressedThisFrame)
-            {
-                return -1;
-            }
-
-            if (keyboard.downArrowKey.wasPressedThisFrame)
-            {
-                return 1;
-            }
-        }
-
-        return 0;
-    }
-
-    /// <summary>Gamepad A confirmation, polled here so the title screen works
-    /// without any authored EventSystem.</summary>
+    /// <summary>Gamepad / keyboard confirmation, polled here so the title screen
+    /// works without any authored EventSystem.</summary>
     private void PollConfirm()
     {
-        Gamepad pad = Gamepad.current;
-        if (pad == null || !pad.buttonSouth.wasPressedThisFrame)
+        if (!UiInput.ConfirmPressed())
         {
             return;
         }
 
-        Debug.Log("[GAMEPAD] South pressed (polled by MainMenuController) - focus="
-                  + FocusedItemId);
-        InputDeviceTracker.NotifyGamepad();
+        Debug.Log("[MENU] Confirm pressed - focus=" + FocusedItemId);
+        if (InputDeviceTracker.GamepadProducedInput())
+        {
+            InputDeviceTracker.NotifyGamepad();
+        }
+
         if (_optionsOpen)
         {
             return;
@@ -867,49 +822,33 @@ public class MainMenuController : MonoBehaviour
     }
 
     /// <summary>
-    /// The 退出 action: the ONLY place in the product that may terminate the
-    /// application, and it is reachable only from the Exit option (click or
-    /// gamepad A while 退出 is focused).
-    ///
-    /// In a player this ends the application; inside the Unity Editor it leaves
-    /// Play Mode instead of terminating the editor process.
+    /// The 退出 action: reachable only from the Exit option (confirm while it is
+    /// focused, or a real click on that row). The termination itself lives in the
+    /// single authoritative <see cref="AppQuit"/> path, shared with the pause
+    /// menu's 退出游戏.
     /// </summary>
     public static void RequestQuit()
     {
-        QuitRequestCount++;
-
-        var caller = new System.Diagnostics.StackFrame(1);
-        Debug.Log("[MENU] Execute = QuitGame (request #" + QuitRequestCount + " from "
-                  + caller.GetMethod().DeclaringType.Name + "." + caller.GetMethod().Name + ")");
-
-        if (SuppressQuitForAutomation)
-        {
-            // Automation seam: prove WHICH option reached the quit action without
-            // killing the editor or the test runner.
-            return;
-        }
-
-#if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-#else
-        Application.Quit();
-#endif
+        AppQuit.Request("MainMenu.Exit");
     }
 
     /// <summary>How many times the quit action was requested (automation only).</summary>
-    public static int QuitRequestCount { get; private set; }
+    public static int QuitRequestCount => AppQuit.RequestCount;
 
     /// <summary>
     /// Automation seam: while true the quit action only records itself. Tests
     /// must reset it in teardown.
     /// </summary>
-    public static bool SuppressQuitForAutomation { get; set; }
+    public static bool SuppressQuitForAutomation
+    {
+        get => AppQuit.SuppressForAutomation;
+        set => AppQuit.SuppressForAutomation = value;
+    }
 
     /// <summary>Clears the quit bookkeeping (automation only).</summary>
     public static void ResetQuitBookkeepingForAutomation()
     {
-        QuitRequestCount = 0;
-        SuppressQuitForAutomation = false;
+        AppQuit.ResetBookkeepingForAutomation();
     }
 
     // ---- Cinematic hooks (driven by MainMenuCinematic) ----

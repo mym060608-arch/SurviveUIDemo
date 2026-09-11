@@ -1,0 +1,38 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <!-- ============================================================
+         Ship Interior — PAUSE MENU (Phase 08 pause work)
+
+         Minimal overlay: 暂停 + exactly three options, on the same dark
+         restrained language as the title screen. Loaded from Resources because
+         the pause document is created at runtime by the ship coordinator (the
+         validated Phase 07 ship scene is not regenerated).
+
+         Copy:
+             暂停
+             继续游戏 / 返回主菜单 / 退出游戏
+             <device hint>
+         ============================================================ -->
+    <ui:VisualElement name="PauseRoot" class="pause-root">
+        <ui:VisualElement name="PauseDim" class="pause-dim" />
+        <ui:VisualElement name="PausePanel" class="pause-panel">
+            <ui:Label name="PauseTitle" class="pause-title" text="暂停" />
+
+            <ui:VisualElement name="PauseList" class="pause-list">
+                <ui:Button name="PauseResumeButton" class="pause-item">
+                    <ui:Label class="pause-marker" text="›" />
+                    <ui:Label name="PauseResumeLabel" class="pause-label" text="继续游戏" />
+                </ui:Button>
+                <ui:Button name="PauseMainMenuButton" class="pause-item">
+                    <ui:Label class="pause-marker" text="›" />
+                    <ui:Label name="PauseMainMenuLabel" class="pause-label" text="返回主菜单" />
+                </ui:Button>
+                <ui:Button name="PauseQuitButton" class="pause-item">
+                    <ui:Label class="pause-marker" text="›" />
+                    <ui:Label name="PauseQuitLabel" class="pause-label" text="退出游戏" />
+                </ui:Button>
+            </ui:VisualElement>
+
+            <ui:Label name="PauseHint" class="pause-hint" text="" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

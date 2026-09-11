@@ -23,8 +23,11 @@ public class ShipConsoleInteractable : MonoBehaviour, IFirstPersonInteractable
     /// <summary>Chinese primary identity, e.g. 总览.</summary>
     public string ChineseName => _zhName;
 
-    /// <summary>Chinese-first prompt shown while gazing at the console.</summary>
-    public string PromptText => InputDeviceTracker.FormatPrompt("使用 " + _zhName + "终端");
+    /// <summary>Chinese-first prompt shown while gazing at the console. The verb
+    /// is 查看 (view): this phase only offers entering the console VIEW, not the
+    /// terminal UI's internal interaction, so the prompt must not promise it.</summary>
+    public string PromptText => InputDeviceTracker.FormatPrompt(UiAction.Interact,
+        "查看 " + _zhName + "终端");
 
     /// <summary>Builder configuration (called once at scene authoring time).</summary>
     public void Configure(int consoleId, string zhName)

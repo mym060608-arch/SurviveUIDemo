@@ -173,6 +173,13 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void Update()
     {
+        // The pause menu freezes the whole gameplay context, including a running
+        // transition: the console view simply stays where it was.
+        if (_ship != null && _ship.IsPaused)
+        {
+            return;
+        }
+
         switch (_state)
         {
             case ShipConsoleFocusState.TransitionIn:
@@ -270,6 +277,27 @@ public class ShipConsoleFocusController : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Drops the console view WITHOUT animating, for a scene change (pause ->
+    /// 返回主菜单). The camera is put back on its anchor-free free-look pose and
+    /// every focus side effect (blur volume, sharp proxy, cursor, input) is
+    /// released so nothing lingers in the menu scene.
+    /// </summary>
+    public void CleanupForSceneChange()
+    {
+        HideFocusProxy();
+        SetBlurWeight(0f);
+        TransitionProgress01 = 0f;
+
+        _state = ShipConsoleFocusState.ShipExplore;
+        _active = null;
+
+        if (_cursor != null)
+        {
+            _cursor.SetHover(false);
+        }
+    }
+
     // ---- Update ticks ----
 
     private void TickTransitionIn()
@@ -293,8 +321,10 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void TickFocused()
     {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame)
+        // Leave the console view with the Back semantic (Xbox B / E). Escape is
+        // deliberately NOT part of it: Escape stays the global Pause key, so the
+        // two actions can never fight over one press.
+        if (UiInput.ConsoleExitPressed())
         {
             RequestExit();
         }

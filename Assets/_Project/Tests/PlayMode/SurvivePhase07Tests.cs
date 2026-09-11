@@ -101,7 +101,7 @@ public class SurvivePhase07Tests
         ShipConsoleInteractable c1 = controller.Consoles[0];
         Assert.AreEqual("总览", c1.ChineseName, "console 01 identity");
         StringAssert.Contains("总览终端", c1.PromptText, "console 01 prompt");
-        StringAssert.Contains("使用", c1.PromptText, "console prompt verb");
+        StringAssert.Contains("查看", c1.PromptText, "console prompt verb (view only)");
 
         // Three sliding doors with unique ids.
         Assert.AreEqual(3, controller.Doors.Count, "three doors");

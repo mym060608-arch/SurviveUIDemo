@@ -3,6 +3,8 @@ using System.Collections;
 using System.IO;
 using System.Text;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -336,8 +338,15 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("no terminal UI covers the frame on entry",
             !ship.IsConsoleFocusActive && !ship.IsOverlayOpen);
 
-        // ---- 8. Walk-in terminal flow: A / E on the 总览 terminal ----
-        Debug.Log("[StandaloneSmoke] step 8: terminal flow");
+        // ---- 8. Console view + the full pause loop ----
+        // A virtual gamepad is added so this standalone run drives the REAL
+        // device path (buttons through the Input System) with no hardware present.
+        Gamepad pad = InputSystem.AddDevice<Gamepad>();
+        yield return WaitFor(() => Gamepad.current == pad, 5f);
+        log.Check("a gamepad device is available for the standalone run",
+            Gamepad.current == pad);
+
+        Debug.Log("[StandaloneSmoke] step 8: console view + pause loop");
         InputDeviceTracker.NotifyGamepad();
         yield return null;
 
@@ -352,115 +361,118 @@ public class StandaloneSmoke : MonoBehaviour
         }
 
         log.Check("the 总览 terminal exists on the bridge", overviewConsole != null);
+
         if (overviewConsole != null)
         {
-            log.Check("the gamepad prompt names A, not E",
-                overviewConsole.GetInteractionPrompt().StartsWith("(A)"));
+            log.Check("the gamepad prompt offers viewing the console",
+                overviewConsole.GetInteractionPrompt() == "[A] 查看 总览终端");
             InputDeviceTracker.NotifyKeyboardMouse();
             yield return null;
-            log.Check("the keyboard prompt names E",
-                overviewConsole.GetInteractionPrompt().StartsWith("E"));
+            log.Check("the keyboard prompt offers viewing the console",
+                overviewConsole.GetInteractionPrompt() == "[E] 查看 总览终端");
+            InputDeviceTracker.NotifyGamepad();
+            yield return null;
         }
 
-        if (overviewConsole != null && ship.Focus != null)
+        if (overviewConsole != null && ship.Focus != null && ship.PauseMenu != null)
         {
-            bool entered = ship.Focus.RequestEnter(overviewConsole);
-            yield return WaitFor(() => ship.Focus.FocusActive, 6f);
-            log.Check("the player can enter the Overview terminal from inside the ship",
-                entered && ship.Focus.FocusActive);
+            // Stand in front of the console and look at its screen.
+            Vector3 consoleForward = overviewConsole.transform.forward;
+            ship.Player.TeleportTo(overviewConsole.transform.position + consoleForward * 1.9f);
+            ship.Player.SetFacing(overviewConsole.transform.eulerAngles.y + 180f, 0f);
+            yield return WaitFor(() =>
+                ship.Interactor.CurrentTarget == (IFirstPersonInteractable)overviewConsole, 4f);
 
-            ShipConsoleScreenHost overviewHost = null;
-            foreach (ShipConsoleScreenHost candidate
-                     in UnityEngine.Object.FindObjectsByType<ShipConsoleScreenHost>())
+            // A -> console view.
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => ship.Focus.FocusActive, 3f);
+            log.Check("A enters the console view", ship.Focus.FocusActive);
+            log.Check("movement and look are disabled in the view", !ship.Player.InputEnabled);
+            log.Check("the view hint names the Back button ("
+                      + ship.Hud.FocusPromptText + ")", ship.Hud.FocusPromptText == "[B] 返回");
+            log.Check("viewing a console never quits", AppQuit.RequestCount == 0);
+
+            Transform anchor = overviewConsole.GetComponent<WorldConsoleSurface>().FocusAnchor;
+            yield return WaitFor(() =>
+                ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipConsoleFocus, 4f);
+            log.Check("the camera reached the console view anchor",
+                Vector3.Distance(ship.Player.EyeCamera.transform.position, anchor.position) < 0.06f);
+
+            // Menu/Start -> pause over the frozen console view.
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Menu/Start opens the pause over the console view", ship.PauseMenu.IsOpen);
+            log.Check("the pause freezes time", Mathf.Approximately(Time.timeScale, 0f));
+            log.Check("the console view stays as the underlying state", ship.Focus.FocusActive);
+            log.Check("the pause focus lands on 继续游戏", ship.PauseMenu.FocusedItemId == "Resume");
+
+            // Continue -> back to the console view.
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("继续游戏 closes the pause", !ship.PauseMenu.IsOpen);
+            log.Check("time resumes", Mathf.Approximately(Time.timeScale, 1f));
+            log.Check("we are back in the console view", ship.Focus.FocusActive);
+
+            // B -> leave the console view.
+            yield return PressGamepadButton(pad, GamepadButton.East);
+            yield return WaitFor(() =>
+                ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore, 4f);
+            log.Check("B leaves the console view",
+                ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore);
+            yield return WaitFor(() => ship.Player.InputEnabled, 3f);
+            log.Check("movement and look are restored", ship.Player.InputEnabled);
+            log.Check("no quit from the console view", AppQuit.RequestCount == 0);
+
+            // ---- 8b. Pause: open / continue / back / return to main menu ----
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Menu/Start opens the pause in gameplay", ship.PauseMenu.IsOpen);
+            log.Check("the pause freezes gameplay",
+                Mathf.Approximately(Time.timeScale, 0f) && !ship.Player.InputEnabled);
+
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("Menu/Start again continues the game",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f)
+                && ship.Player.InputEnabled);
+
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            yield return PressGamepadButton(pad, GamepadButton.East);
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("B continues the game from the pause",
+                !ship.PauseMenu.IsOpen && ship.Player.InputEnabled);
+            log.Check("B never quits", AppQuit.RequestCount == 0);
+
+            int mineralsBefore = session.Minerals;
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            yield return PressGamepadButton(pad, GamepadButton.DpadDown);
+            log.Check("D-Pad moves the pause focus to 返回主菜单",
+                ship.PauseMenu.FocusedItemId == "ReturnToMainMenu");
+            yield return PressGamepadButton(pad, GamepadButton.South);
+
+            MainMenuController menuBack = null;
+            yield return WaitFor(() =>
             {
-                if (candidate.MappedScreen == AppScreen.Overview)
-                {
-                    overviewHost = candidate;
-                    break;
-                }
-            }
+                menuBack = FindFirstObjectByTypeHelper.Find<MainMenuController>();
+                return menuBack != null && menuBack.IsReady;
+            }, 25f);
 
-            log.Check("the Overview terminal is bound to the shared Overview screen",
-                overviewHost != null && overviewHost.IsBound
-                && overviewHost.CountVisibleScreens() == 1);
+            log.Check("返回主菜单 reaches the title screen",
+                menuBack != null
+                && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
+            log.Check("返回主菜单 restores normal time",
+                Mathf.Approximately(Time.timeScale, 1f));
+            log.Check("返回主菜单 never resets the session",
+                GameSession.Instance == session && session.Minerals == mineralsBefore);
+            log.Check("the run is still resumable and 继续游戏 is enabled",
+                session.HasStartedRun && menuBack != null && menuBack.ContinueButton.enabledSelf);
+            log.Check("no quit has happened yet", AppQuit.RequestCount == 0);
 
-            // The other three production terminals stay available as well.
-            // Console 02 (仓库总览) hosts the dedicated warehouse / 出发准备 tree
-            // instead of a ShipConsoleScreenHost, so the mapping is read from the
-            // console surfaces rather than from one component type.
-            var available = new System.Collections.Generic.HashSet<AppScreen>();
-            int surfaces = 0;
-            foreach (ShipConsoleInteractable console in ship.Consoles)
-            {
-                var surface = console.GetComponent<WorldConsoleSurface>();
-                if (surface == null)
-                {
-                    continue;
-                }
-
-                surfaces++;
-                if (surface.ScreenHost != null)
-                {
-                    available.Add(surface.ScreenHost.MappedScreen);
-                }
-
-                if (surface.WarehouseHost != null)
-                {
-                    // 仓库总览 == the 出发准备 / Preparation production screen.
-                    available.Add(AppScreen.Preparation);
-                }
-            }
-
-            log.Check("all four terminals are wired (" + surfaces + " surfaces)", surfaces == 4);
-            log.Check("Preparation / Processing / Outpost terminals remain available",
-                available.Contains(AppScreen.Overview)
-                && available.Contains(AppScreen.Preparation)
-                && available.Contains(AppScreen.Processing)
-                && available.Contains(AppScreen.Outpost));
-
-            ship.Focus.RequestExit();
-            yield return WaitFor(() => !ship.Focus.FocusActive, 6f);
-            log.Check("leaving the terminal returns to the first-person ship",
-                !ship.Focus.FocusActive && ship.Player.InputEnabled);
-        }
-
-        // ---- 9. existing Phase 01-05 state journey (scene independent) ----
-        Debug.Log("[StandaloneSmoke] step 9: session + processing journey");
-        RunSessionJourney(log, session);
-        yield return RunProcessJourney(log, session, null);
-
-        // ---- 10. Title screen round trip + 继续游戏 (no reset) ----
-        Debug.Log("[StandaloneSmoke] step 10: continue journey");
-        int mineralsBefore = session.Minerals;
-        int fuelBefore = session.Fuel;
-        int alloyBefore = session.Alloy;
-
-        SceneRouting.EnterMainMenu();
-        MainMenuController menuAgain = null;
-        yield return WaitFor(() =>
-        {
-            menuAgain = FindFirstObjectByTypeHelper.Find<MainMenuController>();
-            return menuAgain != null && menuAgain.IsReady;
-        }, 25f);
-
-        log.Check("the title screen is re-enterable after the mission entry",
-            menuAgain != null
-            && SceneManager.GetActiveScene().name == SceneRouting.MainMenuSceneName);
-        log.Check("returning to the title screen never resets the session",
-            GameSession.Instance == session
-            && session.Minerals == mineralsBefore && session.Fuel == fuelBefore
-            && session.Alloy == alloyBefore);
-        log.Check("继续游戏 is available once a run has started",
-            menuAgain != null && menuAgain.IsContinueAvailable
-            && menuAgain.ContinueButton.enabledSelf);
-
-        if (menuAgain != null)
-        {
-            menuAgain.SetFocus(1);
-            log.Check("focus can rest on 继续游戏", menuAgain.FocusIndex == 1);
-            log.Check("A confirms 继续游戏", menuAgain.ConfirmFocused());
-            log.Check("继续游戏 plays the short shot",
-                menuAgain.Cinematic != null && menuAgain.Cinematic.IsContinueShot);
+            // ---- 8c. 继续游戏 -> the same ship state ----
+            menuBack.SetFocus(1);
+            yield return PressGamepadButton(pad, GamepadButton.South);
 
             ShipGameController resumed = null;
             yield return WaitFor(() =>
@@ -469,40 +481,146 @@ public class StandaloneSmoke : MonoBehaviour
                 return resumed != null && resumed.IsReady;
             }, 30f);
 
-            log.Check("继续游戏 returns to the existing ship state",
+            log.Check("继续游戏 returns to the ship interior",
                 resumed != null
                 && SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
-            log.Check("继续游戏 never resets the session",
-                GameSession.Instance == session
-                && session.Minerals == mineralsBefore && session.Fuel == fuelBefore
-                && session.Alloy == alloyBefore);
-            log.Check("继续游戏 uses the short eyelid entry",
-                resumed != null && resumed.EntryBlinkArmed);
+            log.Check("继续游戏 keeps the same session",
+                GameSession.Instance == session && session.Minerals == mineralsBefore);
+
+            ship = resumed;
+
+            // 继续游戏 opens the eyes with the SHORT eyelid and only then hands
+            // control back; wait for that before driving gameplay again.
+            yield return WaitFor(() => !ship.IsEntryInputLocked, 6f);
+            log.Check("继续游戏 releases first-person control after the short eyelid",
+                !ship.IsEntryInputLocked && ship.Player.InputEnabled);
+
+            // ---- 8d. Terminal focus still reaches the Overview screen ----
+            if (ship != null && ship.Focus != null)
+            {
+                ShipConsoleInteractable console01 = null;
+                foreach (ShipConsoleInteractable console in ship.Consoles)
+                {
+                    if (console.ConsoleId == 1)
+                    {
+                        console01 = console;
+                        break;
+                    }
+                }
+
+                bool entered = console01 != null && ship.Focus.RequestEnter(console01);
+                yield return WaitFor(() => ship.Focus.FocusActive, 6f);
+                log.Check("the player can enter the Overview terminal from inside the ship",
+                    entered && ship.Focus.FocusActive);
+
+                ShipConsoleScreenHost overviewHost = null;
+                foreach (ShipConsoleScreenHost candidate
+                         in UnityEngine.Object.FindObjectsByType<ShipConsoleScreenHost>())
+                {
+                    if (candidate.MappedScreen == AppScreen.Overview)
+                    {
+                        overviewHost = candidate;
+                        break;
+                    }
+                }
+
+                log.Check("the Overview terminal is bound to the shared Overview screen",
+                    overviewHost != null && overviewHost.IsBound
+                    && overviewHost.CountVisibleScreens() == 1);
+
+                // Console 02 (仓库总览) hosts the dedicated warehouse / 出发准备 tree
+                // instead of a ShipConsoleScreenHost, so the mapping is read from
+                // the console surfaces rather than from one component type.
+                var available = new System.Collections.Generic.HashSet<AppScreen>();
+                int surfaces = 0;
+                foreach (ShipConsoleInteractable console in ship.Consoles)
+                {
+                    var surface = console.GetComponent<WorldConsoleSurface>();
+                    if (surface == null)
+                    {
+                        continue;
+                    }
+
+                    surfaces++;
+                    if (surface.ScreenHost != null)
+                    {
+                        available.Add(surface.ScreenHost.MappedScreen);
+                    }
+
+                    if (surface.WarehouseHost != null)
+                    {
+                        // 仓库总览 == the 出发准备 / Preparation production screen.
+                        available.Add(AppScreen.Preparation);
+                    }
+                }
+
+                log.Check("all four terminals are wired (" + surfaces + " surfaces)", surfaces == 4);
+                log.Check("Preparation / Processing / Outpost terminals remain available",
+                    available.Contains(AppScreen.Overview)
+                    && available.Contains(AppScreen.Preparation)
+                    && available.Contains(AppScreen.Processing)
+                    && available.Contains(AppScreen.Outpost));
+
+                ship.Focus.RequestExit();
+                yield return WaitFor(() => !ship.Focus.FocusActive, 6f);
+                log.Check("leaving the terminal returns to the first-person ship"
+                          + " (focusActive=" + ship.Focus.FocusActive
+                          + " state=" + ship.Focus.State
+                          + " paused=" + ship.IsPaused
+                          + " owner=" + ship.PointerOwner
+                          + " wrist=" + ship.IsWristOpen
+                          + " overlay=" + ship.IsOverlayOpen
+                          + " entryLock=" + ship.IsEntryInputLocked
+                          + " input=" + ship.Player.InputEnabled
+                          + " timeScale=" + Time.timeScale + ")",
+                    !ship.Focus.FocusActive && ship.Player.InputEnabled);
+            }
+
+            // ---- 9. existing Phase 01-05 state journey (scene independent) ----
+            Debug.Log("[StandaloneSmoke] step 9: session + processing journey");
+            RunSessionJourney(log, session);
+            yield return RunProcessJourney(log, session, null);
+
+            // ---- 10. Pause -> 退出游戏 must terminate the process ----
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("the pause reopens after the journey", ship.PauseMenu.IsOpen);
+
+            ship.PauseMenu.SetFocus(2);
+            log.Check("focus is on 退出游戏", ship.PauseMenu.FocusedItemId == "QuitGame");
+            log.Check("nothing has quit before the explicit confirm",
+                AppQuit.RequestCount == 0);
+
+            log.Line("EXIT: confirming 退出游戏 in the pause menu (the process must terminate)");
+            WriteResult(log, log.Failures == 0);
+            yield return PressGamepadButton(pad, GamepadButton.South);
+
+            // Still alive after ~1.5 s means the quit action is broken.
+            for (int i = 0; i < 90; i++)
+            {
+                yield return null;
+            }
+
+            log.Fail("退出游戏 did not terminate the application");
+            WriteResult(log, false);
+            Application.Quit(1);
+            yield break;
         }
 
-        // ---- 11. 退出 must terminate the application ----
-        SceneRouting.EnterMainMenu();
-        MainMenuController menuExit = null;
-        yield return WaitFor(() =>
-        {
-            menuExit = FindFirstObjectByTypeHelper.Find<MainMenuController>();
-            return menuExit != null && menuExit.IsReady;
-        }, 25f);
-        log.Check("title screen is ready for the exit smoke", menuExit != null);
+        // The console view could not be set up: fail loudly instead of passing.
+        log.Fail("the console view / pause loop could not run (console or pause menu missing)");
+        Finish(log, 1);
+    }
 
-        log.Line("EXIT: confirming 退出 (the process must terminate)");
-        WriteResult(log, log.Failures == 0);
-        yield return RealClick(menuExit?.UiRoot?.Q<Button>(MainMenuNames.ExitButton), "退出", log);
-
-        // Still alive after ~1.5 s means the exit action is broken.
-        for (int i = 0; i < 90; i++)
-        {
-            yield return null;
-        }
-
-        log.Fail("退出 did not terminate the application");
-        WriteResult(log, false);
-        Application.Quit(1);
+    /// <summary>Queues a real press/release of one gamepad button.</summary>
+    private static IEnumerator PressGamepadButton(Gamepad pad, GamepadButton button)
+    {
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(button));
+        yield return null;
+        yield return null;
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        yield return null;
+        yield return null;
     }
     /// <summary>
     /// Phase 01-05 authoritative STATE journey. Scene independent, so it runs in

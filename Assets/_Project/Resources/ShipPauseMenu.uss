@@ -1,0 +1,102 @@
+/* ============================================================
+   Ship Interior — PAUSE MENU (Phase 08 pause work)
+
+   Same language as the title screen: no card chrome, no telemetry, a dimmed
+   gameplay frame and a short list. Only the focused row is emphasised.
+   ============================================================ */
+
+.pause-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.pause-dim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(2, 5, 9, 0.74);
+}
+
+.pause-panel {
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 420px;
+    padding-left: 40px;
+    padding-right: 40px;
+    padding-top: 34px;
+    padding-bottom: 30px;
+    background-color: rgba(8, 14, 20, 0.92);
+    border-width: 1px;
+    border-color: rgba(120, 200, 220, 0.22);
+    border-radius: 3px;
+}
+
+.pause-title {
+    color: #F2F8FC;
+    font-size: 44px;
+    letter-spacing: 8px;
+    -unity-font-style: bold;
+    margin-bottom: 26px;
+}
+
+.pause-list {
+    flex-direction: column;
+    align-self: stretch;
+}
+
+.pause-item {
+    height: 56px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 0;
+    padding-right: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    border-left-width: 2px;
+    border-left-color: rgba(0, 0, 0, 0);
+}
+
+.pause-marker {
+    width: 26px;
+    color: rgba(120, 216, 236, 0);
+    font-size: 26px;
+    -unity-text-align: middle-left;
+}
+
+.pause-label {
+    color: #9EB2C2;
+    font-size: 26px;
+    letter-spacing: 3px;
+}
+
+.pause-item-focused {
+    border-left-color: #4FD4E6;
+}
+
+.pause-item-focused .pause-marker {
+    color: #4FD4E6;
+}
+
+.pause-item-focused .pause-label {
+    color: #FFFFFF;
+}
+
+.pause-item:hover .pause-label {
+    color: #DCE9F2;
+}
+
+.pause-hint {
+    margin-top: 26px;
+    color: rgba(168, 196, 212, 0.8);
+    font-size: 15px;
+    letter-spacing: 1px;
+}

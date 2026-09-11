@@ -33,6 +33,7 @@ public class ShipHudController : MonoBehaviour
     private VisualElement _root;
     private bool _bound;
     private bool _suppressed;
+    private string _focusPrompt;
 
     private Label _zoneName;
     private Label _zoneMeta;
@@ -105,7 +106,7 @@ public class ShipHudController : MonoBehaviour
         SetCrosshairVisible(!suppressed);
         if (suppressed)
         {
-            if (_prompt != null)
+            if (_prompt != null && _focusPrompt == null)
             {
                 _prompt.style.display = DisplayStyle.None;
             }
@@ -169,8 +170,9 @@ public class ShipHudController : MonoBehaviour
     public void SetPrompt(string text)
     {
         EnsureBound();
-        if (_prompt == null)
+        if (_prompt == null || _focusPrompt != null)
         {
+            // A console-view hint owns the prompt line while it is up.
             return;
         }
 
@@ -185,6 +187,50 @@ public class ShipHudController : MonoBehaviour
             ? DisplayStyle.None
             : DisplayStyle.Flex;
     }
+
+    /// <summary>
+    /// Shows the console-view hint ("[B] 返回") even while the rest of the HUD
+    /// chrome is suppressed: the player must always be told how to leave the
+    /// focused terminal. Passing null clears it.
+    /// </summary>
+    public void SetFocusPrompt(string text)
+    {
+        EnsureBound();
+        _focusPrompt = string.IsNullOrEmpty(text) ? null : text;
+
+        if (_prompt == null)
+        {
+            return;
+        }
+
+        if (_focusPrompt == null)
+        {
+            _prompt.style.display = DisplayStyle.None;
+            return;
+        }
+
+        _prompt.text = _focusPrompt;
+        _prompt.style.display = DisplayStyle.Flex;
+    }
+
+    /// <summary>Clears the console-view hint (gaze prompts take over again).</summary>
+    public void ClearFocusPrompt()
+    {
+        if (_focusPrompt == null)
+        {
+            return;
+        }
+
+        _focusPrompt = null;
+        EnsureBound();
+        if (_prompt != null)
+        {
+            _prompt.style.display = DisplayStyle.None;
+        }
+    }
+
+    /// <summary>The console-view hint currently shown (verification).</summary>
+    public string FocusPromptText => _focusPrompt ?? string.Empty;
 
     /// <summary>Crosshair feedback for the gaze interaction state.</summary>
     public void SetCrosshairState(ShipHudCrosshairState state)

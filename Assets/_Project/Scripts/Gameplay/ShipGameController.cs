@@ -43,6 +43,9 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private SurfaceWristController _wrist;
     private WorldUiPointerRouter _pointerRouter;
     private ShipEntryBlinkFade _blinkFade;
+    private ShipPauseMenu _pauseMenu;
+    private bool _wristEnabledBeforePause = true;
+    private bool _paused;
     private bool _entryInputLocked;
     private readonly List<ShipConsoleInteractable> _consoles = new List<ShipConsoleInteractable>();
     private readonly List<ShipDoorInteractable> _doors = new List<ShipDoorInteractable>();
@@ -115,6 +118,16 @@ public class ShipGameController : MonoBehaviour, IWristContext
                                     || IsOverlayOpen;
 
     /// <summary>
+    /// True while the pause menu owns the input context (Phase 08 pause work).
+    /// Movement, look, world interaction, the wrist keys and the world-console
+    /// pointer are all frozen; Time.timeScale is 0.
+    /// </summary>
+    public bool IsPaused => _paused;
+
+    /// <summary>The pause menu (created at runtime, never null once ready).</summary>
+    public ShipPauseMenu PauseMenu => _pauseMenu;
+
+    /// <summary>
     /// EXACTLY ONE pointer owner per ship mode (Phase 07B.2.3). Two owners must
     /// never process the mouse at the same time:
     ///   None          ShipExplore         - mouse look, world E, cursor locked
@@ -123,13 +136,16 @@ public class ShipGameController : MonoBehaviour, IWristContext
     ///   ScreenModal   DeploymentConfirm / LoadoutFocus - the native UI Toolkit
     ///                                       screen-space pointer path only
     ///   Wrist         ship wrist          - the wrist raycast pointer only
+    ///   PauseMenu     pause open          - the pause document only; every other
+    ///                                       mode is frozen until it closes
     /// </summary>
     public enum ShipPointerOwner
     {
         None,
         ConsoleScreen,
         ScreenModal,
-        Wrist
+        Wrist,
+        PauseMenu
     }
 
     /// <summary>Current pointer owner (set by ApplyPointerOwnership).</summary>
@@ -261,6 +277,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
         {
             _hud.Bind(this);
         }
+
+        // Phase 08 pause work: the pause menu is created here rather than
+        // authored into the frozen Phase 07 ship scene (same pattern as the entry
+        // eyelids). It reuses the HUD's panel settings and draws above it.
+        EnsurePauseMenu();
 
         // The ship wrist is the SAME wrist document/render-texture/radial/
         // cursor chain Phase 06 validated; only its content mode is ship.
@@ -618,6 +639,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
             {
                 _hud.SetUiSuppressed(true);
             }
+
+            // The console VIEW still needs its single "[B] 返回" hint, which is
+            // refreshed every frame (the suppressed state only hides the rest of
+            // the chrome).
+            RefreshHud();
         }
         else
         {
@@ -637,6 +663,13 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
     private void PollWristKeys()
     {
+        // The pause menu owns the input context: no wrist key may fire while it
+        // is open (one press, one action).
+        if (_paused)
+        {
+            return;
+        }
+
         Keyboard keyboard = Keyboard.current;
         if (keyboard == null)
         {
@@ -645,8 +678,9 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
         if (_isWristOpen)
         {
-            if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame
-                || keyboard.escapeKey.wasPressedThisFrame)
+            // Escape is the GLOBAL pause key and must not double as "close the
+            // wrist": M / I toggle it instead.
+            if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame)
             {
                 SetWristOpen(false);
             }
@@ -728,13 +762,15 @@ public class ShipGameController : MonoBehaviour, IWristContext
     /// </summary>
     public void ApplyPointerOwnership()
     {
-        ShipPointerOwner owner = IsConsoleFocusActive
-            ? ShipPointerOwner.ConsoleScreen
-            : IsOverlayOpen
-                ? ShipPointerOwner.ScreenModal
-                : _isWristOpen
-                    ? ShipPointerOwner.Wrist
-                    : ShipPointerOwner.None;
+        ShipPointerOwner owner = _paused
+            ? ShipPointerOwner.PauseMenu
+            : IsConsoleFocusActive
+                ? ShipPointerOwner.ConsoleScreen
+                : IsOverlayOpen
+                    ? ShipPointerOwner.ScreenModal
+                    : _isWristOpen
+                        ? ShipPointerOwner.Wrist
+                        : ShipPointerOwner.None;
         PointerOwner = owner;
 
         bool inputAllowed = owner == ShipPointerOwner.None && !_entryInputLocked;
@@ -779,8 +815,10 @@ public class ShipGameController : MonoBehaviour, IWristContext
                 break;
             case ShipPointerOwner.ConsoleScreen:
             case ShipPointerOwner.ScreenModal:
-                // Free, visible OS cursor for both the console screen pointer
-                // (screen-space projection) and the native screen-space modals.
+            case ShipPointerOwner.PauseMenu:
+                // Free, visible OS cursor for the console screen pointer
+                // (screen-space projection), the native screen-space modals and
+                // the pause document.
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
                 break;
@@ -808,6 +846,71 @@ public class ShipGameController : MonoBehaviour, IWristContext
         ApplyPointerOwnership();
     }
 
+    /// <summary>
+    /// Creates (once) and wires the pause menu. The document lives on a child
+    /// object so the ship scene stays untouched; it shares the HUD's panel
+    /// settings and renders above the HUD and the shipboard modals.
+    /// </summary>
+    private void EnsurePauseMenu()
+    {
+        if (_pauseMenu == null)
+        {
+            _pauseMenu = gameObject.GetComponentInChildren<ShipPauseMenu>(true);
+        }
+
+        if (_pauseMenu == null)
+        {
+            var go = new GameObject("ShipPauseMenu");
+            go.transform.SetParent(transform, false);
+            _pauseMenu = go.AddComponent<ShipPauseMenu>();
+        }
+
+        _pauseMenu.Configure(_hud != null ? _hud.panelSettings : null, this, _focus);
+    }
+
+    /// <summary>
+    /// Freezes or releases the whole gameplay input context for the pause menu
+    /// (Phase 08 pause work). While paused: no movement, no look, no world
+    /// interaction, no wrist keys and no world-console pointer; the underlying
+    /// mode (free first person or console view) is preserved untouched so
+    /// 继续游戏 resumes exactly where the player was.
+    /// </summary>
+    public void SetPaused(bool paused)
+    {
+        if (_paused == paused)
+        {
+            return;
+        }
+
+        _paused = paused;
+
+        if (_wrist == null)
+        {
+            _wrist = UnityEngine.Object.FindAnyObjectByType<SurfaceWristController>();
+        }
+
+        if (_wrist != null)
+        {
+            if (paused)
+            {
+                // The wrist keeps its state but stops reacting to input (it is
+                // part of the frozen gameplay context).
+                _wristEnabledBeforePause = _wrist.enabled;
+                _wrist.enabled = false;
+            }
+            else
+            {
+                _wrist.enabled = _wristEnabledBeforePause;
+            }
+        }
+
+        ApplyPointerOwnership();
+        RefreshHud();
+        Debug.Log("[ShipGameController] paused=" + paused
+                  + " owner=" + PointerOwner
+                  + " input=" + (_player != null && _player.InputEnabled));
+    }
+
     private void RefreshHud()
     {
         if (_hud == null)
@@ -820,6 +923,17 @@ public class ShipGameController : MonoBehaviour, IWristContext
             (string zh, string meta) zone = ResolveZone(_player.transform.position);
             _hud.SetZoneTag(zone.zh, zone.meta);
         }
+
+        if (_focus != null && _focus.FocusActive)
+        {
+            // Console view: the screen is the interface, so the gaze prompt is
+            // replaced by the single "leave the view" hint the player needs.
+            _hud.SetFocusPrompt(InputDeviceTracker.FormatPrompt(UiAction.Back, "返回"));
+            _hud.SetCrosshairState(ShipHudController.ShipHudCrosshairState.None);
+            return;
+        }
+
+        _hud.ClearFocusPrompt();
 
         if (_interactor != null)
         {

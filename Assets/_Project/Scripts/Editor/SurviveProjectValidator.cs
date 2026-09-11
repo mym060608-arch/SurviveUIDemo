@@ -35,6 +35,8 @@ public static class SurviveProjectValidator
     private const string MainMenuUssPath = "Assets/_Project/UI/USS/MainMenu.uss";
     private const string ShipModelPath =
         "Assets/_Project/Models/MainMenuShip/MainMenuShip.fbx";
+    private const string PauseUxmlPath = "Assets/_Project/Resources/ShipPauseMenu.uxml";
+    private const string PauseUssPath = "Assets/_Project/Resources/ShipPauseMenu.uss";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
@@ -360,6 +362,48 @@ public static class SurviveProjectValidator
             {
                 Record(menuPresent.Contains(expected), "MainMenu.uxml composition structure: " + expected);
             }
+
+            // ---- Phase 08 pause menu (loaded from Resources at runtime) ----
+            var pauseUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(PauseUxmlPath);
+            Record(pauseUxml != null, "pause menu uxml imports: " + PauseUxmlPath);
+            Record(AssetDatabase.LoadAssetAtPath<StyleSheet>(PauseUssPath) != null,
+                "pause menu uss imports: " + PauseUssPath);
+
+            if (pauseUxml != null)
+            {
+                TemplateContainer pauseTemplate = pauseUxml.Instantiate();
+                Label pauseTitle = pauseTemplate.Q<Label>("PauseTitle");
+                Record(pauseTitle != null && pauseTitle.text == "暂停",
+                    "pause menu title is 暂停 (actual: "
+                    + (pauseTitle != null ? pauseTitle.text : "<missing>") + ")");
+
+                string[] pauseOptions = { "继续游戏", "返回主菜单", "退出游戏" };
+                string[] pauseButtons =
+                {
+                    "PauseResumeButton", "PauseMainMenuButton", "PauseQuitButton"
+                };
+                for (int i = 0; i < pauseButtons.Length; i++)
+                {
+                    Button option = pauseTemplate.Q<Button>(pauseButtons[i]);
+                    bool optionOk = option != null
+                                    && option.Q<Label>(className: "pause-label") != null
+                                    && option.Q<Label>(className: "pause-label").text
+                                    == pauseOptions[i];
+                    Record(optionOk, "pause menu option reads " + pauseOptions[i]);
+                }
+
+                Record(pauseTemplate.Q<Label>("PauseHint") != null,
+                    "pause menu carries the device hint line");
+                Record(pauseTemplate.Q<Button>("PauseResumeButton") != null
+                       && pauseTemplate.Query<Button>().ToList().Count == 3,
+                    "pause menu has exactly three options (no extra items)");
+            }
+
+            // The pause menu is created at runtime, so the frozen ship scene must
+            // NOT author one (same policy as the entry eyelids).
+            Record(CountInScene<ShipPauseMenu>() == 0,
+                "03_ShipInterior authors no pause menu (runtime-created, found "
+                + CountInScene<ShipPauseMenu>() + ")");
 
             // Revision 2: the title screen carries 活下去 and exactly four
             // options as real Buttons, and none of the previous cover's chrome.

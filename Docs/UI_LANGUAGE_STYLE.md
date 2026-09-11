@@ -1955,5 +1955,85 @@ Visual notes (binding for this screen; §35 exception approved for the cover):
   fully open, then they are removed. Movement, look and interaction stay locked
   until the eyes are open.
 
+---
+
+# 64. Pause Menu & Console View (Phase 08 pause work)
+
+The ship interior now has the minimum complete way back out of the game.
+
+## 64.1 Pause menu copy
+
+```text
+暂停
+
+继续游戏
+返回主菜单
+退出游戏
+
+<device hint line>
+```
+
+Device hint (presentation only):
+
+```text
+gamepad   [LS / D-Pad] 选择    [A] 确认    [B] 返回
+keyboard  [↑/↓] 选择          [Enter] 确认  [Esc] 返回
+```
+
+## 64.2 Input semantics
+
+Logical actions and physical controls stay separated:
+
+```text
+Confirm   = Gamepad.buttonSouth  | E / Enter / Space
+Interact  = Gamepad.buttonSouth  | E
+Back      = Gamepad.buttonEast   | Escape
+Pause     = Gamepad.startButton  | Escape
+Navigate  = Gamepad.dpad / leftStick | arrow keys
+```
+
+`UiInput.BindingTable` is the authoritative table; `AButton` / `BButton` /
+`StartButton` names must never appear as logical semantics. Escape is shared
+between Pause (gameplay layers) and Back (overlay layers) on purpose: the pause
+menu owns the whole input context while it is open, so the two can never fight
+over one press.
+
+## 64.3 Behaviour
+
+```text
+gameplay (free first person or console view) + Menu/Start or Escape
+    -> 暂停 opens: Time.timeScale = 0, movement/look/world interaction/wrist
+       and the world-console pointer frozen, cursor free, focus on 继续游戏
+继续游戏 / B / Menu-Start again / Escape
+    -> closes and restores the previous timeScale and the exact gameplay state
+返回主菜单
+    -> timeScale 1, pause and console view cleaned, SceneRouting to 04_MainMenu,
+       GameSession untouched so 继续游戏 stays enabled and returns here
+退出游戏 (confirm only)
+    -> the ONE pause path that may terminate the process
+```
+
+While the pause is open the gameplay layer underneath never receives the same
+input (one press, one action). `ShipGameController.SetPaused` is the single
+freeze point; `ShipPauseMenu` is created at runtime and renders above the ship
+HUD (1) and the shipboard modals (30/31).
+
+## 64.4 Console view (view-only in this phase)
+
+```text
+自由第一人称 + 靠近控制台     [A] / [E] 查看 <终端名>终端
+控制台注视状态                [B] / [E] 返回
+```
+
+- The camera moves smoothly (0.26 s, unscaled) from the player's exact pose to
+  the terminal's authored `ConsoleFocusAnchor` and back; no teleport, no console
+  transform change.
+- Movement, look and other world interaction are disabled while viewing.
+- Menu/Start still pauses during the view; 继续游戏 returns to the view, and
+  返回主菜单 cleans the view before leaving.
+- Console-internal navigation (D-Pad page selection, A on the terminal UI, B
+  stepping back inside it, LB/RB tabs) is deliberately NOT implemented here -
+  that is Phase 09. The prompt therefore only promises 查看 / 返回.
+
 
 

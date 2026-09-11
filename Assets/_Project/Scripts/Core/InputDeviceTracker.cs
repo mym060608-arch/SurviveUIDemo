@@ -47,6 +47,49 @@ public static class InputDeviceTracker
     }
 
     /// <summary>
+    /// Key glyph for a logical action on the current device, as a BARE label
+    /// ("A", "B", "Esc", "Menu"). This is the presentation side of the semantic
+    /// split - the binding itself always stays in <see cref="UiInput"/>.
+    /// </summary>
+    public static string KeyLabel(UiAction action)
+    {
+        switch (action)
+        {
+            case UiAction.Confirm:
+            case UiAction.Interact:
+                return GamepadActive ? "A" : "E";
+            case UiAction.Back:
+                return GamepadActive ? "B" : "Esc";
+            case UiAction.Pause:
+                return GamepadActive ? "Menu" : "Esc";
+            default:
+                return string.Empty;
+        }
+    }
+
+    /// <summary>Formats a bracketed prompt for a logical action: "[B] 返回".</summary>
+    public static string FormatPrompt(UiAction action, string text)
+    {
+        return "[" + KeyLabel(action) + "] " + text;
+    }
+
+    /// <summary>
+    /// The pause menu's navigation hint: the device's own wording, never a
+    /// physical control name leaking into another device's presentation.
+    /// </summary>
+    public static string NavigationLabel => GamepadActive ? "[LS / D-Pad]" : "[↑/↓]";
+
+    /// <summary>Confirm glyph for the pause hint line.</summary>
+    public static string ConfirmLabel => GamepadActive ? "[A]" : "[Enter]";
+
+    /// <summary>Back glyph for the pause hint line.</summary>
+    public static string BackLabel => GamepadActive ? "[B]" : "[Esc]";
+
+    /// <summary>The full pause menu hint line for the current device.</summary>
+    public static string PauseHint =>
+        NavigationLabel + " 选择    " + ConfirmLabel + " 确认    " + BackLabel + " 返回";
+
+    /// <summary>
     /// Samples the devices once and updates <see cref="LastDevice"/> when the
     /// other device produced input this frame. Returns true when the gamepad was
     /// the device that produced input.
