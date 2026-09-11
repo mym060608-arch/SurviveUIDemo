@@ -1,0 +1,476 @@
+{
+ "fbx": "D:\\dsh_gpt_unity_blender\\project\\SurviveUIDemo\\Artsource\\Phase09A_1\\output\\FP_PlayerArms.fbx",
+ "raw_fbx_version": 7400,
+ "raw_animation_stacks": [
+  "FP_Idle",
+  "FP_Walk",
+  "Wrist_Raise",
+  "Wrist_Idle",
+  "Wrist_Lower",
+  "Interact_Right"
+ ],
+ "raw_limb_nodes": [
+  "Root",
+  "UpperArm_L",
+  "Forearm_L",
+  "Hand_L",
+  "Index_L",
+  "Index_02_L",
+  "Fingers_L",
+  "Fingers_02_L",
+  "Thumb_L",
+  "Thumb_02_L",
+  "WristDevice_L",
+  "UpperArm_R",
+  "Forearm_R",
+  "Hand_R",
+  "Index_R",
+  "Index_02_R",
+  "Fingers_R",
+  "Fingers_02_R",
+  "Thumb_R",
+  "Thumb_02_R"
+ ],
+ "size_bytes": 1358044,
+ "scene_fps": 30,
+ "objects": [
+  {
+   "name": "RIG_FPArms",
+   "type": "ARMATURE",
+   "parent": "SK_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bones": [
+    {
+     "name": "Root",
+     "parent": null,
+     "head": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "tail": [
+      0.0,
+      -0.310242,
+      0.0
+     ]
+    },
+    {
+     "name": "UpperArm_L",
+     "parent": "Root",
+     "head": [
+      0.225,
+      0.06,
+      -0.205
+     ],
+     "tail": [
+      0.326042,
+      0.023032,
+      -0.485043
+     ]
+    },
+    {
+     "name": "Forearm_L",
+     "parent": "UpperArm_L",
+     "head": [
+      0.326042,
+      0.023032,
+      -0.485043
+     ],
+     "tail": [
+      0.26624,
+      -0.088953,
+      -0.678618
+     ]
+    },
+    {
+     "name": "Hand_L",
+     "parent": "Forearm_L",
+     "head": [
+      0.255,
+      -0.11,
+      -0.715
+     ],
+     "tail": [
+      0.257169,
+      -0.120413,
+      -0.801084
+     ]
+    },
+    {
+     "name": "Index_L",
+     "parent": "Hand_L",
+     "head": [
+      0.221831,
+      -0.12742,
+      -0.810459
+     ],
+     "tail": [
+      0.22667,
+      -0.124594,
+      -0.854101
+     ]
+    },
+    {
+     "name": "Fingers_L",
+     "parent": "Hand_L",
+     "head": [
+      0.24519,
+      -0.12486,
+      -0.81018
+     ],
+     "tail": [
+      0.246927,
+      -0.120561,
+      -0.856951
+     ]
+    },
+    {
+     "name": "Thumb_L",
+     "parent": "Hand_L",
+     "head": [
+      0.205865,
+      -0.107578,
+      -0.75079
+     ],
+     "tail": [
+      0.175332,
+      -0.097798,
+      -0.776345
+     ]
+    },
+    {
+     "name": "WristDevice_L",
+     "parent": "Forearm_L",
+     "head": [
+      0.282639,
+      -0.103072,
+      -0.617527
+     ],
+     "tail": [
+      0.222836,
+      -0.215057,
+      -0.811103
+     ]
+    },
+    {
+     "name": "UpperArm_R",
+     "parent": "Root",
+     "head": [
+      -0.225,
+      0.06,
+      -0.205
+     ],
+     "tail": [
+      -0.326042,
+      0.023032,
+      -0.485043
+     ]
+    },
+    {
+     "name": "Forearm_R",
+     "parent": "UpperArm_R",
+     "head": [
+      -0.326042,
+      0.023032,
+      -0.485043
+     ],
+     "tail": [
+      -0.255,
+      -0.11,
+      -0.715
+     ]
+    },
+    {
+     "name": "Hand_R",
+     "parent": "Forearm_R",
+     "head": [
+      -0.255,
+      -0.11,
+      -0.715
+     ],
+     "tail": [
+      -0.257169,
+      -0.120413,
+      -0.801084
+     ]
+    },
+    {
+     "name": "Index_R",
+     "parent": "Hand_R",
+     "head": [
+      -0.221831,
+      -0.12742,
+      -0.810459
+     ],
+     "tail": [
+      -0.22667,
+      -0.124594,
+      -0.854101
+     ]
+    },
+    {
+     "name": "Fingers_R",
+     "parent": "Hand_R",
+     "head": [
+      -0.24519,
+      -0.12486,
+      -0.81018
+     ],
+     "tail": [
+      -0.246927,
+      -0.120561,
+      -0.856951
+     ]
+    },
+    {
+     "name": "Thumb_R",
+     "parent": "Hand_R",
+     "head": [
+      -0.205865,
+      -0.107578,
+      -0.75079
+     ],
+     "tail": [
+      -0.175332,
+      -0.097798,
+      -0.776345
+     ]
+    }
+   ]
+  },
+  {
+   "name": "GEO_Hand_R",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 462,
+   "polygons": 380,
+   "materials": [
+    "MAT_Glove",
+    "MAT_Sleeve",
+    "MAT_DeviceBody",
+    "MAT_DeviceAccent",
+    "MAT_DeviceEmissive",
+    "MAT_DeviceGreen"
+   ]
+  },
+  {
+   "name": "GEO_Arm_R",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 468,
+   "polygons": 350,
+   "materials": [
+    "MAT_Glove",
+    "MAT_Sleeve",
+    "MAT_DeviceBody",
+    "MAT_DeviceAccent",
+    "MAT_DeviceEmissive",
+    "MAT_DeviceGreen"
+   ]
+  },
+  {
+   "name": "GEO_Arm_L",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 468,
+   "polygons": 350,
+   "materials": [
+    "MAT_Glove",
+    "MAT_Sleeve",
+    "MAT_DeviceBody",
+    "MAT_DeviceAccent",
+    "MAT_DeviceEmissive",
+    "MAT_DeviceGreen"
+   ]
+  },
+  {
+   "name": "GEO_Hand_L",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 430,
+   "polygons": 354,
+   "materials": [
+    "MAT_Glove",
+    "MAT_Sleeve",
+    "MAT_DeviceBody",
+    "MAT_DeviceAccent",
+    "MAT_DeviceEmissive",
+    "MAT_DeviceGreen"
+   ]
+  },
+  {
+   "name": "GEO_WristDevice_L",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 768,
+   "polygons": 624,
+   "materials": [
+    "MAT_Glove",
+    "MAT_Sleeve",
+    "MAT_DeviceBody",
+    "MAT_DeviceAccent",
+    "MAT_DeviceEmissive",
+    "MAT_DeviceGreen"
+   ]
+  },
+  {
+   "name": "SK_FPArms",
+   "type": "EMPTY",
+   "parent": null,
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "actions": [
+  {
+   "name": "RIG_FPArms|FP_Idle",
+   "frame_start": 1.0,
+   "frame_end": 61.0,
+   "fcurves": 149
+  },
+  {
+   "name": "RIG_FPArms|FP_Walk",
+   "frame_start": 1.0,
+   "frame_end": 41.0,
+   "fcurves": 149
+  },
+  {
+   "name": "RIG_FPArms|Interact_Right",
+   "frame_start": 1.0,
+   "frame_end": 31.0,
+   "fcurves": 149
+  },
+  {
+   "name": "RIG_FPArms|Wrist_Idle",
+   "frame_start": 1.0,
+   "frame_end": 91.0,
+   "fcurves": 149
+  },
+  {
+   "name": "RIG_FPArms|Wrist_Lower",
+   "frame_start": 1.0,
+   "frame_end": 21.0,
+   "fcurves": 149
+  },
+  {
+   "name": "RIG_FPArms|Wrist_Raise",
+   "frame_start": 1.0,
+   "frame_end": 25.0,
+   "fcurves": 149
+  },
+  {
+   "name": "SK_FPArms|FP_Idle",
+   "frame_start": 1.0,
+   "frame_end": 61.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|FP_Walk",
+   "frame_start": 1.0,
+   "frame_end": 41.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Interact_Right",
+   "frame_start": 1.0,
+   "frame_end": 31.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Wrist_Idle",
+   "frame_start": 1.0,
+   "frame_end": 91.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Wrist_Lower",
+   "frame_start": 1.0,
+   "frame_end": 21.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Wrist_Raise",
+   "frame_start": 1.0,
+   "frame_end": 25.0,
+   "fcurves": 9
+  }
+ ],
+ "triangles_total": 4604,
+ "fbx_space_bounds_min": [
+  -0.439598,
+  -0.17695,
+  -0.897875
+ ],
+ "fbx_space_bounds_max": [
+  0.439598,
+  0.158324,
+  -0.322884
+ ]
+}

@@ -1,0 +1,595 @@
+{
+ "generated_by": "scripts/build_fp_arms_rev04.py (Phase09A_1 Revision04)",
+ "revision": "Revision04 -- full visual reset to Minecraft-like block arms",
+ "blender_version": "5.2.1 LTS",
+ "fps": 30,
+ "units": "metric, 1 Blender unit = 1 m, scale_length = 1.0",
+ "authoring_frame": {
+  "x": "player LEFT",
+  "y": "player FORWARD is -Y",
+  "z": "UP",
+  "fbx_export": "axis_forward='-Z', axis_up='Y', apply_unit_scale=True",
+  "unity_mapping": "UnityX = -BlenderX, UnityY = BlenderZ, UnityZ = -BlenderY"
+ },
+ "ui_contract": {
+  "source": [
+   "Assets/_Project/Scripts/Editor/NereidSurfaceBuilder.cs"
+  ],
+  "camera_field_of_view_deg": 70.0,
+  "aspect": "16:9",
+  "wrist_pivot_camera_local_unity": [
+   -0.265,
+   -0.335,
+   0.69
+  ],
+  "wrist_display_offset_unity": [
+   0.21,
+   0.31,
+   0.0
+  ],
+  "wrist_display_scale_unity": [
+   1.88,
+   1.175,
+   1.0
+  ],
+  "wrist_ui_changed": false,
+  "note": "The existing Wrist UI is authoritative and untouched; the arm was posed to it."
+ },
+ "design": {
+  "concept": "intentional minimal stylization: rectangular prisms only",
+  "arm_pivot_shoulder_blender": [
+   0.3179,
+   0.08,
+   -0.18
+  ],
+  "arm_length_m": 0.44287,
+  "blocks": {
+   "fore_w": 0.104,
+   "fore_d": 0.104,
+   "hand_w": 0.118,
+   "hand_d": 0.118,
+   "hand_len": 0.165,
+   "cuff_w": 0.126,
+   "cuff_d": 0.126,
+   "cuff_len": 0.046,
+   "stripe_w": 0.052,
+   "stripe_len": 0.15,
+   "stripe_h": 0.01,
+   "bevel": 0.006
+  },
+  "device": {
+   "standoff": 0.026,
+   "radius": 0.045,
+   "height": 0.026,
+   "rim_radius": 0.05,
+   "rim_len": 0.028,
+   "rim_width": 0.026,
+   "rim_height": 0.02,
+   "cap_radius": 0.027,
+   "cap_height": 0.01,
+   "emitter_radius": 0.0145,
+   "emitter_height": 0.005,
+   "accent_len": 0.03,
+   "accent_width": 0.012,
+   "accent_height": 0.01,
+   "segment_count": 12
+  },
+  "fingers": 0,
+  "elbow_joint": "none (single rigid block per arm)",
+  "bevels": "small chamfers only, no organic rounding"
+ },
+ "composition": {
+  "hold_axis_ndc_target": [
+   -0.6,
+   -0.76
+  ],
+  "hold_axis_depth_m": 0.36,
+  "hold": {
+   "forearm_screen_angle_deg": 30.433,
+   "forearm_screen_angle_target": 30.0,
+   "forearm_screen_angle_accept": [
+    25.0,
+    35.0
+   ],
+   "forearm_screen_angle_pass": true,
+   "forearm_screen_angle_note": "measured from the frame entry point to the wrist end (the visible portion)",
+   "arm_head_ndc": null,
+   "arm_tail_ndc": [
+    -0.5976,
+    -0.7448
+   ],
+   "entry_point": [
+    0.785,
+    [
+     -0.8432,
+     -1.0013
+    ]
+   ],
+   "entry_viewport": [
+    0.0784,
+    -0.0007
+   ],
+   "entry_is_lower_left": true,
+   "device_center_unity": [
+    -0.25044,
+    -0.15625,
+    0.29613
+   ],
+   "device_center_ndc": [
+    -0.6794,
+    -0.7536
+   ],
+   "device_center_viewport": [
+    0.1603,
+    0.1232
+   ],
+   "device_face_normal_dot_eye": 0.7058,
+   "ui_pivot_ndc": [
+    -0.3085,
+    -0.6934
+   ],
+   "ui_display_center_ndc": [
+    -0.064,
+    -0.0517
+   ],
+   "device_left_of_ui_pivot": true,
+   "device_below_ui_display_center": true
+  },
+  "idle": {
+   "forearm_screen_angle_deg": null,
+   "arm_head_ndc": null,
+   "arm_tail_ndc": [
+    -1.8557,
+    -5.6937
+   ],
+   "wrist_end_viewport": [
+    -0.4278,
+    -2.3468
+   ],
+   "entry_viewport": null,
+   "device_center_ndc": [
+    -2.3512,
+    -5.8051
+   ],
+   "note": "at a level gaze the arms may be entirely outside the frame (contract \u00a79); they must appear at the body sides when looking down"
+  },
+  "hold_landmarks": {
+   "Root": {
+    "head_world": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "tail_world": [
+     0.0,
+     0.0,
+     -0.12
+    ],
+    "head_ndc": null,
+    "tail_ndc": null,
+    "head_unity": [
+     -0.0,
+     0.0,
+     -0.0
+    ],
+    "tail_unity": [
+     -0.0,
+     -0.12,
+     -0.0
+    ]
+   },
+   "Arm_L": {
+    "head_world": [
+     0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     0.26777,
+     -0.35996,
+     -0.18772
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     -0.5976,
+     -0.7448
+    ],
+    "head_unity": [
+     -0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     -0.26777,
+     -0.18772,
+     0.35996
+    ]
+   },
+   "WristDevice_L": {
+    "head_world": [
+     0.26917,
+     -0.29785,
+     -0.17962
+    ],
+    "tail_world": [
+     0.23171,
+     -0.2944,
+     -0.13288
+    ],
+    "head_ndc": [
+     -0.726,
+     -0.8613
+    ],
+    "tail_ndc": [
+     -0.6323,
+     -0.6446
+    ],
+    "head_unity": [
+     -0.26917,
+     -0.17962,
+     0.29785
+    ],
+    "tail_unity": [
+     -0.23171,
+     -0.13288,
+     0.2944
+    ]
+   },
+   "Arm_R": {
+    "head_world": [
+     -0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     -0.33118,
+     -0.14134,
+     -0.56336
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     1.8823,
+     -5.6923
+    ],
+    "head_unity": [
+     0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     0.33118,
+     -0.56336,
+     0.14134
+    ]
+   }
+  },
+  "idle_landmarks": {
+   "Root": {
+    "head_world": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "tail_world": [
+     0.0,
+     0.0,
+     -0.12
+    ],
+    "head_ndc": null,
+    "tail_ndc": null,
+    "head_unity": [
+     -0.0,
+     0.0,
+     -0.0
+    ],
+    "tail_unity": [
+     -0.0,
+     -0.12,
+     -0.0
+    ]
+   },
+   "Arm_L": {
+    "head_world": [
+     0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     0.3265,
+     -0.14134,
+     -0.5635
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     -1.8557,
+     -5.6937
+    ],
+    "head_unity": [
+     -0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     -0.3265,
+     -0.5635,
+     0.14134
+    ]
+   },
+   "WristDevice_L": {
+    "head_world": [
+     0.33356,
+     -0.11336,
+     -0.50789
+    ],
+    "tail_world": [
+     0.38865,
+     -0.13339,
+     -0.4951
+    ],
+    "head_ndc": [
+     -2.3638,
+     -6.3986
+    ],
+    "tail_ndc": [
+     -2.3406,
+     -5.3008
+    ],
+    "head_unity": [
+     -0.33356,
+     -0.50789,
+     0.11336
+    ],
+    "tail_unity": [
+     -0.38865,
+     -0.4951,
+     0.13339
+    ]
+   },
+   "Arm_R": {
+    "head_world": [
+     -0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     -0.3265,
+     -0.14134,
+     -0.5635
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     1.8557,
+     -5.6937
+    ],
+    "head_unity": [
+     0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     0.3265,
+     -0.5635,
+     0.14134
+    ]
+   }
+  }
+ },
+ "bones": [
+  {
+   "name": "Root",
+   "parent": null,
+   "head": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "tail": [
+    0.0,
+    0.0,
+    -0.12
+   ]
+  },
+  {
+   "name": "Arm_L",
+   "parent": "Root",
+   "head": [
+    0.3179,
+    0.08,
+    -0.18
+   ],
+   "tail": [
+    0.33118,
+    -0.14134,
+    -0.56336
+   ]
+  },
+  {
+   "name": "WristDevice_L",
+   "parent": "Arm_L",
+   "head": [
+    0.33756,
+    -0.11336,
+    -0.50768
+   ],
+   "tail": [
+    0.39249,
+    -0.13339,
+    -0.49421
+   ]
+  },
+  {
+   "name": "Arm_R",
+   "parent": "Root",
+   "head": [
+    -0.3179,
+    0.08,
+    -0.18
+   ],
+   "tail": [
+    -0.33118,
+    -0.14134,
+    -0.56336
+   ]
+  }
+ ],
+ "bone_count": 4,
+ "meshes": [
+  {
+   "name": "GEO_Arm_L",
+   "triangles": 88,
+   "materials": [
+    "MAT_Suit",
+    "MAT_Accent"
+   ],
+   "uv_sets": 1,
+   "vertex_groups": [
+    "Arm_L"
+   ]
+  },
+  {
+   "name": "GEO_HandBlock_L",
+   "triangles": 88,
+   "materials": [
+    "MAT_Cuff",
+    "MAT_Glove"
+   ],
+   "uv_sets": 1,
+   "vertex_groups": [
+    "Arm_L"
+   ]
+  },
+  {
+   "name": "GEO_WristDevice_L",
+   "triangles": 676,
+   "materials": [
+    "MAT_Device",
+    "MAT_Cuff",
+    "MAT_DeviceEmissive",
+    "MAT_Accent"
+   ],
+   "uv_sets": 1,
+   "vertex_groups": [
+    "WristDevice_L"
+   ]
+  },
+  {
+   "name": "GEO_Arm_R",
+   "triangles": 88,
+   "materials": [
+    "MAT_Suit",
+    "MAT_Accent"
+   ],
+   "uv_sets": 1,
+   "vertex_groups": [
+    "Arm_R"
+   ]
+  },
+  {
+   "name": "GEO_HandBlock_R",
+   "triangles": 88,
+   "materials": [
+    "MAT_Cuff",
+    "MAT_Glove"
+   ],
+   "uv_sets": 1,
+   "vertex_groups": [
+    "Arm_R"
+   ]
+  }
+ ],
+ "triangles_total": 1028,
+ "materials": [
+  "MAT_Suit",
+  "MAT_Glove",
+  "MAT_Cuff",
+  "MAT_Accent",
+  "MAT_Device",
+  "MAT_DeviceEmissive"
+ ],
+ "clips": [
+  {
+   "name": "FP_Idle",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 61,
+   "duration_seconds": 2.0,
+   "loop": true,
+   "usage": "arms resting at the body sides"
+  },
+  {
+   "name": "FP_Walk",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 41,
+   "duration_seconds": 1.3333,
+   "loop": true,
+   "usage": "simple opposite rigid arm swing"
+  },
+  {
+   "name": "Wrist_Raise",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 25,
+   "duration_seconds": 0.8,
+   "loop": false,
+   "usage": "left arm into the lower-left 30 degree presentation"
+  },
+  {
+   "name": "Wrist_Idle",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 91,
+   "duration_seconds": 3.0,
+   "loop": true,
+   "usage": "held presentation pose with micro motion"
+  },
+  {
+   "name": "Wrist_Lower",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 21,
+   "duration_seconds": 0.6667,
+   "loop": false,
+   "usage": "reverse of the raise"
+  },
+  {
+   "name": "Interact_Right",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 31,
+   "duration_seconds": 1.0,
+   "loop": false,
+   "usage": "small rigid right-arm reach (optional)"
+  }
+ ],
+ "loops": [
+  {
+   "clip": "FP_Idle",
+   "first_frame": 1,
+   "last_frame": 61,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "FP_Walk",
+   "first_frame": 1,
+   "last_frame": 41,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "Wrist_Idle",
+   "first_frame": 1,
+   "last_frame": 91,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  }
+ ],
+ "root_motion": {
+  "max_root_basis_deviation_from_identity": 0.0,
+  "root_motion": "off"
+ },
+ "blend": "D:\\dsh_gpt_unity_blender\\project\\SurviveUIDemo\\ArtSource\\Phase09A_1\\output\\FP_PlayerArms.blend",
+ "fbx": "D:\\dsh_gpt_unity_blender\\project\\SurviveUIDemo\\ArtSource\\Phase09A_1\\output\\FP_PlayerArms.fbx",
+ "unity_integration": "NOT performed (asset-only task)"
+}
