@@ -80,6 +80,7 @@ public class MainMenuController : MonoBehaviour
     private float _navigateHeld;
     private int _lastNavigateDirection;
     private float _nextNavigateTime;
+    private int _lastGamepadConfirmFrame = -100;
 
     /// <summary>True once Start() finished binding and the menu is usable.</summary>
     public bool IsReady { get; private set; }
@@ -122,6 +123,23 @@ public class MainMenuController : MonoBehaviour
             }
 
             return _cinematic;
+        }
+    }
+
+    /// <summary>
+    /// The title screen's AUTHORITATIVE stage camera.
+    ///
+    /// Never resolve "any camera" here: persistent helper rigs (the shared
+    /// Overview planet preview) survive scene loads with their own camera, so a
+    /// generic lookup can hand back a camera that has nothing to do with this
+    /// composition.
+    /// </summary>
+    public Camera StageCamera
+    {
+        get
+        {
+            MainMenuCinematic cinematic = Cinematic;
+            return cinematic != null ? cinematic.StageCamera : null;
         }
     }
 
@@ -227,6 +245,7 @@ public class MainMenuController : MonoBehaviour
     {
         // Device tracking first: everything below reacts to the same sample.
         InputDeviceTracker.Poll();
+        TrackGamepadPresses();
 
         UpdateNavigation();
         HandleEscapeAndBack();
@@ -234,6 +253,47 @@ public class MainMenuController : MonoBehaviour
         UpdateInputHint();
         UpdateOptionsAnimation();
         UpdateTransition();
+    }
+
+    /// <summary>
+    /// Remembers the frame a gamepad confirm was pressed. Unity's runtime UI
+    /// turns that same press into a synthetic pointer click at the virtual
+    /// pointer position (the left stick drives it), and that click must never
+    /// activate a menu item - otherwise one A press performs TWO actions, which
+    /// is how "A on 新游戏" ended up quitting the game.
+    /// </summary>
+    private void TrackGamepadPresses()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad != null && pad.buttonSouth.wasPressedThisFrame)
+        {
+            _lastGamepadConfirmFrame = Time.frameCount;
+        }
+    }
+
+    /// <summary>
+    /// True when the pointer event currently being processed was synthesised by
+    /// the gamepad (same frame as the confirm press, or the frame after).
+    /// </summary>
+    private bool IsGamepadSynthesisedUiInput()
+    {
+        return Time.frameCount - _lastGamepadConfirmFrame <= 1;
+    }
+
+    /// <summary>
+    /// True when a pointer event came from a real mouse (movement or a pressed
+    /// button) rather than from the gamepad's virtual pointer.
+    /// </summary>
+    private static bool IsRealMousePointer()
+    {
+        Mouse mouse = Mouse.current;
+        if (mouse == null)
+        {
+            // Automation dispatches pointer events with no mouse device at all.
+            return Gamepad.current == null;
+        }
+
+        return mouse.delta.ReadValue().sqrMagnitude > 0.01f || mouse.leftButton.isPressed;
     }
 
     /// <summary>ESC closes 选项 and never exits the application.</summary>
@@ -306,32 +366,80 @@ public class MainMenuController : MonoBehaviour
         int index = _items.Count;
         _items.Add(item);
 
-        // Mouse still works, but it now FEEDS the focus state instead of being
-        // a separate hover treatment.
-        item.RegisterCallback<PointerEnterEvent>(_ => SetFocus(index));
+        // The gamepad must never be able to activate a row through Unity's
+        // built-in focus/submit path: this controller dispatches from its ONE
+        // authoritative focus state. Mouse activation still works through the
+        // guarded click below.
+        item.focusable = false;
+
+        item.RegisterCallback<PointerEnterEvent>(_ =>
+        {
+            // Hover feeds the focus, but only for a real mouse: the gamepad's
+            // virtual pointer would otherwise fight the stick navigation.
+            if (IsRealMousePointer() && !IsGamepadSynthesisedUiInput())
+            {
+                SetFocus(index);
+            }
+        });
     }
 
     private void BindActions()
     {
-        if (_newGame != null)
+        // Every row is routed through the guarded binder: a click that Unity's
+        // runtime UI synthesised from the gamepad is dropped, so the only
+        // gamepad path to an action is PollConfirm -> ConfirmFocused.
+        BindGuarded(_newGame, "NewGame", () =>
         {
-            _newGame.clicked += RequestNewGame;
+            SetFocus(0);
+            RequestNewGame();
+        });
+        BindGuarded(_continue, "Continue", () =>
+        {
+            SetFocus(1);
+            RequestContinue();
+        });
+        BindGuarded(_options, "Options", () =>
+        {
+            SetFocus(2);
+            ShowOptions();
+        });
+        BindGuarded(_exit, "Exit", () =>
+        {
+            SetFocus(3);
+            OnExitClicked();
+        });
+    }
+
+    /// <summary>
+    /// Subscribes a button while refusing the pointer click that Unity's runtime
+    /// UI synthesises from a gamepad button press (see
+    /// <see cref="IsGamepadSynthesisedUiInput"/>).
+    /// </summary>
+    private void BindGuarded(Button button, string id, System.Action action)
+    {
+        if (button == null)
+        {
+            return;
         }
 
-        if (_continue != null)
+        button.clicked += () =>
         {
-            _continue.clicked += RequestContinue;
-        }
+            if (IsGamepadSynthesisedUiInput())
+            {
+                Debug.Log("[MENU] ignored a gamepad-synthesised UI click on " + id
+                          + " (focus=" + FocusedItemId + ")");
+                return;
+            }
 
-        if (_options != null)
-        {
-            _options.clicked += ShowOptions;
-        }
+            Debug.Log("[MENU] Click = " + id + " (focus=" + FocusedItemId + ")");
+            action();
+        };
+    }
 
-        if (_exit != null)
-        {
-            _exit.clicked += RequestQuit;
-        }
+    private void OnExitClicked()
+    {
+        Debug.Log("[MENU] Execute = QuitGame (退出 clicked)");
+        RequestQuit();
     }
 
     private void BindOptions()
@@ -341,35 +449,17 @@ public class MainMenuController : MonoBehaviour
         _optionsPanel = BindElement(MainMenuNames.OptionsPanel, false);
         _optionsClose = BindButton(MainMenuNames.OptionsCloseButton, false);
 
-        if (_optionsClose != null)
-        {
-            _optionsClose.clicked += CloseOptions;
-        }
+        BindGuarded(_optionsClose, "OptionsClose", CloseOptions);
 
         _motionOn = BindButton(MainMenuNames.MotionOnButton, false);
         _motionOff = BindButton(MainMenuNames.MotionOffButton, false);
         _hintsShow = BindButton(MainMenuNames.HintsShowButton, false);
         _hintsHide = BindButton(MainMenuNames.HintsHideButton, false);
 
-        if (_motionOn != null)
-        {
-            _motionOn.clicked += () => SetMotion(true);
-        }
-
-        if (_motionOff != null)
-        {
-            _motionOff.clicked += () => SetMotion(false);
-        }
-
-        if (_hintsShow != null)
-        {
-            _hintsShow.clicked += () => SetHints(true);
-        }
-
-        if (_hintsHide != null)
-        {
-            _hintsHide.clicked += () => SetHints(false);
-        }
+        BindGuarded(_motionOn, "MotionOn", () => SetMotion(true));
+        BindGuarded(_motionOff, "MotionOff", () => SetMotion(false));
+        BindGuarded(_hintsShow, "HintsShow", () => SetHints(true));
+        BindGuarded(_hintsHide, "HintsHide", () => SetHints(false));
 
         SetModalVisible(_optionsModal, false);
         ApplyPickingMode(_optionsModal, false);
@@ -595,6 +685,8 @@ public class MainMenuController : MonoBehaviour
             return;
         }
 
+        Debug.Log("[GAMEPAD] South pressed (polled by MainMenuController) - focus="
+                  + FocusedItemId);
         InputDeviceTracker.NotifyGamepad();
         if (_optionsOpen)
         {
@@ -602,6 +694,36 @@ public class MainMenuController : MonoBehaviour
         }
 
         ConfirmFocused();
+    }
+
+    /// <summary>Stable id of the focused option (diagnostics / automation).</summary>
+    public string FocusedItemId
+    {
+        get
+        {
+            Button focused = FocusedButton;
+            if (focused == null)
+            {
+                return "<none>";
+            }
+
+            if (focused == _newGame)
+            {
+                return "NewGame";
+            }
+
+            if (focused == _continue)
+            {
+                return "Continue";
+            }
+
+            if (focused == _options)
+            {
+                return "Options";
+            }
+
+            return focused == _exit ? "Exit" : focused.name;
+        }
     }
 
     private void UpdateInputHint()
@@ -642,6 +764,7 @@ public class MainMenuController : MonoBehaviour
             return;
         }
 
+        Debug.Log("[MENU] Execute = OpenOptions");
         _optionsOpen = true;
         SetModalVisible(_optionsModal, true);
     }
@@ -649,6 +772,12 @@ public class MainMenuController : MonoBehaviour
     /// <summary>Closes 选项 (ESC / B / 返回).</summary>
     public void CloseOptions()
     {
+        if (!_optionsOpen && _optionsAlpha <= 0.001f)
+        {
+            return;
+        }
+
+        Debug.Log("[MENU] Execute = CloseOptions");
         _optionsOpen = false;
     }
 
@@ -667,6 +796,7 @@ public class MainMenuController : MonoBehaviour
             return;
         }
 
+        Debug.Log("[MENU] Execute = StartNewGame");
         GameSession session = GameSession.Ensure();
         session.ResetSession();
         session.BeginRun();
@@ -698,6 +828,7 @@ public class MainMenuController : MonoBehaviour
             return;
         }
 
+        Debug.Log("[MENU] Execute = ContinueGame");
         _transitioning = true;
         _transitionAlpha = 0f;
 
@@ -736,16 +867,49 @@ public class MainMenuController : MonoBehaviour
     }
 
     /// <summary>
-    /// The 退出 action. In a player this ends the application; inside the Unity
-    /// Editor it leaves Play Mode instead of terminating the editor process.
+    /// The 退出 action: the ONLY place in the product that may terminate the
+    /// application, and it is reachable only from the Exit option (click or
+    /// gamepad A while 退出 is focused).
+    ///
+    /// In a player this ends the application; inside the Unity Editor it leaves
+    /// Play Mode instead of terminating the editor process.
     /// </summary>
     public static void RequestQuit()
     {
+        QuitRequestCount++;
+
+        var caller = new System.Diagnostics.StackFrame(1);
+        Debug.Log("[MENU] Execute = QuitGame (request #" + QuitRequestCount + " from "
+                  + caller.GetMethod().DeclaringType.Name + "." + caller.GetMethod().Name + ")");
+
+        if (SuppressQuitForAutomation)
+        {
+            // Automation seam: prove WHICH option reached the quit action without
+            // killing the editor or the test runner.
+            return;
+        }
+
 #if UNITY_EDITOR
         UnityEditor.EditorApplication.isPlaying = false;
 #else
         Application.Quit();
 #endif
+    }
+
+    /// <summary>How many times the quit action was requested (automation only).</summary>
+    public static int QuitRequestCount { get; private set; }
+
+    /// <summary>
+    /// Automation seam: while true the quit action only records itself. Tests
+    /// must reset it in teardown.
+    /// </summary>
+    public static bool SuppressQuitForAutomation { get; set; }
+
+    /// <summary>Clears the quit bookkeeping (automation only).</summary>
+    public static void ResetQuitBookkeepingForAutomation()
+    {
+        QuitRequestCount = 0;
+        SuppressQuitForAutomation = false;
     }
 
     // ---- Cinematic hooks (driven by MainMenuCinematic) ----

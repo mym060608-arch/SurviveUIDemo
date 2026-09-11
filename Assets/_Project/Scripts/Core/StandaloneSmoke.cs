@@ -171,7 +171,7 @@ public class StandaloneSmoke : MonoBehaviour
             stars != null && stars.ScrollSpeedOf(2) > stars.ScrollSpeedOf(0)
             && stars.TwinkleAmountOf(1) > 0.2f);
 
-        Camera stageCamera = UnityEngine.Object.FindAnyObjectByType<Camera>();
+        Camera stageCamera = menu.StageCamera;
         if (stageCamera != null && hero != null)
         {
             stageCamera.aspect = 16f / 9f;

@@ -128,7 +128,7 @@ public class MainMenuCapture : MonoBehaviour
         // ---- Composition contract ----
         MainMenuShipHero hero = Object.FindAnyObjectByType<MainMenuShipHero>();
         MainMenuStarfield stars = Object.FindAnyObjectByType<MainMenuStarfield>();
-        Camera stageCamera = Object.FindAnyObjectByType<Camera>();
+        Camera stageCamera = menu.StageCamera;
         MainMenuCinematic cinematic = menu.Cinematic;
 
         // ---- Minimal copy ----
@@ -412,6 +412,10 @@ public class MainMenuCapture : MonoBehaviour
             && float.Parse(beat1) < float.Parse(beat2)
             && float.Parse(beat2) < float.Parse(beat3));
         Check("the curtains were removed when the eyes opened", ship.EntryBlink == null);
+
+        // ShipGameController releases the lock in its own Update, one frame after
+        // the eyelid component retires itself.
+        yield return WaitUntil(() => !ship.IsEntryInputLocked, 240);
         Check("control is released after the eyes open", !ship.IsEntryInputLocked);
         Check("the first-person camera renders",
             ship.Player != null && ship.Player.EyeCamera != null && ship.Player.EyeCamera.enabled);

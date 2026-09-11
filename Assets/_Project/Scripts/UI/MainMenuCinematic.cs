@@ -86,6 +86,10 @@ public class MainMenuCinematic : MonoBehaviour
     private bool _continueMode;
     private Vector3 _cameraHome;
 
+    /// <summary>The stage camera this shot drives (also the title screen's
+    /// authoritative camera for automation and probes).</summary>
+    public Camera StageCamera => stageCamera;
+
     /// <summary>True while the shot is playing (or while the scene swap is pending).</summary>
     public bool IsPlaying => _playing;
 

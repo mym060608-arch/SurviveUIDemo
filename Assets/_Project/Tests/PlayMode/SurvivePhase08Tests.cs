@@ -124,7 +124,7 @@ public class SurvivePhase08Tests
             "the whole authored ship is instantiated (" + hero.ShipRendererCount + ")");
         Assert.AreEqual(2, hero.NozzleCount, "both exhaust anchors drive a plume");
 
-        Camera stageCamera = Object.FindAnyObjectByType<Camera>();
+        Camera stageCamera = menu.StageCamera;
         Assert.IsNotNull(stageCamera, "stage camera exists");
         stageCamera.aspect = 16f / 9f;
         float shipX = stageCamera.WorldToViewportPoint(hero.WorldBounds.center).x;
@@ -238,7 +238,7 @@ public class SurvivePhase08Tests
 
         MainMenuCinematic cinematic = menu.Cinematic;
         MainMenuShipHero hero = Object.FindAnyObjectByType<MainMenuShipHero>();
-        Camera stageCamera = Object.FindAnyObjectByType<Camera>();
+        Camera stageCamera = menu.StageCamera;
         stageCamera.aspect = 16f / 9f;
 
         menu.SetFocus(0);
@@ -532,7 +532,7 @@ public class SurvivePhase08Tests
         yield return BootToTitleScreen(m => menu = m);
 
         MainMenuShipHero hero = Object.FindAnyObjectByType<MainMenuShipHero>();
-        Camera stageCamera = Object.FindAnyObjectByType<Camera>();
+        Camera stageCamera = menu.StageCamera;
         Assert.IsNotNull(hero, "hero exists");
         Assert.IsNotNull(stageCamera, "camera exists");
         AssertShipFliesRight(hero, stageCamera);
