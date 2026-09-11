@@ -1,0 +1,1262 @@
+[
+ {
+  "requested": [
+   -0.5,
+   -0.92,
+   0.32
+  ],
+  "occluded": 1,
+  "weighted": 0.006172839506172839,
+  "visibility": 0.6793,
+  "device_ndc": [
+   -0.5,
+   -0.92
+  ],
+  "face_dot_eye": 0.9809966832399368,
+  "shoulder_gap": 0.3803,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 1,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.5,
+   -0.92,
+   0.3
+  ],
+  "occluded": 1,
+  "weighted": 0.006172839506172839,
+  "visibility": 0.668,
+  "device_ndc": [
+   -0.5,
+   -0.92
+  ],
+  "face_dot_eye": 0.9958121478557587,
+  "shoulder_gap": 0.3602,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 1,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.54,
+   -0.92,
+   0.32
+  ],
+  "occluded": 2,
+  "weighted": 0.012345679012345678,
+  "visibility": 0.6793,
+  "device_ndc": [
+   -0.54,
+   -0.92
+  ],
+  "face_dot_eye": 0.9785828292369843,
+  "shoulder_gap": 0.3812,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.54,
+   -0.92,
+   0.3
+  ],
+  "occluded": 2,
+  "weighted": 0.012345679012345678,
+  "visibility": 0.668,
+  "device_ndc": [
+   -0.54,
+   -0.92
+  ],
+  "face_dot_eye": 0.9948408901691437,
+  "shoulder_gap": 0.3606,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.54,
+   -0.92,
+   0.28
+  ],
+  "occluded": 2,
+  "weighted": 0.012345679012345678,
+  "visibility": 0.6568,
+  "device_ndc": [
+   -0.54,
+   -0.92
+  ],
+  "face_dot_eye": 0.9999875724315643,
+  "shoulder_gap": 0.3409,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.5,
+   -0.92,
+   0.28
+  ],
+  "occluded": 2,
+  "weighted": 0.012345679012345678,
+  "visibility": 0.6568,
+  "device_ndc": [
+   -0.5,
+   -0.92
+  ],
+  "face_dot_eye": 0.9999158978462219,
+  "shoulder_gap": 0.3411,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.42,
+   -0.92,
+   0.32
+  ],
+  "occluded": 6,
+  "weighted": 0.01646090534979424,
+  "visibility": 0.6793,
+  "device_ndc": [
+   -0.42,
+   -0.92
+  ],
+  "face_dot_eye": 0.9837783724069595,
+  "shoulder_gap": 0.3804,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 1,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 5,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.42,
+   -0.92,
+   0.3
+  ],
+  "occluded": 6,
+  "weighted": 0.01646090534979424,
+  "visibility": 0.668,
+  "device_ndc": [
+   -0.42,
+   -0.92
+  ],
+  "face_dot_eye": 0.9967706352472305,
+  "shoulder_gap": 0.3613,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 1,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 5,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.46,
+   -0.92,
+   0.3
+  ],
+  "occluded": 4,
+  "weighted": 0.01646090534979424,
+  "visibility": 0.668,
+  "device_ndc": [
+   -0.46,
+   -0.92
+  ],
+  "face_dot_eye": 0.9964369833469391,
+  "shoulder_gap": 0.3604,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 2,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.76,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 1.0,
+  "device_ndc": [
+   -0.58,
+   -0.76
+  ],
+  "face_dot_eye": 0.994638592004776,
+  "shoulder_gap": 0.3642,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.8,
+   0.32
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.9481,
+  "device_ndc": [
+   -0.58,
+   -0.8
+  ],
+  "face_dot_eye": 0.9781241118907928,
+  "shoulder_gap": 0.3836,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.8,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.9201,
+  "device_ndc": [
+   -0.58,
+   -0.8
+  ],
+  "face_dot_eye": 0.9945096373558044,
+  "shoulder_gap": 0.3633,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.8,
+   0.28
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.8921,
+  "device_ndc": [
+   -0.58,
+   -0.8
+  ],
+  "face_dot_eye": 0.9999999105930328,
+  "shoulder_gap": 0.3438,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.54,
+   -0.84,
+   0.32
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.8585,
+  "device_ndc": [
+   -0.54,
+   -0.84
+  ],
+  "face_dot_eye": 0.980468362569809,
+  "shoulder_gap": 0.3816,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.84,
+   0.32
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.8585,
+  "device_ndc": [
+   -0.58,
+   -0.84
+  ],
+  "face_dot_eye": 0.9774432480335236,
+  "shoulder_gap": 0.3831,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.54,
+   -0.84,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.8361,
+  "device_ndc": [
+   -0.54,
+   -0.84
+  ],
+  "face_dot_eye": 0.9955475032329559,
+  "shoulder_gap": 0.3615,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.84,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.8361,
+  "device_ndc": [
+   -0.58,
+   -0.84
+  ],
+  "face_dot_eye": 0.9942719340324402,
+  "shoulder_gap": 0.3625,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.84,
+   0.28
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.8137,
+  "device_ndc": [
+   -0.58,
+   -0.84
+  ],
+  "face_dot_eye": 0.9999999403953552,
+  "shoulder_gap": 0.3428,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.54,
+   -0.88,
+   0.32
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7689,
+  "device_ndc": [
+   -0.54,
+   -0.88
+  ],
+  "face_dot_eye": 0.9796383380889893,
+  "shoulder_gap": 0.3813,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.88,
+   0.32
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7689,
+  "device_ndc": [
+   -0.58,
+   -0.88
+  ],
+  "face_dot_eye": 0.9765335023403168,
+  "shoulder_gap": 0.3829,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.5,
+   -0.88,
+   0.32
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7689,
+  "device_ndc": [
+   -0.5,
+   -0.88
+  ],
+  "face_dot_eye": 0.9819717556238174,
+  "shoulder_gap": 0.3803,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.46,
+   -0.88,
+   0.32
+  ],
+  "occluded": 5,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7689,
+  "device_ndc": [
+   -0.46,
+   -0.88
+  ],
+  "face_dot_eye": 0.9836144894361496,
+  "shoulder_gap": 0.3801,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 3,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.54,
+   -0.88,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7521,
+  "device_ndc": [
+   -0.54,
+   -0.88
+  ],
+  "face_dot_eye": 0.9952490925788879,
+  "shoulder_gap": 0.3609,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.5,
+   -0.88,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7521,
+  "device_ndc": [
+   -0.5,
+   -0.88
+  ],
+  "face_dot_eye": 0.9961672872304916,
+  "shoulder_gap": 0.3606,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.46,
+   -0.88,
+   0.3
+  ],
+  "occluded": 5,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7521,
+  "device_ndc": [
+   -0.46,
+   -0.88
+  ],
+  "face_dot_eye": 0.9967509508132935,
+  "shoulder_gap": 0.3608,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 3,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.88,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7521,
+  "device_ndc": [
+   -0.58,
+   -0.88
+  ],
+  "face_dot_eye": 0.9939206093549728,
+  "shoulder_gap": 0.3619,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.88,
+   0.28
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.7353,
+  "device_ndc": [
+   -0.58,
+   -0.88
+  ],
+  "face_dot_eye": 0.9999963343143463,
+  "shoulder_gap": 0.342,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.46,
+   -0.92,
+   0.32
+  ],
+  "occluded": 5,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.6793,
+  "device_ndc": [
+   -0.46,
+   -0.92
+  ],
+  "face_dot_eye": 0.9827082604169846,
+  "shoulder_gap": 0.38,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 2,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 3,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.92,
+   0.32
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.6793,
+  "device_ndc": [
+   -0.58,
+   -0.92
+  ],
+  "face_dot_eye": 0.975386381149292,
+  "shoulder_gap": 0.3828,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ },
+ {
+  "requested": [
+   -0.58,
+   -0.92,
+   0.3
+  ],
+  "occluded": 3,
+  "weighted": 0.018518518518518517,
+  "visibility": 0.668,
+  "device_ndc": [
+   -0.58,
+   -0.92
+  ],
+  "face_dot_eye": 0.9934479296207428,
+  "shoulder_gap": 0.3616,
+  "by_region": {
+   "map": {
+    "occluded": 0,
+    "samples": 96
+   },
+   "panel_lower_left": {
+    "occluded": 3,
+    "samples": 12
+   },
+   "panel_lower_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_left": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "panel_upper_right": {
+    "occluded": 0,
+    "samples": 12
+   },
+   "status": {
+    "occluded": 0,
+    "samples": 54
+   }
+  }
+ }
+]
