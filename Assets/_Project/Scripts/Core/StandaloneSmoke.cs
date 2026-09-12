@@ -30,15 +30,18 @@ using UnityEngine.UIElements;
 public class StandaloneSmoke : MonoBehaviour
 {
     private const string SmokeResultFlag = "-smokeResult";
+    private const string SmokeShotsFlag = "-smokeShots";
 
     private static bool _sessionClaimed;
 
     private string _resultPath;
+    private string _shotFolder;
     private bool _ownsRun;
 
     private void Awake()
     {
         _resultPath = ParseFlag(SmokeResultFlag);
+        _shotFolder = ParseFlag(SmokeShotsFlag);
         if (string.IsNullOrEmpty(_resultPath) || _sessionClaimed)
         {
             // Not a smoke launch, or another probe instance already owns it.
@@ -48,6 +51,23 @@ public class StandaloneSmoke : MonoBehaviour
 
         _sessionClaimed = true;
         _ownsRun = true;
+
+        // A smoke run is launched from a shell, so the player does not own the OS
+        // foreground for the whole journey. The Input System's default background
+        // behaviour disables devices that cannot run in the background and treats a
+        // device added while unfocused the same way, which is what made the
+        // recorded intermittent "input delivery" stalls possible: the virtual
+        // gamepad the smoke adds could be born disabled and its queued state events
+        // were then dropped. Ignoring focus for the flagged run makes the device
+        // path deterministic; a normal game launch never reaches this line.
+        InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+
+        if (!string.IsNullOrEmpty(_shotFolder))
+        {
+            // The recorded frames are compared against the 1920x1080 phase
+            // baselines, so the visual evidence is captured at that size.
+            Screen.SetResolution(1920, 1080, false);
+        }
 
         // The journey crosses scene loads (Main Menu -> Ship Interior -> Main
         // Menu). Without this the probe would be destroyed with the cover scene
@@ -331,12 +351,35 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("the eyelid beats played (stages: " + string.Join(",", stages) + ")",
             stages.Contains("beat1") && stages.Contains("beat2") && stages.Contains("beat3"));
         log.Check("the eyelid overlay was removed", ship.EntryBlink == null);
+        // The overlay is destroyed by the blink component and the input lock is
+        // released by the ship controller in the same frame, so which one the
+        // coroutine observes first depends on the script execution order - a
+        // measured one-frame race that failed this check intermittently. Wait for
+        // the release within a bounded window instead; the assertion is unchanged,
+        // so a lock that never lifts still fails.
+        int releaseGuard = 0;
+        while (releaseGuard < 120
+               && (ship.IsEntryInputLocked || ship.Player == null || !ship.Player.InputEnabled))
+        {
+            releaseGuard++;
+            yield return null;
+        }
+
         log.Check("control is released after the eyes open",
             !ship.IsEntryInputLocked && ship.Player != null && ship.Player.InputEnabled);
         log.Check("the first-person camera renders",
             ship.Player.EyeCamera != null && ship.Player.EyeCamera.enabled);
         log.Check("no terminal UI covers the frame on entry",
             !ship.IsConsoleFocusActive && !ship.IsOverlayOpen);
+
+        // The UI contract of the whole run (see UiIntegrityAudit): exactly one
+        // hub screen, every screen-space document styled, and no overlay that
+        // survived the scene change on its own.
+        System.Collections.Generic.List<string> uiProblems = UiIntegrityAudit.Problems();
+        log.Check("the ship interior UI is intact (" + UiIntegrityAudit.Describe(uiProblems) + ")",
+            uiProblems.Count == 0);
+        log.Info("ship interior UI state: " + UiIntegrityAudit.Snapshot());
+        yield return CaptureFrame("smoke_ship_interior");
 
         // ---- 8. Console view + the full pause loop ----
         // A virtual gamepad is added so this standalone run drives the REAL
@@ -349,6 +392,126 @@ public class StandaloneSmoke : MonoBehaviour
         Debug.Log("[StandaloneSmoke] step 8: console view + pause loop");
         InputDeviceTracker.NotifyGamepad();
         yield return null;
+
+        // ---- 8a. Phase 09A_3: block arms + the wrist presentation ----
+        // Runs on the real device path: the locomotion push and the Wrist press
+        // are Input System gamepad events, never direct API calls, so this is the
+        // standalone proof of  "Wrist binding -> existing wrist system ->
+        // presentation bridge -> block-arm transform blend".
+        Debug.Log("[StandaloneSmoke] step 8a: first-person arms + wrist");
+        log.Check("the first-person arms exist exactly once after the eyes open",
+            CountArms() == 1);
+        log.Check("the block arms follow the player rig in body space",
+            ship.Arms != null && ship.Player != null
+            && ship.Arms.transform.parent == ship.Player.transform
+            && Mathf.Abs(ship.Arms.transform.localPosition.y
+                         - ship.Player.eyeHeight) < 0.001f);
+        log.Check("the arms are presented in free first person",
+            ship.Arms != null && ship.Arms.IsVisible);
+        log.Check("the arms present Rest while standing still",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Rest");
+
+        InputSystem.QueueStateEvent(pad, new GamepadState
+        {
+            leftStick = new Vector2(0f, 0.9f)
+        });
+        bool sawWalk = false;
+        float walkDeadline = Time.realtimeSinceStartup + 0.9f;
+        while (Time.realtimeSinceStartup < walkDeadline)
+        {
+            sawWalk |= ship.Arms != null && ship.Arms.CurrentStateName == "Walk";
+            yield return null;
+        }
+
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        yield return new WaitForSecondsRealtime(0.6f);
+        log.Check("the arms present Walk while the player really moves", sawWalk);
+        log.Check("the arms return to the rest presentation when the player stops",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Rest");
+        log.Check("the block arms are pure presentation geometry (no collider, no rig)",
+            ship.Arms != null
+            && ship.Arms.GetComponentsInChildren<Collider>(true).Length == 0);
+
+        // The Wrist binding opens the AUTHORITY at once; the existing terminal
+        // only appears once the left wrist has risen into view.
+        yield return PressGamepadButton(pad, GamepadButton.North);
+        log.Check("the Wrist binding opens the wrist authority", ship.IsWristOpen);
+        log.Check("the wrist terminal is NOT presented yet (the arm raises first)",
+            !ship.IsWristTerminalRevealed);
+        log.Check("the arm starts raising",
+            ship.Arms != null
+            && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Raise);
+
+        yield return WaitFor(() => ship.IsWristTerminalRevealed, 4f);
+        log.Check("the hologram starts appearing before the raise ends (progress "
+                  + ship.WristPresentation.LastRevealProgress.ToString("0.00") + ")",
+            ship.WristPresentation.LastRevealProgress > 0.70f
+            && ship.WristPresentation.LastRevealProgress < 0.99f);
+        log.Check("the raise is one continuous move (translation and rotation together)",
+            ship.Arms != null
+            && Mathf.Abs(ship.Arms.PositionProgress - ship.Arms.RotationProgress) < 0.02f);
+        log.Check("the existing wrist terminal is revealed after the raise",
+            ship.IsWristTerminalRevealed && ship.Wrist.Display != null
+            && ship.Wrist.Display.Visible);
+        log.Check("the reveal waited for the raise animation (progress "
+                  + ship.WristPresentation.LastRevealProgress.ToString("0.00") + ")",
+            ship.WristPresentation.LastRevealProgress > 0.7f);
+        yield return WaitFor(() => ship.Arms != null
+            && ship.Arms.CurrentStateName == "WristHold", 4f);
+        log.Check("the wrist presentation settles into the hold loop",
+            ship.Arms != null && ship.Arms.CurrentStateName == "WristHold");
+        log.Check("the wrist screens glow while the terminal is presented",
+            ship.Arms != null && ship.Arms.IsWristScreenActive);
+
+        // Stage B: the physical wrist is a FROSTED support, never a black ghost.
+        if (ship.Arms != null)
+        {
+            yield return WaitFor(() => ship.Arms.FocusBlend >= 0.999f, 3f);
+            log.Check("the focus crossfades instead of switching material in one frame ("
+                      + ship.Arms.FocusBlend.ToString("0.00") + ")",
+                ship.Arms.FocusBlend >= 0.999f);
+            log.Check("the frosted arm stays visibly present (alpha "
+                      + ship.Arms.PhysicalArmAlpha.ToString("0.00") + ", brightness "
+                      + ship.Arms.PhysicalArmBrightness.ToString("0.00") + ")",
+                ship.Arms.PhysicalArmAlpha >= 0.4f
+                && ship.Arms.PhysicalArmBrightness >= 0.7f);
+            log.Check("the cyan watch core keeps emitting through the hologram ("
+                      + ship.Arms.WatchCoreEmission.ToString("F2") + ")",
+                ship.Arms.WatchCoreEmission.g > 0.05f
+                && ship.Arms.WatchCoreEmission.b > ship.Arms.WatchCoreEmission.r);
+        }
+
+        Material lensMaterial = ship.Wrist != null && ship.Wrist.Display != null
+            ? ship.Wrist.Display.SurfaceMaterial
+            : null;
+        log.Check("the hologram sheet becomes the frosted lens ("
+                  + (lensMaterial != null && lensMaterial.HasProperty("_FrostOpacity")
+                      ? lensMaterial.GetFloat("_FrostOpacity").ToString("0.00")
+                      : "?") + ")",
+            lensMaterial != null && lensMaterial.HasProperty("_FrostOpacity")
+            && lensMaterial.GetFloat("_FrostOpacity") < 0.95f);
+        log.Check("the open wrist owns Escape (Back before Pause)",
+            UiInput.ActiveBackLayer == UiInput.UiLayer.Wrist);
+
+        // Escape closes the wrist terminal and nothing else (Escape is
+        // Back-or-Pause-fallback; the global pause only returns once no local
+        // layer can go back).
+        yield return PressEscapeKey();
+        log.Check("Escape closes the wrist authority", !ship.IsWristOpen);
+        log.Check("Escape on the wrist never opens the pause",
+            !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+        log.Check("the terminal releases before the arm lowers",
+            !ship.IsWristTerminalRevealed
+            && (ship.Wrist == null || ship.Wrist.Display == null
+                || !ship.Wrist.Display.Visible));
+        log.Check("the arm starts lowering",
+            ship.Arms != null
+            && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Lower);
+        yield return WaitFor(() => ship.Arms != null
+            && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Rest, 4f);
+        log.Check("the arm returns to the rest presentation",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Rest"
+            && ship.Player.InputEnabled);
 
         ShipConsoleInteractable overviewConsole = null;
         foreach (ShipConsoleInteractable console in ship.Consoles)
@@ -383,6 +546,27 @@ public class StandaloneSmoke : MonoBehaviour
             yield return WaitFor(() =>
                 ship.Interactor.CurrentTarget == (IFirstPersonInteractable)overviewConsole, 4f);
 
+            // Keyboard E -> console view (the physical Interact press is injected:
+            // a standalone player cannot deliver a synthetic keyboard EDGE), then
+            // Escape leaves it WITHOUT pausing. This is the regression the phase
+            // fixed, so the smoke drives it on the real route.
+            UiInput.InjectInteractForAutomation();
+            yield return null;
+            yield return WaitFor(() => ship.Focus.FocusActive, 3f);
+            log.Check("keyboard E enters the console view", ship.Focus.FocusActive);
+            log.Check("keyboard E never pauses while opening a terminal",
+                !ship.PauseMenu.IsOpen);
+
+            UiInput.InjectEscapeForAutomation();
+            yield return null;
+            yield return WaitFor(() => !ship.Focus.FocusActive, 4f);
+            log.Check("keyboard Esc leaves the console view", !ship.Focus.FocusActive);
+            log.Check("keyboard Esc on a terminal never pauses",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            yield return WaitFor(() => ship.Player.InputEnabled, 3f);
+            log.Check("free first person is restored after the Escape exit",
+                ship.Player.InputEnabled);
+
             // A -> console view.
             yield return PressGamepadButton(pad, GamepadButton.South);
             yield return WaitFor(() => ship.Focus.FocusActive, 3f);
@@ -397,6 +581,8 @@ public class StandaloneSmoke : MonoBehaviour
                 ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipConsoleFocus, 4f);
             log.Check("the camera reached the console view anchor",
                 Vector3.Distance(ship.Player.EyeCamera.transform.position, anchor.position) < 0.06f);
+            log.Check("the first-person arms are hidden in the console view",
+                ship.Arms != null && !ship.Arms.IsVisible);
 
             // Menu/Start -> pause over the frozen console view.
             yield return PressGamepadButton(pad, GamepadButton.Start);
@@ -405,6 +591,52 @@ public class StandaloneSmoke : MonoBehaviour
             log.Check("the pause freezes time", Mathf.Approximately(Time.timeScale, 0f));
             log.Check("the console view stays as the underlying state", ship.Focus.FocusActive);
             log.Check("the pause focus lands on 继续游戏", ship.PauseMenu.FocusedItemId == "Resume");
+            log.Check("the pause outranks the console view for Escape",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.PauseMenu);
+
+            // Escape #1 (inside the pause) -> continue, and NOT the console's Back.
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape inside the pause continues the game", !ship.PauseMenu.IsOpen);
+            log.Check("Escape in the pause never leaves the console view",
+                ship.Focus.FocusActive);
+            log.Check("the console view owns Escape again",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.ConsoleFocus);
+
+            // Escape #2 -> leave the console view (the reported bug: it paused).
+            yield return PressEscapeKey();
+            yield return WaitFor(() =>
+                ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore, 4f);
+            log.Check("Escape leaves the console view",
+                ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore);
+            log.Check("Escape in the console view never opens the pause",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            yield return WaitFor(() => ship.Player.InputEnabled, 3f);
+            log.Check("movement and look are restored after the Escape exit",
+                ship.Player.InputEnabled);
+            log.Check("free first person owns Escape again",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+
+            // Escape #3 -> with nothing local left, it is the global pause again.
+            yield return PressEscapeKey();
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape pauses in free first person", ship.PauseMenu.IsOpen);
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape continues from the pause", !ship.PauseMenu.IsOpen);
+            log.Check("no quit from any Escape press", AppQuit.RequestCount == 0);
+
+            // A second visit, so the gamepad paths below still run on a focused
+            // console.
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => ship.Focus.FocusActive, 3f);
+            log.Check("A enters the console view again", ship.Focus.FocusActive);
+
+            // Menu/Start again, then the gamepad's own Continue (A on 继续游戏).
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Menu/Start opens the pause over the console view again",
+                ship.PauseMenu.IsOpen);
 
             // Continue -> back to the console view.
             yield return PressGamepadButton(pad, GamepadButton.South);
@@ -421,6 +653,8 @@ public class StandaloneSmoke : MonoBehaviour
                 ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore);
             yield return WaitFor(() => ship.Player.InputEnabled, 3f);
             log.Check("movement and look are restored", ship.Player.InputEnabled);
+            log.Check("the first-person arms come back after leaving the console view",
+                ship.Arms != null && ship.Arms.IsVisible);
             log.Check("no quit from the console view", AppQuit.RequestCount == 0);
 
             // ---- 8b. Pause: open / continue / back / return to main menu ----
@@ -429,12 +663,42 @@ public class StandaloneSmoke : MonoBehaviour
             log.Check("Menu/Start opens the pause in gameplay", ship.PauseMenu.IsOpen);
             log.Check("the pause freezes gameplay",
                 Mathf.Approximately(Time.timeScale, 0f) && !ship.Player.InputEnabled);
+            log.Check("the pause freezes the arms presentation too",
+                ship.Arms != null && ship.Arms.IsFrozen);
+
+            // Pause must overlay exactly the running context: no extra screen may
+            // become visible just because the pause opened.
+            System.Collections.Generic.List<string> pauseProblems = UiIntegrityAudit.Problems();
+            log.Check("the pause overlays the current context only ("
+                      + UiIntegrityAudit.Describe(pauseProblems) + ")",
+                pauseProblems.Count == 0);
+            log.Info("pause UI state: " + UiIntegrityAudit.Snapshot());
+            yield return CaptureFrame("smoke_pause_gameplay");
 
             yield return PressGamepadButton(pad, GamepadButton.Start);
             yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
             log.Check("Menu/Start again continues the game",
                 !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f)
                 && ship.Player.InputEnabled);
+            yield return WaitFor(() => ship.Arms != null && !ship.Arms.IsFrozen, 2f);
+            log.Check("continue releases the frozen arms presentation",
+                ship.Arms != null && !ship.Arms.IsFrozen);
+
+            // Escape in free first person is the global pause, and Escape inside
+            // that pause is Continue again.
+            log.Check("free first person owns Escape for the pause",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+            yield return PressEscapeKey();
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape pauses in free first person", ship.PauseMenu.IsOpen);
+            log.Check("the pause owns Escape while it is open",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.PauseMenu);
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape continues from the pause",
+                !ship.PauseMenu.IsOpen && ship.Player.InputEnabled);
+            log.Check("Escape restores free first person afterwards",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
 
             yield return PressGamepadButton(pad, GamepadButton.Start);
             yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
@@ -468,6 +732,8 @@ public class StandaloneSmoke : MonoBehaviour
                 GameSession.Instance == session && session.Minerals == mineralsBefore);
             log.Check("the run is still resumable and 继续游戏 is enabled",
                 session.HasStartedRun && menuBack != null && menuBack.ContinueButton.enabledSelf);
+            log.Check("no arms instance survives the return to the title screen",
+                CountArms() == 0);
             log.Check("no quit has happened yet", AppQuit.RequestCount == 0);
 
             // ---- 8c. 继续游戏 -> the same ship state ----
@@ -486,6 +752,8 @@ public class StandaloneSmoke : MonoBehaviour
                 && SceneManager.GetActiveScene().name == GameSession.ShipInteriorSceneName);
             log.Check("继续游戏 keeps the same session",
                 GameSession.Instance == session && session.Minerals == mineralsBefore);
+            log.Check("继续游戏 creates the arms exactly once (no duplicates)",
+                resumed != null && CountArms() == 1);
 
             ship = resumed;
 
@@ -615,6 +883,23 @@ public class StandaloneSmoke : MonoBehaviour
         Finish(log, 1);
     }
 
+    /// <summary>
+    /// Presses Escape through UiInput's automation seam and lets the layer
+    /// resolution run. A batch-mode standalone player cannot deliver keyboard
+    /// state to a synthetic Keyboard device, so the seam injects the PHYSICAL
+    /// escape press (not a logical action) and every layer below - the priority
+    /// board, the consumption guard, the pause and the local Back handlers -
+    /// still runs for real. The physical mapping is pinned by
+    /// UiInput.BindingTable.
+    /// </summary>
+    private static IEnumerator PressEscapeKey()
+    {
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
+        yield return null;
+        yield return null;
+    }
+
     /// <summary>Queues a real press/release of one gamepad button.</summary>
     private static IEnumerator PressGamepadButton(Gamepad pad, GamepadButton button)
     {
@@ -624,6 +909,55 @@ public class StandaloneSmoke : MonoBehaviour
         InputSystem.QueueStateEvent(pad, new GamepadState());
         yield return null;
         yield return null;
+    }
+
+    /// <summary>
+    /// Optional visual evidence for the real route: writes one 1920x1080 frame
+    /// into the folder given with <c>-smokeShots &lt;folder&gt;</c>. Inert (and
+    /// free) when the flag is absent, so a normal smoke run is unchanged.
+    /// </summary>
+    private IEnumerator CaptureFrame(string name)
+    {
+        if (string.IsNullOrEmpty(_shotFolder))
+        {
+            yield break;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(_shotFolder);
+        }
+        catch (Exception)
+        {
+            yield break;
+        }
+
+        string path = Path.Combine(_shotFolder, name + ".png");
+        if (Screen.width != 1920 || Screen.height != 1080)
+        {
+            Screen.SetResolution(1920, 1080, false);
+            yield return new WaitForSecondsRealtime(0.5f);
+        }
+
+        ScreenCapture.CaptureScreenshot(path);
+        for (int i = 0; i < 600; i++)
+        {
+            if (File.Exists(path) && new FileInfo(path).Length > 20000)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        yield return new WaitForSecondsRealtime(0.15f);
+    }
+
+    /// <summary>Live block-arms instances (Phase 09A_3 duplicate guard).</summary>
+    private static int CountArms()
+    {
+        return UnityEngine.Object.FindObjectsByType<FirstPersonBlockArmsController>(
+            FindObjectsInactive.Include).Length;
     }
     /// <summary>
     /// Phase 01-05 authoritative STATE journey. Scene independent, so it runs in
@@ -984,6 +1318,29 @@ public class StandaloneSmoke : MonoBehaviour
                 ReferenceEquals(ship.Interactor.CurrentTarget,
                     (IFirstPersonInteractable)locker)
                 && ship.Interactor.ResolvePrompt().Contains("调整远征装备"));
+
+            // ---- Escape is this panel's Back key too, and never the pause ----
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.Loadout, 5f);
+            log.Check("A reopens 装备整理", overlay.IsOpen);
+            log.Check("the equipment panel owns Escape while it is open",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Modal);
+
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !overlay.IsOpen && ship.Player.InputEnabled, 5f);
+
+            log.Check("Escape closes 装备整理", !overlay.IsOpen);
+            log.Check("Escape on the equipment panel never opens the pause",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            log.Check("Escape performed exactly ONE Back action ("
+                      + (overlay.BackActionCount - lockerBackBaseline)
+                      + " in this section)",
+                overlay.BackActionCount == lockerBackBaseline + 2);
+            log.Check("Escape restores free first person after the panel",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+            log.Check("Escape on the equipment panel never quits",
+                AppQuit.RequestCount == 0);
         }
 
         // ---- 出征前准备: deployment station -> pause above the panel ----
@@ -1066,6 +1423,27 @@ public class StandaloneSmoke : MonoBehaviour
                 ReferenceEquals(ship.Interactor.CurrentTarget,
                     (IFirstPersonInteractable)ship.Airlock)
                 && ship.Interactor.ResolvePrompt().Contains("前往 NEREID-04 地表"));
+
+            // ---- Escape is this panel's Back key as well (no pause) ----
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm, 5f);
+            log.Check("A reopens 出征前准备", overlay.IsOpen);
+            log.Check("the deployment panel owns Escape while it is open",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Modal);
+
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !overlay.IsOpen && ship.Player.InputEnabled, 5f);
+
+            log.Check("Escape closes 出征前准备", !overlay.IsOpen);
+            log.Check("Escape on the deployment panel never opens the pause",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            log.Check("Escape performed exactly ONE Back action ("
+                      + (overlay.BackActionCount - backBaseline) + " in this section)",
+                overlay.BackActionCount == backBaseline + 2);
+            log.Check("Escape restores free first person after the panel",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+            log.Check("Escape on the panel never quits", AppQuit.RequestCount == 0);
         }
     }
 
@@ -1135,6 +1513,12 @@ public class StandaloneSmoke : MonoBehaviour
         {
             Failures++;
             _lines.AppendLine("FAIL :: " + label);
+            Flush();
+        }
+
+        public void Info(string text)
+        {
+            _lines.AppendLine("INFO :: " + text);
             Flush();
         }
 

@@ -41,6 +41,23 @@ public class SurvivePhase06RevisionTests
         }
     }
 
+    /// <summary>
+    /// Waits on the CLOCK instead of a frame budget.
+    ///
+    /// The batch-mode editor runs at a very high frame rate on these simple scenes
+    /// (measured: the 0.58 s wrist raise covered only 0.76 of its progress in the
+    /// 1500 frames <see cref="WaitUntil"/> allows), so presentation waits - which
+    /// are measured in seconds of animation - must be time based.
+    /// </summary>
+    private static IEnumerator WaitUntilRealTime(System.Func<bool> condition, float seconds)
+    {
+        float deadline = Time.realtimeSinceStartup + seconds;
+        while (!condition() && Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+        }
+    }
+
     private static string ActiveSceneName()
     {
         return SceneManager.GetActiveScene().name;
@@ -96,6 +113,26 @@ public class SurvivePhase06RevisionTests
         }
 
         return controller;
+    }
+
+    /// <summary>
+    /// Opens the wrist and waits for the PRESENTED state.
+    ///
+    /// Phase 09A_5: the surface now reveals its terminal through the same staged
+    /// raise the ship interior uses (the hologram appears once the arm has brought
+    /// the device into view, around 0.82 of the raise) instead of showing it on the
+    /// key press. Opening is therefore no longer synchronous, so every layout /
+    /// visibility assertion below has to wait for the presentation first. The
+    /// assertions themselves are unchanged.
+    /// </summary>
+    private static IEnumerator OpenWristAndWait(SurfaceGameController controller)
+    {
+        controller.SetWristOpen(true);
+        yield return WaitUntil(() => controller.IsWristOpen);
+        yield return WaitUntilRealTime(() => controller.IsWristTerminalRevealed, 6f);
+        yield return WaitUntilRealTime(() => controller.Arms == null
+                                              || controller.Arms.CurrentWristPhase
+                                                 == FirstPersonBlockArmsController.WristPhase.Hold, 6f);
     }
 
     /// <summary>HUD document (screen-space SurfaceHUD.uxml).</summary>
@@ -268,6 +305,11 @@ public class SurvivePhase06RevisionTests
         Assert.IsFalse(player.InputEnabled, "WASD/look frozen while open");
         Assert.IsTrue(hudLayer.resolvedStyle.display == DisplayStyle.None, "normal HUD hidden");
 
+        // Phase 09A_5: the surface reveals its terminal through the same staged
+        // raise the ship uses, so the wrist DOCUMENT becomes active when the arm has
+        // brought the device into view, not on the toggle frame.
+        yield return WaitUntilRealTime(() => controller.IsWristTerminalRevealed, 6f);
+
         // CodeReference cursor architecture: no UI Toolkit cursor overlay
         // exists anywhere; the wrist-mode pointer is a Cursor.SetCursor ring
         // texture owned by the wrist controller's WristCursorService.
@@ -343,7 +385,7 @@ public class SurvivePhase06RevisionTests
 
         SurfaceGameController controller = ReadyController();
         Assert.IsNotNull(controller, "controller ready");
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 10; i++)
         {
             yield return null;
@@ -487,7 +529,7 @@ public class SurvivePhase06RevisionTests
         Assert.AreEqual(RenderTextureFormat.ARGB32, wrist.CurrentRenderTexture.format,
             "RT carries alpha");
 
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 16; i++)
         {
             yield return null;
@@ -610,7 +652,7 @@ public class SurvivePhase06RevisionTests
 
         player.TeleportTo(new Vector3(0f, 0f, 3f));
         yield return null;
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 10; i++)
         {
             yield return null;
@@ -664,7 +706,7 @@ public class SurvivePhase06RevisionTests
             controller.Nodes[1].transform.position);
         Assert.IsTrue(Mathf.Abs(shown - real) < 0.6f, "distance matches real world distance");
 
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 8; i++)
         {
             yield return null;
@@ -719,7 +761,7 @@ public class SurvivePhase06RevisionTests
         Assert.IsTrue(controller.TryDeployNearest(), "deploy node 0");
         SurfaceResourceNode node0 = controller.Nodes[0];
 
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 10; i++)
         {
             yield return null;
@@ -836,7 +878,7 @@ public class SurvivePhase06RevisionTests
         SurfaceWristController wrist = Wrist();
         Assert.IsNotNull(wrist, "wrist controller");
 
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 16; i++)
         {
             yield return null;
@@ -1010,7 +1052,7 @@ public class SurvivePhase06RevisionTests
         SurfacePlayerController player = controller.Player;
         Camera cam = player.EyeCamera;
 
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 16; i++)
         {
             yield return null;
@@ -1360,7 +1402,7 @@ public class SurvivePhase06RevisionTests
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
         Assert.IsNotNull(controller, "controller ready");
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 12; i++)
         {
             yield return null;
@@ -1417,7 +1459,7 @@ public class SurvivePhase06RevisionTests
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
         Assert.IsNotNull(controller, "controller ready");
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 12; i++)
         {
             yield return null;
@@ -1473,7 +1515,7 @@ public class SurvivePhase06RevisionTests
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
         Assert.IsNotNull(controller, "controller ready");
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 12; i++)
         {
             yield return null;
@@ -1567,7 +1609,7 @@ public class SurvivePhase06RevisionTests
         player.TeleportTo(node0.transform.position + Vector3.forward * 1.2f);
         yield return null;
         Assert.IsTrue(controller.TryDeployNearest(), "deploy node 0");
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 10; i++)
         {
             yield return null;
@@ -1606,7 +1648,7 @@ public class SurvivePhase06RevisionTests
             yield return null;
         }
 
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 10; i++)
         {
             yield return null;
@@ -1646,7 +1688,7 @@ public class SurvivePhase06RevisionTests
         SurfaceWristController wrist = Wrist();
         Assert.IsNotNull(wrist, "wrist controller");
 
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 16; i++)
         {
             yield return null;
@@ -1718,7 +1760,7 @@ public class SurvivePhase06RevisionTests
         yield return EnterSurface();
         SurfaceGameController controller = ReadyController();
         Assert.IsNotNull(controller, "controller ready");
-        controller.SetWristOpen(true);
+        yield return OpenWristAndWait(controller);
         for (int i = 0; i < 12; i++)
         {
             yield return null;

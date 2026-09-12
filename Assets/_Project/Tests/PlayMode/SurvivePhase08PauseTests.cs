@@ -309,14 +309,22 @@ public class SurvivePhase08PauseTests
         Assert.IsTrue(ship.PauseMenu.IsOpen, "pause open");
 
         int consolesBefore = CountFocusedConsoles(ship);
-        yield return PressButton(GamepadButton.South);   // would be "view console" in gameplay
         yield return PressButton(GamepadButton.West);    // X: no function
-        yield return PressButton(GamepadButton.North);   // Y: no function
+        yield return PressButton(GamepadButton.North);   // Y: the Wrist action since Phase 09A_2
 
-        Assert.IsTrue(ship.PauseMenu.IsOpen || CountFocusedConsoles(ship) == consolesBefore,
+        // Phase 09A_2 gives the gamepad North control the semantic Wrist action,
+        // so this press is now a real gameplay action that the pause MUST block -
+        // the check is the same one, only the button really means something now.
+        Assert.IsTrue(ship.PauseMenu.IsOpen, "the pause stays open");
+        Assert.IsFalse(ship.IsWristOpen, "the Wrist action cannot open behind the pause");
+        Assert.IsTrue(CountFocusedConsoles(ship) == consolesBefore,
             "no gameplay action fired underneath the pause");
-        Assert.IsFalse(ship.IsWristOpen, "the wrist cannot open behind the pause");
         Assert.AreEqual(0, AppQuit.RequestCount, "the paused input never quits");
+
+        // Confirm (which focuses 继续游戏) is the one gameplay-layer action the
+        // pause deliberately forwards, and it resumes the game.
+        yield return PressButton(GamepadButton.South);
+        Assert.IsFalse(ship.PauseMenu.IsOpen, "A resumes the game from the pause");
 
         // The pause is still fully controllable afterwards.
         yield return PressButton(GamepadButton.East);

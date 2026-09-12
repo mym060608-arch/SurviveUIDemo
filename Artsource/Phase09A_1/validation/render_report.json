@@ -1,0 +1,651 @@
+{
+ "camera": {
+  "vertical_fov_deg": 70.0,
+  "resolution": [
+   1280,
+   720
+  ],
+  "sensor_fit": "VERTICAL",
+  "sensor_height_mm": 24.0,
+  "lens_mm": 17.137776,
+  "orientation": "located at the armature origin (the player's eye), looking along -Y, +Z up; screen right = -X"
+ },
+ "engine": "CYCLES cpu, 64 samples, denoised",
+ "background": [
+  0.68,
+  0.71,
+  0.74
+ ],
+ "note": "No Wrist UI geometry is rendered. The only UI drawing is the VALIDATION_UIReference wireframe in wrist_idle_guide.png, which reproduces the shipped pivot/offset/scale constants read from NereidSurfaceBuilder.cs and is never exported.",
+ "renders": [
+  {
+   "file": "fp_idle.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "first-person",
+   "camera_pitch_deg": 48.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "FP_Idle at rest.  The resting wrist sits ~70 deg below the eye axis, i.e. outside the 70 deg frustum, so the resting pose is captured with the same look-down used for locomotion.  fp_idle_centered.png is the true 0 deg view.",
+   "bytes": 873419,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -2.1308,
+     -8.691
+    ],
+    "Forearm_L.tail": [
+     -0.6587,
+     -3.9131
+    ],
+    "Hand_L.head": [
+     -0.6587,
+     -3.9131
+    ],
+    "Hand_L.tail": [
+     -0.4424,
+     -3.4037
+    ],
+    "WristDevice_L.head": [
+     -0.9764,
+     -4.3229
+    ],
+    "WristDevice_L.tail": [
+     -0.8111,
+     -3.8916
+    ],
+    "Hand_R.head": [
+     0.6587,
+     -3.9131
+    ],
+    "Hand_R.tail": [
+     0.4424,
+     -3.4037
+    ]
+   }
+  },
+  {
+   "file": "fp_idle_centered.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "FP_Idle at 0 deg pitch: the literal normal first-person view.  Correctly shows a clear centre - the hanging arms are outside the 70 deg frustum.",
+   "bytes": 830442,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -2.1308,
+     -8.691
+    ],
+    "Forearm_L.tail": [
+     -0.6587,
+     -3.9131
+    ],
+    "Hand_L.head": [
+     -0.6587,
+     -3.9131
+    ],
+    "Hand_L.tail": [
+     -0.4424,
+     -3.4037
+    ],
+    "WristDevice_L.head": [
+     -0.9764,
+     -4.3229
+    ],
+    "WristDevice_L.tail": [
+     -0.8111,
+     -3.8916
+    ],
+    "Hand_R.head": [
+     0.6587,
+     -3.9131
+    ],
+    "Hand_R.tail": [
+     0.4424,
+     -3.4037
+    ]
+   }
+  },
+  {
+   "file": "fp_idle_breath.png",
+   "clip": "FP_Idle",
+   "frame": 16,
+   "view": "first-person",
+   "camera_pitch_deg": 48.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "FP_Idle breathing extreme (frame 16), look-down",
+   "bytes": 874249,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.7724,
+     -7.2867
+    ],
+    "Forearm_L.tail": [
+     -0.684,
+     -4.0692
+    ],
+    "Hand_L.head": [
+     -0.684,
+     -4.0692
+    ],
+    "Hand_L.tail": [
+     -0.4551,
+     -3.5014
+    ],
+    "WristDevice_L.head": [
+     -0.9923,
+     -4.4035
+    ],
+    "WristDevice_L.tail": [
+     -0.8451,
+     -4.0573
+    ],
+    "Hand_R.head": [
+     0.6437,
+     -3.7746
+    ],
+    "Hand_R.tail": [
+     0.4359,
+     -3.3145
+    ]
+   }
+  },
+  {
+   "file": "fp_idle_lookdown.png",
+   "clip": "FP_Idle",
+   "frame": 16,
+   "view": "first-person",
+   "camera_pitch_deg": 62.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "FP_Idle steep look-down: both arms at the body sides, hands low",
+   "bytes": 872042,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.7724,
+     -7.2867
+    ],
+    "Forearm_L.tail": [
+     -0.684,
+     -4.0692
+    ],
+    "Hand_L.head": [
+     -0.684,
+     -4.0692
+    ],
+    "Hand_L.tail": [
+     -0.4551,
+     -3.5014
+    ],
+    "WristDevice_L.head": [
+     -0.9923,
+     -4.4035
+    ],
+    "WristDevice_L.tail": [
+     -0.8451,
+     -4.0573
+    ],
+    "Hand_R.head": [
+     0.6437,
+     -3.7746
+    ],
+    "Hand_R.tail": [
+     0.4359,
+     -3.3145
+    ]
+   }
+  },
+  {
+   "file": "fp_walk.png",
+   "clip": "FP_Walk",
+   "frame": 11,
+   "view": "first-person",
+   "camera_pitch_deg": 42.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "FP_Walk left-arm forward swing, slight look-down",
+   "bytes": 867039,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -2.5983,
+     -10.726
+    ],
+    "Forearm_L.tail": [
+     -0.8937,
+     -5.3696
+    ],
+    "Hand_L.head": [
+     -0.8937,
+     -5.3696
+    ],
+    "Hand_L.tail": [
+     -0.5499,
+     -4.2436
+    ],
+    "WristDevice_L.head": [
+     -1.306,
+     -5.8704
+    ],
+    "WristDevice_L.tail": [
+     -1.1001,
+     -5.3545
+    ],
+    "Hand_R.head": [
+     0.5719,
+     -3.0646
+    ],
+    "Hand_R.tail": [
+     0.4042,
+     -2.8334
+    ]
+   }
+  },
+  {
+   "file": "fp_walk_back.png",
+   "clip": "FP_Walk",
+   "frame": 31,
+   "view": "first-person",
+   "camera_pitch_deg": 42.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "FP_Walk opposite swing phase",
+   "bytes": 868439,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.2867,
+     -5.1073
+    ],
+    "Forearm_L.tail": [
+     -0.5265,
+     -3.0555
+    ],
+    "Hand_L.head": [
+     -0.5265,
+     -3.0555
+    ],
+    "Hand_L.tail": [
+     -0.3707,
+     -2.827
+    ],
+    "WristDevice_L.head": [
+     -0.7658,
+     -3.2813
+    ],
+    "WristDevice_L.tail": [
+     -0.6555,
+     -3.045
+    ],
+    "Hand_R.head": [
+     0.8416,
+     -5.3443
+    ],
+    "Hand_R.tail": [
+     0.517,
+     -4.2305
+    ]
+   }
+  },
+  {
+   "file": "fp_walk_lookdown.png",
+   "clip": "FP_Walk",
+   "frame": 11,
+   "view": "first-person",
+   "camera_pitch_deg": 58.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "FP_Walk steep look-down: the full arm swing is readable",
+   "bytes": 864706,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -2.5983,
+     -10.726
+    ],
+    "Forearm_L.tail": [
+     -0.8937,
+     -5.3696
+    ],
+    "Hand_L.head": [
+     -0.8937,
+     -5.3696
+    ],
+    "Hand_L.tail": [
+     -0.5499,
+     -4.2436
+    ],
+    "WristDevice_L.head": [
+     -1.306,
+     -5.8704
+    ],
+    "WristDevice_L.tail": [
+     -1.1001,
+     -5.3545
+    ],
+    "Hand_R.head": [
+     0.5719,
+     -3.0646
+    ],
+    "Hand_R.tail": [
+     0.4042,
+     -2.8334
+    ]
+   }
+  },
+  {
+   "file": "wrist_raise.png",
+   "clip": "Wrist_Raise",
+   "frame": 21,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Wrist_Raise mid/late motion (frame 21 of 25): the device is rising into the frame toward the hologram origin",
+   "bytes": 837910,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.514,
+     -3.7691
+    ],
+    "Forearm_L.tail": [
+     -0.5494,
+     -0.8628
+    ],
+    "Hand_L.head": [
+     -0.5494,
+     -0.8628
+    ],
+    "Hand_L.tail": [
+     -0.4751,
+     -1.1038
+    ],
+    "WristDevice_L.head": [
+     -0.6806,
+     -1.1928
+    ],
+    "WristDevice_L.tail": [
+     -0.5467,
+     -0.7995
+    ],
+    "Hand_R.head": [
+     0.6587,
+     -3.9131
+    ],
+    "Hand_R.tail": [
+     0.4424,
+     -3.4037
+    ]
+   }
+  },
+  {
+   "file": "wrist_raise_early.png",
+   "clip": "Wrist_Raise",
+   "frame": 19,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Wrist_Raise one frame pair earlier than wrist_raise.png: the device is just entering the bottom of the frame",
+   "bytes": 833188,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.772,
+     -4.7607
+    ],
+    "Forearm_L.tail": [
+     -0.5566,
+     -1.0634
+    ],
+    "Hand_L.head": [
+     -0.5566,
+     -1.0634
+    ],
+    "Hand_L.tail": [
+     -0.4726,
+     -1.2647
+    ],
+    "WristDevice_L.head": [
+     -0.7205,
+     -1.4215
+    ],
+    "WristDevice_L.tail": [
+     -0.5696,
+     -0.9861
+    ],
+    "Hand_R.head": [
+     0.6587,
+     -3.9131
+    ],
+    "Hand_R.tail": [
+     0.4424,
+     -3.4037
+    ]
+   }
+  },
+  {
+   "file": "wrist_idle.png",
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Wrist_Idle: the final UI presentation pose - THE key alignment frame",
+   "bytes": 837588,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.3566,
+     -3.1153
+    ],
+    "Forearm_L.tail": [
+     -0.5432,
+     -0.6903
+    ],
+    "Hand_L.head": [
+     -0.5432,
+     -0.6903
+    ],
+    "Hand_L.tail": [
+     -0.4772,
+     -0.964
+    ],
+    "WristDevice_L.head": [
+     -0.6445,
+     -0.9923
+    ],
+    "WristDevice_L.tail": [
+     -0.5246,
+     -0.6349
+    ],
+    "Hand_R.head": [
+     0.6587,
+     -3.9131
+    ],
+    "Hand_R.tail": [
+     0.4424,
+     -3.4037
+    ]
+   }
+  },
+  {
+   "file": "wrist_alignment_guide.png",
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": true,
+   "rig_overlay": false,
+   "note": "Wrist_Idle with the read-only Wrist UI reference wireframe switched on",
+   "bytes": 902159,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.3566,
+     -3.1153
+    ],
+    "Forearm_L.tail": [
+     -0.5432,
+     -0.6903
+    ],
+    "Hand_L.head": [
+     -0.5432,
+     -0.6903
+    ],
+    "Hand_L.tail": [
+     -0.4772,
+     -0.964
+    ],
+    "WristDevice_L.head": [
+     -0.6445,
+     -0.9923
+    ],
+    "WristDevice_L.tail": [
+     -0.5246,
+     -0.6349
+    ],
+    "Hand_R.head": [
+     0.6587,
+     -3.9131
+    ],
+    "Hand_R.tail": [
+     0.4424,
+     -3.4037
+    ]
+   }
+  },
+  {
+   "file": "wrist_lower.png",
+   "clip": "Wrist_Lower",
+   "frame": 5,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Wrist_Lower early in the return: the wrist is still raised and readable",
+   "bytes": 832755,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.608,
+     -4.1133
+    ],
+    "Forearm_L.tail": [
+     -0.552,
+     -0.9347
+    ],
+    "Hand_L.head": [
+     -0.552,
+     -0.9347
+    ],
+    "Hand_L.tail": [
+     -0.4742,
+     -1.1617
+    ],
+    "WristDevice_L.head": [
+     -0.695,
+     -1.273
+    ],
+    "WristDevice_L.tail": [
+     -0.5547,
+     -0.8655
+    ],
+    "Hand_R.head": [
+     0.6587,
+     -3.9131
+    ],
+    "Hand_R.tail": [
+     0.4424,
+     -3.4037
+    ]
+   }
+  },
+  {
+   "file": "interact_right.png",
+   "clip": "Interact_Right",
+   "frame": 16,
+   "view": "first-person",
+   "camera_pitch_deg": 42.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "optional Interact_Right press pose",
+   "bytes": 868636,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -2.1308,
+     -8.691
+    ],
+    "Forearm_L.tail": [
+     -0.6587,
+     -3.9131
+    ],
+    "Hand_L.head": [
+     -0.6587,
+     -3.9131
+    ],
+    "Hand_L.tail": [
+     -0.4424,
+     -3.4037
+    ],
+    "WristDevice_L.head": [
+     -0.9764,
+     -4.3229
+    ],
+    "WristDevice_L.tail": [
+     -0.8111,
+     -3.8916
+    ],
+    "Hand_R.head": [
+     0.237,
+     -1.5424
+    ],
+    "Hand_R.tail": [
+     0.1241,
+     -1.4005
+    ]
+   }
+  },
+  {
+   "file": "rig_overview.png",
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "view": "external",
+   "camera_pitch_deg": null,
+   "ui_reference_wireframe": false,
+   "rig_overlay": true,
+   "note": "external view of RIG_FPArms bone sticks over the Wrist_Idle pose",
+   "bytes": 940335,
+   "landmarks_ndc": null
+  },
+  {
+   "file": "external_front.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 991990
+  },
+  {
+   "file": "external_side.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 971091
+  },
+  {
+   "file": "external_top.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 956015
+  },
+  {
+   "file": "wrist_device_closeup.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 920180
+  }
+ ]
+}

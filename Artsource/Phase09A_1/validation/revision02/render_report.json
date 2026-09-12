@@ -1,0 +1,279 @@
+{
+ "camera": {
+  "vertical_fov_deg": 70.0,
+  "resolution": [
+   1280,
+   720
+  ],
+  "sensor_fit": "VERTICAL",
+  "sensor_height_mm": 24.0,
+  "lens_mm": 17.137776,
+  "orientation": "located at the armature origin (the player's eye), looking along -Y, +Z up; screen right = -X"
+ },
+ "engine": "Blender Eevee Next",
+ "background": [
+  0.68,
+  0.71,
+  0.74
+ ],
+ "note": "No Wrist UI geometry is rendered. The only UI drawing is the VALIDATION_UIReference wireframe in wrist_idle_guide.png, which reproduces the shipped pivot/offset/scale constants read from NereidSurfaceBuilder.cs and is never exported.",
+ "renders": [
+  {
+   "file": "fp_idle.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "view": "first-person",
+   "camera_pitch_deg": 40.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Revision02 FP_Idle: wide lower-left/lower-right EVA arms, clear centre",
+   "bytes": 924616,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -4.4775,
+     -13.4022
+    ],
+    "Forearm_L.tail": [
+     -0.8427,
+     -3.503
+    ],
+    "Hand_L.head": [
+     -0.8427,
+     -3.503
+    ],
+    "Hand_L.tail": [
+     -0.5652,
+     -3.1056
+    ],
+    "WristDevice_L.head": [
+     -0.9686,
+     -3.3402
+    ],
+    "WristDevice_L.tail": [
+     -0.7928,
+     -2.9512
+    ],
+    "Hand_R.head": [
+     0.8427,
+     -3.503
+    ],
+    "Hand_R.tail": [
+     0.5652,
+     -3.1056
+    ]
+   }
+  },
+  {
+   "file": "fp_walk_lookdown.png",
+   "clip": "FP_Walk",
+   "frame": 11,
+   "view": "first-person",
+   "camera_pitch_deg": 52.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Revision02 walk swing at a readable look-down angle",
+   "bytes": 944888,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -6.9763,
+     -20.9794
+    ],
+    "Forearm_L.tail": [
+     -1.0869,
+     -4.6503
+    ],
+    "Hand_L.head": [
+     -1.0869,
+     -4.6503
+    ],
+    "Hand_L.tail": [
+     -0.6799,
+     -3.8038
+    ],
+    "WristDevice_L.head": [
+     -1.1778,
+     -4.2208
+    ],
+    "WristDevice_L.tail": [
+     -0.9725,
+     -3.7723
+    ],
+    "Hand_R.head": [
+     0.7347,
+     -2.7825
+    ],
+    "Hand_R.tail": [
+     0.5161,
+     -2.6104
+    ]
+   }
+  },
+  {
+   "file": "wrist_raise.png",
+   "clip": "Wrist_Raise",
+   "frame": 22,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Late Wrist_Raise approaching the established UI presentation area",
+   "bytes": 908548,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.4538,
+     -3.2395
+    ],
+    "Forearm_L.tail": [
+     -0.5441,
+     -0.8151
+    ],
+    "Hand_L.head": [
+     -0.5441,
+     -0.8151
+    ],
+    "Hand_L.tail": [
+     -0.4786,
+     -1.0449
+    ],
+    "WristDevice_L.head": [
+     -0.6389,
+     -1.0571
+    ],
+    "WristDevice_L.tail": [
+     -0.5197,
+     -0.7411
+    ],
+    "Hand_R.head": [
+     0.8427,
+     -3.503
+    ],
+    "Hand_R.tail": [
+     0.5652,
+     -3.1056
+    ]
+   }
+  },
+  {
+   "file": "wrist_idle.png",
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": false,
+   "rig_overlay": false,
+   "note": "Stable raised pose; physical terminal remains below/left of Wrist UI",
+   "bytes": 915245,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.3689,
+     -2.9552
+    ],
+    "Forearm_L.tail": [
+     -0.535,
+     -0.7335
+    ],
+    "Hand_L.head": [
+     -0.535,
+     -0.7335
+    ],
+    "Hand_L.tail": [
+     -0.4759,
+     -0.9768
+    ],
+    "WristDevice_L.head": [
+     -0.6207,
+     -0.9619
+    ],
+    "WristDevice_L.tail": [
+     -0.508,
+     -0.6615
+    ],
+    "Hand_R.head": [
+     0.8427,
+     -3.503
+    ],
+    "Hand_R.tail": [
+     0.5652,
+     -3.1056
+    ]
+   }
+  },
+  {
+   "file": "wrist_alignment_guide.png",
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "view": "first-person",
+   "camera_pitch_deg": 0.0,
+   "ui_reference_wireframe": true,
+   "rig_overlay": false,
+   "note": "Read-only shipped Wrist UI geometry reference; never exported",
+   "bytes": 989289,
+   "landmarks_ndc": {
+    "Forearm_L.head": [
+     -1.3689,
+     -2.9552
+    ],
+    "Forearm_L.tail": [
+     -0.535,
+     -0.7335
+    ],
+    "Hand_L.head": [
+     -0.535,
+     -0.7335
+    ],
+    "Hand_L.tail": [
+     -0.4759,
+     -0.9768
+    ],
+    "WristDevice_L.head": [
+     -0.6207,
+     -0.9619
+    ],
+    "WristDevice_L.tail": [
+     -0.508,
+     -0.6615
+    ],
+    "Hand_R.head": [
+     0.8427,
+     -3.503
+    ],
+    "Hand_R.tail": [
+     0.5652,
+     -3.1056
+    ]
+   }
+  },
+  {
+   "file": "external_front.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 951784
+  },
+  {
+   "file": "external_side.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 912747
+  },
+  {
+   "file": "wrist_device_closeup.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 1029903
+  },
+  {
+   "file": "right_hand_check.png",
+   "clip": "FP_Idle",
+   "frame": 1,
+   "camera": "external",
+   "note": "mesh presentation view",
+   "bytes": 920392
+  }
+ ]
+}

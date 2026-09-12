@@ -288,6 +288,10 @@ public class SurvivePhase07B21Tests
         // M / I (semantic):
         controller.SetWristOpen(true);
         yield return WaitUntil(() => controller.IsWristOpen);
+        // Phase 09A_2: with the first-person arms present, the existing terminal is
+        // revealed once the wrist raise animation reaches its presentation point
+        // (without the arms it opens immediately), so wait for the presentation.
+        yield return WaitUntil(() => controller.IsWristTerminalRevealed);
         yield return null;
         yield return null;
         yield return null;

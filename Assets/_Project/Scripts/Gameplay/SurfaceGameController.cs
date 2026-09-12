@@ -13,8 +13,44 @@ using UnityEngine.SceneManagement;
 /// interaction happens through FirstPersonInteractor. Wrist map coordinates
 /// live in the single authoritative WristMapCoordinates source.
 /// </summary>
-public class SurfaceGameController : MonoBehaviour, IWristContext
+public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresentationContext
 {
+    // ---- IArmsPresentationContext: the same block-arm presentation as the ship ----
+
+    /// <summary>Player rig the arms hang from.</summary>
+    SurfacePlayerController IArmsPresentationContext.Player => _player;
+
+    /// <summary>The surface has no pause menu, so nothing freezes the arms here.</summary>
+    bool IArmsPresentationContext.IsPaused => false;
+
+    /// <summary>The surface has no console view or device panels to hide them for.</summary>
+    bool IArmsPresentationContext.HidesFirstPersonPresentation => false;
+
+    /// <summary>The planet's own wrist terminal stays the authoritative UI.</summary>
+    void IArmsPresentationContext.SetWristTerminalVisible(bool visible)
+    {
+        if (_wrist != null)
+        {
+            _wrist.SetOpen(visible);
+        }
+    }
+
+    /// <summary>Live block-arms presentation instance (tests / probes).</summary>
+    public FirstPersonBlockArmsController Arms => _arms;
+
+    /// <summary>Wrist presentation bridge driving raise / hold / lower.</summary>
+    public WristPresentationBridge WristPresentation => _wristBridge;
+
+    /// <summary>The planet's existing wrist terminal (the authoritative UI).</summary>
+    public SurfaceWristController Wrist => _wrist;
+
+    /// <summary>
+    /// True once the surface terminal is actually presented. On open this becomes
+    /// true when the raise brings the wrist into view (the same staged reveal the
+    /// ship interior uses), never on the input that requested it.
+    /// </summary>
+    public bool IsWristTerminalRevealed =>
+        _wrist != null && _wrist.Display != null && _wrist.Display.Visible;
     // Legacy proximity helper range (semantic tests/probes only).
     public float interactRangeFallback = 3.0f;
 
@@ -22,6 +58,8 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
     private SurfacePlayerController _player;
     private SurfaceHudController _hud;
     private SurfaceWristController _wrist;
+    private FirstPersonBlockArmsController _arms;
+    private WristPresentationBridge _wristBridge;
     private FirstPersonInteractor _interactor;
     private SurfaceResourceNode _nearest;
     private SurfaceResourceNode _activeNode;
@@ -93,6 +131,7 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
 
         ApplySurfaceFirstPersonMode();
         _ready = true;
+        EnsureFirstPersonArms();
     }
 
     private void OnDestroy()
@@ -117,6 +156,11 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
         }
 
         PollWristKeys();
+        if (_wristBridge != null)
+        {
+            _wristBridge.Tick(false);
+        }
+
         UpdateNearest();
         if (!_isWristOpen)
         {
@@ -131,26 +175,66 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
         }
     }
 
-    /// <summary>M and I both route to the single ToggleWrist semantic; Esc only
-    /// closes while the wrist is open. No second wrist mode exists.</summary>
+    /// <summary>
+    /// The surface's ONE wrist / map authority.
+    ///
+    /// Phase 09A_4 root cause: this method used to read the raw M and I keys and
+    /// never consumed a logical action, so NO gamepad face control reached the
+    /// surface at all - Xbox X (buttonWest) could not open the map, and neither
+    /// could Xbox Y. It now consumes the two semantic actions instead:
+    ///
+    ///   Wrist (Xbox Y / M / I)   - the wrist terminal, whose centre IS the surface map
+    ///   Map   (Xbox X / M / I)   - the same surface map presentation
+    ///
+    /// Both route to the single wrist authority, so the two actions can never
+    /// stack two interfaces; while it is open either one toggles it closed, and Esc
+    /// (this layer's Back, resolved by UiInput so the physical key is never named
+    /// here) closes it without reaching the global Pause.
+    ///
+    /// Gating: opening is allowed ONLY from free surface gameplay. A local layer
+    /// above Gameplay (pause menu / modal panel / console view) owns the frame, and
+    /// the map must never open behind it.
+    /// </summary>
     private void PollWristKeys()
     {
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard == null)
+        // Publish this layer's state: with the wrist open, Escape is a LOCAL Back
+        // that closes the terminal (UiInput resolves that, so the physical key is
+        // never named here).
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, _isWristOpen);
+
+        if (_isWristOpen)
+        {
+            if (UiInput.BackPressedForLayer(UiInput.UiLayer.Wrist))
+            {
+                UiInput.ConsumeBackForFrame();
+                SetWristOpen(false);
+                return;
+            }
+
+            if (UiInput.WristPressed() || UiInput.MapPressed())
+            {
+                SetWristOpen(false);
+            }
+
+            return;
+        }
+
+        // Free gameplay only: pause / modal / console focus keep the map closed.
+        if (UiInput.ActiveBackLayer != UiInput.UiLayer.Gameplay)
         {
             return;
         }
 
-        if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame)
+        if (UiInput.WristPressed() || UiInput.MapPressed())
         {
-            ToggleWrist();
-            return;
+            SetWristOpen(true);
         }
+    }
 
-        if (_isWristOpen && keyboard.escapeKey.wasPressedThisFrame)
-        {
-            SetWristOpen(false);
-        }
+    private void OnDisable()
+    {
+        // The scene leaving must not strand the Escape priority board.
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, false);
     }
 
     private void PollWorldKeys()
@@ -184,6 +268,7 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
         }
 
         _isWristOpen = open;
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, open);
 
         // Wrist mode: freeze exploration input, disable world interaction,
         // release the OS cursor (hidden), show the project cursor.
@@ -197,13 +282,75 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
             _hud.SetWristMode(open);
         }
 
-        if (_wrist != null)
+        if (open)
         {
-            _wrist.SetOpen(open);
+            // Phase 09A_5: the surface runs the SAME presentation timing as the
+            // ship. The terminal is revealed by WristPresentationBridge once the
+            // raise has brought the wrist device into view (~0.82 of the raise),
+            // never on the key press - showing it here made the hologram pop in
+            // one frame while the arm only started moving afterwards.
+            //
+            // Presentation decides WHEN the terminal becomes visible, never
+            // WHETHER: this state is already authoritative. Without the arms the
+            // terminal opens immediately, which is the validated Phase 06
+            // behaviour and keeps the wrist reachable in every configuration.
+            bool deferred = _wristBridge != null && _wristBridge.BeginWristRaise();
+            if (!deferred)
+            {
+                SetWristTerminalVisibleNow(true);
+            }
+        }
+        else
+        {
+            // Close order (unchanged): the terminal stops taking input, releases
+            // focus and hides FIRST, then the arm comes back down.
+            _wristBridge?.BeginWristLower();
+            SetWristTerminalVisibleNow(false);
         }
 
         ApplyCursorForMode();
         WristOpenChanged?.Invoke(open);
+    }
+
+    /// <summary>The planet's wrist terminal itself (owned here, revealed by the bridge).</summary>
+    private void SetWristTerminalVisibleNow(bool visible)
+    {
+        if (_wrist != null)
+        {
+            _wrist.SetOpen(visible);
+        }
+    }
+
+    /// <summary>
+    /// Creates the SAME block-arm presentation the ship interior uses: one
+    /// environment-independent controller under the player rig plus the wrist
+    /// presentation bridge, wired through <see cref="IArmsPresentationContext"/>.
+    /// Reuses an existing instance, so a scene transition can never stack a
+    /// second set of arms.
+    /// </summary>
+    private void EnsureFirstPersonArms()
+    {
+        if (_player == null || _player.EyeCamera == null)
+        {
+            Debug.LogError("[SurfaceGameController] first-person arms need the eye camera");
+            return;
+        }
+
+        _arms = FirstPersonBlockArmsController.Ensure(_player);
+        if (_arms == null)
+        {
+            return;
+        }
+
+        _arms.Configure(_player);
+
+        var bridgeGo = new GameObject("WristPresentationBridge");
+        bridgeGo.transform.SetParent(transform, false);
+        _wristBridge = bridgeGo.AddComponent<WristPresentationBridge>();
+        _wristBridge.Configure(this, _arms, _wrist);
+
+        Debug.Log("[SurfaceGameController] first-person block arms ready renderers="
+                  + _arms.RendererCount + " wristBridge=" + (_wristBridge != null));
     }
 
     private void ApplyCursorForMode()

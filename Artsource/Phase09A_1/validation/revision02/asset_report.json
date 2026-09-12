@@ -1,0 +1,3461 @@
+{
+ "generated_by": "scripts/build_fp_arms.py (Phase09A_1 Revision02)",
+ "revision": "Revision02 visual redesign",
+ "blender_version": "4.5.13 LTS",
+ "fps": 30,
+ "units": "metric, 1 Blender unit = 1 m, scale_length = 1.0",
+ "authoring_frame": {
+  "x": "player LEFT",
+  "y": "player FORWARD is -Y",
+  "z": "UP",
+  "fbx_export": "axis_forward='-Z', axis_up='Y', apply_unit_scale=True",
+  "unity_mapping": "UnityX = -BlenderX, UnityY = BlenderZ, UnityZ = -BlenderY",
+  "unity_mapping_evidence": [
+   "MainMenuShip.fbx (this project's existing Blender-built asset) is exported with identical settings and identical GlobalSettings (UpAxis=Y, FrontAxis=+Z, CoordAxis=X, UnitScaleFactor=1.0).",
+   "In Assets/_Project/Scenes/04_MainMenu.unity the imported model root 'SK_MainMenuShip' carries m_LocalRotation (x=-0.7071068, w=0.7071067) = -90 deg about X and m_LocalScale (100,100,100), while its child nodes hold (-BlenderX, +BlenderY, +BlenderZ)*0.01.  Composition yields Unity = (-Bx, +Bz, -By).",
+   "Cross-checked on 8 ship parts, e.g. GEO_EngineSideMark_L at Blender (-5.925, 6.9, 0.75) -> Unity (0.05925, 0.069, 0.0075).",
+   "Consequence: a mesh authored facing -Y arrives in Unity facing +Z with +Y up, and Blender +X (the player's LEFT) arrives on Unity -X, which is exactly where WristProjectionPivot lives (x = -0.265)."
+  ]
+ },
+ "ui_contract": {
+  "source": [
+   "Assets/_Project/Scripts/Editor/NereidSurfaceBuilder.cs",
+   "Assets/_Project/Scripts/UI/RadialWristElement.cs"
+  ],
+  "camera_field_of_view_deg": 70.0,
+  "wrist_pivot_camera_local": [
+   -0.26499998569488525,
+   -0.33500000834465027,
+   0.6899999976158142
+  ],
+  "wrist_display_local_offset": [
+   0.20999999344348907,
+   0.3100000023841858,
+   0.0
+  ],
+  "wrist_display_local_scale": [
+   1.8799999952316284,
+   1.1749999523162842,
+   1.0
+  ],
+  "radial_design_size": [
+   1280.0,
+   800.0
+  ],
+  "ui_pivot_ndc": [
+   -0.3085,
+   -0.6934
+  ],
+  "ui_pivot_blender": [
+   0.265,
+   -0.69,
+   -0.335
+  ]
+ },
+ "objects": {
+  "root": "SK_FPArms",
+  "armature": "RIG_FPArms",
+  "meshes": [
+   "GEO_Arm_L",
+   "GEO_Hand_L",
+   "GEO_WristDevice_L",
+   "GEO_Arm_R",
+   "GEO_Hand_R"
+  ],
+  "triangles": {
+   "GEO_Arm_L": 764,
+   "GEO_Hand_L": 788,
+   "GEO_WristDevice_L": 1412,
+   "GEO_Arm_R": 764,
+   "GEO_Hand_R": 848
+  },
+  "triangles_total": 4576,
+  "materials": [
+   "MAT_Glove",
+   "MAT_Sleeve",
+   "MAT_DeviceBody",
+   "MAT_DeviceAccent",
+   "MAT_DeviceEmissive"
+  ],
+  "materials_used_by_geometry": [
+   "MAT_DeviceAccent",
+   "MAT_DeviceBody",
+   "MAT_DeviceEmissive",
+   "MAT_Glove",
+   "MAT_Sleeve"
+  ]
+ },
+ "bones": [
+  {
+   "name": "Root",
+   "parent": null,
+   "head": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "tail": [
+    0.0,
+    -0.1,
+    0.0
+   ]
+  },
+  {
+   "name": "UpperArm_L",
+   "parent": "Root",
+   "head": [
+    0.225,
+    0.06,
+    -0.205
+   ],
+   "tail": [
+    0.28361,
+    -0.05089,
+    -0.47752
+   ]
+  },
+  {
+   "name": "Forearm_L",
+   "parent": "UpperArm_L",
+   "head": [
+    0.28361,
+    -0.05089,
+    -0.47752
+   ],
+   "tail": [
+    0.278,
+    -0.265,
+    -0.65
+   ]
+  },
+  {
+   "name": "Hand_L",
+   "parent": "Forearm_L",
+   "head": [
+    0.278,
+    -0.265,
+    -0.65
+   ],
+   "tail": [
+    0.25946,
+    -0.36881,
+    -0.802
+   ]
+  },
+  {
+   "name": "Index_L",
+   "parent": "Hand_L",
+   "head": [
+    0.23494,
+    -0.32776,
+    -0.71873
+   ],
+   "tail": [
+    0.23263,
+    -0.34491,
+    -0.75918
+   ]
+  },
+  {
+   "name": "Index_02_L",
+   "parent": "Index_L",
+   "head": [
+    0.23263,
+    -0.34491,
+    -0.75918
+   ],
+   "tail": [
+    0.22742,
+    -0.34724,
+    -0.79574
+   ]
+  },
+  {
+   "name": "Fingers_L",
+   "parent": "Hand_L",
+   "head": [
+    0.25717,
+    -0.323,
+    -0.72469
+   ],
+   "tail": [
+    0.25111,
+    -0.34061,
+    -0.76784
+   ]
+  },
+  {
+   "name": "Fingers_02_L",
+   "parent": "Fingers_L",
+   "head": [
+    0.25111,
+    -0.34061,
+    -0.76784
+   ],
+   "tail": [
+    0.24199,
+    -0.34099,
+    -0.80781
+   ]
+  },
+  {
+   "name": "Thumb_L",
+   "parent": "Hand_L",
+   "head": [
+    0.22454,
+    -0.28436,
+    -0.67164
+   ],
+   "tail": [
+    0.18926,
+    -0.29063,
+    -0.69156
+   ]
+  },
+  {
+   "name": "Thumb_02_L",
+   "parent": "Thumb_L",
+   "head": [
+    0.18926,
+    -0.29063,
+    -0.69156
+   ],
+   "tail": [
+    0.16292,
+    -0.28659,
+    -0.71268
+   ]
+  },
+  {
+   "name": "WristDevice_L",
+   "parent": "Forearm_L",
+   "head": [
+    0.29553,
+    -0.2451,
+    -0.57324
+   ],
+   "tail": [
+    0.29414,
+    -0.29804,
+    -0.61589
+   ]
+  },
+  {
+   "name": "UpperArm_R",
+   "parent": "Root",
+   "head": [
+    -0.225,
+    0.06,
+    -0.205
+   ],
+   "tail": [
+    -0.28361,
+    -0.05089,
+    -0.47752
+   ]
+  },
+  {
+   "name": "Forearm_R",
+   "parent": "UpperArm_R",
+   "head": [
+    -0.28361,
+    -0.05089,
+    -0.47752
+   ],
+   "tail": [
+    -0.278,
+    -0.265,
+    -0.65
+   ]
+  },
+  {
+   "name": "Hand_R",
+   "parent": "Forearm_R",
+   "head": [
+    -0.278,
+    -0.265,
+    -0.65
+   ],
+   "tail": [
+    -0.25946,
+    -0.36881,
+    -0.802
+   ]
+  },
+  {
+   "name": "Index_R",
+   "parent": "Hand_R",
+   "head": [
+    -0.23494,
+    -0.32776,
+    -0.71873
+   ],
+   "tail": [
+    -0.23263,
+    -0.34491,
+    -0.75918
+   ]
+  },
+  {
+   "name": "Index_02_R",
+   "parent": "Index_R",
+   "head": [
+    -0.23263,
+    -0.34491,
+    -0.75918
+   ],
+   "tail": [
+    -0.22742,
+    -0.34724,
+    -0.79574
+   ]
+  },
+  {
+   "name": "Fingers_R",
+   "parent": "Hand_R",
+   "head": [
+    -0.25717,
+    -0.323,
+    -0.72469
+   ],
+   "tail": [
+    -0.25111,
+    -0.34061,
+    -0.76784
+   ]
+  },
+  {
+   "name": "Fingers_02_R",
+   "parent": "Fingers_R",
+   "head": [
+    -0.25111,
+    -0.34061,
+    -0.76784
+   ],
+   "tail": [
+    -0.24199,
+    -0.34099,
+    -0.80781
+   ]
+  },
+  {
+   "name": "Thumb_R",
+   "parent": "Hand_R",
+   "head": [
+    -0.22454,
+    -0.28436,
+    -0.67164
+   ],
+   "tail": [
+    -0.18926,
+    -0.29063,
+    -0.69156
+   ]
+  },
+  {
+   "name": "Thumb_02_R",
+   "parent": "Thumb_R",
+   "head": [
+    -0.18926,
+    -0.29063,
+    -0.69156
+   ],
+   "tail": [
+    -0.16292,
+    -0.28659,
+    -0.71268
+   ]
+  }
+ ],
+ "curl_sign": {
+  "Thumb_L": 1.0,
+  "Thumb_02_L": 1.0,
+  "Index_L": 1.0,
+  "Index_02_L": 1.0,
+  "Fingers_L": 1.0,
+  "Fingers_02_L": 1.0,
+  "Thumb_R": 1.0,
+  "Thumb_02_R": 1.0,
+  "Index_R": 1.0,
+  "Index_02_R": 1.0,
+  "Fingers_R": 1.0,
+  "Fingers_02_R": 1.0
+ },
+ "rest_pose": {
+  "L": {
+   "shoulder": [
+    0.225,
+    0.06,
+    -0.205
+   ],
+   "elbow": [
+    0.28361,
+    -0.05089,
+    -0.47752
+   ],
+   "wrist": [
+    0.278,
+    -0.265,
+    -0.65
+   ],
+   "wrist_unity_camera": [
+    -0.278,
+    -0.65,
+    0.265
+   ],
+   "device_center": [
+    0.29483,
+    -0.27157,
+    -0.59456
+   ]
+  },
+  "R": {
+   "shoulder": [
+    -0.225,
+    0.06,
+    -0.205
+   ],
+   "elbow": [
+    -0.28361,
+    -0.05089,
+    -0.47752
+   ],
+   "wrist": [
+    -0.278,
+    -0.265,
+    -0.65
+   ],
+   "wrist_unity_camera": [
+    0.278,
+    -0.65,
+    0.265
+   ],
+   "device_center": null
+  }
+ },
+ "hold_pose_target": {
+  "device_center_blender": [
+   0.23701,
+   -0.34,
+   -0.19046
+  ],
+  "device_center_unity_camera": [
+   -0.23701,
+   -0.19046,
+   0.34
+  ],
+  "device_center_ndc": [
+   -0.56,
+   -0.8
+  ],
+  "wrist_blender": [
+   0.26107,
+   -0.39199,
+   -0.20132
+  ],
+  "elbow_blender": [
+   0.30396,
+   -0.17838,
+   -0.36913
+  ]
+ },
+ "measured_wrist_idle_f46": {
+  "device_face_center_blender": [
+   0.23701,
+   -0.34,
+   -0.19046
+  ],
+  "device_face_center_unity_camera": [
+   -0.23701,
+   -0.19046,
+   0.34
+  ],
+  "device_face_center_ndc": [
+   -0.56,
+   -0.8
+  ],
+  "device_face_normal_world": [
+   -0.5748,
+   0.5738,
+   0.5834
+  ],
+  "dot_face_normal_to_eye": 0.97,
+  "ui_pivot_minus_device_face_unity_camera": [
+   -0.02799,
+   -0.14454,
+   0.35
+  ],
+  "distance_device_face_to_ui_pivot_m": 0.37971
+ },
+ "clips": [
+  {
+   "name": "FP_Idle",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 61,
+   "duration_seconds": 2.0,
+   "loop": true,
+   "usage": "default first-person resting state",
+   "root_motion": "off (Root bone keyed at identity in every clip)"
+  },
+  {
+   "name": "FP_Walk",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 41,
+   "duration_seconds": 1.3333,
+   "loop": true,
+   "usage": "low-intensity exploration locomotion",
+   "root_motion": "off (Root bone keyed at identity in every clip)"
+  },
+  {
+   "name": "Wrist_Raise",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 25,
+   "duration_seconds": 0.8,
+   "loop": false,
+   "usage": "left arm raises the device into the Wrist UI pose",
+   "root_motion": "off (Root bone keyed at identity in every clip)"
+  },
+  {
+   "name": "Wrist_Idle",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 91,
+   "duration_seconds": 3.0,
+   "loop": true,
+   "usage": "hold pose while the Wrist UI is open",
+   "root_motion": "off (Root bone keyed at identity in every clip)"
+  },
+  {
+   "name": "Wrist_Lower",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 21,
+   "duration_seconds": 0.6667,
+   "loop": false,
+   "usage": "returns from Wrist_Idle to FP_Idle",
+   "root_motion": "off (Root bone keyed at identity in every clip)"
+  },
+  {
+   "name": "Interact_Right",
+   "fps": 30,
+   "frame_start": 1,
+   "frame_end": 31,
+   "duration_seconds": 1.0,
+   "loop": false,
+   "usage": "small right-hand reach / press (optional)",
+   "root_motion": "off (Root bone keyed at identity in every clip)"
+  }
+ ],
+ "occlusion": [
+  {
+   "clip": "FP_Idle",
+   "frame": 1,
+   "samples": 198,
+   "occluded": 0,
+   "occluded_fraction": 0.0,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": []
+  },
+  {
+   "clip": "FP_Walk",
+   "frame": 11,
+   "samples": 198,
+   "occluded": 0,
+   "occluded_fraction": 0.0,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": []
+  },
+  {
+   "clip": "FP_Walk",
+   "frame": 21,
+   "samples": 198,
+   "occluded": 0,
+   "occluded_fraction": 0.0,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": []
+  },
+  {
+   "clip": "Wrist_Raise",
+   "frame": 19,
+   "samples": 198,
+   "occluded": 0,
+   "occluded_fraction": 0.0,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": []
+  },
+  {
+   "clip": "Wrist_Idle",
+   "frame": 1,
+   "samples": 198,
+   "occluded": 7,
+   "occluded_fraction": 0.0354,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 7
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": [
+    {
+     "region": "panel_lower_left",
+     "sample": 121,
+     "ndc": [
+      -0.4539,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 122,
+     "ndc": [
+      -0.3729,
+      -0.6202
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 124,
+     "ndc": [
+      -0.5304,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 125,
+     "ndc": [
+      -0.4652,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 127,
+     "ndc": [
+      -0.6047,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 128,
+     "ndc": [
+      -0.5496,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 131,
+     "ndc": [
+      -0.5941,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    }
+   ]
+  },
+  {
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "samples": 198,
+   "occluded": 7,
+   "occluded_fraction": 0.0354,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 7
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": [
+    {
+     "region": "panel_lower_left",
+     "sample": 121,
+     "ndc": [
+      -0.4539,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 122,
+     "ndc": [
+      -0.3729,
+      -0.6202
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 124,
+     "ndc": [
+      -0.5304,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 125,
+     "ndc": [
+      -0.4652,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 127,
+     "ndc": [
+      -0.6047,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 128,
+     "ndc": [
+      -0.5496,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 131,
+     "ndc": [
+      -0.5941,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    }
+   ]
+  },
+  {
+   "clip": "Wrist_Lower",
+   "frame": 1,
+   "samples": 198,
+   "occluded": 7,
+   "occluded_fraction": 0.0354,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 7
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": [
+    {
+     "region": "panel_lower_left",
+     "sample": 121,
+     "ndc": [
+      -0.4539,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 122,
+     "ndc": [
+      -0.3729,
+      -0.6202
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 124,
+     "ndc": [
+      -0.5304,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 125,
+     "ndc": [
+      -0.4652,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 127,
+     "ndc": [
+      -0.6047,
+      -0.4317
+     ],
+     "blocked_by": "GEO_WristDevice_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 128,
+     "ndc": [
+      -0.5496,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    },
+    {
+     "region": "panel_lower_left",
+     "sample": 131,
+     "ndc": [
+      -0.5941,
+      -0.6202
+     ],
+     "blocked_by": "GEO_Hand_L"
+    }
+   ]
+  },
+  {
+   "clip": "Interact_Right",
+   "frame": 16,
+   "samples": 198,
+   "occluded": 0,
+   "occluded_fraction": 0.0,
+   "by_region": {
+    "map": {
+     "samples": 96,
+     "occluded": 0
+    },
+    "panel_lower_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_lower_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_left": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "panel_upper_right": {
+     "samples": 12,
+     "occluded": 0
+    },
+    "status": {
+     "samples": 54,
+     "occluded": 0
+    }
+   },
+   "examples": []
+  }
+ ],
+ "landmarks": {
+  "FP_Idle": [
+   {
+    "frame": 1,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 31,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 61,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   }
+  ],
+  "FP_Walk": [
+   {
+    "frame": 1,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.216
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       -5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       -5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2969,
+       -0.2407,
+       -0.5749
+      ],
+      "ndc": [
+       -0.9912,
+       -3.4114
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2942,
+       -0.2961,
+       -0.6141
+      ],
+      "ndc": [
+       -0.7981,
+       -2.962
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 21,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.216
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       -5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       -5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2969,
+       -0.2407,
+       -0.5749
+      ],
+      "ndc": [
+       -0.9912,
+       -3.4114
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2942,
+       -0.2961,
+       -0.6141
+      ],
+      "ndc": [
+       -0.7981,
+       -2.962
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 41,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.216
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       -5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       -5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2969,
+       -0.2407,
+       -0.5749
+      ],
+      "ndc": [
+       -0.9912,
+       -3.4114
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2942,
+       -0.2961,
+       -0.6141
+      ],
+      "ndc": [
+       -0.7981,
+       -2.962
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2891,
+       -0.0408,
+       -0.4912
+      ],
+      "ndc": [
+       5.6981,
+       -17.2084
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   }
+  ],
+  "Wrist_Raise": [
+   {
+    "frame": 1,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 13,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.3099,
+       -0.0596,
+       -0.4667
+      ],
+      "ndc": [
+       -4.1781,
+       -11.1847
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.3099,
+       -0.0596,
+       -0.4667
+      ],
+      "ndc": [
+       -4.1781,
+       -11.1847
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.2695,
+       -0.3285,
+       -0.4257
+      ],
+      "ndc": [
+       -0.6592,
+       -1.8506
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.2695,
+       -0.3285,
+       -0.4257
+      ],
+      "ndc": [
+       -0.6592,
+       -1.8506
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2789,
+       -0.4374,
+       -0.5749
+      ],
+      "ndc": [
+       -0.5123,
+       -1.8772
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2709,
+       -0.2573,
+       -0.3866
+      ],
+      "ndc": [
+       -0.8457,
+       -2.1461
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2609,
+       -0.3238,
+       -0.3765
+      ],
+      "ndc": [
+       -0.6472,
+       -1.6606
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 25,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2982,
+       -0.5034,
+       -0.3443
+      ],
+      "ndc": [
+       -0.4759,
+       -0.9768
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2423,
+       -0.3136,
+       -0.2112
+      ],
+      "ndc": [
+       -0.6207,
+       -0.9619
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2317,
+       -0.3664,
+       -0.1697
+      ],
+      "ndc": [
+       -0.508,
+       -0.6615
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   }
+  ],
+  "Wrist_Idle": [
+   {
+    "frame": 1,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2982,
+       -0.5034,
+       -0.3443
+      ],
+      "ndc": [
+       -0.4759,
+       -0.9768
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2423,
+       -0.3136,
+       -0.2112
+      ],
+      "ndc": [
+       -0.6207,
+       -0.9619
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2317,
+       -0.3664,
+       -0.1697
+      ],
+      "ndc": [
+       -0.508,
+       -0.6615
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 46,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2982,
+       -0.5034,
+       -0.3443
+      ],
+      "ndc": [
+       -0.4759,
+       -0.9768
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2423,
+       -0.3136,
+       -0.2112
+      ],
+      "ndc": [
+       -0.6207,
+       -0.9619
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2317,
+       -0.3664,
+       -0.1697
+      ],
+      "ndc": [
+       -0.508,
+       -0.6615
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 91,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2982,
+       -0.5034,
+       -0.3443
+      ],
+      "ndc": [
+       -0.4759,
+       -0.9768
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2423,
+       -0.3136,
+       -0.2112
+      ],
+      "ndc": [
+       -0.6207,
+       -0.9619
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2317,
+       -0.3664,
+       -0.1697
+      ],
+      "ndc": [
+       -0.508,
+       -0.6615
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   }
+  ],
+  "Wrist_Lower": [
+   {
+    "frame": 1,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.304,
+       -0.1784,
+       -0.3691
+      ],
+      "ndc": [
+       -1.3689,
+       -2.9552
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.2611,
+       -0.392,
+       -0.2013
+      ],
+      "ndc": [
+       -0.535,
+       -0.7335
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2982,
+       -0.5034,
+       -0.3443
+      ],
+      "ndc": [
+       -0.4759,
+       -0.9768
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2423,
+       -0.3136,
+       -0.2112
+      ],
+      "ndc": [
+       -0.6207,
+       -0.9619
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2317,
+       -0.3664,
+       -0.1697
+      ],
+      "ndc": [
+       -0.508,
+       -0.6615
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 11,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.3099,
+       -0.0596,
+       -0.4667
+      ],
+      "ndc": [
+       -4.1781,
+       -11.1847
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.3099,
+       -0.0596,
+       -0.4667
+      ],
+      "ndc": [
+       -4.1781,
+       -11.1847
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.2695,
+       -0.3285,
+       -0.4257
+      ],
+      "ndc": [
+       -0.6592,
+       -1.8506
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.2695,
+       -0.3285,
+       -0.4257
+      ],
+      "ndc": [
+       -0.6592,
+       -1.8506
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2789,
+       -0.4374,
+       -0.5749
+      ],
+      "ndc": [
+       -0.5123,
+       -1.8772
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2709,
+       -0.2573,
+       -0.3866
+      ],
+      "ndc": [
+       -0.8457,
+       -2.1461
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2609,
+       -0.3238,
+       -0.3765
+      ],
+      "ndc": [
+       -0.6472,
+       -1.6606
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 21,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   }
+  ],
+  "Interact_Right": [
+   {
+    "frame": 1,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   },
+   {
+    "frame": 16,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2053,
+       -0.1393,
+       -0.4284
+      ],
+      "ndc": [
+       1.1844,
+       -4.3935
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.118,
+       -0.4,
+       -0.432
+      ],
+      "ndc": [
+       0.237,
+       -1.5424
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.118,
+       -0.4,
+       -0.432
+      ],
+      "ndc": [
+       0.237,
+       -1.5424
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.0847,
+       -0.5482,
+       -0.5376
+      ],
+      "ndc": [
+       0.1241,
+       -1.4005
+      ]
+     }
+    }
+   },
+   {
+    "frame": 31,
+    "points": {
+     "UpperArm_L.head": {
+      "world": [
+       0.225,
+       0.06,
+       -0.205
+      ],
+      "ndc": null
+     },
+     "UpperArm_L.tail": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.head": {
+      "world": [
+       0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       -4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_L.tail": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.head": {
+      "world": [
+       0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       -0.8427,
+       -3.503
+      ]
+     },
+     "Hand_L.tail": {
+      "world": [
+       0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       -0.5652,
+       -3.1056
+      ]
+     },
+     "WristDevice_L.head": {
+      "world": [
+       0.2955,
+       -0.2451,
+       -0.5732
+      ],
+      "ndc": [
+       -0.9686,
+       -3.3402
+      ]
+     },
+     "WristDevice_L.tail": {
+      "world": [
+       0.2941,
+       -0.298,
+       -0.6159
+      ],
+      "ndc": [
+       -0.7928,
+       -2.9512
+      ]
+     },
+     "Forearm_R.head": {
+      "world": [
+       -0.2836,
+       -0.0509,
+       -0.4775
+      ],
+      "ndc": [
+       4.4775,
+       -13.4022
+      ]
+     },
+     "Forearm_R.tail": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.head": {
+      "world": [
+       -0.278,
+       -0.265,
+       -0.65
+      ],
+      "ndc": [
+       0.8427,
+       -3.503
+      ]
+     },
+     "Hand_R.tail": {
+      "world": [
+       -0.2595,
+       -0.3688,
+       -0.802
+      ],
+      "ndc": [
+       0.5652,
+       -3.1056
+      ]
+     }
+    }
+   }
+  ]
+ },
+ "fbx": {
+  "path": "D:\\dsh_gpt_unity_blender\\project\\SurviveUIDemo\\ArtSource\\Phase09A_1\\output\\FP_PlayerArms.fbx",
+  "size_bytes": 1357532,
+  "objects_exported": [
+   "SK_FPArms",
+   "RIG_FPArms",
+   "GEO_Arm_L",
+   "GEO_Hand_L",
+   "GEO_WristDevice_L",
+   "GEO_Arm_R",
+   "GEO_Hand_R"
+  ]
+ },
+ "blend": {
+  "path": "D:\\dsh_gpt_unity_blender\\project\\SurviveUIDemo\\ArtSource\\Phase09A_1\\output\\FP_PlayerArms.blend",
+  "size_bytes": 3861117
+ }
+}

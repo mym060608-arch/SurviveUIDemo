@@ -877,6 +877,12 @@ public static class SurviveProjectValidator
                 + CountInScene<OverviewPlanetPreview>() + ")");
         }
 
+        // ---- Phase 09A_2 first-person arms / wrist integration ----
+        ValidateFirstPersonArms(Record);
+
+        // ---- Phase 09A_3 block arms finalization ----
+        ValidateBlockArms(Record);
+
         bool ok = failures == 0;
         log.AppendLine(ok ? "RESULT: SUCCESS" : "RESULT: FAILED");
         log.AppendLine("CHECKS: " + CountCheckLines(log) + " | FAILURES: " + failures);
@@ -900,6 +906,294 @@ public static class SurviveProjectValidator
         }
 
         return ok;
+    }
+
+    /// <summary>
+    /// Phase 09A_2 structural contract: the Codex first-person arms asset, its
+    /// import contract, the runtime prefab and the wrist presentation bridge all
+    /// exist and are wired the way the phase requires - and the arms are never
+    /// authored into a scene (they are created at runtime exactly once, so a
+    /// "Continue Game" round trip cannot duplicate them).
+    /// </summary>
+    private static void ValidateFirstPersonArms(Action<bool, string> record)
+    {
+        const string modelPath = FirstPersonArmsImportContract.ModelPath;
+        const string controllerPath = FirstPersonArmsAssetsBuilder.ControllerPath;
+        const string prefabPath = FirstPersonArmsAssetsBuilder.PrefabPath;
+        const string sourceFbx = SurviveFirstPersonArmsSetup.SourceFbxPath;
+
+        record(File.Exists(modelPath), "first-person arms fbx imported: " + modelPath);
+        record(File.Exists(sourceFbx), "codex source fbx present (Artsource): " + sourceFbx);
+        record(File.Exists(controllerPath), "arms animator controller exists: " + controllerPath);
+        record(File.Exists(prefabPath), "arms prefab exists: " + prefabPath);
+
+        for (int i = 0; i < FirstPersonArmsImportContract.MaterialSlotNames.Length; i++)
+        {
+            string materialPath = FirstPersonArmsImportContract.MaterialsFolder + "/"
+                                  + FirstPersonArmsImportContract.MaterialSlotNames[i] + ".mat";
+            record(File.Exists(materialPath),
+                "arms material exists: " + FirstPersonArmsImportContract.MaterialSlotNames[i]);
+        }
+
+        int layer = LayerMask.NameToLayer(FirstPersonArmsController.ArmsLayerName);
+        record(layer > 0, "layer " + FirstPersonArmsController.ArmsLayerName + " exists (index "
+                          + layer + ")");
+
+        // ---- import contract ----
+        var importer = AssetImporter.GetAtPath(modelPath) as ModelImporter;
+        record(importer != null
+               && importer.animationType == ModelImporterAnimationType.Generic,
+            "arms fbx imports as a Generic rig");
+        record(importer != null && importer.addCollider == false,
+            "arms fbx imports without colliders");
+
+        var clips = new List<AnimationClip>();
+        Avatar avatar = null;
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(modelPath))
+        {
+            if (asset is AnimationClip clip
+                && !clip.name.StartsWith("__preview__", StringComparison.Ordinal))
+            {
+                clips.Add(clip);
+            }
+
+            if (asset is Avatar candidate)
+            {
+                avatar = candidate;
+            }
+        }
+
+        record(avatar != null && avatar.isValid && !avatar.isHuman,
+            "arms avatar is a valid generic avatar");
+
+        for (int i = 0; i < FirstPersonArmsImportContract.ClipNames.Length; i++)
+        {
+            string name = FirstPersonArmsImportContract.ClipNames[i];
+            AnimationClip clip = clips.Find(c => string.Equals(c.name, name, StringComparison.Ordinal));
+            bool shouldLoop = FirstPersonArmsImportContract.IsLoopClip(name);
+            record(clip != null && clip.isLooping == shouldLoop,
+                "clip " + name + (shouldLoop ? " loops" : " does not loop"));
+        }
+
+        // ---- prefab contract ----
+        var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (prefab != null)
+        {
+            var animator = prefab.GetComponentInChildren<Animator>(true);
+            record(animator != null && animator.avatar != null && animator.avatar.isValid
+                   && animator.runtimeAnimatorController != null && !animator.applyRootMotion,
+                "prefab animator: generic avatar + controller + Root Motion OFF");
+            record(prefab.GetComponent<FirstPersonArmsController>() != null,
+                "prefab root carries FirstPersonArmsController");
+            record(prefab.GetComponentsInChildren<Collider>(true).Length == 0,
+                "prefab authors no collider");
+
+            var skinnedRenderers = prefab.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            bool boundsOk = skinnedRenderers.Length > 0;
+            foreach (SkinnedMeshRenderer skinned in skinnedRenderers)
+            {
+                if (!skinned.updateWhenOffscreen)
+                {
+                    boundsOk = false;
+                }
+            }
+
+            record(boundsOk,
+                "every skinned renderer recomputes its bounds (the raised arm can never be culled)");
+
+            Transform device = null;
+            foreach (Transform transform in prefab.GetComponentsInChildren<Transform>(true))
+            {
+                if (transform.name == "WristDevice_L")
+                {
+                    device = transform;
+                    break;
+                }
+            }
+
+            record(device != null, "prefab exposes WristDevice_L");
+        }
+
+        // ---- runtime ownership: never authored into a scene ----
+        EditorSceneManager.OpenScene(ShipScenePath, OpenSceneMode.Single);
+        record(CountInScene<FirstPersonArmsController>() == 0,
+            "03_ShipInterior authors no arms instance (created at runtime exactly once)");
+        record(CountInScene<WristPresentationBridge>() == 0,
+            "03_ShipInterior authors no wrist bridge (created at runtime)");
+        record(CountInScene<SurfaceWristController>() == 1,
+            "03_ShipInterior keeps exactly one existing wrist terminal host");
+
+        Camera eye = null;
+        foreach (Camera camera in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include))
+        {
+            if (camera.CompareTag("MainCamera"))
+            {
+                eye = camera;
+            }
+        }
+
+        record(eye != null && (eye.cullingMask & (1 << layer)) != 0,
+            "the authoritative eye camera renders the arms layer");
+        record(eye != null && Mathf.Abs(eye.fieldOfView - 70f) < 0.01f,
+            "the eye camera keeps the Phase 08 FOV of 70");
+    }
+
+    /// <summary>
+    /// Phase 09A_3 structural contract: the runtime first-person presentation is
+    /// the code-built block arms; the legacy FBX arms are history and must not be
+    /// authored into the scene; the scene keeps one authoritative eye camera, no
+    /// duplicate AudioListener, and the hologram still renders above the opaque
+    /// arms in the transparent queue.
+    /// </summary>
+    private static void ValidateBlockArms(Action<bool, string> record)
+    {
+        EditorSceneManager.OpenScene(ShipScenePath, OpenSceneMode.Single);
+
+        record(CountInScene<FirstPersonBlockArmsController>() == 0,
+            "03_ShipInterior authors no block arms (created at runtime exactly once)");
+        record(CountInScene<FirstPersonArmsController>() == 0,
+            "03_ShipInterior authors no legacy FBX arms either");
+
+        int layer = LayerMask.NameToLayer(FirstPersonBlockArmsController.ArmsLayerName);
+        record(layer > 0, "layer " + FirstPersonBlockArmsController.ArmsLayerName
+                          + " exists (index " + layer + ")");
+
+        Camera eye = null;
+        int listeners = 0;
+        foreach (Camera camera in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include))
+        {
+            if (camera.CompareTag("MainCamera"))
+            {
+                eye = camera;
+            }
+
+            if (camera.GetComponent<AudioListener>() != null)
+            {
+                listeners++;
+            }
+        }
+
+        record(eye != null, "the ship interior keeps an authoritative eye camera");
+        record(listeners <= 1, "no duplicate AudioListener (found " + listeners + ")");
+        record(eye != null && (eye.cullingMask & (1 << layer)) != 0,
+            "the eye camera renders the FirstPersonArms layer");
+
+        SurfaceWristController wrist = Object.FindAnyObjectByType<SurfaceWristController>(
+            FindObjectsInactive.Include);
+        record(wrist != null, "the existing wrist terminal host is present");
+
+        // The controller resolves its display anchor at RUNTIME, so in the editor
+        // it is still null: resolve it here instead of silently skipping the
+        // render-order contract (which is exactly what used to happen).
+        WristDisplayAnchor anchor = wrist != null ? wrist.Display : null;
+        if (anchor == null)
+        {
+            anchor = Object.FindAnyObjectByType<WristDisplayAnchor>(
+                FindObjectsInactive.Include);
+        }
+
+        record(anchor != null, "the wrist display anchor is authored in the ship scene");
+        if (anchor != null)
+        {
+            // The anchor's material is bound at RUNTIME, so the editor can only
+            // pin the shader contract plus the arm's queue. The on-screen proof
+            // that the hologram really composites over the physical arm is
+            // measured by the 09A_3 probe (hologram readability: the readable
+            // pixels of the map disc are identical with the arm visible and with
+            // the arm hidden).
+            Shader hologramShader = Shader.Find("Survive/WristDisplayUnlit");
+            record(hologramShader != null,
+                "the wrist hologram shader exists (Survive/WristDisplayUnlit)");
+            int hologramQueue = hologramShader != null
+                ? hologramShader.renderQueue
+                : (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            record(hologramShader != null
+                   && hologramQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent,
+                "the wrist hologram shader is authored in the transparent queue (queue "
+                + hologramQueue + "), i.e. after the opaque block arms");
+
+            // The softened arm is alpha blended, so it also lives in the
+            // transparent range - but it must be composited BEFORE the hologram:
+            // the UI is the interface and the arm is only its support, so the
+            // readable content may never be covered by the physical watch.
+            record(FirstPersonBlockArmsController.SoftenedArmRenderQueue < hologramQueue,
+                "the softened block arm renders before the hologram (queue "
+                + FirstPersonBlockArmsController.SoftenedArmRenderQueue + " < "
+                + hologramQueue + "), so the UI always composites over the arm");
+        }
+        else
+        {
+            record(false, "the wrist hologram render-order contract could not be verified "
+                          + "(no WristDisplayAnchor found)");
+        }
+
+        EditorSceneManager.OpenScene(BootScenePath, OpenSceneMode.Single);
+        record(CountInScene<Ship09A3ShotProbe>() == 1,
+            "00_Boot hosts exactly one Phase 09A_3 evidence probe (inert unless flagged)");
+
+        ValidateEvidenceProbeHygiene(record);
+
+        EditorSceneManager.OpenScene(ShipScenePath, OpenSceneMode.Single);
+    }
+
+    /// <summary>
+    /// Phase 09A_3 UI hotfix guard: no evidence probe may park a UIDocument
+    /// through <c>enabled</c>.
+    ///
+    /// No UXML in this project carries a &lt;Style&gt; reference and none hides
+    /// anything by default: every controller attaches its style sheets and
+    /// applies its display state in code at bind time (AppController shows one
+    /// of its four screens, ShipPauseMenu hides its overlay). Disabling and
+    /// re-enabling a document therefore rebuilds the visual tree from the UXML
+    /// alone and silently drops all of it - the game comes back unstyled with
+    /// several screens stacked and the pause overlay stuck on screen. That is
+    /// exactly what the Phase 09A_2 arms-mask measurement did.
+    ///
+    /// Probes must hide screen-space panels through a restorable style property
+    /// instead (see UiIntegrityAudit and the mask capture in the 09A_3 probe).
+    /// </summary>
+    private static void ValidateEvidenceProbeHygiene(Action<bool, string> record)
+    {
+        string[] probeFolders =
+        {
+            "Assets/_Project/Scripts/Core",
+            "Assets/_Project/Scripts/Gameplay"
+        };
+
+        int scanned = 0;
+        var offenders = new System.Collections.Generic.List<string>();
+        foreach (string folder in probeFolders)
+        {
+            string root = Path.Combine(Directory.GetCurrentDirectory(), folder);
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
+
+            foreach (string file in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                string name = Path.GetFileName(file);
+                if (!name.Contains("Probe") && !name.Contains("Smoke")
+                    && !name.Contains("Capture"))
+                {
+                    continue;
+                }
+
+                scanned++;
+                string source = File.ReadAllText(file);
+                if (source.Contains("document.enabled = false")
+                    || source.Contains("Document.enabled = false"))
+                {
+                    offenders.Add(name);
+                }
+            }
+        }
+
+        record(scanned > 0, "evidence probes found for the UI hygiene audit (" + scanned + " files)");
+        record(offenders.Count == 0,
+            "no evidence probe parks a UIDocument through enabled (offenders: "
+            + (offenders.Count == 0 ? "none" : string.Join(", ", offenders.ToArray()))
+            + ")");
     }
 
     private static int CountCheckLines(StringBuilder sb)

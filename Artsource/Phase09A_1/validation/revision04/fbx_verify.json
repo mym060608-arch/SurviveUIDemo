@@ -1,0 +1,288 @@
+{
+ "fbx": "D:\\dsh_gpt_unity_blender\\project\\SurviveUIDemo\\ArtSource\\Phase09A_1\\output\\FP_PlayerArms.fbx",
+ "raw_fbx_version": 7400,
+ "raw_animation_stacks": [
+  "FP_Idle",
+  "FP_Walk",
+  "Wrist_Raise",
+  "Wrist_Idle",
+  "Wrist_Lower",
+  "Interact_Right"
+ ],
+ "raw_limb_nodes": [
+  "Root",
+  "Arm_L",
+  "WristDevice_L",
+  "Arm_R"
+ ],
+ "size_bytes": 376812,
+ "scene_fps": 30,
+ "objects": [
+  {
+   "name": "RIG_FPArms",
+   "type": "ARMATURE",
+   "parent": "SK_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "bones": [
+    {
+     "name": "Root",
+     "parent": null,
+     "head": [
+      0.0,
+      0.0,
+      0.0
+     ],
+     "tail": [
+      0.0,
+      0.0,
+      -0.373979
+     ]
+    },
+    {
+     "name": "Arm_L",
+     "parent": "Root",
+     "head": [
+      0.3179,
+      0.08,
+      -0.18
+     ],
+     "tail": [
+      0.329411,
+      -0.111851,
+      -0.512286
+     ]
+    },
+    {
+     "name": "Arm_R",
+     "parent": "Root",
+     "head": [
+      -0.3179,
+      0.08,
+      -0.18
+     ],
+     "tail": [
+      -0.329115,
+      -0.10691,
+      -0.503727
+     ]
+    }
+   ]
+  },
+  {
+   "name": "GEO_Arm_L",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 48,
+   "polygons": 52,
+   "materials": [
+    "MAT_Suit",
+    "MAT_Accent"
+   ]
+  },
+  {
+   "name": "GEO_HandBlock_R",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 48,
+   "polygons": 52,
+   "materials": [
+    "MAT_Cuff",
+    "MAT_Glove"
+   ]
+  },
+  {
+   "name": "GEO_HandBlock_L",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 48,
+   "polygons": 52,
+   "materials": [
+    "MAT_Cuff",
+    "MAT_Glove"
+   ]
+  },
+  {
+   "name": "GEO_Arm_R",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 48,
+   "polygons": 52,
+   "materials": [
+    "MAT_Suit",
+    "MAT_Accent"
+   ]
+  },
+  {
+   "name": "GEO_WristDevice_L",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 360,
+   "polygons": 370,
+   "materials": [
+    "MAT_Device",
+    "MAT_Cuff",
+    "MAT_DeviceEmissive",
+    "MAT_Accent"
+   ]
+  },
+  {
+   "name": "SK_FPArms",
+   "type": "EMPTY",
+   "parent": null,
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  }
+ ],
+ "actions": [
+  {
+   "name": "RIG_FPArms|FP_Idle",
+   "frame_start": 1.0,
+   "frame_end": 61.0,
+   "fcurves": 39
+  },
+  {
+   "name": "RIG_FPArms|FP_Walk",
+   "frame_start": 1.0,
+   "frame_end": 41.0,
+   "fcurves": 39
+  },
+  {
+   "name": "RIG_FPArms|Interact_Right",
+   "frame_start": 1.0,
+   "frame_end": 31.0,
+   "fcurves": 39
+  },
+  {
+   "name": "RIG_FPArms|Wrist_Idle",
+   "frame_start": 1.0,
+   "frame_end": 91.0,
+   "fcurves": 39
+  },
+  {
+   "name": "RIG_FPArms|Wrist_Lower",
+   "frame_start": 1.0,
+   "frame_end": 21.0,
+   "fcurves": 39
+  },
+  {
+   "name": "RIG_FPArms|Wrist_Raise",
+   "frame_start": 1.0,
+   "frame_end": 25.0,
+   "fcurves": 39
+  },
+  {
+   "name": "SK_FPArms|FP_Idle",
+   "frame_start": 1.0,
+   "frame_end": 61.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|FP_Walk",
+   "frame_start": 1.0,
+   "frame_end": 41.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Interact_Right",
+   "frame_start": 1.0,
+   "frame_end": 31.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Wrist_Idle",
+   "frame_start": 1.0,
+   "frame_end": 91.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Wrist_Lower",
+   "frame_start": 1.0,
+   "frame_end": 21.0,
+   "fcurves": 9
+  },
+  {
+   "name": "SK_FPArms|Wrist_Raise",
+   "frame_start": 1.0,
+   "frame_end": 25.0,
+   "fcurves": 9
+  }
+ ],
+ "triangles_total": 1028,
+ "fbx_space_bounds_min": [
+  -0.40371,
+  -0.203634,
+  -0.600481
+ ],
+ "fbx_space_bounds_max": [
+  0.40371,
+  0.133918,
+  -0.149379
+ ]
+}

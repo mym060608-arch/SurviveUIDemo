@@ -1,0 +1,502 @@
+{
+ "images": [
+  {
+   "file": "external_front.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    59,
+    64,
+    70
+   ],
+   "coverage_fraction": 0.2308,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1641,
+    "top": 0.0472,
+    "right": 0.7523,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "external_side.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    59,
+    64,
+    70
+   ],
+   "coverage_fraction": 0.1681,
+   "asset_bbox_frame_fraction": {
+    "left": 0.4344,
+    "top": 0.2417,
+    "right": 0.875,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "external_top.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    59,
+    64,
+    70
+   ],
+   "coverage_fraction": 0.1225,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2078,
+    "top": 0.0,
+    "right": 0.6352,
+    "bottom": 0.7458
+   }
+  },
+  {
+   "file": "fp_idle.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0834,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1281,
+    "top": 0.6806,
+    "right": 0.8719,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "fp_idle_breath.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0944,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1117,
+    "top": 0.6889,
+    "right": 0.8945,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "fp_idle_centered.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0
+  },
+  {
+   "file": "fp_idle_lookdown.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.1638,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1305,
+    "top": 0.5097,
+    "right": 0.8688,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "fp_walk.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0583,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2117,
+    "top": 0.7375,
+    "right": 0.8852,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "fp_walk_back.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0583,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1219,
+    "top": 0.6972,
+    "right": 0.7828,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "fp_walk_lookdown.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.1541,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1,
+    "top": 0.5292,
+    "right": 0.8945,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "interact_right.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.096,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1906,
+    "top": 0.4944,
+    "right": 0.8805,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "rig_overview.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.2705,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2437,
+    "top": 0.0,
+    "right": 0.8461,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_alignment_guide.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0731,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0813,
+    "top": 0.0,
+    "right": 0.782,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_device_closeup.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    59,
+    64,
+    70
+   ],
+   "coverage_fraction": 0.7393,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0,
+    "top": 0.0,
+    "right": 1.0,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_idle.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0461,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0813,
+    "top": 0.7333,
+    "right": 0.3102,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_lower.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0284,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0625,
+    "top": 0.8375,
+    "right": 0.307,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_raise.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0343,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0719,
+    "top": 0.8083,
+    "right": 0.3078,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_raise_early.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    150,
+    153,
+    156
+   ],
+   "coverage_fraction": 0.0169,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0734,
+    "top": 0.8917,
+    "right": 0.293,
+    "bottom": 1.0
+   }
+  }
+ ],
+ "poses": [
+  {
+   "clip": "FP_Idle",
+   "frame": 1,
+   "pitch_deg": 0.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 0,
+   "frustum_coverage": 0.0
+  },
+  {
+   "clip": "FP_Idle",
+   "frame": 1,
+   "pitch_deg": 48.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 1670,
+   "frustum_coverage": 0.9732,
+   "ndc_bbox": [
+    -0.6569,
+    -0.9828,
+    0.6569,
+    -0.3605
+   ]
+  },
+  {
+   "clip": "FP_Idle",
+   "frame": 16,
+   "pitch_deg": 62.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 1710,
+   "frustum_coverage": 0.9965,
+   "ndc_bbox": [
+    -0.7384,
+    -0.983,
+    0.7367,
+    -0.0204
+   ]
+  },
+  {
+   "clip": "FP_Walk",
+   "frame": 11,
+   "pitch_deg": 42.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 1353,
+   "frustum_coverage": 0.7885,
+   "ndc_bbox": [
+    -0.5367,
+    -0.9992,
+    0.6938,
+    -0.4754
+   ]
+  },
+  {
+   "clip": "FP_Walk",
+   "frame": 31,
+   "pitch_deg": 42.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 1505,
+   "frustum_coverage": 0.877,
+   "ndc_bbox": [
+    -0.6724,
+    -0.9956,
+    0.5215,
+    -0.394
+   ]
+  },
+  {
+   "clip": "Wrist_Raise",
+   "frame": 19,
+   "pitch_deg": 0.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 207,
+   "frustum_coverage": 0.1206,
+   "ndc_bbox": [
+    -0.8381,
+    -0.999,
+    -0.4175,
+    -0.7857
+   ]
+  },
+  {
+   "clip": "Wrist_Raise",
+   "frame": 21,
+   "pitch_deg": 0.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 486,
+   "frustum_coverage": 0.2832,
+   "ndc_bbox": [
+    -0.8548,
+    -0.9999,
+    -0.3857,
+    -0.6199
+   ]
+  },
+  {
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "pitch_deg": 0.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 842,
+   "frustum_coverage": 0.4907,
+   "ndc_bbox": [
+    -0.8261,
+    -0.9988,
+    -0.3811,
+    -0.4688
+   ]
+  },
+  {
+   "clip": "Wrist_Lower",
+   "frame": 5,
+   "pitch_deg": 0.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 354,
+   "frustum_coverage": 0.2063,
+   "ndc_bbox": [
+    -0.8728,
+    -0.9999,
+    -0.396,
+    -0.6768
+   ]
+  },
+  {
+   "clip": "Interact_Right",
+   "frame": 16,
+   "pitch_deg": 42.0,
+   "vertices": 1716,
+   "vertices_inside_frustum": 1628,
+   "frustum_coverage": 0.9487,
+   "ndc_bbox": [
+    -0.5625,
+    -0.9955,
+    0.6583,
+    0.0123
+   ]
+  }
+ ],
+ "loops": [
+  {
+   "clip": "FP_Idle",
+   "first_frame": 1,
+   "last_frame": 61,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "FP_Walk",
+   "first_frame": 1,
+   "last_frame": 41,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "Wrist_Idle",
+   "first_frame": 1,
+   "last_frame": 91,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  }
+ ],
+ "root_motion": {
+  "max_root_basis_deviation_from_identity": 0.0
+ }
+}

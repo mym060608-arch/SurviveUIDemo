@@ -284,6 +284,11 @@ public class SurvivePhase07B1Tests
 
         controller.SetWristOpen(true);
         yield return WaitSeconds(0.5f);
+        // Phase 09A_2: with the first-person arms present, the existing terminal is
+        // revealed once the wrist raise animation reaches its presentation point
+        // (without the arms it opens immediately), so wait for the presentation
+        // instead of assuming an instant show.
+        yield return WaitUntil(() => controller.IsWristTerminalRevealed);
         Assert.IsTrue(wrist.IsShipMode, "ship wrist is ship mode");
         Assert.IsTrue(wrist.HasShipSchematic,
             "floorplan visual attached to the wrist geometry host");

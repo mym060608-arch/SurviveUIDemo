@@ -1,0 +1,1014 @@
+{
+ "generated_by": "scripts/analyze_validation_rev04.py (Phase09A_1 Revision04)",
+ "thresholds": {
+  "luminance": 0.05,
+  "cyan_margin": 0.15,
+  "ui_region_ndc": [
+   -0.52,
+   0.52,
+   -0.62,
+   0.7
+  ]
+ },
+ "frames": {
+  "fp_forward_mask": {
+   "file": "fp_forward_mask.png",
+   "size": [
+    1280,
+    720
+   ],
+   "arm_pixels": 0,
+   "coverage_fraction": 0.0,
+   "left_pixels": 0,
+   "right_pixels": 0,
+   "centre_band_pixels": 0,
+   "ui_region_pixels": 0,
+   "ui_region_fraction_of_arms": 0.0,
+   "hologram_disc_pixels": 0,
+   "hologram_panel_band_pixels": 0,
+   "hologram_min_radius_units": null,
+   "cyan_pixels": 0,
+   "occupancy_grid": [
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................"
+   ]
+  },
+  "fp_walk_lookdown_mask": {
+   "file": "fp_walk_lookdown_mask.png",
+   "size": [
+    1280,
+    720
+   ],
+   "arm_pixels": 68094,
+   "coverage_fraction": 0.07389,
+   "left_pixels": 10243,
+   "right_pixels": 57851,
+   "centre_band_pixels": 0,
+   "ui_region_pixels": 3320,
+   "ui_region_fraction_of_arms": 0.04876,
+   "hologram_disc_pixels": 0,
+   "hologram_panel_band_pixels": 2397,
+   "hologram_min_radius_units": 1.341,
+   "cyan_pixels": 0,
+   "occupancy_grid": [
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "...............................................:+*++:...........",
+    "............................................+*########**+++::...",
+    "............................................:###############*:..",
+    ".............................................+#################*",
+    "..........::+++:..............................+#################",
+    "...+**###########*:............................:*###############"
+   ],
+   "centroid_px": [
+    953.1,
+    76.3
+   ],
+   "centroid_viewport": [
+    0.7452,
+    0.1062
+   ],
+   "bbox_px": [
+    64,
+    0,
+    1279,
+    199
+   ],
+   "bbox_viewport": [
+    0.05,
+    0.0,
+    1.0,
+    0.2768
+   ],
+   "bottom_entry_x_px": [
+    64,
+    1279
+   ],
+   "bottom_entry_viewport_x": [
+    0.05,
+    1.0
+   ],
+   "silhouette_pca_angle_deg": 3.42
+  },
+  "fp_walk_lookdown_b_mask": {
+   "file": "fp_walk_lookdown_b_mask.png",
+   "size": [
+    1280,
+    720
+   ],
+   "arm_pixels": 68078,
+   "coverage_fraction": 0.07387,
+   "left_pixels": 57865,
+   "right_pixels": 10213,
+   "centre_band_pixels": 0,
+   "ui_region_pixels": 3318,
+   "ui_region_fraction_of_arms": 0.04874,
+   "hologram_disc_pixels": 0,
+   "hologram_panel_band_pixels": 3318,
+   "hologram_min_radius_units": 1.085,
+   "cyan_pixels": 0,
+   "occupancy_grid": [
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "...........:++*+:...............................................",
+    "...::+++**########*+............................................",
+    "..:*###############:............................................",
+    "*#################+.............................................",
+    "#################+..............................:+++::..........",
+    "###############*:............................:*###########**+..."
+   ],
+   "centroid_px": [
+    325.5,
+    76.4
+   ],
+   "centroid_viewport": [
+    0.2545,
+    0.1062
+   ],
+   "bbox_px": [
+    0,
+    0,
+    1215,
+    199
+   ],
+   "bbox_viewport": [
+    0.0,
+    0.0,
+    0.95,
+    0.2768
+   ],
+   "bottom_entry_x_px": [
+    0,
+    1215
+   ],
+   "bottom_entry_viewport_x": [
+    0.0,
+    0.95
+   ],
+   "silhouette_pca_angle_deg": -3.43
+  },
+  "wrist_raise_mid_mask": {
+   "file": "wrist_raise_mid_mask.png",
+   "size": [
+    1280,
+    720
+   ],
+   "arm_pixels": 54447,
+   "coverage_fraction": 0.05908,
+   "left_pixels": 54447,
+   "right_pixels": 0,
+   "centre_band_pixels": 0,
+   "ui_region_pixels": 66,
+   "ui_region_fraction_of_arms": 0.00121,
+   "hologram_disc_pixels": 0,
+   "hologram_panel_band_pixels": 66,
+   "hologram_min_radius_units": 1.35,
+   "cyan_pixels": 2005,
+   "occupancy_grid": [
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "........::+++:..................................................",
+    "...:++**######+:................................................",
+    "**##############*:..............................................",
+    "#################*..............................................",
+    "################*:..............................................",
+    "###############+................................................"
+   ],
+   "centroid_px": [
+    173.5,
+    83.7
+   ],
+   "centroid_viewport": [
+    0.1356,
+    0.1165
+   ],
+   "bbox_px": [
+    0,
+    0,
+    358,
+    199
+   ],
+   "bbox_viewport": [
+    0.0,
+    0.0,
+    0.2799,
+    0.2768
+   ],
+   "bottom_entry_x_px": [
+    0,
+    298
+   ],
+   "bottom_entry_viewport_x": [
+    0.0,
+    0.233
+   ],
+   "cyan_centroid_viewport": [
+    0.1799,
+    0.17
+   ],
+   "silhouette_pca_angle_deg": 6.32
+  },
+  "wrist_idle_mask": {
+   "file": "wrist_idle_mask.png",
+   "size": [
+    1280,
+    720
+   ],
+   "arm_pixels": 63778,
+   "coverage_fraction": 0.0692,
+   "left_pixels": 63778,
+   "right_pixels": 0,
+   "centre_band_pixels": 0,
+   "ui_region_pixels": 1431,
+   "ui_region_fraction_of_arms": 0.02244,
+   "hologram_disc_pixels": 0,
+   "hologram_panel_band_pixels": 1431,
+   "hologram_min_radius_units": 1.225,
+   "cyan_pixels": 2147,
+   "occupancy_grid": [
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    "................................................................",
+    ".............:..................................................",
+    ".......:++**##*+................................................",
+    ".::+**##########*:..............................................",
+    "##################*:............................................",
+    "##################*:............................................",
+    "#################*:.............................................",
+    "################+..............................................."
+   ],
+   "centroid_px": [
+    186.3,
+    93.0
+   ],
+   "centroid_viewport": [
+    0.1456,
+    0.1293
+   ],
+   "bbox_px": [
+    0,
+    0,
+    384,
+    219
+   ],
+   "bbox_viewport": [
+    0.0,
+    0.0,
+    0.3002,
+    0.3046
+   ],
+   "bottom_entry_x_px": [
+    0,
+    307
+   ],
+   "bottom_entry_viewport_x": [
+    0.0,
+    0.24
+   ],
+   "cyan_centroid_viewport": [
+    0.2027,
+    0.1878
+   ],
+   "silhouette_pca_angle_deg": 8.37
+  }
+ },
+ "walk_swing_mask_difference": 0.12446,
+ "raise_frame_profile": [
+  {
+   "frame": 1,
+   "wrist_end_ndc": [
+    -1.8638,
+    -5.6598
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 2,
+   "wrist_end_ndc": [
+    -1.8522,
+    -5.5821
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 3,
+   "wrist_end_ndc": [
+    -1.8195,
+    -5.3656
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 4,
+   "wrist_end_ndc": [
+    -1.769,
+    -5.0425
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 5,
+   "wrist_end_ndc": [
+    -1.7045,
+    -4.6491
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 6,
+   "wrist_end_ndc": [
+    -1.63,
+    -4.2199
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 7,
+   "wrist_end_ndc": [
+    -1.5489,
+    -3.7833
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 8,
+   "wrist_end_ndc": [
+    -1.4646,
+    -3.3604
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 9,
+   "wrist_end_ndc": [
+    -1.3793,
+    -2.9648
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 10,
+   "wrist_end_ndc": [
+    -1.2951,
+    -2.6042
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 11,
+   "wrist_end_ndc": [
+    -1.2131,
+    -2.2818
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 12,
+   "wrist_end_ndc": [
+    -1.1343,
+    -1.998
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 13,
+   "wrist_end_ndc": [
+    -1.0591,
+    -1.7512
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 14,
+   "wrist_end_ndc": [
+    -0.988,
+    -1.539
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 15,
+   "wrist_end_ndc": [
+    -0.921,
+    -1.3586
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 16,
+   "wrist_end_ndc": [
+    -0.8584,
+    -1.2069
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 17,
+   "wrist_end_ndc": [
+    -0.8004,
+    -1.0812
+   ],
+   "entry_viewport": null,
+   "visible_fraction": null
+  },
+  {
+   "frame": 18,
+   "wrist_end_ndc": [
+    -0.7473,
+    -0.9787
+   ],
+   "entry_viewport": [
+    0.1163,
+    -0.0001
+   ],
+   "visible_fraction": 0.0225
+  },
+  {
+   "frame": 19,
+   "wrist_end_ndc": [
+    -0.6992,
+    -0.8969
+   ],
+   "entry_viewport": [
+    0.1002,
+    -0.0015
+   ],
+   "visible_fraction": 0.1025
+  },
+  {
+   "frame": 20,
+   "wrist_end_ndc": [
+    -0.6568,
+    -0.8332
+   ],
+   "entry_viewport": [
+    0.0908,
+    -0.0015
+   ],
+   "visible_fraction": 0.155
+  },
+  {
+   "frame": 21,
+   "wrist_end_ndc": [
+    -0.6204,
+    -0.7852
+   ],
+   "entry_viewport": [
+    0.0861,
+    -0.0013
+   ],
+   "visible_fraction": 0.19
+  },
+  {
+   "frame": 22,
+   "wrist_end_ndc": [
+    -0.5908,
+    -0.7507
+   ],
+   "entry_viewport": [
+    0.0849,
+    -0.0008
+   ],
+   "visible_fraction": 0.2125
+  },
+  {
+   "frame": 23,
+   "wrist_end_ndc": [
+    -0.5687,
+    -0.7276
+   ],
+   "entry_viewport": [
+    0.0845,
+    -0.0012
+   ],
+   "visible_fraction": 0.2275
+  },
+  {
+   "frame": 24,
+   "wrist_end_ndc": [
+    -0.5548,
+    -0.7144
+   ],
+   "entry_viewport": [
+    0.0855,
+    -0.0009
+   ],
+   "visible_fraction": 0.235
+  },
+  {
+   "frame": 25,
+   "wrist_end_ndc": [
+    -0.55,
+    -0.71
+   ],
+   "entry_viewport": [
+    0.0859,
+    -0.0009
+   ],
+   "visible_fraction": 0.2375
+  }
+ ],
+ "asset_report_composition": {
+  "hold_axis_ndc_target": [
+   -0.55,
+   -0.71
+  ],
+  "hold_axis_depth_m": 0.36,
+  "hold": {
+   "forearm_screen_angle_deg": 30.449,
+   "forearm_screen_angle_target": 30.0,
+   "forearm_screen_angle_accept": [
+    25.0,
+    35.0
+   ],
+   "forearm_screen_angle_pass": true,
+   "forearm_screen_angle_note": "measured from the frame entry point to the wrist end (the visible portion)",
+   "arm_head_ndc": null,
+   "arm_tail_ndc": [
+    -0.5477,
+    -0.6951
+   ],
+   "entry_point": [
+    0.7525,
+    [
+     -0.8428,
+     -1.0035
+    ]
+   ],
+   "entry_viewport": [
+    0.0786,
+    -0.0017
+   ],
+   "entry_is_lower_left": true,
+   "device_center_unity": [
+    -0.23074,
+    -0.1459,
+    0.29421
+   ],
+   "device_center_ndc": [
+    -0.63,
+    -0.7082
+   ],
+   "device_center_viewport": [
+    0.185,
+    0.1459
+   ],
+   "device_face_normal_dot_eye": 0.7249,
+   "ui_pivot_ndc": [
+    -0.3085,
+    -0.6934
+   ],
+   "ui_display_center_ndc": [
+    -0.064,
+    -0.0517
+   ],
+   "device_left_of_ui_pivot": true,
+   "device_below_ui_display_center": true
+  },
+  "idle": {
+   "forearm_screen_angle_deg": null,
+   "arm_head_ndc": null,
+   "arm_tail_ndc": [
+    -1.8372,
+    -5.6612
+   ],
+   "wrist_end_viewport": [
+    -0.4186,
+    -2.3306
+   ],
+   "entry_viewport": null,
+   "device_center_ndc": [
+    -2.3244,
+    -5.7666
+   ],
+   "note": "at a level gaze the arms may be entirely outside the frame (contract \u00a79); they must appear at the body sides when looking down"
+  },
+  "hold_landmarks": {
+   "Root": {
+    "head_world": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "tail_world": [
+     0.0,
+     0.0,
+     -0.12
+    ],
+    "head_ndc": null,
+    "tail_ndc": null,
+    "head_unity": [
+     -0.0,
+     0.0,
+     -0.0
+    ],
+    "tail_unity": [
+     -0.0,
+     -0.12,
+     -0.0
+    ]
+   },
+   "Arm_L": {
+    "head_world": [
+     0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     0.2453,
+     -0.35978,
+     -0.17511
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     -0.5477,
+     -0.6951
+    ],
+    "head_unity": [
+     -0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     -0.2453,
+     -0.17511,
+     0.35978
+    ]
+   },
+   "WristDevice_L": {
+    "head_world": [
+     0.24971,
+     -0.2976,
+     -0.16889
+    ],
+    "tail_world": [
+     0.21176,
+     -0.29082,
+     -0.12291
+    ],
+    "head_ndc": [
+     -0.6741,
+     -0.8105
+    ],
+    "tail_ndc": [
+     -0.585,
+     -0.6036
+    ],
+    "head_unity": [
+     -0.24971,
+     -0.16889,
+     0.2976
+    ],
+    "tail_unity": [
+     -0.21176,
+     -0.12291,
+     0.29082
+    ]
+   },
+   "Arm_R": {
+    "head_world": [
+     -0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     -0.33127,
+     -0.14279,
+     -0.56586
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     1.8638,
+     -5.6598
+    ],
+    "head_unity": [
+     0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     0.33127,
+     -0.56586,
+     0.14279
+    ]
+   }
+  },
+  "idle_landmarks": {
+   "Root": {
+    "head_world": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "tail_world": [
+     0.0,
+     0.0,
+     -0.12
+    ],
+    "head_ndc": null,
+    "tail_ndc": null,
+    "head_unity": [
+     -0.0,
+     0.0,
+     -0.0
+    ],
+    "tail_unity": [
+     -0.0,
+     -0.12,
+     -0.0
+    ]
+   },
+   "Arm_L": {
+    "head_world": [
+     0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     0.32655,
+     -0.14279,
+     -0.566
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     -1.8372,
+     -5.6612
+    ],
+    "head_unity": [
+     -0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     -0.32655,
+     -0.566,
+     0.14279
+    ]
+   },
+   "WristDevice_L": {
+    "head_world": [
+     0.33361,
+     -0.1148,
+     -0.51039
+    ],
+    "tail_world": [
+     0.3887,
+     -0.13483,
+     -0.4976
+    ],
+    "head_ndc": [
+     -2.3345,
+     -6.3493
+    ],
+    "tail_ndc": [
+     -2.3159,
+     -5.2705
+    ],
+    "head_unity": [
+     -0.33361,
+     -0.51039,
+     0.1148
+    ],
+    "tail_unity": [
+     -0.3887,
+     -0.4976,
+     0.13483
+    ]
+   },
+   "Arm_R": {
+    "head_world": [
+     -0.3179,
+     0.08,
+     -0.18
+    ],
+    "tail_world": [
+     -0.32655,
+     -0.14279,
+     -0.566
+    ],
+    "head_ndc": null,
+    "tail_ndc": [
+     1.8372,
+     -5.6612
+    ],
+    "head_unity": [
+     0.3179,
+     -0.18,
+     -0.08
+    ],
+    "tail_unity": [
+     0.32655,
+     -0.566,
+     0.14279
+    ]
+   }
+  }
+ },
+ "asset_report_loops": [
+  {
+   "clip": "FP_Idle",
+   "first_frame": 1,
+   "last_frame": 61,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "FP_Walk",
+   "first_frame": 1,
+   "last_frame": 41,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "Wrist_Idle",
+   "first_frame": 1,
+   "last_frame": 91,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  }
+ ],
+ "asset_report_root_motion": {
+  "max_root_basis_deviation_from_identity": 0.0,
+  "root_motion": "off"
+ },
+ "gates": [
+  {
+   "gate": "wrist composition: forearm screen angle 25-35 deg",
+   "pass": true,
+   "detail": "geometry 30.45 deg"
+  },
+  {
+   "gate": "wrist composition: enters from the lower-left",
+   "pass": true,
+   "detail": "entry viewport [0.0786, -0.0017]"
+  },
+  {
+   "gate": "wrist composition: device left of the UI pivot",
+   "pass": true,
+   "detail": "device ndc [-0.63, -0.7082] vs ui pivot ndc [-0.3085, -0.6934]"
+  },
+  {
+   "gate": "wrist composition: device below the UI display centre",
+   "pass": true,
+   "detail": "device ndc [-0.63, -0.7082] vs ui centre ndc [-0.064, -0.0517]"
+  },
+  {
+   "gate": "idle level gaze: arms may be outside the frame",
+   "pass": true,
+   "detail": "arm pixels 0"
+  },
+  {
+   "gate": "walk look-down: both arms visible",
+   "pass": true,
+   "detail": "pixels=68094 left=10243 right=57851"
+  },
+  {
+   "gate": "walk look-down: centre stays open",
+   "pass": true,
+   "detail": "centre band pixels 0"
+  },
+  {
+   "gate": "walk look-down: opposite swing between the two frames",
+   "pass": true,
+   "detail": "mask difference 0.12446"
+  },
+  {
+   "gate": "wrist raise mid frame: arm already entering the frame",
+   "pass": true,
+   "detail": "pixels 54447"
+  },
+  {
+   "gate": "wrist idle (rendered): arm visible",
+   "pass": true,
+   "detail": "pixels 63778"
+  },
+  {
+   "gate": "wrist idle (rendered): silhouette confined to the lower-left",
+   "pass": true,
+   "detail": "bbox viewport [0.0, 0.0, 0.3002, 0.3046]"
+  },
+  {
+   "gate": "wrist idle (rendered): hologram map disc stays clear of arm pixels",
+   "pass": true,
+   "detail": "disc pixels 0 (min hologram radius 1.225 disc units)"
+  },
+  {
+   "gate": "wrist idle (rendered): arm only grazes the outer panel band",
+   "pass": true,
+   "detail": "arm pixels inside the hologram rectangle 2.244% (panel band 1431 px, disc 0 px) - the physical emitter grazing the lower-left panel band is the intended read"
+  },
+  {
+   "gate": "wrist idle (rendered): cyan device visible on the left",
+   "pass": true,
+   "detail": "cyan pixels 2147 centroid [0.2027, 0.1878]"
+  },
+  {
+   "gate": "wrist idle (rendered): silhouette rises to the right",
+   "pass": true,
+   "detail": "pca angle 8.37"
+  },
+  {
+   "gate": "loop FP_Idle returns to its first pose",
+   "pass": true,
+   "detail": "deviation 0.0"
+  },
+  {
+   "gate": "loop FP_Walk returns to its first pose",
+   "pass": true,
+   "detail": "deviation 0.0"
+  },
+  {
+   "gate": "loop Wrist_Idle returns to its first pose",
+   "pass": true,
+   "detail": "deviation 0.0"
+  },
+  {
+   "gate": "Root Motion is OFF in every clip",
+   "pass": true,
+   "detail": "max deviation 0.0"
+  }
+ ],
+ "gates_passed": 19,
+ "gates_total": 19,
+ "result": "PASS"
+}

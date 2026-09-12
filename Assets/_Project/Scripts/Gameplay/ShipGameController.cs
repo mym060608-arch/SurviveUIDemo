@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem;
 using UnityEngine.Rendering.Universal;
 
 /// <summary>
@@ -18,8 +17,28 @@ using UnityEngine.Rendering.Universal;
 /// - the registries of the four physical consoles, the doors, the airlock and
 ///   the first-person stack reused from Phase 06.
 /// </summary>
-public class ShipGameController : MonoBehaviour, IWristContext
+public class ShipGameController : MonoBehaviour, IWristContext, IArmsPresentationContext
 {
+    // ---- IArmsPresentationContext: what the block-arm presentation needs ----
+
+    /// <summary>Player rig the arms hang from (see the interface contract).</summary>
+    SurfacePlayerController IArmsPresentationContext.Player => _player;
+
+    /// <summary>Pause freezes the arms instead of hiding them.</summary>
+    bool IArmsPresentationContext.IsPaused => _paused;
+
+    /// <summary>
+    /// Modes that need an unobstructed screen: the entry eyelids, the console
+    /// view and the shipboard device panels.
+    /// </summary>
+    bool IArmsPresentationContext.HidesFirstPersonPresentation =>
+        _entryInputLocked || IsConsoleFocusActive || IsOverlayOpen;
+
+    /// <summary>The ship's own wrist terminal stays the authoritative UI.</summary>
+    void IArmsPresentationContext.SetWristTerminalVisible(bool visible)
+    {
+        RevealWristTerminal(visible);
+    }
     // Compartment zones match the deterministic ShipInteriorBuilder layout.
     // Chinese primary + restrained English technical metadata.
     private static readonly (string Zh, string Meta, float X0, float Z0, float X1, float Z1)[] Zones =
@@ -44,6 +63,8 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private WorldUiPointerRouter _pointerRouter;
     private ShipEntryBlinkFade _blinkFade;
     private ShipPauseMenu _pauseMenu;
+    private FirstPersonBlockArmsController _arms;
+    private WristPresentationBridge _wristBridge;
     private bool _wristEnabledBeforePause = true;
     private bool _paused;
     private bool _entryInputLocked;
@@ -51,6 +72,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private readonly List<ShipDoorInteractable> _doors = new List<ShipDoorInteractable>();
     private bool _ready;
     private bool _isWristOpen;
+    private bool _wristTerminalRevealed;
     private bool _ownershipApplied;
     private ShipPointerOwner _appliedOwner = ShipPointerOwner.None;
 
@@ -66,6 +88,24 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
     /// <summary>Wrist mode currently open inside the ship.</summary>
     public bool IsWristOpen => _isWristOpen;
+
+    /// <summary>
+    /// First-person arms presentation instance (Phase 09A_3 block arms). Null
+    /// when the runtime asset is unavailable - every wrist behaviour stays
+    /// functional in that case, only the arm motion is missing.
+    /// </summary>
+    public FirstPersonBlockArmsController Arms => _arms;
+
+    /// <summary>Wrist presentation bridge (null whenever the arms are).</summary>
+    public WristPresentationBridge WristPresentation => _wristBridge;
+
+    /// <summary>
+    /// True once the EXISTING wrist terminal is actually presented on screen.
+    /// Opening the wrist sets <see cref="IsWristOpen"/> immediately (authority),
+    /// while this flag follows the real presentation: with the arms available it
+    /// only turns true when the left wrist has risen into view (contract §29).
+    /// </summary>
+    public bool IsWristTerminalRevealed => _wristTerminalRevealed;
 
     /// <summary>First-person entry blink, while one is playing (PASS 4).</summary>
     public ShipEntryBlinkFade EntryBlink => _blinkFade;
@@ -297,6 +337,12 @@ public class ShipGameController : MonoBehaviour, IWristContext
         {
             _wrist.Bind(this);
         }
+
+        // Phase 09A_2: the Codex first-person arms are created at runtime under
+        // the authoritative eye camera, exactly like the entry eyelids and the
+        // pause menu - the validated Phase 07 ship scene is never regenerated,
+        // and destroying the scene destroys the arms with it.
+        EnsureFirstPersonArms();
 
         ApplyShipExploreMode();
         _ready = true;
@@ -613,6 +659,13 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
     }
 
+    private void OnDisable()
+    {
+        // Never strand the Escape priority board: a layer that no longer exists
+        // must not keep Escape away from the global pause.
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, false);
+    }
+
     private void Update()
     {
         if (!_ready)
@@ -622,6 +675,14 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
         PollWristKeys();
         UpdateEntryEyelids();
+
+        // Arms presentation follows the authoritative modes owned above (entry
+        // eyelids, console focus, device panels, pause). Tick order is fixed
+        // here so no script-order race can exist.
+        if (_wristBridge != null)
+        {
+            _wristBridge.Tick(_paused);
+        }
 
         // Pointer ownership is re-asserted every frame: it is cheap, and it
         // guarantees no mode can leave two owners enabled (Phase 07B.2.3).
@@ -671,6 +732,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
     private void PollWristKeys()
     {
+        // Publish this layer's own state (cheap and idempotent): with the wrist
+        // open, Escape is a LOCAL Back that closes the terminal and must never be
+        // read as the global pause (see UiInput.ActiveBackLayer).
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, _isWristOpen);
+
         // The pause menu owns the input context: no wrist key may fire while it
         // is open (one press, one action).
         if (_paused)
@@ -678,17 +744,21 @@ public class ShipGameController : MonoBehaviour, IWristContext
             return;
         }
 
-        Keyboard keyboard = Keyboard.current;
-        if (keyboard == null)
-        {
-            return;
-        }
-
+        // The physical binding (Xbox Y / PlayStation triangle, or M / I) and the
+        // dispatch rule both live in UiInput; this controller only consumes the
+        // semantic action.
         if (_isWristOpen)
         {
-            // Escape is the GLOBAL pause key and must not double as "close the
-            // wrist": M / I toggle it instead.
-            if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame)
+            // Escape IS this layer's Back key while the terminal is open: it
+            // closes the wrist and nothing else. The Wrist action toggles it too.
+            if (UiInput.BackPressedForLayer(UiInput.UiLayer.Wrist))
+            {
+                UiInput.ConsumeBackForFrame();
+                SetWristOpen(false);
+                return;
+            }
+
+            if (UiInput.WristPressed())
             {
                 SetWristOpen(false);
             }
@@ -696,15 +766,15 @@ public class ShipGameController : MonoBehaviour, IWristContext
             return;
         }
 
-        // M / I open the wrist ONLY from plain ShipExplore. While a console
-        // is focused, a transition runs or an overlay is open, both keys must
+        // The Wrist action opens the terminal ONLY from plain ShipExplore. While
+        // a console is focused, a transition runs or an overlay is open, it must
         // do nothing (console/wrist/overlay never stack).
         if (IsConsoleFocusActive || IsOverlayOpen)
         {
             return;
         }
 
-        if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame)
+        if (UiInput.WristPressed())
         {
             SetWristOpen(true);
         }
@@ -736,15 +806,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
 
         _isWristOpen = open;
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, open);
 
         if (_player != null)
         {
             _player.InputEnabled = !open;
-        }
-
-        if (_wrist != null)
-        {
-            _wrist.SetOpen(open);
         }
 
         if (_hud != null)
@@ -752,8 +818,51 @@ public class ShipGameController : MonoBehaviour, IWristContext
             _hud.SetUiSuppressed(open);
         }
 
+        if (open)
+        {
+            // Presentation decides WHEN the terminal becomes visible (the left
+            // wrist has to rise first), never WHETHER: this state is already
+            // authoritative. Without the arms the terminal opens immediately,
+            // which is exactly the validated Phase 08 behaviour.
+            bool deferred = _wristBridge != null && _wristBridge.BeginWristRaise();
+            if (!deferred)
+            {
+                RevealWristTerminal(true);
+            }
+        }
+        else
+        {
+            // Close order (contract §31): the existing terminal stops taking
+            // input, releases focus and hides FIRST (that is what SetOpen(false)
+            // has always done), then the arm comes back down.
+            _wristBridge?.BeginWristLower();
+            RevealWristTerminal(false);
+        }
+
         ApplyCursorForMode();
         _wristOpenChanged?.Invoke(open);
+    }
+
+    /// <summary>
+    /// Shows or hides the EXISTING wrist terminal (the unchanged Phase 06/07
+    /// document + render texture + display chain). Called immediately on close,
+    /// and on open either immediately (no arms) or by
+    /// <see cref="WristPresentationBridge"/> once the raise animation has
+    /// brought the wrist device into view.
+    /// </summary>
+    public void RevealWristTerminal(bool visible)
+    {
+        _wristTerminalRevealed = visible;
+
+        if (_wrist != null)
+        {
+            _wrist.SetOpen(visible);
+        }
+
+        // The cursor/world-pointer ownership depends on the reveal state, so the
+        // per-frame cache must be re-evaluated once.
+        _ownershipApplied = false;
+        ApplyPointerOwnership();
     }
 
     private void ApplyCursorForMode()
@@ -810,14 +919,18 @@ public class ShipGameController : MonoBehaviour, IWristContext
         switch (owner)
         {
             case ShipPointerOwner.Wrist:
-                if (_wrist != null)
+                // While the arms are rising the terminal is not on screen yet:
+                // the pointer stays locked and hidden so the reveal is what
+                // hands the player the wrist cursor, exactly like the closed
+                // wrist never showed it.
+                if (_wrist != null && _wristTerminalRevealed)
                 {
                     _wrist.EnterWristCursor();
                 }
                 else
                 {
-                    Cursor.lockState = CursorLockMode.None;
-                    Cursor.visible = true;
+                    Cursor.lockState = CursorLockMode.Locked;
+                    Cursor.visible = false;
                 }
 
                 break;
@@ -874,6 +987,46 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
 
         _pauseMenu.Configure(_hud != null ? _hud.panelSettings : null, this, _focus);
+    }
+
+    /// <summary>
+    /// Creates (once) the first-person block arms instance and its wrist
+    /// presentation bridge. Presentation only: nothing here can open/close the
+    /// wrist, move the player or take focus - the bridge merely observes this
+    /// controller's authoritative state and animates the arms accordingly.
+    ///
+    /// Phase 09A_3: the runtime presentation is the code-built block / voxel arm
+    /// set. The legacy Codex FBX arms (FirstPersonArmsController + the imported
+    /// rig prefab) are kept in the repository as history but are no longer
+    /// created at runtime.
+    /// </summary>
+    private void EnsureFirstPersonArms()
+    {
+        if (_player == null || _player.EyeCamera == null)
+        {
+            Debug.LogError("[ShipGameController] first-person arms need the eye camera");
+            return;
+        }
+
+        _arms = FirstPersonBlockArmsController.Ensure(_player);
+        if (_arms == null)
+        {
+            return;
+        }
+
+        _arms.Configure(_player);
+        // The interior opens behind the entry eyelids, so the arms start hidden
+        // and the bridge shows them once first-person control is released.
+        _arms.SetVisible(false);
+
+        var bridgeGo = new GameObject("WristPresentationBridge");
+        bridgeGo.transform.SetParent(transform, false);
+        _wristBridge = bridgeGo.AddComponent<WristPresentationBridge>();
+        _wristBridge.Configure(this, _arms, _wrist);
+
+        Debug.Log("[ShipGameController] first-person block arms ready renderers="
+                  + _arms.RendererCount
+                  + " wristBridge=" + (_wristBridge != null));
     }
 
     /// <summary>

@@ -35,3 +35,5 @@ sysinfo.txt
 *.bak
 # Unity automated test results
 /TestResults*.xml
+__pycache__/
+*.pyc

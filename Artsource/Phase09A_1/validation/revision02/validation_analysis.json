@@ -1,0 +1,295 @@
+{
+ "images": [
+  {
+   "file": "external_front.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.2371,
+   "asset_bbox_frame_fraction": {
+    "left": 0.093,
+    "top": 0.0681,
+    "right": 0.8453,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "external_side.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.1971,
+   "asset_bbox_frame_fraction": {
+    "left": 0.425,
+    "top": 0.2722,
+    "right": 0.9375,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "fp_idle.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0629,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1305,
+    "top": 0.7347,
+    "right": 0.8695,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "fp_walk_lookdown.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.147,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0258,
+    "top": 0.5653,
+    "right": 0.9922,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "right_hand_check.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.2348,
+   "asset_bbox_frame_fraction": {
+    "left": 0.2727,
+    "top": 0.0,
+    "right": 0.8703,
+    "bottom": 0.8694
+   }
+  },
+  {
+   "file": "wrist_alignment_guide.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0781,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0609,
+    "top": 0.0,
+    "right": 0.7812,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_device_closeup.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    53,
+    60,
+    66
+   ],
+   "coverage_fraction": 0.5281,
+   "asset_bbox_frame_fraction": {
+    "left": 0.1094,
+    "top": 0.0,
+    "right": 0.8688,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_idle.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0536,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0609,
+    "top": 0.6931,
+    "right": 0.3359,
+    "bottom": 1.0
+   }
+  },
+  {
+   "file": "wrist_raise.png",
+   "resolution": [
+    1280,
+    720
+   ],
+   "background_rgb8": [
+    146,
+    148,
+    150
+   ],
+   "coverage_fraction": 0.0457,
+   "asset_bbox_frame_fraction": {
+    "left": 0.0672,
+    "top": 0.7306,
+    "right": 0.3312,
+    "bottom": 1.0
+   }
+  }
+ ],
+ "poses": [
+  {
+   "clip": "FP_Idle",
+   "frame": 1,
+   "pitch_deg": 0.0,
+   "vertices": 2580,
+   "vertices_inside_frustum": 0,
+   "frustum_coverage": 0.0
+  },
+  {
+   "clip": "FP_Idle",
+   "frame": 1,
+   "pitch_deg": 40.0,
+   "vertices": 2580,
+   "vertices_inside_frustum": 2194,
+   "frustum_coverage": 0.8504,
+   "ndc_bbox": [
+    -0.6985,
+    -0.9993,
+    0.6985,
+    -0.4699
+   ]
+  },
+  {
+   "clip": "FP_Walk",
+   "frame": 11,
+   "pitch_deg": 52.0,
+   "vertices": 2580,
+   "vertices_inside_frustum": 2515,
+   "frustum_coverage": 0.9748,
+   "ndc_bbox": [
+    -0.948,
+    -0.9987,
+    0.9346,
+    -0.1332
+   ]
+  },
+  {
+   "clip": "Wrist_Raise",
+   "frame": 22,
+   "pitch_deg": 0.0,
+   "vertices": 2580,
+   "vertices_inside_frustum": 840,
+   "frustum_coverage": 0.3256,
+   "ndc_bbox": [
+    -0.805,
+    -0.9996,
+    -0.3368,
+    -0.4635
+   ]
+  },
+  {
+   "clip": "Wrist_Idle",
+   "frame": 46,
+   "pitch_deg": 0.0,
+   "vertices": 2580,
+   "vertices_inside_frustum": 1022,
+   "frustum_coverage": 0.3961,
+   "ndc_bbox": [
+    -0.8777,
+    -0.9999,
+    -0.3277,
+    -0.389
+   ]
+  },
+  {
+   "clip": "Wrist_Lower",
+   "frame": 5,
+   "pitch_deg": 0.0,
+   "vertices": 2580,
+   "vertices_inside_frustum": 568,
+   "frustum_coverage": 0.2202,
+   "ndc_bbox": [
+    -0.7945,
+    -0.9986,
+    -0.3499,
+    -0.5685
+   ]
+  },
+  {
+   "clip": "Interact_Right",
+   "frame": 16,
+   "pitch_deg": 42.0,
+   "vertices": 2580,
+   "vertices_inside_frustum": 2396,
+   "frustum_coverage": 0.9287,
+   "ndc_bbox": [
+    -0.7949,
+    -0.9997,
+    0.7231,
+    0.0467
+   ]
+  }
+ ],
+ "loops": [
+  {
+   "clip": "FP_Idle",
+   "first_frame": 1,
+   "last_frame": 61,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "FP_Walk",
+   "first_frame": 1,
+   "last_frame": 41,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  },
+  {
+   "clip": "Wrist_Idle",
+   "first_frame": 1,
+   "last_frame": 91,
+   "max_element_deviation": 0.0,
+   "worst_bone": null
+  }
+ ],
+ "root_motion": {
+  "max_root_basis_deviation_from_identity": 0.0
+ }
+}
