@@ -39,39 +39,18 @@ public class WristPresentationBridge : MonoBehaviour
     public const float UiRevealNormalizedTime = 0.78f;
 
     /// <summary>
-    /// Safety net: if the Animator never reports the raise state (for example
-    /// a controller asset without the wrist states, or a broken transition),
-    /// the terminal still reveals so the wrist can never become unreachable.
+    /// Safety net: if the presentation never reports the raise state, the
+    /// terminal still reveals so the wrist can never become unreachable.
     /// </summary>
     public const float RaiseRevealTimeoutSeconds = 1.25f;
 
-    /// <summary>
-    /// Seconds the arm mount takes to move from the rest framing to the asset
-    /// framing once the terminal is presented, and back again while the wrist
-    /// lowers. Both transitions happen while the arm is on screen, so they are
-    /// deliberately slow enough to read as the arm settling into (or leaving)
-    /// the reading position - see FirstPersonArmsController.RestPitchDegrees for
-    /// why the rest and wrist presentations need different framing.
-    /// </summary>
-    [SerializeField]
-    private float holdSettleSeconds = 0.45f;
-
-    [SerializeField]
-    private float lowerRestoreSeconds = 0.45f;
-
     private ShipGameController _ship;
-    private FirstPersonArmsController _arms;
+    private FirstPersonBlockArmsController _arms;
     private SurfaceWristController _wrist;
 
     private bool _awaitingReveal;
     private float _awaitElapsed;
     private bool _lowerStateSeen;
-
-    // Framing blend towards the wrist presentation (1 = asset framing).
-    private float _framingBlend = 1f;
-
-    /// <summary>Current framing blend (0 = rest pose framing, 1 = asset framing).</summary>
-    public float FramingBlend => _framingBlend;
 
     /// <summary>True while the terminal is held back until the arm arrives.</summary>
     public bool AwaitingUiReveal => _awaitingReveal;
@@ -82,7 +61,7 @@ public class WristPresentationBridge : MonoBehaviour
     /// <summary>Reason the last reveal fired (diagnostics / tests).</summary>
     public string LastRevealReason { get; private set; } = "<never>";
 
-    public void Configure(ShipGameController ship, FirstPersonArmsController arms,
+    public void Configure(ShipGameController ship, FirstPersonBlockArmsController arms,
         SurfaceWristController wrist)
     {
         _ship = ship;
@@ -102,7 +81,7 @@ public class WristPresentationBridge : MonoBehaviour
             return false;
         }
 
-        _arms.SetWristPhase(FirstPersonArmsController.WristPhase.Raise);
+        _arms.SetWristPhase(FirstPersonBlockArmsController.WristPhase.Raise);
         _awaitingReveal = true;
         _awaitElapsed = 0f;
         _lowerStateSeen = false;
@@ -123,7 +102,7 @@ public class WristPresentationBridge : MonoBehaviour
         _lowerStateSeen = false;
         if (_arms != null)
         {
-            _arms.SetWristPhase(FirstPersonArmsController.WristPhase.Lower);
+            _arms.SetWristPhase(FirstPersonBlockArmsController.WristPhase.Lower);
         }
     }
 
@@ -150,7 +129,6 @@ public class WristPresentationBridge : MonoBehaviour
         _arms.SetFrozen(false);
         UpdateVisibility();
         UpdateWristScreen();
-        UpdateFraming();
         UpdateWristPhaseLifetime();
 
         if (!_awaitingReveal)
@@ -182,55 +160,20 @@ public class WristPresentationBridge : MonoBehaviour
         // lights up together with the terminal instead of one frame later.
         UpdateWristScreen();
 
-        _arms.SetWristPhase(FirstPersonArmsController.WristPhase.Hold);
+        _arms.SetWristPhase(FirstPersonBlockArmsController.WristPhase.Hold);
     }
 
     /// <summary>
-    /// Keeps the arm mount framed for the state that is actually being shown:
-    ///
-    ///   Rest / Raise  -> rest framing (the arm is visible in the lower frame
-    ///                    and the raise plays as a real rise towards the eye),
-    ///   Hold          -> eases to the asset's own framing, i.e. exactly the
-    ///                    composition the frozen Wrist_Idle pose and the existing
-    ///                    wrist UI were validated with,
-    ///   Lower         -> eases back to the rest framing, so the arm finishes
-    ///                    its descent already in the ordinary idle composition
-    ///                    instead of popping when the clip ends.
-    ///
-    /// The blend is presentation only: clips, rig and asset framing are intact.
+    /// The physical arm is only the support for the hologram, so while the
+    /// existing terminal is on screen the arms are softened (dimmed / lower
+    /// emission) and the watch is brightened. Presentation only - the UI layer
+    /// above is untouched and stays sharp.
     /// </summary>
-    private void UpdateFraming()
+    private void UpdateWristScreen()
     {
-        FirstPersonArmsController.WristPhase phase = _arms.CurrentWristPhase;
-        float target;
-        float duration;
-        if (phase == FirstPersonArmsController.WristPhase.Hold)
-        {
-            target = 1f;
-            duration = holdSettleSeconds;
-        }
-        else if (phase == FirstPersonArmsController.WristPhase.Lower)
-        {
-            target = 0f;
-            duration = lowerRestoreSeconds;
-        }
-        else
-        {
-            // Rest, and the raise (which must keep the idle framing so the rise
-            // is visible on screen).
-            target = 0f;
-            duration = 0.2f;
-        }
-
-        if (Mathf.Abs(_framingBlend - target) < 0.0005f)
-        {
-            _framingBlend = target;
-            return;
-        }
-
-        float step = duration > 0.001f ? Time.unscaledDeltaTime / duration : 1f;
-        _framingBlend = Mathf.MoveTowards(_framingBlend, target, step);
-        _arms.SetFramingBlend(_framingBlend);
+        bool presented = _wrist != null && _wrist.Display != null && _wrist.Display.Visible;
+        _arms.SetWristScreenActive(_arms.CurrentWristPhase != FirstPersonBlockArmsController.WristPhase.Rest);
+        _arms.SetSoftened(presented || _arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Hold);
     }
 
     /// <summary>
@@ -249,41 +192,37 @@ public class WristPresentationBridge : MonoBehaviour
     }
 
     /// <summary>
-    /// Cyan wrist screens follow the EXISTING terminal presentation: dim while
-    /// the terminal is closed, brighter once it is presented (contract §33).
-    /// </summary>
-    private void UpdateWristScreen()
-    {
-        bool presented = _wrist != null && _wrist.Display != null && _wrist.Display.Visible;
-        _arms.SetWristScreenActive(presented);
-    }
-
-    /// <summary>
-    /// Returns the presentation phase to Rest once the Wrist_Lower state has
-    /// played out and the animator is back on Idle / Walk, so the next open
-    /// starts from a clean state without any snap.
+    /// Returns the presentation phase to Rest once the lower blend has finished
+    /// and the arm is hanging again, so the next open starts from a clean state
+    /// without any snap.
     /// </summary>
     private void UpdateWristPhaseLifetime()
     {
-        FirstPersonArmsController.WristPhase phase = _arms.CurrentWristPhase;
-        if (phase != FirstPersonArmsController.WristPhase.Lower)
+        FirstPersonBlockArmsController.WristPhase phase = _arms.CurrentWristPhase;
+        if (phase != FirstPersonBlockArmsController.WristPhase.Lower
+            && phase != FirstPersonBlockArmsController.WristPhase.Hold)
         {
             return;
         }
 
-        string state = _arms.CurrentStateName;
-        if (state == FirstPersonArmsController.StateWristLower)
+        // The block arms report the phase itself: Hold holds, Lower runs down to
+        // zero, and Rest resumes automatic movement presentation.
+        if (phase == FirstPersonBlockArmsController.WristPhase.Lower)
         {
             _lowerStateSeen = true;
-            return;
         }
 
         if (!_lowerStateSeen)
         {
-            return; // the lower transition has not started yet
+            return;
         }
 
-        _arms.SetWristPhase(FirstPersonArmsController.WristPhase.Rest);
+        if (_arms.WristPresentationBlend > 0.001f)
+        {
+            return;
+        }
+
+        _arms.SetWristPhase(FirstPersonBlockArmsController.WristPhase.Rest);
         _lowerStateSeen = false;
     }
 }

@@ -880,6 +880,9 @@ public static class SurviveProjectValidator
         // ---- Phase 09A_2 first-person arms / wrist integration ----
         ValidateFirstPersonArms(Record);
 
+        // ---- Phase 09A_3 block arms finalization ----
+        ValidateBlockArms(Record);
+
         bool ok = failures == 0;
         log.AppendLine(ok ? "RESULT: SUCCESS" : "RESULT: FAILED");
         log.AppendLine("CHECKS: " + CountCheckLines(log) + " | FAILURES: " + failures);
@@ -1033,6 +1036,132 @@ public static class SurviveProjectValidator
             "the authoritative eye camera renders the arms layer");
         record(eye != null && Mathf.Abs(eye.fieldOfView - 70f) < 0.01f,
             "the eye camera keeps the Phase 08 FOV of 70");
+    }
+
+    /// <summary>
+    /// Phase 09A_3 structural contract: the runtime first-person presentation is
+    /// the code-built block arms; the legacy FBX arms are history and must not be
+    /// authored into the scene; the scene keeps one authoritative eye camera, no
+    /// duplicate AudioListener, and the hologram still renders above the opaque
+    /// arms in the transparent queue.
+    /// </summary>
+    private static void ValidateBlockArms(Action<bool, string> record)
+    {
+        EditorSceneManager.OpenScene(ShipScenePath, OpenSceneMode.Single);
+
+        record(CountInScene<FirstPersonBlockArmsController>() == 0,
+            "03_ShipInterior authors no block arms (created at runtime exactly once)");
+        record(CountInScene<FirstPersonArmsController>() == 0,
+            "03_ShipInterior authors no legacy FBX arms either");
+
+        int layer = LayerMask.NameToLayer(FirstPersonBlockArmsController.ArmsLayerName);
+        record(layer > 0, "layer " + FirstPersonBlockArmsController.ArmsLayerName
+                          + " exists (index " + layer + ")");
+
+        Camera eye = null;
+        int listeners = 0;
+        foreach (Camera camera in Object.FindObjectsByType<Camera>(FindObjectsInactive.Include))
+        {
+            if (camera.CompareTag("MainCamera"))
+            {
+                eye = camera;
+            }
+
+            if (camera.GetComponent<AudioListener>() != null)
+            {
+                listeners++;
+            }
+        }
+
+        record(eye != null, "the ship interior keeps an authoritative eye camera");
+        record(listeners <= 1, "no duplicate AudioListener (found " + listeners + ")");
+        record(eye != null && (eye.cullingMask & (1 << layer)) != 0,
+            "the eye camera renders the FirstPersonArms layer");
+
+        SurfaceWristController wrist = Object.FindAnyObjectByType<SurfaceWristController>(
+            FindObjectsInactive.Include);
+        record(wrist != null, "the existing wrist terminal host is present");
+        if (wrist != null && wrist.Display != null)
+        {
+            Material material = wrist.Display.SurfaceMaterial;
+            bool transparentQueue = material != null
+                                    && (material.renderQueue
+                                        == (int)UnityEngine.Rendering.RenderQueue.Transparent
+                                        || (material.shader != null
+                                            && material.shader.name
+                                            == "Survive/WristDisplayUnlit"));
+            record(transparentQueue,
+                "the wrist hologram renders in the transparent queue, i.e. after "
+                + "the opaque block arms");
+        }
+
+        EditorSceneManager.OpenScene(BootScenePath, OpenSceneMode.Single);
+        record(CountInScene<Ship09A3ShotProbe>() == 1,
+            "00_Boot hosts exactly one Phase 09A_3 evidence probe (inert unless flagged)");
+
+        ValidateEvidenceProbeHygiene(record);
+
+        EditorSceneManager.OpenScene(ShipScenePath, OpenSceneMode.Single);
+    }
+
+    /// <summary>
+    /// Phase 09A_3 UI hotfix guard: no evidence probe may park a UIDocument
+    /// through <c>enabled</c>.
+    ///
+    /// No UXML in this project carries a &lt;Style&gt; reference and none hides
+    /// anything by default: every controller attaches its style sheets and
+    /// applies its display state in code at bind time (AppController shows one
+    /// of its four screens, ShipPauseMenu hides its overlay). Disabling and
+    /// re-enabling a document therefore rebuilds the visual tree from the UXML
+    /// alone and silently drops all of it - the game comes back unstyled with
+    /// several screens stacked and the pause overlay stuck on screen. That is
+    /// exactly what the Phase 09A_2 arms-mask measurement did.
+    ///
+    /// Probes must hide screen-space panels through a restorable style property
+    /// instead (see UiIntegrityAudit and the mask capture in the 09A_3 probe).
+    /// </summary>
+    private static void ValidateEvidenceProbeHygiene(Action<bool, string> record)
+    {
+        string[] probeFolders =
+        {
+            "Assets/_Project/Scripts/Core",
+            "Assets/_Project/Scripts/Gameplay"
+        };
+
+        int scanned = 0;
+        var offenders = new System.Collections.Generic.List<string>();
+        foreach (string folder in probeFolders)
+        {
+            string root = Path.Combine(Directory.GetCurrentDirectory(), folder);
+            if (!Directory.Exists(root))
+            {
+                continue;
+            }
+
+            foreach (string file in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+            {
+                string name = Path.GetFileName(file);
+                if (!name.Contains("Probe") && !name.Contains("Smoke")
+                    && !name.Contains("Capture"))
+                {
+                    continue;
+                }
+
+                scanned++;
+                string source = File.ReadAllText(file);
+                if (source.Contains("document.enabled = false")
+                    || source.Contains("Document.enabled = false"))
+                {
+                    offenders.Add(name);
+                }
+            }
+        }
+
+        record(scanned > 0, "evidence probes found for the UI hygiene audit (" + scanned + " files)");
+        record(offenders.Count == 0,
+            "no evidence probe parks a UIDocument through enabled (offenders: "
+            + (offenders.Count == 0 ? "none" : string.Join(", ", offenders.ToArray()))
+            + ")");
     }
 
     private static int CountCheckLines(StringBuilder sb)

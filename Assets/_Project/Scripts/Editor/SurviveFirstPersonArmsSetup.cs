@@ -49,9 +49,10 @@ public static class SurviveFirstPersonArmsSetup
     }
 
     /// <summary>Boot scene the evidence probe lives in (same pattern as every
-    /// other Phase 07/08 probe: one inert root object).</summary>
+    /// other Phase 07/08/09 probe: one inert root object).</summary>
     private const string BootScenePath = "Assets/_Project/Scenes/00_Boot.unity";
-    private const string ProbeObjectName = "Ship09A2ShotProbe";
+    private const string ProbeObjectName = "Ship09A3ShotProbe";
+    private const string LegacyProbeObjectName = "Ship09A2ShotProbe";
 
     [MenuItem("Tools/SurviveUI/Phase 09A_2/Attach Evidence Probe To Boot Scene")]
     public static void AttachProbeFromMenu()
@@ -60,8 +61,10 @@ public static class SurviveFirstPersonArmsSetup
     }
 
     /// <summary>
-    /// Adds the Phase 09A_2 evidence probe to 00_Boot exactly once. The probe is
-    /// inert unless it is launched with -ship09A2Shot, so the shipped boot route
+    /// Adds the Phase 09A_3 block-arms evidence probe to 00_Boot exactly once and
+    /// removes the retired Phase 09A_2 probe object (its script no longer exists,
+    /// so leaving it behind would be a missing-script reference). The probe is
+    /// inert unless it is launched with -ship09A3Shot, so the shipped boot route
     /// is unchanged; the scene is opened additively and only that scene is
     /// written, so no other scene can be touched.
     /// </summary>
@@ -71,23 +74,47 @@ public static class SurviveFirstPersonArmsSetup
             UnityEditor.SceneManagement.EditorSceneManager.OpenScene(BootScenePath,
                 UnityEditor.SceneManagement.OpenSceneMode.Additive);
 
-        foreach (Ship09A2ShotProbe existing in UnityEngine.Object.FindObjectsByType<Ship09A2ShotProbe>(
-                     FindObjectsInactive.Include))
+        bool changed = false;
+
+        // Retire the Phase 09A_2 probe object (its script was removed with the
+        // legacy FBX arms runtime).
+        foreach (GameObject root in scene.GetRootGameObjects())
         {
-            if (existing.gameObject.scene == scene)
+            if (root.name == LegacyProbeObjectName)
             {
-                UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
-                return "probe already attached to " + BootScenePath;
+                UnityEngine.Object.DestroyImmediate(root);
+                changed = true;
             }
         }
 
-        var probeGo = new GameObject(ProbeObjectName);
-        UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(probeGo, scene);
-        probeGo.AddComponent<Ship09A2ShotProbe>();
+        bool alreadyAttached = false;
+        foreach (Ship09A3ShotProbe existing in UnityEngine.Object
+                     .FindObjectsByType<Ship09A3ShotProbe>(FindObjectsInactive.Include))
+        {
+            if (existing.gameObject.scene == scene)
+            {
+                alreadyAttached = true;
+            }
+        }
+
+        if (!alreadyAttached)
+        {
+            var probeGo = new GameObject(ProbeObjectName);
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectToScene(probeGo, scene);
+            probeGo.AddComponent<Ship09A3ShotProbe>();
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
+            return "probe already attached to " + BootScenePath;
+        }
+
         bool saved = UnityEditor.SceneManagement.EditorSceneManager.SaveScene(scene, BootScenePath);
         UnityEditor.SceneManagement.EditorSceneManager.CloseScene(scene, true);
-        return (saved ? "attached " : "FAILED to attach ") + ProbeObjectName
-               + " to " + BootScenePath;
+        return (saved ? "updated " : "FAILED to update ") + ProbeObjectName
+               + " in " + BootScenePath;
     }
 
     public static void Import()

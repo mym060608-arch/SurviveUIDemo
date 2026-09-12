@@ -30,15 +30,18 @@ using UnityEngine.UIElements;
 public class StandaloneSmoke : MonoBehaviour
 {
     private const string SmokeResultFlag = "-smokeResult";
+    private const string SmokeShotsFlag = "-smokeShots";
 
     private static bool _sessionClaimed;
 
     private string _resultPath;
+    private string _shotFolder;
     private bool _ownsRun;
 
     private void Awake()
     {
         _resultPath = ParseFlag(SmokeResultFlag);
+        _shotFolder = ParseFlag(SmokeShotsFlag);
         if (string.IsNullOrEmpty(_resultPath) || _sessionClaimed)
         {
             // Not a smoke launch, or another probe instance already owns it.
@@ -48,6 +51,13 @@ public class StandaloneSmoke : MonoBehaviour
 
         _sessionClaimed = true;
         _ownsRun = true;
+
+        if (!string.IsNullOrEmpty(_shotFolder))
+        {
+            // The recorded frames are compared against the 1920x1080 phase
+            // baselines, so the visual evidence is captured at that size.
+            Screen.SetResolution(1920, 1080, false);
+        }
 
         // The journey crosses scene loads (Main Menu -> Ship Interior -> Main
         // Menu). Without this the probe would be destroyed with the cover scene
@@ -338,6 +348,15 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("no terminal UI covers the frame on entry",
             !ship.IsConsoleFocusActive && !ship.IsOverlayOpen);
 
+        // The UI contract of the whole run (see UiIntegrityAudit): exactly one
+        // hub screen, every screen-space document styled, and no overlay that
+        // survived the scene change on its own.
+        System.Collections.Generic.List<string> uiProblems = UiIntegrityAudit.Problems();
+        log.Check("the ship interior UI is intact (" + UiIntegrityAudit.Describe(uiProblems) + ")",
+            uiProblems.Count == 0);
+        log.Info("ship interior UI state: " + UiIntegrityAudit.Snapshot());
+        yield return CaptureFrame("smoke_ship_interior");
+
         // ---- 8. Console view + the full pause loop ----
         // A virtual gamepad is added so this standalone run drives the REAL
         // device path (buttons through the Input System) with no hardware present.
@@ -350,21 +369,23 @@ public class StandaloneSmoke : MonoBehaviour
         InputDeviceTracker.NotifyGamepad();
         yield return null;
 
-        // ---- 8a. Phase 09A_2: first-person arms + the wrist presentation ----
+        // ---- 8a. Phase 09A_3: block arms + the wrist presentation ----
         // Runs on the real device path: the locomotion push and the Wrist press
         // are Input System gamepad events, never direct API calls, so this is the
         // standalone proof of  "Wrist binding -> existing wrist system ->
-        // presentation bridge -> Animator".
+        // presentation bridge -> block-arm transform blend".
         Debug.Log("[StandaloneSmoke] step 8a: first-person arms + wrist");
         log.Check("the first-person arms exist exactly once after the eyes open",
             CountArms() == 1);
-        log.Check("the arms follow the authoritative eye camera",
-            ship.Arms != null
-            && ship.Arms.transform.IsChildOf(ship.Player.EyeCamera.transform));
+        log.Check("the block arms follow the player rig in body space",
+            ship.Arms != null && ship.Player != null
+            && ship.Arms.transform.parent == ship.Player.transform
+            && Mathf.Abs(ship.Arms.transform.localPosition.y
+                         - ship.Player.eyeHeight) < 0.001f);
         log.Check("the arms are presented in free first person",
             ship.Arms != null && ship.Arms.IsVisible);
-        log.Check("the arms present Idle while standing still",
-            ship.Arms != null && ship.Arms.CurrentStateName == "Idle");
+        log.Check("the arms present Rest while standing still",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Rest");
 
         InputSystem.QueueStateEvent(pad, new GamepadState
         {
@@ -381,10 +402,11 @@ public class StandaloneSmoke : MonoBehaviour
         InputSystem.QueueStateEvent(pad, new GamepadState());
         yield return new WaitForSecondsRealtime(0.6f);
         log.Check("the arms present Walk while the player really moves", sawWalk);
-        log.Check("the arms return to Idle when the player stops",
-            ship.Arms != null && ship.Arms.CurrentStateName == "Idle");
-        log.Check("walking never applies root motion to the arms",
-            ship.Arms != null && !ship.Arms.Animator.applyRootMotion);
+        log.Check("the arms return to the rest presentation when the player stops",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Rest");
+        log.Check("the block arms are pure presentation geometry (no collider, no rig)",
+            ship.Arms != null
+            && ship.Arms.GetComponentsInChildren<Collider>(true).Length == 0);
 
         // The Wrist binding opens the AUTHORITY at once; the existing terminal
         // only appears once the left wrist has risen into view.
@@ -394,7 +416,7 @@ public class StandaloneSmoke : MonoBehaviour
             !ship.IsWristTerminalRevealed);
         log.Check("the arm starts raising",
             ship.Arms != null
-            && ship.Arms.CurrentWristPhase == FirstPersonArmsController.WristPhase.Raise);
+            && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Raise);
 
         yield return WaitFor(() => ship.IsWristTerminalRevealed, 4f);
         log.Check("the existing wrist terminal is revealed after the raise",
@@ -416,11 +438,11 @@ public class StandaloneSmoke : MonoBehaviour
             !ship.IsWristTerminalRevealed && !ship.Wrist.Display.Visible);
         log.Check("the arm starts lowering",
             ship.Arms != null
-            && ship.Arms.CurrentWristPhase == FirstPersonArmsController.WristPhase.Lower);
+            && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Lower);
         yield return WaitFor(() => ship.Arms != null
-            && ship.Arms.CurrentWristPhase == FirstPersonArmsController.WristPhase.Rest, 4f);
-        log.Check("the arm returns to the Idle presentation",
-            ship.Arms != null && ship.Arms.CurrentStateName == "Idle"
+            && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Rest, 4f);
+        log.Check("the arm returns to the rest presentation",
+            ship.Arms != null && ship.Arms.CurrentStateName == "Rest"
             && ship.Player.InputEnabled);
 
         ShipConsoleInteractable overviewConsole = null;
@@ -508,6 +530,15 @@ public class StandaloneSmoke : MonoBehaviour
                 Mathf.Approximately(Time.timeScale, 0f) && !ship.Player.InputEnabled);
             log.Check("the pause freezes the arms presentation too",
                 ship.Arms != null && ship.Arms.IsFrozen);
+
+            // Pause must overlay exactly the running context: no extra screen may
+            // become visible just because the pause opened.
+            System.Collections.Generic.List<string> pauseProblems = UiIntegrityAudit.Problems();
+            log.Check("the pause overlays the current context only ("
+                      + UiIntegrityAudit.Describe(pauseProblems) + ")",
+                pauseProblems.Count == 0);
+            log.Info("pause UI state: " + UiIntegrityAudit.Snapshot());
+            yield return CaptureFrame("smoke_pause_gameplay");
 
             yield return PressGamepadButton(pad, GamepadButton.Start);
             yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
@@ -712,10 +743,52 @@ public class StandaloneSmoke : MonoBehaviour
         yield return null;
     }
 
-    /// <summary>Live first-person arms instances (Phase 09A_2 duplicate guard).</summary>
+    /// <summary>
+    /// Optional visual evidence for the real route: writes one 1920x1080 frame
+    /// into the folder given with <c>-smokeShots &lt;folder&gt;</c>. Inert (and
+    /// free) when the flag is absent, so a normal smoke run is unchanged.
+    /// </summary>
+    private IEnumerator CaptureFrame(string name)
+    {
+        if (string.IsNullOrEmpty(_shotFolder))
+        {
+            yield break;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(_shotFolder);
+        }
+        catch (Exception)
+        {
+            yield break;
+        }
+
+        string path = Path.Combine(_shotFolder, name + ".png");
+        if (Screen.width != 1920 || Screen.height != 1080)
+        {
+            Screen.SetResolution(1920, 1080, false);
+            yield return new WaitForSecondsRealtime(0.5f);
+        }
+
+        ScreenCapture.CaptureScreenshot(path);
+        for (int i = 0; i < 600; i++)
+        {
+            if (File.Exists(path) && new FileInfo(path).Length > 20000)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        yield return new WaitForSecondsRealtime(0.15f);
+    }
+
+    /// <summary>Live block-arms instances (Phase 09A_3 duplicate guard).</summary>
     private static int CountArms()
     {
-        return UnityEngine.Object.FindObjectsByType<FirstPersonArmsController>(
+        return UnityEngine.Object.FindObjectsByType<FirstPersonBlockArmsController>(
             FindObjectsInactive.Include).Length;
     }
     /// <summary>
@@ -1228,6 +1301,12 @@ public class StandaloneSmoke : MonoBehaviour
         {
             Failures++;
             _lines.AppendLine("FAIL :: " + label);
+            Flush();
+        }
+
+        public void Info(string text)
+        {
+            _lines.AppendLine("INFO :: " + text);
             Flush();
         }
 

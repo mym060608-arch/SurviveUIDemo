@@ -43,7 +43,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
     private WorldUiPointerRouter _pointerRouter;
     private ShipEntryBlinkFade _blinkFade;
     private ShipPauseMenu _pauseMenu;
-    private FirstPersonArmsController _arms;
+    private FirstPersonBlockArmsController _arms;
     private WristPresentationBridge _wristBridge;
     private bool _wristEnabledBeforePause = true;
     private bool _paused;
@@ -70,11 +70,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
     public bool IsWristOpen => _isWristOpen;
 
     /// <summary>
-    /// First-person arms presentation instance (Phase 09A_2). Null when the
-    /// runtime asset is unavailable - every wrist behaviour stays functional in
-    /// that case, only the arm motion is missing.
+    /// First-person arms presentation instance (Phase 09A_3 block arms). Null
+    /// when the runtime asset is unavailable - every wrist behaviour stays
+    /// functional in that case, only the arm motion is missing.
     /// </summary>
-    public FirstPersonArmsController Arms => _arms;
+    public FirstPersonBlockArmsController Arms => _arms;
 
     /// <summary>Wrist presentation bridge (null whenever the arms are).</summary>
     public WristPresentationBridge WristPresentation => _wristBridge;
@@ -950,10 +950,15 @@ public class ShipGameController : MonoBehaviour, IWristContext
     }
 
     /// <summary>
-    /// Creates (once) the first-person arms instance and its wrist presentation
-    /// bridge. Presentation only: nothing here can open/close the wrist, move
-    /// the player or take focus - the bridge merely observes this controller's
-    /// authoritative state and animates the arms accordingly.
+    /// Creates (once) the first-person block arms instance and its wrist
+    /// presentation bridge. Presentation only: nothing here can open/close the
+    /// wrist, move the player or take focus - the bridge merely observes this
+    /// controller's authoritative state and animates the arms accordingly.
+    ///
+    /// Phase 09A_3: the runtime presentation is the code-built block / voxel arm
+    /// set. The legacy Codex FBX arms (FirstPersonArmsController + the imported
+    /// rig prefab) are kept in the repository as history but are no longer
+    /// created at runtime.
     /// </summary>
     private void EnsureFirstPersonArms()
     {
@@ -963,7 +968,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
             return;
         }
 
-        _arms = FirstPersonArmsController.Ensure(_player.EyeCamera);
+        _arms = FirstPersonBlockArmsController.Ensure(_player);
         if (_arms == null)
         {
             return;
@@ -979,7 +984,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
         _wristBridge = bridgeGo.AddComponent<WristPresentationBridge>();
         _wristBridge.Configure(this, _arms, _wrist);
 
-        Debug.Log("[ShipGameController] first-person arms ready renderers="
+        Debug.Log("[ShipGameController] first-person block arms ready renderers="
                   + _arms.RendererCount
                   + " wristBridge=" + (_wristBridge != null));
     }

@@ -2,6 +2,18 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
+/// LEGACY (Phase 09A_2) — the Codex FBX arms presentation.
+///
+/// Phase 09A_3 replaced the runtime first-person presentation with the code-built
+/// block arms (<see cref="FirstPersonBlockArmsController"/>), so nothing creates
+/// this component any more. It is kept, together with its imported FBX asset and
+/// its Animator Controller, purely as repository history / reference: the asset
+/// pipeline and the evidence for that attempt are still reproducible.
+///
+/// Do not wire this back into the ship coordinator without re-validating the
+/// composition: it renders the arms in CAMERA space and therefore needs the
+/// rest-framing offset that the block-arms solution no longer requires.
+///
 /// First-person arms presentation (Phase 09A_2).
 ///
 /// This component is PRESENTATION ONLY. It is the runtime owner of the Codex
