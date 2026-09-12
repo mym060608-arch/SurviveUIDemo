@@ -372,6 +372,36 @@ public class SurvivePhase09AFinalTests
             "the frosted arm renders before the hologram");
     }
 
+    /// <summary>
+    /// The pale outline shell is gone for good. The presentation is exactly the
+    /// block mesh set (12 renderers) with no oversized / low-alpha duplicate drawn
+    /// around it - that duplicate is what read as a grey halo around the watch.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator WristFocus_HasNoGreyOutlineShell_Green()
+    {
+        ShipGameController ship = null;
+        yield return EnterShip(value => ship = value);
+        FirstPersonBlockArmsController arms = ship.Arms;
+
+        Assert.AreEqual(12, arms.RendererCount,
+            "the arms are the plain block mesh set, with no extra halo pass");
+
+        yield return PressButton(GamepadButton.North);
+        yield return WaitUntil(() => arms.FocusBlend >= 0.999f, 4f);
+
+        // The frost is material softening, never a second translucent shell.
+        Assert.AreEqual(12, arms.RendererCount,
+            "the frosted state adds no second shell");
+        foreach (Renderer renderer in arms.GetComponentsInChildren<Renderer>(true))
+        {
+            Assert.IsNotNull(renderer, "the arm mesh set is intact");
+            Assert.IsFalse(
+                renderer.gameObject.name.ToLowerInvariant().Contains("halo"),
+                "the frosted state draws no halo object (" + renderer.gameObject.name + ")");
+        }
+    }
+
     // ====================================================================
     // PASS 4 - close: UI out, arm crisp again, then a single lower move
     // ====================================================================

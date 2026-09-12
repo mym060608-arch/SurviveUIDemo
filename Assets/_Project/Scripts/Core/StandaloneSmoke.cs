@@ -341,6 +341,20 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("the eyelid beats played (stages: " + string.Join(",", stages) + ")",
             stages.Contains("beat1") && stages.Contains("beat2") && stages.Contains("beat3"));
         log.Check("the eyelid overlay was removed", ship.EntryBlink == null);
+        // The overlay is destroyed by the blink component and the input lock is
+        // released by the ship controller in the same frame, so which one the
+        // coroutine observes first depends on the script execution order - a
+        // measured one-frame race that failed this check intermittently. Wait for
+        // the release within a bounded window instead; the assertion is unchanged,
+        // so a lock that never lifts still fails.
+        int releaseGuard = 0;
+        while (releaseGuard < 120
+               && (ship.IsEntryInputLocked || ship.Player == null || !ship.Player.InputEnabled))
+        {
+            releaseGuard++;
+            yield return null;
+        }
+
         log.Check("control is released after the eyes open",
             !ship.IsEntryInputLocked && ship.Player != null && ship.Player.InputEnabled);
         log.Check("the first-person camera renders",

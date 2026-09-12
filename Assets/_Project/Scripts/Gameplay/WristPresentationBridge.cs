@@ -58,7 +58,7 @@ public class WristPresentationBridge : MonoBehaviour
     /// </summary>
     public const float HoldSettleSeconds = 0.04f;
 
-    private ShipGameController _ship;
+    private IArmsPresentationContext _context;
     private FirstPersonBlockArmsController _arms;
     private SurfaceWristController _wrist;
 
@@ -83,10 +83,16 @@ public class WristPresentationBridge : MonoBehaviour
     /// <summary>Reason the last reveal fired (diagnostics / tests).</summary>
     public string LastRevealReason { get; private set; } = "<never>";
 
-    public void Configure(ShipGameController ship, FirstPersonBlockArmsController arms,
-        SurfaceWristController wrist)
+    /// <summary>
+    /// Wires the presentation to one environment. The context (ship interior or
+    /// planet surface) supplies the player rig, the pause state, the modal-
+    /// presentation state and its own wrist terminal; the arms and this bridge
+    /// stay environment independent.
+    /// </summary>
+    public void Configure(IArmsPresentationContext context,
+        FirstPersonBlockArmsController arms, SurfaceWristController wrist)
     {
-        _ship = ship;
+        _context = context;
         _arms = arms;
         _wrist = wrist;
     }
@@ -186,9 +192,9 @@ public class WristPresentationBridge : MonoBehaviour
         LastRevealReason = arrived
             ? "raise reached " + progress.ToString("0.00")
             : "raise timeout after " + _awaitElapsed.ToString("0.00") + "s";
-        if (_ship != null)
+        if (_context != null)
         {
-            _ship.RevealWristTerminal(true);
+            _context.SetWristTerminalVisible(true);
         }
 
         // Re-evaluate the screens in the SAME frame as the reveal, so the device
@@ -236,10 +242,7 @@ public class WristPresentationBridge : MonoBehaviour
     /// </summary>
     private void UpdateVisibility()
     {
-        bool hiddenByMode = _ship != null
-                            && (_ship.IsEntryInputLocked
-                                || _ship.IsConsoleFocusActive
-                                || _ship.IsOverlayOpen);
+        bool hiddenByMode = _context != null && _context.HidesFirstPersonPresentation;
         _arms.SetVisible(!hiddenByMode);
     }
 

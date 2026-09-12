@@ -13,8 +13,36 @@ using UnityEngine.SceneManagement;
 /// interaction happens through FirstPersonInteractor. Wrist map coordinates
 /// live in the single authoritative WristMapCoordinates source.
 /// </summary>
-public class SurfaceGameController : MonoBehaviour, IWristContext
+public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresentationContext
 {
+    // ---- IArmsPresentationContext: the same block-arm presentation as the ship ----
+
+    /// <summary>Player rig the arms hang from.</summary>
+    SurfacePlayerController IArmsPresentationContext.Player => _player;
+
+    /// <summary>The surface has no pause menu, so nothing freezes the arms here.</summary>
+    bool IArmsPresentationContext.IsPaused => false;
+
+    /// <summary>The surface has no console view or device panels to hide them for.</summary>
+    bool IArmsPresentationContext.HidesFirstPersonPresentation => false;
+
+    /// <summary>The planet's own wrist terminal stays the authoritative UI.</summary>
+    void IArmsPresentationContext.SetWristTerminalVisible(bool visible)
+    {
+        if (_wrist != null)
+        {
+            _wrist.SetOpen(visible);
+        }
+    }
+
+    /// <summary>Live block-arms presentation instance (tests / probes).</summary>
+    public FirstPersonBlockArmsController Arms => _arms;
+
+    /// <summary>Wrist presentation bridge driving raise / hold / lower.</summary>
+    public WristPresentationBridge WristPresentation => _wristBridge;
+
+    /// <summary>The planet's existing wrist terminal (the authoritative UI).</summary>
+    public SurfaceWristController Wrist => _wrist;
     // Legacy proximity helper range (semantic tests/probes only).
     public float interactRangeFallback = 3.0f;
 
@@ -22,6 +50,8 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
     private SurfacePlayerController _player;
     private SurfaceHudController _hud;
     private SurfaceWristController _wrist;
+    private FirstPersonBlockArmsController _arms;
+    private WristPresentationBridge _wristBridge;
     private FirstPersonInteractor _interactor;
     private SurfaceResourceNode _nearest;
     private SurfaceResourceNode _activeNode;
@@ -93,6 +123,7 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
 
         ApplySurfaceFirstPersonMode();
         _ready = true;
+        EnsureFirstPersonArms();
     }
 
     private void OnDestroy()
@@ -117,6 +148,11 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
         }
 
         PollWristKeys();
+        if (_wristBridge != null)
+        {
+            _wristBridge.Tick(false);
+        }
+
         UpdateNearest();
         if (!_isWristOpen)
         {
@@ -212,13 +248,65 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
             _hud.SetWristMode(open);
         }
 
-        if (_wrist != null)
+        if (open)
         {
-            _wrist.SetOpen(open);
+            // The planet's terminal has always appeared the moment the wrist opens
+            // (that is its own contract and its tests pin it), so the SAME arm
+            // presentation simply raises underneath it: same single-move raise, same
+            // frost once the arm arrives, same close order. The ship interior keeps
+            // the staged reveal, where the hologram waits for the raise.
+            _wristBridge?.BeginWristRaise();
+            SetWristTerminalVisibleNow(true);
+        }
+        else
+        {
+            _wristBridge?.BeginWristLower();
+            SetWristTerminalVisibleNow(false);
         }
 
         ApplyCursorForMode();
         WristOpenChanged?.Invoke(open);
+    }
+
+    /// <summary>The planet's wrist terminal itself (owned here, revealed by the bridge).</summary>
+    private void SetWristTerminalVisibleNow(bool visible)
+    {
+        if (_wrist != null)
+        {
+            _wrist.SetOpen(visible);
+        }
+    }
+
+    /// <summary>
+    /// Creates the SAME block-arm presentation the ship interior uses: one
+    /// environment-independent controller under the player rig plus the wrist
+    /// presentation bridge, wired through <see cref="IArmsPresentationContext"/>.
+    /// Reuses an existing instance, so a scene transition can never stack a
+    /// second set of arms.
+    /// </summary>
+    private void EnsureFirstPersonArms()
+    {
+        if (_player == null || _player.EyeCamera == null)
+        {
+            Debug.LogError("[SurfaceGameController] first-person arms need the eye camera");
+            return;
+        }
+
+        _arms = FirstPersonBlockArmsController.Ensure(_player);
+        if (_arms == null)
+        {
+            return;
+        }
+
+        _arms.Configure(_player);
+
+        var bridgeGo = new GameObject("WristPresentationBridge");
+        bridgeGo.transform.SetParent(transform, false);
+        _wristBridge = bridgeGo.AddComponent<WristPresentationBridge>();
+        _wristBridge.Configure(this, _arms, _wrist);
+
+        Debug.Log("[SurfaceGameController] first-person block arms ready renderers="
+                  + _arms.RendererCount + " wristBridge=" + (_wristBridge != null));
     }
 
     private void ApplyCursorForMode()

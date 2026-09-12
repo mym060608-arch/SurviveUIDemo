@@ -36,8 +36,9 @@ worst |position - rotation| gap: 0.000   （第一帧即同时开始：blend=0.0
 
 ## 4. PASS 4 — Frosted 呈现（取消「手臂变黑」）
 
-- **实体手臂**：alpha **0.60**、饱和度 **55%**、亮度 **0.88**、朝**奶白冷灰**（`FrostTint` 0.62/0.68/0.76）去饱和 —— 磨砂玻璃，不是黑影；另加 1.06× / alpha 0.10 的柔边 halo。
+- **实体手臂**：alpha **0.60**、饱和度 **55%**、亮度 **0.88**、朝**奶白冷灰**（`FrostTint` 0.62/0.68/0.76）去饱和 —— 磨砂玻璃，不是黑影。
   实测 mask 帧：crisp 162,944 px @ 0.507 → frosted 189,840 px @ 0.424（对比度与细节被抹平，仍清晰可见）。
+- **不再有灰白轮廓（halo 已删除）**：早期为了软化边缘曾在外层套一圈 1.06× / alpha 0.10 的手臂副本，人工验收时读作「腕表周围一圈明显的灰白色轮廓」。该副本（`BuildSoftHalo` / `_leftHalo` / `_haloRenderers` / `HaloScale` / `HaloAlpha` / `HaloOpacity`）**已整体删除**，手臂渲染器数量回到 12，不存在任何 alpha 描边或放大副本。因此 frost 只由两处产生：**实体材质的柔化**（§4 第一项）+ **全息磨砂透镜**（§4 第三项），UI 始终锐利，青色核心保留。这一约束由测试与报告共同固化：`SurvivePhase09AFinalTests.WristFocus_HasNoGreyOutlineShell_Green` 断言 crisp 与 frosted 两个状态下手臂渲染器数量都为 **12**，且层级中不存在任何名字含 `halo` 的渲染对象；`wrist_focus_report.txt` 也如实记录 `soft edge : none (the oversized halo copy was removed: it read as a grey outline shell)`；探针另有 `block arms renderers=12` 的输出作为对照。
 - **材质实现**：frosted 集使用项目自有的透明着色器 `Survive/WristDisplayUnlit`（URP Lit 在本项目中即使把 `_Surface/_SrcBlend/_DstBlend/_ZWRITE` 与透明关键字全部设对，实测仍然按不透明渲染：suit 像素 132→133 完全不变，因此改用已验证可混合的着色器；同时 unlit 的平面化正好是磨砂观感）。
 - **全息磨砂透镜（方案 A）**：`Survive/WristDisplayUnlit` 新增 `_BaseColor / _Opacity / _FrostOpacity / _MapCentre / _MapRadius / _FrostSoftness / _FrostTint / _FrostGrain`，在地图圆盘（设计空间 centre 640,400 / r 235 → UV 0.5,0.5 / 0.184,0.294）内部把 sheet 不透明度降到 **0.70**，并加 0.26 奶白提亮与 0.035 静态颗粒。世界与 UI 本身不受影响，只在圆盘内让下方实体腕表透出。
 - **层序**：实体手臂 queue **2900** < 全息 **3000**（validator 已固化该不等式），UI 永远合成在手臂之上。
@@ -47,13 +48,14 @@ worst |position - rotation| gap: 0.000   （第一帧即同时开始：blend=0.0
 
 | 项目 | 结果 |
 | --- | --- |
-| Release | `export/releases/phase09a/SurviveUIDemo.exe`（统一目录，构建时间 2026-09-12 14:27） |
-| Release smoke | `export/phase09a_release_smoke.txt` — **207 / 0，RESULT: SUCCESS** |
-| Release 视觉探针 | `export/phase09a_final_shots/phase09a3_result.txt` — **89 / 0** |
-| PlayMode 全量 | `export/phase09a_playmode.xml` — **161 / 161** |
-| 结构 validator | `export/phase09a_validator.txt` — **424 / 0** |
-| 运动报告 | `export/phase09a_final_shots/wrist_motion_report.txt` |
-| Frosted 报告 | `export/phase09a_final_shots/wrist_focus_report.txt` |
+| Release | `export/releases/phase09a/SurviveUIDemo.exe`（统一目录，构建于 2026-09-12 18:44，`release_build_result.txt`: errors 0 / warnings 1，108,678,061 bytes） |
+| Release smoke | `export/evidence/phase09a/smoke/smoke.txt` — **207 / 0，RESULT: SUCCESS**（同一二进制连跑两次均为 207/0） |
+| Release 视觉探针 | `export/evidence/phase09a/shots/phase09a3_result.txt` — **130 / 0**（`-stage 6`，含 Ship + Surface） |
+| PlayMode 全量 | `export/evidence/phase09a/playmode.xml` — **165 / 165** |
+| 结构 validator | `export/evidence/phase09a/validator.txt` — **424 / 0** |
+| 运动报告 | `export/evidence/phase09a/shots/wrist_motion_report.txt` |
+| Frosted 报告 | `export/evidence/phase09a/shots/wrist_focus_report.txt` |
+| 构建 / 运行日志 | `export/logs/phase09a/` |
 
 关键实测（Release）：
 
@@ -61,14 +63,14 @@ worst |position - rotation| gap: 0.000   （第一帧即同时开始：blend=0.0
 平视            01_fp_forward_view            手臂像素 0
 低头            02_fp_look_down               双手分列两侧，中央带 0
 Raise 关键帧    03..06_wrist_raise_20/40/60/80  连续单一轨迹
-物理 hold       07_wrist_hold_physical        主轴 -1.8°，腕表 (0.491,0.235)
+物理 hold       07_wrist_hold_physical        主轴 -1.6°，腕表 (0.445,0.235)，facing dot 0.997
 UI 出现         08/09_wrist_before_ui / ui_reveal   UI 在 raise 0.92 开始出现
 焦点 hold       10_wrist_hold_frosted         focusBlend 1.00，arm alpha 0.60
 UI-only 参考    11_wrist_hold_ui_only_reference
 对比证据板      12_wrist_hold_frosted_comparison  上排 08|10，下排 crisp/frosted 手臂 mask
-核心透出        13_wrist_core_through_map     mean|diff| 12.48 / 蓝移 2.44 / 覆盖区变化 79.9%
-                                              core 区 28.55 / 蓝移 35.96（16k px）
-UI 可读性       地图圆盘亮像素 348,165（有手臂） vs 343,641（隐藏手臂），ratio 1.013，峰值一致
+核心透出        13_wrist_core_through_map     覆盖区变化 70.4% / mean|diff| 11.03 / 蓝移 0.96
+                                               core 区 22.92 / 蓝移 30.61（16,633 px）
+UI 可读性       地图圆盘亮像素保持（有手臂 vs 隐藏手臂 ratio ≈ 1.00，峰值一致）
 键盘终端        14/15/16_terminal_prompt / open / console_exit_esc
 Lower           17_wrist_lower               单一连续反向，回到 Rest 后清晰度恢复
 Pause / 返回    18_pause / 19_return_main_menu
@@ -76,6 +78,140 @@ Pause / 返回    18_pause / 19_return_main_menu
 
 ## 6. 诚实标注
 
-- 磨砂为 **pseudo-frosted**：半透明 + 去饱和 + 奶白 tint + 静态颗粒 + 柔边 halo，**不是** Gaussian blur（原因见 §4 与 `wrist_focus_report.txt`）。真实景深/后处理模糊会同时模糊由同一相机渲染的全息 quad 与整个世界，方案 B（手臂单独 RT 软化）需要改渲染路径并把手臂从 eye camera culling mask 移除，风险高于收益，故采用方案 A+C。
+- 磨砂为 **pseudo-frosted**：半透明 + 去饱和 + 奶白 tint + 静态颗粒，**不是** Gaussian blur（原因见 §4 与 `wrist_focus_report.txt`）。真实景深/后处理模糊会同时模糊由同一相机渲染的全息 quad 与整个世界，方案 B（手臂单独 RT 软化）需要改渲染路径并把手臂从 eye camera culling mask 移除，风险高于收益，故采用方案 A+C。
 - 自动化能证明结构与数值（层序、alpha/emission、可见性、覆盖率、UI 可读性保持），**不能**证明「磨砂好不好看」；后者需人工运行 Release 判断。
-- Standalone smoke 在本轮出现 **1 次间歇性输入投递抖动**（全部输入驱动检查级联 FAIL 并伴随一次 NRE；该 NRE 源于新检查未判空 `Wrist.Display`，已加空值防护）。同一二进制复跑为 207/0 SUCCESS，Development 带符号构建 207/0 无异常；此抖动在更早的 Phase09A_3 记录中亦出现过一次。
+- 手臂 mask 帧在本项目中只反映**对象可见性变化，不反映材质变化**（已实测：三个不同的透明 shader 产生完全相同的 mask 结果），因此 frost 的证明方式是**材质状态读数 + 真实帧的透出测量**，而不是 mask 亮度差。
+- Standalone smoke 与视觉探针本轮各暴露过 **1 个 harness 竞态**（探针姿态被实时 look 权威拉走、smoke 入场锁的一帧顺序差），二者都已按「让测试确定性」的方向修掉，细节见 §11；修复后 Release 连跑两次 smoke 均为 207/0，探针为 130/0。此前记录过的「间歇性输入投递抖动」尚未再复现，但它是同一类 harness 时序问题，人工复跑时若再看到级联 FAIL，请先看 `export/logs/phase09a/smoke.log` 里最后一条 `PASS ::`。
+
+## 7. 收口修订 — 删除灰白 halo
+
+**人工反馈**：Wrist Focus 时手臂/腕表周围有一圈明显的灰白色轮廓。
+
+**根因**：上一轮为了软化边缘，在外层套了一圈 **1.06× / alpha 0.10 的手臂副本**。它不是模糊，而是一个略大的半透明壳，在深色舱内背景下读作灰白色描边 —— 恰好与需求相反。
+
+**修复**：该机制**整体删除**（`BuildSoftHalo` / `_leftHalo` / `_haloRenderers` / `HaloScale` / `HaloAlpha` / `HaloOpacity` 全部移除），手臂渲染器数量回到 **12**，不存在任何放大副本或 alpha 描边。Frost 现在只由两处产生：
+
+```text
+实体材质的柔化     alpha 0.60 / 去饱和 0.45 / 亮度 0.88 / 奶白冷灰 tint
+全息磨砂透镜       _FrostOpacity 0.70 + 奶白提亮 0.26 + 静态颗粒 0.035
+```
+
+UI 依然锐利（未被触碰），青色核心依然保留。回归保护见 §4 提到的 `WristFocus_HasNoGreyOutlineShell_Green`。
+
+## 8. 收口修订 — 腕表核心与地图对齐（基于实测，不是盲移）
+
+**人工反馈**：Wrist Focus 时腕表核心与 Wrist UI 地图中心不重合。
+
+**方法**：先用 `WatchCoreViewport`（真实 screen-renderer bounds 中心）**测量**核心在 viewport 中的位置，再换算成世界位移，而不是固定「左移 N 像素」。
+
+```text
+测量（改动前）  core viewport x = 0.495   map centre x = 0.442   deltaX = +0.055
+换算            FOV 70 / 16:9 -> 单位深度 1.2448 视口宽
+                核心深度 ≈ 0.414 m  =>  1 视口单位 ≈ 0.490 m
+位移            holdShoulder.x  -0.310 -> -0.367  （Δ = -0.057 m ≈ -0.043 视口）
+测量（改动后）  core = (0.441, 0.227, 0.416)   map = (0.440, 0.438, 0.935)
+                deltaX = +0.001   deltaY = -0.211
+```
+
+**验收门**：`deltaX` 容差 **±0.02 视口**（Release 实测 +0.001，通过）；`deltaY` 容差 ±0.30（腕表必须在画面下半部，通过）。构图约束同时被守住：左前臂主轴仍近水平（Release 实测 -1.6°）、腕表仍朝向相机（facing dot 0.997）、右手仍不出框（0 renderers inside the frustum）、只移动 `LeftArm` presentation，没有把整个 `BlockArmsRoot` 旋入相机。核心没有被推到地图最左侧（`MapCentre.x` = 0.440）。
+
+## 9. 收口修订 — Block Arms 扩展到行星地表
+
+**目标**：手臂不再是 Ship 专属，而是**环境无关**的一层第一人称表现。
+
+**架构**：
+
+```text
+FirstPersonBlockArmsController        唯一实现（几何 / Rest / Walk / Raise / Hold / Lower / frosted）
+        ▲
+        │ 由环境适配器提供上下文，不反向依赖环境
+IArmsPresentationContext              Player / IsPaused / HidesFirstPersonPresentation
+        │                             SetWristTerminalVisible(bool)
+        ├─ ShipGameController         实现（entry lock / console focus / overlay 视为隐藏）
+        └─ SurfaceGameController      实现（同一合同，Surface 自己决定 terminal 时机）
+WristPresentationBridge               驱动 raise -> UI reveal -> frost crossfade -> lower
+```
+
+- 环境只提供 **adapter/context**：player/root transform、eye camera、movement state、wrist authority、visibility。控制器本身不认识 Ship 或 Surface，也不持有它们的引用。
+- **Surface 复用同一份几何、同一套 Rest / Walk / Raise / Hold / Lower、同一套 frosted 呈现**；唯一差别是 Surface 的 terminal 依旧即时出现（这是它自己的历史合同，Phase 06 测试锁定），而手臂仍然执行同一次 raise 与 frost。
+- **唯一性**：`Active FirstPersonBlockArmsController count == 1` 在任意时刻成立；没有重复实例、没有遗留实例。validator 继续固化 Block Arms unique / no duplicate camera / no duplicate AudioListener。
+
+**测试覆盖**（本轮新增 / 更新共 13 条：`SurvivePhase09ASurfaceArmsTests.cs` 3 条 + `SurvivePhase09AFinalTests.cs` 10 条；Ship 侧的实例数、Return Main 清理、Continue 重建沿用 `SurvivePhase09A3BlockArmsTests`）：
+
+```text
+Surface_HasOneBlockArmsPresentation_AndDrivesIt_Green
+        地表恰好 1 个实例，且前视 / 低头 / 腕表开合行为与 Ship 一致
+Surface_WristRaiseHoldLower_UsesTheSamePresentation_Green
+        地表复用同一次 raise / hold / lower 与同一套 frosted 呈现
+SceneTransitions_NeverDuplicateTheArms_Green
+        Ship <-> Surface 往返后仍恰好 1 个实例（无重复 / 无遗留）
+SurvivePhase09A3BlockArmsTests（既有，继续通过）
+        ReturnToMainMenu_CleansUp_AndContinueCreatesOne_Green
+        Return Main 后实例被清理；Continue 后重新创建且恰好 1 个
+```
+
+**Ship 合同未回归**：平视无手、低头出现双手、wrist raise/hold/lower、Console Focus 与设备面板期间手臂隐藏、Pause 冻结当前状态、Return Main 清理、Continue 恰好一个实例 —— 全部沿用并通过。
+
+## 10. export 目录规范
+
+从本轮起新产物统一放：
+
+```text
+export/releases/phase09a/               统一人工测试入口（SurviveUIDemo.exe + SurviveUIDemo_Data/）
+export/evidence/phase09a/shots/         契约截图、mask 帧、对照板、motion/frosted 报告
+export/evidence/phase09a/smoke/         standalone smoke 结果与 smoke 截图
+export/logs/phase09a/                   构建 / 探针 / 测试 / validator 日志
+```
+
+旧的 `export/phase0X_*`、`export/surviveui_*`、`export/phase09a3_*` 等目录**保留为历史 evidence，不删除、不再写入**。完整约定见 `export/README.md`。
+
+本轮任务要求的十张环境证据帧全部存在（`export/evidence/phase09a/shots/`）：
+
+```text
+ship_forward.png              surface_forward.png
+ship_lookdown.png             surface_lookdown.png
+ship_wrist_hold.png           surface_walk_lookdown.png
+wrist_core_map_alignment.png  surface_wrist_raise.png
+                              surface_wrist_hold.png
+                              surface_wrist_lower.png
+```
+
+## 11. 本轮在证据链中发现并修复的两个 harness 竞态
+
+两条都不是产品 bug，但会让证据自己变得不可信，因此都按「让测试确定性」的方向修掉了，而不是重跑碰运气。
+
+**(1) 探针姿态漂移**（`Ship09A3ShotProbe`）
+
+重新生成证据时出现 **107 PASS / 22 FAIL**：`02_fp_look_down` 与 `surface_lookdown` 的手臂像素为 0。诊断输出给出了根因：
+
+```text
+ship lookdown diag:    pitch=16.6   <-- 探针要求 45 度，实测只剩 16.6 度
+surface lookdown diag: pitch=45.0
+```
+
+`SurfacePlayerController.Update` 每帧读取**真实鼠标 delta** 并调用 `ApplyLook`，所以探针「设一次姿态 → 等 0.7 s → 截图」的写法并不可靠：姿态在等待期间被实时 look 权威拉走，45 度俯角衰减到 16.6 度后手臂已经离开画面。哪一次跑偏是随机的（上一轮是 ship 通过、surface 失败，这一轮正好相反）。
+
+修复：探针新增**确定性姿态钉（pose pin）**，在 `LateUpdate`（即所有 `Update` 之后、渲染之前）重新施加姿态，并带过期时间以免泄漏到后面的 stage；行走帧只钉朝向、放开位置，保证真的能走动。修复后同一姿态在 Ship 与 Surface 上读数完全一致：
+
+```text
+ship lookdown diag:    pitch=45.0 eyeX=45.0 visible=True state=Rest  rootParent=Player
+                       rootWorld=(0.00,1.73,0.00) watchWorld=(0.32,1.27,-0.17)
+surface lookdown diag: pitch=45.0 eyeX=45.0 visible=True state=Rest  rootParent=Player
+                       rootWorld=(0.00,1.65,0.00) watchWorld=(0.32,1.19,-0.17)
+```
+
+（顺带这也成了「Surface 复用同一套几何与姿态」的硬证据：两个环境里腕表在世界空间中的相对位置一致。）
+
+**(2) smoke 的入场锁一帧竞态**（`StandaloneSmoke`）
+
+`control is released after the eyes open` 曾出现过 **1 次 FAIL**（206/1）。日志显示运行时的顺序是：
+
+```text
+[ShipEntryBlinkFade] eyelid entry finished (Full)
+[ShipGameController] entry eyelids finished - first-person control released
+```
+
+眨眼覆层由 blink 组件销毁、输入锁由 Ship 控制器释放，二者在同一帧发生，协程先观察到哪一个取决于脚本执行顺序 —— 因此这是一帧竞态。修复：断言前在**有界窗口**（120 帧）内等待释放，断言本身不变（锁永不释放仍然 FAIL）。修复后同一 Release 连续两次 smoke 均为 **207 / 0 SUCCESS**。
+
+这两处修复都只改证据/harness 代码与被测行为无关的等待策略，没有改动任何玩法、呈现或输入合同。
+

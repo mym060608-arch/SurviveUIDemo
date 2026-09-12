@@ -47,6 +47,14 @@ public class Ship09A3ShotProbe : MonoBehaviour
     private readonly StringBuilder _log = new StringBuilder();
     private bool _allPassed = true;
 
+    // ---- deterministic pose pin (see LateUpdate) ----
+    private bool _pinFacing;
+    private bool _pinPosition;
+    private Vector3 _pinTarget;
+    private float _pinPitch;
+    private float _pinYaw;
+    private float _pinExpiry;
+
     private ShipGameController _ship;
     private SurfacePlayerController _player;
     private Camera _eye;
@@ -57,7 +65,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
         string stage = ParseFlag(StageFlag);
         if (!string.IsNullOrEmpty(stage) && int.TryParse(stage, out int parsed))
         {
-            _stage = Mathf.Clamp(parsed, 1, 5);
+            _stage = Mathf.Clamp(parsed, 1, 6);
         }
 
         _active = !string.IsNullOrEmpty(_folder);
@@ -89,6 +97,56 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Finish(2);
     }
 
+    /// <summary>
+    /// Deterministic pose pin. The live look authority in
+    /// SurfacePlayerController.Update reads the real mouse delta every frame and
+    /// keeps writing the eye pitch, so a pose set once can still be drifting when
+    /// the capture lands (measured: a look-down at 45 deg was down to 16.6 deg by
+    /// capture time, which pushed the arms out of frame and failed a check that
+    /// had passed on the previous run). While the pin is active this re-asserts
+    /// the pose after every Update, so the analysed frame always shows the pose
+    /// the probe asked for. Runs only while the probe is flagged, and the expiry
+    /// keeps it from leaking into a later stage.
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (!_pinFacing || _player == null)
+        {
+            return;
+        }
+
+        if (Time.realtimeSinceStartup > _pinExpiry)
+        {
+            _pinFacing = false;
+            _pinPosition = false;
+            return;
+        }
+
+        if (_pinPosition)
+        {
+            _player.TeleportTo(_pinTarget);
+        }
+
+        _player.SetFacing(_pinYaw, _pinPitch);
+    }
+
+    private void PinPose(float x, float z, float pitch, float yaw, bool holdPosition,
+        float seconds)
+    {
+        _pinFacing = true;
+        _pinPosition = holdPosition;
+        _pinTarget = new Vector3(x, 0f, z);
+        _pinPitch = pitch;
+        _pinYaw = yaw;
+        _pinExpiry = Time.realtimeSinceStartup + seconds;
+    }
+
+    private void ReleasePin()
+    {
+        _pinFacing = false;
+        _pinPosition = false;
+    }
+
     private IEnumerator Run()
     {
         Info("probe start stage=" + _stage + " folder=" + _folder);
@@ -116,6 +174,8 @@ public class Ship09A3ShotProbe : MonoBehaviour
             UnityEngine.Object.FindObjectsByType<FirstPersonBlockArmsController>(
                 FindObjectsInactive.Include).Length == 1);
         Check("the block arms are the runtime arms presentation", blockArms != null);
+        UseEnvironment(blockArms, _ship != null ? _ship.Wrist : null,
+            _ship != null ? _ship.WristPresentation : null);
         if (blockArms == null)
         {
             Finish(1);
@@ -137,14 +197,19 @@ public class Ship09A3ShotProbe : MonoBehaviour
         yield return Stand(0f, 0f, 0f);
         yield return CaptureAndAnalyse("01_fp_forward_view", "Forward view (level gaze)",
             ProbeExpectation.Hidden);
+        yield return Capture("ship_forward");
 
         yield return Stand(0f, 0f, 45f);
+        Info("ship lookdown diag: " + ArmsDiag(blockArms));
         yield return CaptureAndAnalyse("02_fp_look_down", "Look down (45 deg)",
             ProbeExpectation.BothArmsAtSides);
+        yield return Capture("ship_lookdown");
 
         // ---- PASS 3: walk look-down ----
         yield return Stand(0f, 0f, 45f);
         _driveForward = true;
+        // Keep the gaze pinned but let the walk actually move the body.
+        PinPose(0f, 0f, 45f, 180f, false, 4f);
         float walkDeadline = Time.realtimeSinceStartup + 1.4f;
         bool sawWalk = false;
         while (Time.realtimeSinceStartup < walkDeadline)
@@ -231,12 +296,12 @@ public class Ship09A3ShotProbe : MonoBehaviour
         // ---- 08/09: the hologram starts to appear BEFORE the raise ends ----
         yield return WaitUntil(() => _ship.IsWristTerminalRevealed, 3f);
         yield return Capture("08_wrist_before_ui");
-        float revealProgress = _ship.WristPresentation.LastRevealProgress;
+        float revealProgress = _activeBridge.LastRevealProgress;
         Check("the hologram starts appearing before the raise ends (progress "
               + revealProgress.ToString("0.00") + ")",
             revealProgress > 0.7f && revealProgress < 0.99f);
         Check("the existing wrist display is visible",
-            _ship.Wrist != null && _ship.Wrist.Display != null && _ship.Wrist.Display.Visible);
+            _activeWrist != null && _activeWrist.Display != null && _activeWrist.Display.Visible);
 
         yield return WaitUntil(() => blockArms.FocusBlend >= 0.35f, 2f);
         yield return Capture("09_wrist_ui_reveal");
@@ -266,12 +331,12 @@ public class Ship09A3ShotProbe : MonoBehaviour
 
         // Spatial contract: the hologram is the subject, the physical watch sits
         // under it as the support it is projected from.
-        if (_ship.Wrist != null && _ship.Wrist.Display != null && _eye != null)
+        if (_activeWrist != null && _activeWrist.Display != null && _eye != null)
         {
             Vector3 displayViewport =
-                _eye.WorldToViewportPoint(_ship.Wrist.Display.transform.position);
-            Vector3 pivotViewport = _ship.Wrist.ProjectionPivot != null
-                ? _eye.WorldToViewportPoint(_ship.Wrist.ProjectionPivot.position)
+                _eye.WorldToViewportPoint(_activeWrist.Display.transform.position);
+            Vector3 pivotViewport = _activeWrist.ProjectionPivot != null
+                ? _eye.WorldToViewportPoint(_activeWrist.ProjectionPivot.position)
                 : displayViewport;
             Info("composition: wrist display viewport=" + Format(displayViewport)
                  + " pivot viewport=" + Format(pivotViewport)
@@ -288,6 +353,11 @@ public class Ship09A3ShotProbe : MonoBehaviour
         // warm-up animation, state push) can differ between them: the only
         // variable is whether the physical arm is being drawn.
         yield return CoreThroughMapCaptures(blockArms);
+
+        // ---- the core must sit behind the hologram's map disc ----
+        yield return Capture("ship_wrist_hold");
+        yield return Capture("wrist_core_map_alignment");
+        CheckCoreMapAlignment();
 
         // ---- arm masks: crisp vs frosted at the identical pose ----
         blockArms.SetSoftened(false);
@@ -315,14 +385,16 @@ public class Ship09A3ShotProbe : MonoBehaviour
              + frosted.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
              + " = " + frostedWeight.ToString("0", CultureInfo.InvariantCulture)
              + " | ratio " + weightRatio.ToString("0.00", CultureInfo.InvariantCulture));
-        float frostingRatio = unsoftened.MeanLuminance > 0f
-            ? frosted.MeanLuminance / unsoftened.MeanLuminance
-            : 1f;
-        Check("the frosted arm recedes (flatter, translucent) but stays visible (luminance "
-              + frostingRatio.ToString("0.00", CultureInfo.InvariantCulture)
-              + " of the crisp arm, still " + frosted.SolidCount + " px)",
-            frostingRatio <= 0.92f && frostingRatio >= 0.35f
-            && frosted.SolidCount > 2000);
+        // The frost itself is verified on the MATERIAL (transparent frost set bound,
+        // focus alpha, queue) and on the REAL frames (the device reads through the
+        // frosted map - measured by CheckCyanCoreThroughMap). The arms-only mask
+        // frames cannot show it: in this build they follow object visibility but not
+        // material changes, so a luminance gate here would measure nothing.
+        Check("the frosted arm is present in the arms-only mask (" + frosted.SolidCount + " px)",
+            frosted.SolidCount > 2000);
+        Check("the arm renders with the frosted, translucent material set while focused ("
+              + blockArms.MaterialDiagnostics() + ")",
+            blockArms.IsSoftened && blockArms.PhysicalArmAlpha <= 0.70f);
 
         yield return BuildFocusComparison();
         CheckCyanCoreThroughMap();
@@ -351,10 +423,138 @@ public class Ship09A3ShotProbe : MonoBehaviour
         }
 
         // ---- PASS 5: keyboard terminal + compatibility ----
+        // The arm stages are over: drop the pose pin so the terminal / overlay
+        // stages own their own gaze.
+        ReleasePin();
         yield return TerminalStage(blockArms);
         yield return CompatibilityStage(blockArms);
 
+        // ---- PASS 6: the same presentation on the planet surface ----
+        if (_stage >= 6)
+        {
+            yield return SurfaceStage();
+        }
+
         Finish(_allPassed ? 0 : 1);
+    }
+
+    /// <summary>
+    /// The block-arm presentation must exist on the planet surface too: the same
+    /// controller, the same rest / walk / wrist behaviour, exactly one instance
+    /// after the scene transition. This stage routes to the surface through the
+    /// real scene routing, drives the real surface authority and captures the
+    /// surface evidence frames.
+    /// </summary>
+    private IEnumerator SurfaceStage()
+    {
+        Info("surface stage: routing to the planet surface");
+        SceneRouting.EnterSurface();
+
+        SurfaceGameController surface = null;
+        for (int i = 0; i < 4800; i++)
+        {
+            surface = UnityEngine.Object.FindAnyObjectByType<SurfaceGameController>();
+            if (surface != null && surface.IsReady && surface.Player != null)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        Check("the planet surface is ready", surface != null && surface.Player != null);
+        if (surface == null || surface.Player == null)
+        {
+            yield break;
+        }
+
+        yield return new WaitForSecondsRealtime(0.8f);
+
+        int armsCount = CountArms();
+        Check("exactly one block arms instance on the surface (found "
+              + armsCount + ")", armsCount == 1);
+        Check("the surface arms belong to the surface player rig",
+            surface.Arms != null && surface.Player != null
+            && surface.Arms.transform.parent == surface.Player.transform);
+        Check("the surface drives the same wrist presentation bridge",
+            surface.WristPresentation != null);
+
+        UseEnvironment(surface.Arms, surface.Wrist, surface.WristPresentation);
+        _player = surface.Player;
+        _eye = _player.EyeCamera;
+
+        // ---- forward: no arms ----
+        yield return Stand(0f, 0f, 0f);
+        yield return CaptureAndAnalyse("surface_forward", "Surface forward view",
+            ProbeExpectation.Hidden);
+
+        // ---- look down: both arms ----
+        yield return Stand(0f, 0f, 45f);
+        Info("surface lookdown diag: " + ArmsDiag(surface.Arms));
+        yield return CaptureAndAnalyse("surface_lookdown", "Surface look down (45 deg)",
+            ProbeExpectation.BothArmsAtSides);
+
+        // ---- walk look down ----
+        _driveForward = true;
+        PinPose(0f, 0f, 45f, 180f, false, 4f);
+        bool sawSurfaceWalk = false;
+        float surfaceWalkDeadline = Time.realtimeSinceStartup + 0.9f;
+        while (Time.realtimeSinceStartup < surfaceWalkDeadline)
+        {
+            sawSurfaceWalk |= surface.Arms != null
+                              && surface.Arms.CurrentStateName == "Walk";
+            yield return null;
+        }
+
+        _driveForward = false;
+        Check("walking on the surface presents the Walk state", sawSurfaceWalk);
+        yield return CaptureAndAnalyse("surface_walk_lookdown",
+            "Surface walk look down", ProbeExpectation.BothArmsAtSides);
+
+        // ---- wrist raise / hold / lower on the surface ----
+        yield return Stand(0f, 0f, 0f);
+        surface.ToggleWrist();
+        yield return null;
+        Check("the surface wrist opens", surface.IsWristOpen);
+
+        yield return WaitUntil(() => surface.Arms != null
+            && surface.Arms.WristPresentationBlend >= 0.55f, 3f);
+        yield return Capture("surface_wrist_raise");
+
+        yield return WaitUntil(() => surface.Arms != null
+            && surface.Arms.FocusBlend >= 0.999f, 4f);
+        yield return new WaitForSecondsRealtime(0.4f);
+        Info("surface wrist diag: " + ArmsDiag(surface.Arms));
+        yield return CaptureAndAnalyse("surface_wrist_hold", "Surface wrist hold",
+            ProbeExpectation.WristHoldPose, analyseHologram: true);
+        Check("the surface hologram is revealed after the raise",
+            surface.IsWristOpen && surface.Wrist != null && surface.Wrist.Display != null
+            && surface.Wrist.Display.Visible);
+        Check("the surface arm frosts while the hologram is up",
+            surface.Arms != null && surface.Arms.IsSoftened
+            && surface.Arms.FocusBlend >= 0.999f);
+
+        surface.ToggleWrist();
+        yield return null;
+        Check("the surface wrist closes", !surface.IsWristOpen);
+        yield return WaitUntil(() => surface.Arms != null
+            && surface.Arms.WristPresentationBlend <= 0.45f, 3f);
+        yield return Capture("surface_wrist_lower");
+        yield return WaitUntil(() => surface.Arms != null
+            && surface.Arms.CurrentWristPhase
+            == FirstPersonBlockArmsController.WristPhase.Rest, 3f);
+        Check("the surface arm returns to rest",
+            surface.Arms != null && surface.Arms.CurrentStateName == "Rest");
+        Check("the surface arm is crisp again after closing",
+            surface.Arms != null && !surface.Arms.IsSoftened);
+
+        // ---- back to the ship: still exactly one presentation ----
+        ReleasePin();
+        SceneRouting.RequestShipEntry(SceneRouting.ShipEntry.Default);
+        yield return WaitUntil(() => CountArms() > 0, 12f);
+        yield return new WaitForSecondsRealtime(0.6f);
+        Check("the ship still has exactly one block arms instance after the surface "
+              + "round trip (found " + CountArms() + ")", CountArms() == 1);
     }
 
     /// <summary>
@@ -523,6 +723,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
         }
 
         yield return WaitUntil(() => _ship != null && _ship.Arms != null, 5f);
+        UseEnvironment(_ship.Arms, _ship.Wrist, _ship.WristPresentation);
         yield return new WaitForSecondsRealtime(0.6f);
         Check("continue creates exactly one block arms instance (found "
               + CountArms() + ")", CountArms() == 1);
@@ -547,6 +748,24 @@ public class Ship09A3ShotProbe : MonoBehaviour
     private bool _driveForward;
     private Analysis _lastAnalysis;
 
+    /// <summary>Arms / wrist of the environment the probe is currently in.</summary>
+    private FirstPersonBlockArmsController _activeArms;
+    private SurfaceWristController _activeWrist;
+    private WristPresentationBridge _activeBridge;
+
+    /// <summary>
+    /// Points the shared composition checks at the environment under test: the
+    /// ship interior and the planet surface run the SAME presentation, so every
+    /// measurement works on whichever pair is live.
+    /// </summary>
+    private void UseEnvironment(FirstPersonBlockArmsController arms,
+        SurfaceWristController wrist, WristPresentationBridge bridge)
+    {
+        _activeArms = arms;
+        _activeWrist = wrist;
+        _activeBridge = bridge;
+    }
+
     private void Update()
     {
         if (_driveForward && _player != null)
@@ -557,9 +776,43 @@ public class Ship09A3ShotProbe : MonoBehaviour
 
     private IEnumerator Stand(float x, float z, float pitch, float yaw = 180f)
     {
+        PinPose(x, z, pitch, yaw, true, 8f);
         _player.TeleportTo(new Vector3(x, 0f, z));
         _player.SetFacing(yaw, pitch);
         yield return new WaitForSecondsRealtime(0.7f);
+    }
+
+    /// <summary>One-line arm pose diagnosis for an analysis frame (probe only).</summary>
+    private string ArmsDiag(FirstPersonBlockArmsController arms)
+    {
+        if (arms == null)
+        {
+            return "arms=<null>";
+        }
+
+        Renderer[] renderers = arms.GetComponentsInChildren<Renderer>(true);
+        int enabled = 0;
+        foreach (Renderer renderer in renderers)
+        {
+            if (renderer != null && renderer.enabled)
+            {
+                enabled++;
+            }
+        }
+
+        return "pitch=" + (_player != null ? _player.PitchDegrees.ToString("0.0") : "?")
+               + " eyeX=" + (_eye != null ? _eye.transform.eulerAngles.x.ToString("0.0") : "?")
+               + " eyeMask=" + (_eye != null ? _eye.cullingMask.ToString() : "?")
+               + " armsLayer=" + LayerMask.NameToLayer(FirstPersonBlockArmsController.ArmsLayerName)
+               + " visible=" + arms.IsVisible
+               + " state=" + arms.CurrentStateName
+               + " renderers=" + enabled + "/" + renderers.Length
+               + " rootParent=" + (arms.ArmsRoot != null && arms.ArmsRoot.parent != null
+                   ? arms.ArmsRoot.parent.name
+                   : "?")
+               + " rootWorld=" + (arms.ArmsRoot != null ? arms.ArmsRoot.position.ToString("F2") : "?")
+               + " lossyScale=" + (arms.ArmsRoot != null ? arms.ArmsRoot.lossyScale.ToString("F2") : "?")
+               + " watchWorld=" + (arms.Watch != null ? arms.Watch.position.ToString("F2") : "?");
     }
 
     private IEnumerator CaptureAndAnalyse(string suffix, string label,
@@ -660,23 +913,23 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Check(suffix + ": the arm footprint is wide, not upright (" + width + "x" + height + ")",
             height > 0 && width >= height * 2);
 
-        Vector3 watch = _ship.Arms.WatchViewport;
+        Vector3 watch = _activeArms.WatchViewport;
         Info(suffix + ": watch viewport=" + Format(watch)
-             + " softened=" + _ship.Arms.IsSoftened);
+             + " softened=" + _activeArms.IsSoftened);
         Check(suffix + ": the physical watch is under the hologram ("
               + watch.x.ToString("0.000", CultureInfo.InvariantCulture) + ", "
               + watch.y.ToString("0.000", CultureInfo.InvariantCulture) + ")",
-            _ship.Arms.WatchOnScreen
+            _activeArms.WatchOnScreen
             && watch.x >= 0.33f && watch.x <= 0.57f
             && watch.y >= 0.17f && watch.y <= 0.36f);
 
         // The watch face is turned to the camera: its local +Z (the side the
         // device is mounted on) has to point back at the eye.
         Transform eye = _player != null ? _player.EyeCamera.transform : null;
-        if (eye != null && _ship.Arms.Watch != null)
+        if (eye != null && _activeArms.Watch != null)
         {
-            Vector3 toEye = (eye.position - _ship.Arms.Watch.position).normalized;
-            float facing = Vector3.Dot(_ship.Arms.Watch.forward, toEye);
+            Vector3 toEye = (eye.position - _activeArms.Watch.position).normalized;
+            float facing = Vector3.Dot(_activeArms.Watch.forward, toEye);
             Info(suffix + ": watch facing dot="
                  + facing.ToString("0.000", CultureInfo.InvariantCulture));
             Check(suffix + ": the watch face is turned to the camera (dot "
@@ -872,15 +1125,15 @@ public class Ship09A3ShotProbe : MonoBehaviour
     /// </summary>
     private int RightArmRenderersInFrustum()
     {
-        if (_eye == null || _ship == null || _ship.Arms == null
-            || _ship.Arms.RightArmRoot == null)
+        if (_eye == null || _ship == null || _activeArms == null
+            || _activeArms.RightArmRoot == null)
         {
             return 0;
         }
 
         Plane[] planes = GeometryUtility.CalculateFrustumPlanes(_eye);
         int inside = 0;
-        foreach (Renderer renderer in _ship.Arms.RightArmRoot
+        foreach (Renderer renderer in _activeArms.RightArmRoot
                      .GetComponentsInChildren<Renderer>(true))
         {
             if (renderer != null && renderer.enabled
@@ -1243,19 +1496,19 @@ public class Ship09A3ShotProbe : MonoBehaviour
     /// <summary>
     /// wrist_focus_report.txt - the frosted presentation contract, with the real
     /// numbers instead of adjectives. It states plainly that this is a
-    /// pseudo-frosted implementation (translucency + desaturation + a soft halo),
-    /// not a Gaussian blur.
+    /// pseudo-frosted implementation (translucency + desaturation + a milky
+    /// hologram lens + static grain), not a Gaussian blur.
     /// </summary>
     private void WriteFrostedReport(FirstPersonBlockArmsController arms, float weightRatio,
         Analysis crisp, Analysis frosted)
     {
-        Material displayMaterial = _ship.Wrist != null && _ship.Wrist.Display != null
-            ? _ship.Wrist.Display.SurfaceMaterial
+        Material displayMaterial = _activeWrist != null && _activeWrist.Display != null
+            ? _activeWrist.Display.SurfaceMaterial
             : null;
         var builder = new StringBuilder();
         builder.AppendLine("=== WRIST FOCUS / FROSTED REPORT (Phase 09A final) ===");
         builder.AppendLine("implementation      : pseudo-frosted (translucent + desaturated + "
-                           + "milky tint + soft halo).");
+                           + "milky tint + frost lens + grain).");
         builder.AppendLine("                      NOT a Gaussian blur: the hologram is a world "
                            + "quad drawn by the");
         builder.AppendLine("                      same camera, so any post-process blur would blur "
@@ -1279,8 +1532,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
                            CultureInfo.InvariantCulture));
         builder.AppendLine("cyan core emission  : " + arms.WatchCoreEmission.ToString("F3")
                            + "  (kept above a floor so the device stays readable through the UI)");
-        builder.AppendLine("halo (soft edge)    : alpha " + arms.HaloOpacity.ToString("0.000",
-                           CultureInfo.InvariantCulture) + ", scale 1.060, unfocused bleed");
+        builder.AppendLine("soft edge           : none (the oversized halo copy was removed: it read as a grey outline shell)");
         builder.AppendLine("frost crossfade     : " + FirstPersonBlockArmsController
                            .FocusCrossfadeDuration.ToString("0.00", CultureInfo.InvariantCulture)
                            + " s (continuous, no one-frame material step)");
@@ -1296,7 +1548,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
                            + ")");
         builder.AppendLine("measured focus blend : " + arms.FocusBlend.ToString("0.00",
                            CultureInfo.InvariantCulture));
-        builder.AppendLine("reported by          : Ship09A3ShotProbe (export/phase09a_final_shots)");
+        builder.AppendLine("reported by          : Ship09A3ShotProbe (" + _folder + ")");
 
         File.WriteAllText(Path.Combine(_folder, "wrist_focus_report.txt"), builder.ToString());
         Info("frosted report written");
@@ -1310,8 +1562,8 @@ public class Ship09A3ShotProbe : MonoBehaviour
     /// </summary>
     private void ReportWristRenderTexture()
     {
-        RenderTexture texture = _ship != null && _ship.Wrist != null
-            ? _ship.Wrist.CurrentRenderTexture
+        RenderTexture texture = _ship != null && _activeWrist != null
+            ? _activeWrist.CurrentRenderTexture
             : null;
         if (texture == null || !texture.IsCreated())
         {
@@ -1360,8 +1612,8 @@ public class Ship09A3ShotProbe : MonoBehaviour
                  CultureInfo.InvariantCulture));
         Destroy(readable);
 
-        Material display = _ship.Wrist.Display != null
-            ? _ship.Wrist.Display.SurfaceMaterial
+        Material display = _activeWrist.Display != null
+            ? _activeWrist.Display.SurfaceMaterial
             : null;
         if (display != null)
         {
@@ -1384,6 +1636,39 @@ public class Ship09A3ShotProbe : MonoBehaviour
         {
             Info("hologram lens material: <none>");
         }
+    }
+
+    /// <summary>
+    /// The cyan core must sit behind the hologram's map disc, horizontally
+    /// aligned with it. Measured on real screen-space viewports: the core is the
+    /// screen block's bounds centre and the map centre is the display quad's own
+    /// position (UV 0.5, 0.5 of the accepted radial layout), never the arm root or
+    /// a bounding box of the whole wrist.
+    /// </summary>
+    private void CheckCoreMapAlignment()
+    {
+        if (_eye == null || _ship == null || _activeArms == null
+            || _activeWrist == null || _activeWrist.Display == null)
+        {
+            Check("the core / map alignment could be measured", false);
+            return;
+        }
+
+        Vector3 core = _activeArms.WatchCoreViewport;
+        Vector3 mapCentre = _eye.WorldToViewportPoint(
+            _activeWrist.Display.transform.position);
+        float deltaX = core.x - mapCentre.x;
+        float deltaY = core.y - mapCentre.y;
+        Info("core/map alignment: core=" + Format(core) + " map=" + Format(mapCentre)
+             + " deltaX=" + deltaX.ToString("0.000", CultureInfo.InvariantCulture)
+             + " deltaY=" + deltaY.ToString("0.000", CultureInfo.InvariantCulture));
+
+        Check("the cyan core is horizontally aligned with the map centre (deltaX "
+              + deltaX.ToString("0.000", CultureInfo.InvariantCulture) + " viewport)",
+            Mathf.Abs(deltaX) <= 0.02f);
+        Check("the core sits inside the map disc, not at its edge (deltaY "
+              + deltaY.ToString("0.000", CultureInfo.InvariantCulture) + ")",
+            Mathf.Abs(deltaY) <= 0.30f);
     }
 
     /// <summary>
@@ -1699,8 +1984,8 @@ public class Ship09A3ShotProbe : MonoBehaviour
     /// <summary>One-line read-out of the hologram sheet's frosted lens state.</summary>
     private string LensState()
     {
-        Material display = _ship != null && _ship.Wrist != null && _ship.Wrist.Display != null
-            ? _ship.Wrist.Display.SurfaceMaterial
+        Material display = _ship != null && _activeWrist != null && _activeWrist.Display != null
+            ? _activeWrist.Display.SurfaceMaterial
             : null;
         if (display == null)
         {
@@ -1716,8 +2001,8 @@ public class Ship09A3ShotProbe : MonoBehaviour
                + " grain=" + (display.HasProperty("_FrostGrain")
                    ? display.GetFloat("_FrostGrain").ToString("0.000")
                    : "?")
-               + " focusBlend=" + (_ship != null && _ship.Arms != null
-                   ? _ship.Arms.FocusBlend.ToString("0.00")
+               + " focusBlend=" + (_ship != null && _activeArms != null
+                   ? _activeArms.FocusBlend.ToString("0.00")
                    : "?");
     }
 

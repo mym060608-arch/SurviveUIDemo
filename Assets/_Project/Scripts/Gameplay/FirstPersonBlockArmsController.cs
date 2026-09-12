@@ -146,9 +146,11 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     /// <summary>Crossfade between the crisp arm and the frosted one.</summary>
     private const float FocusCrossfadeSeconds = 0.14f;
 
-    /// <summary>Soft halo copy of the presented arm: scale + opacity of the bleed.</summary>
-    private const float HaloScale = 1.060f;
-    private const float HaloAlpha = 0.10f;
+    // There is deliberately NO oversized halo copy of the arm any more: a scaled
+    // duplicate mesh read as a grey outline shell around the wrist, which the
+    // manual review rejected. The frosted look is carried entirely by the
+    // material softening (translucency + desaturation + milky tint) and by the
+    // hologram's own frosted lens.
 
     /// <summary>
     /// Render queue of the softened arm.
@@ -193,10 +195,8 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     private Transform _armsRoot;
     private Transform _leftArm;
     private Transform _rightArm;
-    private Transform _leftHalo;
     private Transform _watch;
     private Renderer[] _renderers = new Renderer[0];
-    private Renderer[] _haloRenderers = new Renderer[0];
     private Material[] _normalMaterials = new Material[0];
     private Material[] _ghostMaterials = new Material[0];
     private Renderer _screenRenderer;
@@ -214,7 +214,6 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     private Material _accentGhost;
     private Material _deviceGhost;
     private Material _screenGhost;
-    private Material _halo;
 
     private Quaternion _leftRest;
     private Quaternion _leftLift;
@@ -275,8 +274,25 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     public float PhysicalArmBrightness =>
         Mathf.Lerp(1f, SoftenedBaseScale, Mathf.Clamp01(_softenBlend));
 
-    /// <summary>Opacity of the soft halo right now.</summary>
-    public float HaloOpacity => HaloAlpha * Mathf.Clamp01(_softenBlend);
+    /// <summary>
+    /// Screen-space viewport centre of the watch's CYAN CORE (the screen block),
+    /// not of the whole wrist block: the core is the element that has to sit
+    /// behind the hologram's map disc, so it is the element the composition is
+    /// aligned on.
+    /// </summary>
+    public Vector3 WatchCoreViewport
+    {
+        get
+        {
+            Camera eye = _player != null ? _player.EyeCamera : Camera.main;
+            if (eye == null || _screenRenderer == null)
+            {
+                return Vector3.zero;
+            }
+
+            return eye.WorldToViewportPoint(_screenRenderer.bounds.center);
+        }
+    }
 
     /// <summary>
     /// Compact runtime diagnostic of what the arm is ACTUALLY rendering with: the
@@ -305,7 +321,13 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         var block = new MaterialPropertyBlock();
         renderer.GetPropertyBlock(block);
         Color blockColour = block.isEmpty ? Color.magenta : block.GetColor("_BaseColor");
+        Color materialColour = material != null && material.HasProperty("_BaseColor")
+            ? material.GetColor("_BaseColor")
+            : Color.grey;
         return "mat=" + (material != null ? material.name : "?")
+               + " shader=" + (material != null && material.shader != null
+                   ? material.shader.name
+                   : "?")
                + " queue=" + (material != null ? material.renderQueue : -1)
                + " surface=" + (material != null && material.HasProperty("_Surface")
                    ? material.GetFloat("_Surface").ToString("0")
@@ -321,6 +343,7 @@ public class FirstPersonBlockArmsController : MonoBehaviour
                    : "?")
                + " transparentKeyword=" + (material != null
                    && material.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"))
+               + " matColour=" + materialColour.ToString("F2")
                + " blockAlpha=" + blockColour.a.ToString("0.00");
     }
 
@@ -440,7 +463,7 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         //     near viewport x 0.49 / y 0.24 (bottom-left origin) - i.e. under the
         //     hologram, which is drawn AFTER the opaque arms.
         Vector3 shoulderLeft = new Vector3(-ShoulderSide, -ShoulderDrop, ShoulderForward);
-        Vector3 holdShoulder = new Vector3(-0.310f, -0.170f, 0.480f);
+        Vector3 holdShoulder = new Vector3(-0.367f, -0.170f, 0.480f);
         Vector3 holdDir = new Vector3(0.997f, -0.050f, 0.060f).normalized;
         Vector3 holdFacing = new Vector3(0.10f, 0.30f, -0.95f).normalized;
         _leftHold = ArmRotation(holdDir, holdFacing);
@@ -473,7 +496,6 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         }
 
         CacheMaterials();
-        BuildSoftHalo(layer);
 
         _leftArm.localRotation = _leftRest;
         _rightArm.localRotation = _rightRest;
@@ -537,47 +559,6 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         return _suitGhost;
     }
 
-    /// <summary>
-    /// Builds the soft-focus bleed: a slightly larger, very faint copy of the
-    /// presented (left) arm that only exists while the hologram is up. It is a
-    /// presentation-only object on the arms layer, driven from the real arm's
-    /// transform every frame, so it can never desync from the pose.
-    /// </summary>
-    private void BuildSoftHalo(int layer)
-    {
-        if (_leftArm == null || _halo == null)
-        {
-            _haloRenderers = new Renderer[0];
-            return;
-        }
-
-        GameObject halo = Instantiate(_leftArm.gameObject, _armsRoot);
-        halo.name = "LeftArmSoftHalo";
-        halo.transform.localPosition = _leftArm.localPosition;
-        halo.transform.localRotation = _leftArm.localRotation;
-        halo.transform.localScale = Vector3.one * HaloScale;
-        halo.layer = layer;
-
-        foreach (Transform child in halo.GetComponentsInChildren<Transform>(true))
-        {
-            child.gameObject.layer = layer;
-        }
-
-        foreach (Renderer renderer in halo.GetComponentsInChildren<Renderer>(true))
-        {
-            renderer.sharedMaterial = _halo;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
-            renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
-            renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
-            renderer.enabled = false;
-        }
-
-        _haloRenderers = halo.GetComponentsInChildren<Renderer>(true);
-        _leftHalo = halo.transform;
-        halo.SetActive(false);
-    }
-
     private void BuildMaterials()
     {
         Shader lit = Shader.Find("Universal Render Pipeline/Lit");
@@ -626,11 +607,6 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         _deviceGhost = MakeFrostMaterial(frost, "FPBlockArms_Device_Frost", DeviceColour);
         _screenGhost = MakeFrostMaterial(frost, "FPBlockArms_Screen_Frost",
             new Color(0.16f, 0.62f, 0.72f));
-        _halo = MakeFrostMaterial(frost, "FPBlockArms_SoftHalo", SuitColour);
-        if (_halo != null)
-        {
-            _halo.renderQueue = SoftenedRenderQueue - 10;
-        }
     }
 
     /// <summary>
@@ -669,6 +645,14 @@ public class FirstPersonBlockArmsController : MonoBehaviour
 
         var material = new Material(shader) { name = name };
         Color frosted = FrostColour(colour);
+        // Sprites/Default tints through _Color; the project's own unlit shader
+        // tints through _BaseColor. Both are written so the material carries the
+        // frost directly, not only through the property block.
+        if (material.HasProperty("_Color"))
+        {
+            material.SetColor("_Color", frosted);
+        }
+
         if (material.HasProperty("_BaseColor"))
         {
             material.SetColor("_BaseColor", frosted);
@@ -829,22 +813,6 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         {
             _screenRenderer.enabled = visible && _screenActive;
         }
-
-        // The soft bleed is part of the arm presentation, never a separate object
-        // that could survive a hidden state (console view, device panel, pause).
-        bool haloVisible = _visible && _ghostSetActive && _softenBlend > 0.01f;
-        if (_leftHalo != null)
-        {
-            _leftHalo.gameObject.SetActive(haloVisible);
-        }
-
-        foreach (Renderer renderer in _haloRenderers)
-        {
-            if (renderer != null)
-            {
-                renderer.enabled = haloVisible;
-            }
-        }
     }
 
     /// <summary>Watch screen brightness: dim at rest, brighter while presented.</summary>
@@ -924,6 +892,7 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     /// <summary>Selects the opaque or the transparent (frostable) material set.</summary>
     private void ApplyMaterialSet()
     {
+        float blend = Mathf.Clamp01(_softenBlend);
         for (int index = 0; index < _renderers.Length; index++)
         {
             Renderer renderer = _renderers[index];
@@ -932,34 +901,45 @@ public class FirstPersonBlockArmsController : MonoBehaviour
                 continue;
             }
 
-            Material target = _ghostSetActive && index < _ghostMaterials.Length
+            bool ghost = _ghostSetActive && index < _ghostMaterials.Length;
+            Material target = ghost
                 ? _ghostMaterials[index]
                 : index < _normalMaterials.Length ? _normalMaterials[index] : null;
-            if (target != null)
+            if (target == null)
             {
-                renderer.sharedMaterial = target;
+                continue;
             }
-        }
 
-        bool haloVisible = _ghostSetActive && _softenBlend > 0.01f && _visible;
-        if (_leftHalo != null)
-        {
-            _leftHalo.gameObject.SetActive(haloVisible);
-        }
-
-        foreach (Renderer renderer in _haloRenderers)
-        {
-            if (renderer != null)
+            if (ghost)
             {
-                renderer.enabled = haloVisible;
+                // Bake the frost into the material as well as into the property
+                // block: the frost must be visible on any path, while the block
+                // stays what animates the crossfade.
+                Material crisp = index < _normalMaterials.Length
+                    ? _normalMaterials[index]
+                    : null;
+                Color baseColour = crisp != null && crisp.HasProperty("_BaseColor")
+                    ? crisp.GetColor("_BaseColor")
+                    : Color.grey;
+                Color frosted = renderer == _screenRenderer
+                    ? FrostedCoreColour()
+                    : FrostColour(baseColour);
+                Color applied = Color.Lerp(baseColour, frosted, blend);
+                applied.a = Mathf.Lerp(1f, frosted.a, blend);
+                if (target.HasProperty("_BaseColor"))
+                {
+                    target.SetColor("_BaseColor", applied);
+                }
             }
+
+            renderer.sharedMaterial = target;
         }
     }
 
     /// <summary>
-    /// Writes the current frost blend into every block (and the halo) through
-    /// property blocks, so the crossfade costs nothing per frame and never
-    /// mutates the shared materials.
+    /// Writes the current frost blend into every block through property blocks, so
+    /// the crossfade costs nothing per frame and never mutates the shared
+    /// materials.
     /// </summary>
     private void ApplyMaterials()
     {
@@ -1003,20 +983,6 @@ public class FirstPersonBlockArmsController : MonoBehaviour
                 _block.SetColor("_EmissionColor", crispEmission);
             }
 
-            renderer.SetPropertyBlock(_block);
-        }
-
-        float haloAlpha = HaloAlpha * blend;
-        foreach (Renderer renderer in _haloRenderers)
-        {
-            if (renderer == null)
-            {
-                continue;
-            }
-
-            _block.Clear();
-            _block.SetColor("_BaseColor", new Color(FrostColour(SuitColour).r,
-                FrostColour(SuitColour).g, FrostColour(SuitColour).b, haloAlpha));
             renderer.SetPropertyBlock(_block);
         }
     }
@@ -1176,13 +1142,6 @@ public class FirstPersonBlockArmsController : MonoBehaviour
 
         _leftArm.localRotation = pitchCompensation * poseRotation;
         _leftArm.localPosition = pitchCompensation * posePosition;
-
-        // The soft-focus bleed follows the real arm exactly.
-        if (_leftHalo != null)
-        {
-            _leftHalo.localPosition = _leftArm.localPosition;
-            _leftHalo.localRotation = _leftArm.localRotation;
-        }
 
         _rightArm.localRotation = _rightRest
                                   * Quaternion.Euler(sway, 0f, 0f);

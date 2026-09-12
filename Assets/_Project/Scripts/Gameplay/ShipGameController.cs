@@ -17,8 +17,28 @@ using UnityEngine.Rendering.Universal;
 /// - the registries of the four physical consoles, the doors, the airlock and
 ///   the first-person stack reused from Phase 06.
 /// </summary>
-public class ShipGameController : MonoBehaviour, IWristContext
+public class ShipGameController : MonoBehaviour, IWristContext, IArmsPresentationContext
 {
+    // ---- IArmsPresentationContext: what the block-arm presentation needs ----
+
+    /// <summary>Player rig the arms hang from (see the interface contract).</summary>
+    SurfacePlayerController IArmsPresentationContext.Player => _player;
+
+    /// <summary>Pause freezes the arms instead of hiding them.</summary>
+    bool IArmsPresentationContext.IsPaused => _paused;
+
+    /// <summary>
+    /// Modes that need an unobstructed screen: the entry eyelids, the console
+    /// view and the shipboard device panels.
+    /// </summary>
+    bool IArmsPresentationContext.HidesFirstPersonPresentation =>
+        _entryInputLocked || IsConsoleFocusActive || IsOverlayOpen;
+
+    /// <summary>The ship's own wrist terminal stays the authoritative UI.</summary>
+    void IArmsPresentationContext.SetWristTerminalVisible(bool visible)
+    {
+        RevealWristTerminal(visible);
+    }
     // Compartment zones match the deterministic ShipInteriorBuilder layout.
     // Chinese primary + restrained English technical metadata.
     private static readonly (string Zh, string Meta, float X0, float Z0, float X1, float Z1)[] Zones =
