@@ -350,12 +350,12 @@ rest_side = device_bone.matrix.to_3x3().col[0].normalized()
 
 external("01_wrist_device_top", tuple(rest_device + rest_normal * 0.31),
          tuple(rest_device), 57.0,
-         "Face-on: central main screen, four cyan panes and restrained status arcs",
+         "Face-on: six mechanical housing segments around a dark recess and small cyan emitter",
          visible_meshes={"GEO_WristDevice_L"})
 external("02_wrist_device_front",
          tuple(rest_device + rest_normal * 0.28 - rest_axis * 0.15),
          tuple(rest_device - rest_axis * 0.005), 60.0,
-         "Three-quarter front view showing the compact fore/aft button layout",
+         "Three-quarter front view showing the segmented housing and low-profile service buttons",
          visible_meshes={"GEO_WristDevice_L"})
 external("03_wrist_device_side",
          tuple(rest_device + rest_side * 0.30 + rest_normal * 0.035),
@@ -416,6 +416,49 @@ external("15_external_front", (0.78, -1.40, -0.18), (0.0, -0.04, -0.48), 52.0,
          "External front: arms hang under their respective shoulders")
 external("16_external_side", (1.55, -0.18, -0.36), (0.04, -0.02, -0.49), 52.0,
          "External side: wrists remain in body space rather than projected before the camera")
+
+# ---------------------------------------------------------------------
+# PASS 4: exact Revision03 delivery names requested by the task document.
+# These are intentionally human-review views rather than file-presence probes.
+# ---------------------------------------------------------------------
+background.inputs[0].default_value = (GAME_BACKGROUND[0], GAME_BACKGROUND[1],
+                                       GAME_BACKGROUND[2], 1.0)
+background.inputs[1].default_value = 0.45
+render_image("fp_idle", "FP_Idle", 1, 52.0, False,
+             "Look-down rest review: both block mittens hang at their corresponding body sides")
+render_image("fp_walk_lookdown", "FP_Walk", 11, 52.0, False,
+             "Look-down walk review: mild counter-swing, stable wedge hands, open centre")
+render_image("wrist_raise", "Wrist_Raise", 25, 0.0, False,
+             "Raise endpoint: left forearm enters through lower-left at the 25-35 degree target")
+render_image("wrist_idle", "Wrist_Idle", 46, 0.0, True,
+             "Hold review with read-only UI proxy: watch left, hologram above/right")
+
+background.inputs[0].default_value = (0.055, 0.065, 0.078, 1.0)
+background.inputs[1].default_value = 0.8
+external("wrist_device_closeup", tuple(rest_device + rest_normal * 0.30
+                                       - rest_axis * 0.08 + rest_side * 0.05),
+         tuple(rest_device), 62.0,
+         "Compact six-segment mechanical emitter; housing leads, cyan remains small",
+         visible_meshes={"GEO_WristDevice_L"})
+
+for side, x_sign in (("L", 1.0), ("R", -1.0)):
+    hand_bone = rig.pose.bones["Hand_" + side]
+    hand_mid = (hand_bone.head + hand_bone.tail) * 0.5
+    hand_axis = (hand_bone.tail - hand_bone.head).normalized()
+    hand_normal = hand_bone.matrix.to_3x3().col[2].normalized()
+    hand_side = hand_bone.matrix.to_3x3().col[0].normalized()
+    external(("left" if side == "L" else "right") + "_hand_shape",
+             tuple(hand_mid + hand_normal * 0.43 - hand_axis * 0.025
+                   + hand_side * (0.18 * x_sign)),
+             tuple(hand_mid + hand_axis * 0.010), 52.0,
+             "Dedicated %s block/wedge mitten review: no fingers, palm, or mirrored thumb"
+             % ("left" if side == "L" else "right"),
+             visible_meshes={"GEO_Hand_" + side})
+
+external("external_front", (0.78, -1.40, -0.18), (0.0, -0.04, -0.48), 52.0,
+         "Front production review: EVA forearms and mittens remain side-based")
+external("external_side", (1.55, -0.18, -0.36), (0.04, -0.02, -0.49), 52.0,
+         "Side production review: tapered sleeves, cuffs and body-space rest")
 
 # Return to a stable, reproducible scene state.
 show_guide(False)

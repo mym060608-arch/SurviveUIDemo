@@ -136,20 +136,13 @@ IDLE_HAND = {
 }
 
 # Wrist_Raise end pose.  Stated in the SAME terms as the UI contract -- screen
-# NDC on a 70 deg vertical-FOV 16:9 camera plus a depth in front of the eye --
-# so the pose is directly comparable with the hologram pivot, which projects to
-# NDC (-0.3085, -0.6934) at z = 0.69 m.
-#
-# The device cannot sit exactly on the pivot: the hologram plane is 0.81 m from
-# the eye, which is past the 0.575 m shoulder-to-wrist reach of any real arm.
-# It is therefore placed on the same lower-left screen ray, at a reachable
-# 0.30 m, BELOW/LEFT of the hologram origin so the interface floats above and
-# to the right of it.  Chosen by scripts/tune_wrist_hold.py, which swept 297
-# candidates and ray-tested every UI content sample: this one keeps the device
-# 92 % inside the frame while occluding only 3 of 198 UI samples (1.5 %), all of
-# them the extreme lower-left edge of the Navigation panel.
-HOLD_DEVICE_NDC = (-0.56, -0.80)
-HOLD_DEVICE_DEPTH = 0.34
+# NDC on a 70 deg vertical-FOV 16:9 camera plus a depth in front of the eye.
+# Revision03 deliberately puts the compact terminal on the left while the
+# forearm centreline extends to the LEFT edge at a shallow 25-35 degree angle.
+# The choice below was found by scripts/tune_revision03_angle.py and is measured
+# again in the build/validation reports; the UI remains above/right and fixed.
+HOLD_DEVICE_NDC = (-0.60, -0.58)
+HOLD_DEVICE_DEPTH = 0.36
 
 
 def ndc_to_blender(ndc_x, ndc_y, depth):
@@ -161,8 +154,8 @@ def ndc_to_blender(ndc_x, ndc_y, depth):
 
 DEVICE_FACE_RAISED = ndc_to_blender(HOLD_DEVICE_NDC[0], HOLD_DEVICE_NDC[1],
                                     HOLD_DEVICE_DEPTH)
-RAISE_POLE = Vector((0.30, 0.30, -0.90))
-RAISE_HAND = Vector((0.20, -0.60, -0.77)).normalized()
+RAISE_POLE = Vector((2.50, -1.00, 0.50))
+RAISE_HAND = Vector((0.12, -0.50, -0.86)).normalized()
 
 INTERACT_WRIST_R = Vector((-0.118, -0.400, -0.432))
 INTERACT_POLE_R = Vector((-0.30, 0.32, -0.90))
@@ -645,225 +638,126 @@ def build_forearm(part, side, elbow, wrist, fdir, dorsal):
              MAT["MAT_DeviceAccent"], {"Forearm_" + side: 1.0}, stripe[2])
 
 
-def finger_specs():
-    """(bone group, local x, length1, length2, radius, fan deg, curl1, curl2)."""
-    return [
-        ("Index", 0.0360, 0.044, 0.037, 0.0140, 6.0, 10.0, 20.0),
-        ("Fingers", 0.0125, 0.047, 0.041, 0.0146, 2.0, 12.0, 22.0),
-        ("Fingers", -0.0125, 0.044, 0.038, 0.0138, -3.0, 14.0, 24.0),
-        ("Fingers", -0.0360, 0.036, 0.030, 0.0125, -8.0, 17.0, 27.0),
-    ]
-
-
-def finger_points(fx, l1, l2, fan, c1, c2):
-    base = Vector((fx, 0.096, 0.002))
-    d1 = Quaternion(Vector((0.0, 0.0, 1.0)), rad(fan)) @ Vector((0.0, 1.0, 0.0))
-    d1 = Quaternion(Vector((1.0, 0.0, 0.0)), rad(-c1)) @ d1
-    d2 = Quaternion(Vector((1.0, 0.0, 0.0)), rad(-c2)) @ d1
-    mid = base + d1 * l1
-    tip = mid + d2 * l2
-    return base, mid, tip
-
-
 def build_hand(part, side, wrist, hand_dir, dorsal):
-    """Side-aware padded EVA glove with an unmistakable dorsal shell/thumb."""
+    """Single-volume Revision03 EVA mitten/wedge; no articulated anatomy."""
     fh = frame(wrist, hand_dir, dorsal)
-    hand_sign = 1.0 if side == "L" else -1.0
+    hand_weight = {"Hand_" + side: 1.0}
 
-    cuff = loft([(-0.058, 0.057, 0.052), (-0.040, 0.060, 0.055),
-                 (-0.020, 0.058, 0.053), (0.004, 0.055, 0.050)],
-                n=12, phase=TAU / 24.0, cap_start=False, cap_end=False)
+    # Soft cuff bridge is the only blended area.  Everything beyond it is one
+    # rigid hand volume, eliminating palm/finger penetration by construction.
+    cuff = loft([(-0.058, 0.057, 0.052), (-0.038, 0.060, 0.055),
+                 (-0.018, 0.057, 0.052), (0.002, 0.053, 0.047)],
+                n=8, phase=TAU / 16.0, cap_start=False, cap_end=False)
     weights = []
-    for y in (-0.058, -0.040, -0.020, 0.004):
+    for y in (-0.058, -0.038, -0.018, 0.002):
         w_hand = smoothstep(-0.050, -0.005, y)
-        for _ in range(12):
+        for _ in range(8):
             weights.append({"Forearm_" + side: 1.0 - w_hand, "Hand_" + side: w_hand})
     part.add(transform_verts(fh, cuff[0]), cuff[1], MAT["MAT_Glove"], weights, cuff[2])
 
-    palm = loft([
-        (0.000, 0.055, 0.050),
-        (0.030, 0.058, 0.048),
-        (0.070, 0.057, 0.043),
-        (0.102, 0.052, 0.036),
-    ], n=10, phase=TAU / 20.0)
-    part.add(transform_verts(fh, palm[0]), palm[1], MAT["MAT_Glove"],
-             {"Hand_" + side: 1.0}, palm[2])
+    # Main pressure mitten: an eight-sided tapered block with a closed, quiet
+    # silhouette.  Left and right use the same forward construction, so there
+    # is no mirrored thumb/palm cue to misread.
+    mitten = loft([(0.000, 0.053, 0.047), (0.030, 0.057, 0.046),
+                   (0.082, 0.054, 0.041), (0.118, 0.048, 0.035)],
+                  n=8, phase=TAU / 16.0, cap_end=False)
+    part.add(transform_verts(fh, mitten[0]), mitten[1], MAT["MAT_Glove"],
+             hand_weight, mitten[2])
 
-    back_profile = [(-0.042, -0.032), (0.042, -0.032), (0.047, -0.020),
-                    (0.043, 0.032), (0.031, 0.041), (-0.031, 0.041),
-                    (-0.043, 0.032), (-0.047, -0.020)]
-    back = plate(back_profile, 0.038, 0.054, chamfer=0.004)
-    fh_back = fh @ Matrix.Translation(Vector((0.0, 0.048, 0.0)))
-    part.add(transform_verts(fh_back, back[0]), back[1], MAT["MAT_Sleeve"],
-             {"Hand_" + side: 1.0}, back[2])
+    # Separate hard toe/wedge continues from the exact final ring instead of
+    # intersecting it.  This is the common forward-facing end on BOTH hands.
+    toe = loft([(0.118, 0.048, 0.035), (0.145, 0.041, 0.029),
+                (0.162, 0.031, 0.021)], n=8, phase=TAU / 16.0,
+               cap_start=False, cap_end=True)
+    part.add(transform_verts(fh, toe[0]), toe[1], MAT["MAT_DeviceBody"],
+             hand_weight, toe[2])
 
-    for group, fx, l1, l2, radius, fan, c1, c2 in finger_specs():
-        fx *= hand_sign
-        fan *= hand_sign
-        base, mid, tip = finger_points(fx, l1, l2, fan, c1, c2)
-        d1 = (mid - base).normalized()
-        d2 = (tip - mid).normalized()
-        points = [base, mid - d1 * 0.004, mid, tip - d2 * 0.004, tip]
-        radii = [radius, radius * 0.95, radius * 0.92, radius * 0.82, radius * 0.55]
-        verts, faces, smooth = tube_polyline(points, radii, n=6)
-        station_weights = [
-            {group + "_" + side: 1.0},
-            {group + "_" + side: 1.0},
-            {group + "_" + side: 0.5, group + "_02_" + side: 0.5},
-            {group + "_02_" + side: 1.0},
-            {group + "_02_" + side: 1.0},
-        ]
-        per_vertex = []
-        for entry in station_weights:
-            per_vertex.extend([dict(entry)] * 6)
-        part.add(transform_verts(fh, verts), faces, MAT["MAT_Glove"], per_vertex, smooth)
+    # One broad dorsal guard makes the glove feel intentionally manufactured;
+    # it is a single rigid plate, not a knuckle/finger assembly.
+    guard_profile = [(-0.041, -0.043), (0.041, -0.043), (0.046, -0.033),
+                     (0.040, 0.044), (0.027, 0.050), (-0.027, 0.050),
+                     (-0.040, 0.044), (-0.046, -0.033)]
+    guard = plate(guard_profile, 0.036, 0.048, chamfer=0.003)
+    guard_frame = fh @ Matrix.Translation(Vector((0.0, 0.063, 0.0)))
+    part.add(transform_verts(guard_frame, guard[0]), guard[1], MAT["MAT_Sleeve"],
+             hand_weight, guard[2])
 
-        knuckle = plate(rect_profile(radius * 0.88, 0.012, 0.003),
-                        radius * 0.76, radius * 1.22, chamfer=0.0018)
-        fh_knuckle = fh @ Matrix.Translation(base + d1 * (l1 * 0.45))
-        part.add(transform_verts(fh_knuckle, knuckle[0]), knuckle[1], MAT["MAT_Sleeve"],
-                 {group + "_" + side: 1.0}, knuckle[2])
-
-    # Revision02 correction: the right glove uses the opposite local lateral
-    # side for both its index edge and thumb chain.  This is authored in the
-    # mesh and repeated in the rig below; it is not a normals-only workaround.
-    tb = Vector((hand_sign * 0.049, 0.034, -0.012))
-    td1 = Vector((hand_sign * 0.72, 0.57, -0.39)).normalized()
-    td2 = Vector((hand_sign * 0.55, 0.52, -0.65)).normalized()
-    tp1 = tb + td1 * 0.041
-    tp2 = tp1 + td2 * 0.034
-    points = [tb, tp1 - td1 * 0.004, tp1, tp2 - td2 * 0.004, tp2]
-    radii = [0.0170, 0.0160, 0.0148, 0.0130, 0.0088]
-    verts, faces, smooth = tube_polyline(points, radii, n=6)
-    station_weights = [
-        {"Thumb_" + side: 1.0},
-        {"Thumb_" + side: 1.0},
-        {"Thumb_" + side: 0.5, "Thumb_02_" + side: 0.5},
-        {"Thumb_02_" + side: 1.0},
-        {"Thumb_02_" + side: 1.0},
-    ]
-    per_vertex = []
-    for entry in station_weights:
-        per_vertex.extend([dict(entry)] * 6)
-    part.add(transform_verts(fh, verts), faces, MAT["MAT_Glove"], per_vertex, smooth)
-
-    # Reinforced thumb saddle and small right-hand ID plate make dorsal/palm
-    # orientation legible in first-person review.
-    saddle = plate(rect_profile(0.016, 0.018, 0.004), 0.025, 0.040, chamfer=0.003)
-    saddle_frame = fh @ Matrix.Translation(Vector((hand_sign * 0.039, 0.032, 0.0)))
-    part.add(transform_verts(saddle_frame, saddle[0]), saddle[1],
-             MAT["MAT_DeviceBody"], {"Thumb_" + side: 1.0}, saddle[2])
-    if side == "R":
-        id_mark = plate(rect_profile(0.005, 0.017, 0.0015), 0.0535, 0.057,
-                        chamfer=0.001)
-        mark_frame = fh @ Matrix.Translation(Vector((0.024, 0.047, 0.0)))
-        part.add(transform_verts(mark_frame, id_mark[0]), id_mark[1],
-                 MAT["MAT_DeviceAccent"], {"Hand_R": 1.0}, id_mark[2])
+    # Symmetric forward ID bar reinforces orientation without inventing a
+    # deforming thumb.  Both gloves point the same simple face forward.
+    marker = plate(rect_profile(0.018, 0.0045, 0.0015), 0.048, 0.052,
+                   chamfer=0.001)
+    marker_frame = fh @ Matrix.Translation(Vector((0.0, 0.098, 0.0)))
+    part.add(transform_verts(marker_frame, marker[0]), marker[1],
+             MAT["MAT_DeviceAccent"], hand_weight, marker[2])
 
 
 def build_wrist_device(part, device_center, fdir, dorsal):
-    """Revision03 compact terminal: main screen, 4 status panes and 2 buttons.
-
-    The face is rebuilt instead of uniformly scaling Revision02.  It has no
-    carrier slab and no large mechanical ring; every surrounding element is a
-    shallow inset, short separator, or small side control close to the screen.
-    """
+    """Compact six-segment mechanical emitter integrated into the left cuff."""
     fd = frame(device_center, fdir, dorsal)
     weights = {"WristDevice_L": 1.0}
 
-    # A narrow flexible clamp integrates the terminal into the forearm armour.
-    # Profiles are centred on the wrist axis (the device frame origin is
-    # already DEVICE_STANDOFF above that axis), so the clamp cannot pass over
-    # and occlude the thin screen assembly.
-    outer = [(0.050 * math.cos(TAU * i / 12),
-              -DEVICE_STANDOFF + 0.041 * math.sin(TAU * i / 12))
+    # Narrow flexible clamp: visibly attached to the forearm, never a watchband.
+    outer = [(0.048 * math.cos(TAU * i / 12),
+              -DEVICE_STANDOFF + 0.039 * math.sin(TAU * i / 12))
              for i in range(12)]
-    inner = [(0.044 * math.cos(TAU * i / 12),
-              -DEVICE_STANDOFF + 0.035 * math.sin(TAU * i / 12))
+    inner = [(0.042 * math.cos(TAU * i / 12),
+              -DEVICE_STANDOFF + 0.033 * math.sin(TAU * i / 12))
              for i in range(12)]
-    strap = band_around_y(outer, inner, -0.027, 0.027)
+    strap = band_around_y(outer, inner, -0.024, 0.024)
     part.add(transform_verts(fd, strap[0]), strap[1], MAT["MAT_Glove"], weights, strap[2])
 
-    # Thin cut-corner chassis: only slightly larger than its central screen.
-    chassis = plate(rect_profile(0.042, 0.048, 0.008), -0.002, 0.007,
-                    chamfer=0.0025)
-    part.add(transform_verts(fd, chassis[0]), chassis[1], MAT["MAT_DeviceBody"],
-             weights, chassis[2])
-    face_inset = plate(rect_profile(0.038, 0.044, 0.007), 0.007, 0.010,
-                       chamfer=0.002)
-    part.add(transform_verts(fd, face_inset[0]), face_inset[1], MAT["MAT_Glove"],
-             weights, face_inset[2])
+    # Graphite octagonal carrier and gasket form the recessed mechanical bed.
+    carrier = plate(poly_ngon(0.047, 12, TAU / 24.0), -0.003, 0.006,
+                    chamfer=0.0015)
+    part.add(transform_verts(fd, carrier[0]), carrier[1], MAT["MAT_Glove"],
+             weights, carrier[2])
 
-    # Central main display is the dominant visual element and a dedicated
-    # material region suitable for later Unity emission/RenderTexture use.
-    main_bezel = plate(rect_profile(0.0295, 0.0305, 0.006), 0.010, 0.013,
-                       chamfer=0.002)
-    part.add(transform_verts(fd, main_bezel[0]), main_bezel[1], MAT["MAT_DeviceBody"],
-             weights, main_bezel[2])
-    main_screen = plate(rect_profile(0.0260, 0.0270, 0.005), 0.013, 0.0155,
-                        chamfer=0.0015)
-    part.add(transform_verts(fd, main_screen[0]), main_screen[1],
-             MAT["MAT_DeviceEmissive"], weights, main_screen[2])
+    # Six clearly separated hard-shell modules dominate the face.  Wide dark
+    # gaps between them keep the structure readable at first-person scale.
+    for index in range(6):
+        centre = rad(90.0 - index * 60.0)
+        half_span = rad(21.0)
+        shell = band(arc_profile(0.046, centre - half_span, centre + half_span, 4),
+                     arc_profile(0.032, centre - half_span, centre + half_span, 4),
+                     0.006, 0.016, closed=False)
+        part.add(transform_verts(fd, shell[0]), shell[1], MAT["MAT_DeviceBody"],
+                 weights, shell[2])
 
-    # Four thin cyan function panes echo the sketch without forming a heavy
-    # segmented frame.  Their shallow graphite bezels remain close to the face.
-    for x, y, angle_deg in ((-0.0325, 0.0335, -12.0),
-                            (0.0325, 0.0335, 12.0),
-                            (-0.0325, -0.0335, 12.0),
-                            (0.0325, -0.0335, -12.0)):
-        pane_frame = fd @ Matrix.Translation(Vector((x, y, 0.0))) \
-                     @ Matrix.Rotation(rad(angle_deg), 4, "Z")
-        bezel = plate(rect_profile(0.0080, 0.0065, 0.0018), 0.010, 0.013,
-                      chamfer=0.001)
-        part.add(transform_verts(pane_frame, bezel[0]), bezel[1], MAT["MAT_DeviceBody"],
-                 weights, bezel[2])
-        pane = plate(rect_profile(0.0062, 0.0048, 0.0012), 0.013, 0.015,
-                     chamfer=0.0008)
-        part.add(transform_verts(pane_frame, pane[0]), pane[1],
-                 MAT["MAT_DeviceEmissive"], weights, pane[2])
+    # The centre is deliberately dark and recessed.  Cyan is only a small
+    # emitter window, making the physical housing the primary visual read.
+    recess = plate(poly_ngon(0.029, 10, TAU / 20.0), 0.0065, 0.0105,
+                   chamfer=0.001)
+    part.add(transform_verts(fd, recess[0]), recess[1], MAT["MAT_Glove"],
+             weights, recess[2])
+    emitter_bezel = plate(rect_profile(0.015, 0.0115, 0.003), 0.0105, 0.014,
+                          chamfer=0.0015)
+    part.add(transform_verts(fd, emitter_bezel[0]), emitter_bezel[1],
+             MAT["MAT_DeviceBody"], weights, emitter_bezel[2])
+    emitter = plate(rect_profile(0.0115, 0.0080, 0.002), 0.014, 0.0165,
+                    chamfer=0.001)
+    part.add(transform_verts(fd, emitter[0]), emitter[1],
+             MAT["MAT_DeviceEmissive"], weights, emitter[2])
 
-    # Thin top/bottom status arcs are display marks, never armour segments.
-    upper_arc = band(arc_profile(0.040, rad(233.0), rad(307.0), 7),
-                     arc_profile(0.0365, rad(237.0), rad(303.0), 7),
-                     0.0125, 0.0152, closed=False)
-    part.add(transform_verts(fd, upper_arc[0]), upper_arc[1],
-             MAT["MAT_DeviceGreen"], weights, upper_arc[2])
-    lower_arc = band(arc_profile(0.040, rad(53.0), rad(127.0), 7),
-                     arc_profile(0.0365, rad(57.0), rad(123.0), 7),
-                     0.0125, 0.0152, closed=False)
-    part.add(transform_verts(fd, lower_arc[0]), lower_arc[1],
-             MAT["MAT_DeviceAccent"], weights, lower_arc[2])
+    # A single, short orange identification tab is the only coloured marking.
+    id_tab = plate(rect_profile(0.0070, 0.0025, 0.001), 0.016, 0.018,
+                   chamfer=0.0007)
+    id_frame = fd @ Matrix.Translation(Vector((0.0, -0.038, 0.0)))
+    part.add(transform_verts(id_frame, id_tab[0]), id_tab[1],
+             MAT["MAT_DeviceAccent"], weights, id_tab[2])
 
-    # Four very short protective separators connect the display assembly to
-    # the chassis.  They are compact ribs, not an eight-part mechanical cage.
-    short_rib = plate(rect_profile(0.0026, 0.0055, 0.001), 0.010, 0.014,
-                      chamfer=0.0007)
-    for x, y, angle_deg in ((-0.037, 0.0, 90.0), (0.037, 0.0, 90.0),
-                            (0.0, -0.042, 0.0), (0.0, 0.042, 0.0)):
-        rib_frame = fd @ Matrix.Translation(Vector((x, y, 0.0))) \
-                    @ Matrix.Rotation(rad(angle_deg), 4, "Z")
-        part.add(transform_verts(rib_frame, short_rib[0]), short_rib[1],
-                 MAT["MAT_DeviceBody"], weights, short_rib[2])
-
-    # Fore/aft cylindrical side buttons (local +/-Y along the forearm).  Their
-    # orange collars remain readable in side view without widening the body.
+    # Two low-profile fore/aft service buttons retain practical EVA controls.
     for sign in (-1.0, 1.0):
-        y = sign * 0.0505
-        bracket = plate(rect_profile(0.010, 0.0035, 0.0015), 0.002, 0.010,
+        y = sign * 0.0475
+        bracket = plate(rect_profile(0.009, 0.0030, 0.0015), 0.001, 0.009,
                         chamfer=0.001)
         bracket_frame = fd @ Matrix.Translation(Vector((0.0, y, 0.0)))
         part.add(transform_verts(bracket_frame, bracket[0]), bracket[1],
                  MAT["MAT_Glove"], weights, bracket[2])
-        button = tube_polyline([Vector((-0.011, y, 0.0115)),
-                               Vector((0.011, y, 0.0115))],
-                              [0.0050, 0.0050], n=10, phase=TAU / 20.0)
+        button = tube_polyline([Vector((-0.009, y, 0.0105)),
+                               Vector((0.009, y, 0.0105))],
+                              [0.0045, 0.0045], n=8, phase=TAU / 16.0)
         part.add(transform_verts(fd, button[0]), button[1], MAT["MAT_DeviceBody"],
                  weights, button[2])
-        collar = tube_polyline([Vector((-0.003, y, 0.0115)),
-                               Vector((0.003, y, 0.0115))],
-                              [0.0056, 0.0056], n=10, phase=TAU / 20.0)
-        part.add(transform_verts(fd, collar[0]), collar[1],
-                 MAT["MAT_DeviceAccent"], weights, collar[2])
 
 
 # =====================================================================
@@ -893,36 +787,11 @@ def build_rig(collection, rest):
 
     for side in ("L", "R"):
         s = rest[side]
-        hand_sign = 1.0 if side == "L" else -1.0
         add_bone("UpperArm_" + side, s["shoulder"], s["elbow"], "Root", s["dorsal"])
         add_bone("Forearm_" + side, s["elbow"], s["wrist"], "UpperArm_" + side,
                  s["dorsal"])
         hand_tail = s["wrist"] + s["hand_dir"] * HAND_LEN
         add_bone("Hand_" + side, s["wrist"], hand_tail, "Forearm_" + side, s["dorsal"])
-
-        fh = frame(s["wrist"], s["hand_dir"], s["dorsal"])
-        # One bone pair per GROUP (Index / Fingers / Thumb).  The grouped
-        # middle+ring+pinky geometry is rigidly bound to the single Fingers
-        # chain, matching the "Thumb / Index / Remaining Fingers" rig scope.
-        seen_groups = set()
-        for group, fx, l1, l2, _radius, fan, c1, c2 in finger_specs():
-            if group in seen_groups:
-                continue
-            seen_groups.add(group)
-            fx *= hand_sign
-            fan *= hand_sign
-            base, mid, tip = finger_points(fx, l1, l2, fan, c1, c2)
-            add_bone(group + "_" + side, fh @ base, fh @ mid, "Hand_" + side, s["dorsal"])
-            add_bone(group + "_02_" + side, fh @ mid, fh @ tip,
-                     group + "_" + side, s["dorsal"])
-
-        tb = Vector((hand_sign * 0.049, 0.034, -0.012))
-        td1 = Vector((hand_sign * 0.72, 0.57, -0.39)).normalized()
-        td2 = Vector((hand_sign * 0.55, 0.52, -0.65)).normalized()
-        add_bone("Thumb_" + side, fh @ tb, fh @ (tb + td1 * 0.041),
-                 "Hand_" + side, s["dorsal"])
-        add_bone("Thumb_02_" + side, fh @ (tb + td1 * 0.041),
-                 fh @ (tb + td1 * 0.041 + td2 * 0.034), "Thumb_" + side, s["dorsal"])
 
     head = rest["L"]["device_center"] - rest["L"]["fdir"] * DEVICE_BONE_HALF
     tail = rest["L"]["device_center"] + rest["L"]["fdir"] * DEVICE_BONE_HALF
@@ -1009,22 +878,12 @@ def curl_sign_for(rig, bone_name):
     return 1.0 if rotated.dot(-z_world) > 0 else -1.0
 
 
-FINGER_GROUPS = ("Thumb", "Index", "Fingers")
+FINGER_GROUPS = ()
 
 
 def apply_fingers(rig, side, curl01, index_extend=0.0):
-    """curl01: 0 = relaxed open glove, 1 = closed fist."""
-    base = {"Thumb": (14.0, 26.0), "Index": (16.0, 26.0), "Fingers": (20.0, 32.0)}
-    for group in FINGER_GROUPS:
-        c1, c2 = base[group]
-        scale = curl01
-        if group == "Index" and index_extend > 0.0:
-            scale = max(0.0, curl01 - 2.0 * index_extend)
-        for suffix, amount in (("", c1 * scale), ("_02", c2 * scale)):
-            name = group + suffix + "_" + side
-            pose_bone = rig.pose.bones[name]
-            pose_bone.rotation_quaternion = Quaternion(
-                Vector((1.0, 0.0, 0.0)), rad(CURL_SIGN.get(name, 1.0) * amount))
+    """Revision03 hands are rigid mittens; legacy curl inputs are ignored."""
+    return
 
 
 def arm_state(side, lift, swing, bob, breathe, interact):
@@ -1213,6 +1072,34 @@ def camera_ndc(point):
     return (-point.x / half_w, point.z / half_h)
 
 
+def screen_segment_metrics(start, end):
+    """Angle and backwards viewport-edge entry for a projected line segment."""
+    a = camera_ndc(start)
+    b = camera_ndc(end)
+    if not a or not b:
+        return None
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    angle = math.degrees(math.atan2(abs(dy), abs(dx)))
+    entry_edge = None
+    entry = None
+    if dx > 1e-6 and dy > 1e-6:
+        tx = (b[0] + 1.0) / dx
+        ty = (b[1] + 1.0) / dy
+        if tx <= ty:
+            entry_edge = "left"
+            entry = (-1.0, b[1] - tx * dy)
+        else:
+            entry_edge = "bottom"
+            entry = (b[0] - ty * dx, -1.0)
+    return {
+        "start_ndc": [round(v, 4) for v in a],
+        "end_ndc": [round(v, 4) for v in b],
+        "angle_from_screen_bottom_deg": round(angle, 2),
+        "extended_entry_edge": entry_edge,
+        "extended_entry_ndc": [round(v, 4) for v in entry] if entry else None,
+    }
+
+
 def ui_sample_points():
     """Design-space samples of the existing hologram content, in Blender space."""
     points = []
@@ -1396,6 +1283,9 @@ def main():
     device_face_normal = device_bone.matrix.to_3x3().col[2].normalized()
     to_eye = (-device_face_world).normalized()
     device_face_unity = u2b_inverse(device_face_world)
+    hold_forearm = rig.pose.bones["Forearm_L"]
+    hold_screen_metrics = screen_segment_metrics(hold_forearm.head.copy(),
+                                                  hold_forearm.tail.copy())
 
     triangles = {obj.name: sum(len(p.vertices) - 2 for p in obj.data.polygons)
                  for obj in meshes}
@@ -1404,7 +1294,7 @@ def main():
 
     report = {
         "generated_by": "scripts/build_fp_arms.py (Phase09A_1 Revision03)",
-        "revision": "Revision03 compact watch and body-space presentation",
+        "revision": "Revision03 block-hand simplification and 30-degree raise composition",
         "blender_version": bpy.app.version_string,
         "fps": FPS,
         "units": "metric, 1 Blender unit = 1 m, scale_length = 1.0",
@@ -1450,21 +1340,27 @@ def main():
             "materials": [spec[0] for spec in MATERIAL_SPECS],
             "materials_used_by_geometry": materials_used,
         },
+        "hand_revision03": {
+            "construction": "single tapered eight-sided mitten/wedge per hand",
+            "visible_individual_fingers": 0,
+            "visible_thumb_geometry": False,
+            "deformation_bone_per_hand": "Hand_L / Hand_R only",
+            "orientation_cue": "shared forward hard toe and centred orange dorsal ID bar",
+            "penetration_policy": "main glove and toe share an open boundary; no finger/palm overlap",
+        },
         "wrist_device_revision03": {
-            "construction": "compact cut-corner terminal integrated into left forearm",
-            "removed": ["Revision02 long carrier slab", "large circular under-frame",
-                        "eight-segment / shield-like outer cage"],
-            "main_screen": "dominant independent MAT_DeviceEmissive face region",
-            "cyan_function_panels": 4,
-            "upper_status_arc": "MAT_DeviceGreen",
-            "lower_status_arc": "MAT_DeviceAccent",
+            "construction": "compact six-segment mechanical emitter integrated into left forearm",
+            "mechanical_outer_segments": 6,
+            "dark_recessed_center": True,
+            "cyan_emitter": "one small independent MAT_DeviceEmissive face region",
+            "orange_identification_marks": 1,
             "fore_aft_cylindrical_buttons": 2,
             "revision02_reference_face_width_m": 0.130,
-            "revision03_chassis_face_width_m": 0.084,
-            "width_reduction_fraction": 0.3538,
+            "revision03_chassis_face_width_m": 0.094,
+            "width_reduction_fraction": 0.2769,
             "revision02_reference_face_stack_thickness_m": 0.046,
-            "revision03_face_stack_thickness_m": 0.0175,
-            "face_stack_thickness_reduction_fraction": 0.6196,
+            "revision03_face_stack_thickness_m": 0.021,
+            "face_stack_thickness_reduction_fraction": 0.5435,
             "rigid_weight_bone": "WristDevice_L",
         },
         "body_space_contract": {
@@ -1502,6 +1398,7 @@ def main():
                                   for v in camera_ndc(REST["hold"]["device_center"])],
             "wrist_blender": [round(v, 5) for v in REST["hold"]["wrist"]],
             "elbow_blender": [round(v, 5) for v in REST["hold"]["elbow"]],
+            "composition_target": "lower-left edge entry, 25-35 deg from screen bottom",
         },
         "measured_wrist_idle_f46": {
             "device_face_center_blender": [round(v, 5) for v in device_face_world],
@@ -1514,6 +1411,7 @@ def main():
                 round(v, 5) for v in (UI_PIVOT_UNITY - device_face_unity)],
             "distance_device_face_to_ui_pivot_m": round(
                 (UI_PIVOT_UNITY - device_face_unity).length, 5),
+            "forearm_screen_composition": hold_screen_metrics,
         },
         "clips": [
             {"name": name, "fps": FPS, "frame_start": 1, "frame_end": length,
@@ -1584,6 +1482,8 @@ def main():
     print("BUILD_UI_PIVOT_NDC", report["ui_contract"]["ui_pivot_ndc"])
     print("BUILD_FACE_NORMAL_DOT_EYE",
           report["measured_wrist_idle_f46"]["dot_face_normal_to_eye"])
+    print("BUILD_FOREARM_SCREEN_COMPOSITION",
+          report["measured_wrist_idle_f46"]["forearm_screen_composition"])
     print("BUILD_OCCLUSION", [(o["clip"], o["frame"], o["occluded_fraction"])
                               for o in occlusions])
     print("BUILD_REPORT", REPORT_PATH)

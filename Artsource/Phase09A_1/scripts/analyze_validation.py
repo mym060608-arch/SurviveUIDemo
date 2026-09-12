@@ -181,6 +181,41 @@ def wrist_ui_proxy_overlap():
             "ray_sample_occlusion_fraction": ray_fraction}
 
 
+def raised_forearm_composition(clip, frame):
+    """Measure the authored Forearm_L centreline in the 70-degree camera."""
+    rig.animation_data.action = bpy.data.actions[clip]
+    scene.frame_set(frame)
+    bpy.context.view_layer.update()
+    bone = rig.pose.bones["Forearm_L"]
+    elbow = project_point(bone.head.copy(), 0.0)
+    wrist = project_point(bone.tail.copy(), 0.0)
+    dx, dy = wrist[0] - elbow[0], wrist[1] - elbow[1]
+    angle = math.degrees(math.atan2(abs(dy), abs(dx)))
+    edge = None
+    entry = None
+    if dx > 1e-6 and dy > 1e-6:
+        tx = (wrist[0] + 1.0) / dx
+        ty = (wrist[1] + 1.0) / dy
+        if tx <= ty:
+            edge = "left"
+            entry = (-1.0, wrist[1] - tx * dy)
+        else:
+            edge = "bottom"
+            entry = (wrist[0] - ty * dx, -1.0)
+    return {
+        "clip": clip,
+        "frame": frame,
+        "elbow_ndc": [round(v, 4) for v in elbow],
+        "wrist_ndc": [round(v, 4) for v in wrist],
+        "angle_from_screen_bottom_deg": round(angle, 2),
+        "target_range_deg": [25.0, 35.0],
+        "angle_in_target_range": 25.0 <= angle <= 35.0,
+        "extended_entry_edge": edge,
+        "extended_entry_ndc": [round(v, 4) for v in entry] if entry else None,
+        "lower_left_entry_pass": edge == "left" and entry is not None and entry[1] < -0.35,
+    }
+
+
 def loop_check(clip, length):
     """Max per-bone deviation between the first and last frame of a loop clip."""
     rig.animation_data.action = bpy.data.actions[clip]
@@ -215,7 +250,8 @@ def root_motion_check():
 
 
 report = {"revision": "Revision03", "images": [], "poses": [], "loops": [],
-          "root_motion": None, "wrist_ui_proxy": None}
+          "root_motion": None, "wrist_ui_proxy": None,
+          "raised_forearm_composition": []}
 for name in sorted(os.listdir(VAL)):
     if name.lower().endswith(".png"):
         report["images"].append(image_stats(os.path.join(VAL, name)))
@@ -223,7 +259,7 @@ for name in sorted(os.listdir(VAL)):
 for clip, frame, pitch in (("FP_Idle", 1, 0.0), ("FP_Idle", 1, 52.0),
                            ("FP_Walk", 11, 0.0), ("FP_Walk", 11, 52.0),
                            ("Wrist_Raise", 7, 0.0), ("Wrist_Raise", 13, 0.0),
-                           ("Wrist_Raise", 19, 0.0),
+                           ("Wrist_Raise", 19, 0.0), ("Wrist_Raise", 25, 0.0),
                            ("Wrist_Idle", 46, 0.0), ("Wrist_Lower", 11, 0.0),
                            ("Interact_Right", 16, 42.0)):
     report["poses"].append(project_pose(clip, frame, pitch))
@@ -232,6 +268,10 @@ report["loops"] = [loop_check(name, length) for name, length, loop, _usage in B.
                    if loop]
 report["root_motion"] = root_motion_check()
 report["wrist_ui_proxy"] = wrist_ui_proxy_overlap()
+report["raised_forearm_composition"] = [
+    raised_forearm_composition("Wrist_Raise", 25),
+    raised_forearm_composition("Wrist_Idle", 46),
+]
 
 with open(OUT, "w", encoding="utf-8") as handle:
     json.dump(report, handle, indent=1)
@@ -252,5 +292,7 @@ for entry in report["loops"]:
              entry["max_element_deviation"], entry["worst_bone"]))
 print("ROOT_MOTION", report["root_motion"])
 print("WRIST_UI_PROXY", report["wrist_ui_proxy"])
+for entry in report["raised_forearm_composition"]:
+    print("FOREARM_COMPOSITION", entry)
 print("ANALYSIS_WROTE", OUT)
 print("ANALYSIS_DONE")
