@@ -1081,18 +1081,50 @@ public static class SurviveProjectValidator
         SurfaceWristController wrist = Object.FindAnyObjectByType<SurfaceWristController>(
             FindObjectsInactive.Include);
         record(wrist != null, "the existing wrist terminal host is present");
-        if (wrist != null && wrist.Display != null)
+
+        // The controller resolves its display anchor at RUNTIME, so in the editor
+        // it is still null: resolve it here instead of silently skipping the
+        // render-order contract (which is exactly what used to happen).
+        WristDisplayAnchor anchor = wrist != null ? wrist.Display : null;
+        if (anchor == null)
         {
-            Material material = wrist.Display.SurfaceMaterial;
-            bool transparentQueue = material != null
-                                    && (material.renderQueue
-                                        == (int)UnityEngine.Rendering.RenderQueue.Transparent
-                                        || (material.shader != null
-                                            && material.shader.name
-                                            == "Survive/WristDisplayUnlit"));
-            record(transparentQueue,
-                "the wrist hologram renders in the transparent queue, i.e. after "
-                + "the opaque block arms");
+            anchor = Object.FindAnyObjectByType<WristDisplayAnchor>(
+                FindObjectsInactive.Include);
+        }
+
+        record(anchor != null, "the wrist display anchor is authored in the ship scene");
+        if (anchor != null)
+        {
+            // The anchor's material is bound at RUNTIME, so the editor can only
+            // pin the shader contract plus the arm's queue. The on-screen proof
+            // that the hologram really composites over the physical arm is
+            // measured by the 09A_3 probe (hologram readability: the readable
+            // pixels of the map disc are identical with the arm visible and with
+            // the arm hidden).
+            Shader hologramShader = Shader.Find("Survive/WristDisplayUnlit");
+            record(hologramShader != null,
+                "the wrist hologram shader exists (Survive/WristDisplayUnlit)");
+            int hologramQueue = hologramShader != null
+                ? hologramShader.renderQueue
+                : (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            record(hologramShader != null
+                   && hologramQueue >= (int)UnityEngine.Rendering.RenderQueue.Transparent,
+                "the wrist hologram shader is authored in the transparent queue (queue "
+                + hologramQueue + "), i.e. after the opaque block arms");
+
+            // The softened arm is alpha blended, so it also lives in the
+            // transparent range - but it must be composited BEFORE the hologram:
+            // the UI is the interface and the arm is only its support, so the
+            // readable content may never be covered by the physical watch.
+            record(FirstPersonBlockArmsController.SoftenedArmRenderQueue < hologramQueue,
+                "the softened block arm renders before the hologram (queue "
+                + FirstPersonBlockArmsController.SoftenedArmRenderQueue + " < "
+                + hologramQueue + "), so the UI always composites over the arm");
+        }
+        else
+        {
+            record(false, "the wrist hologram render-order contract could not be verified "
+                          + "(no WristDisplayAnchor found)");
         }
 
         EditorSceneManager.OpenScene(BootScenePath, OpenSceneMode.Single);

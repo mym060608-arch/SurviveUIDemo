@@ -179,7 +179,7 @@ public class SurvivePhase09A3BlockArmsTests
     // ====================================================================
 
     [UnityTest]
-    public IEnumerator Wrist_RaiseHoldLower_WithTheWatchInTheLowerLeft_Green()
+    public IEnumerator Wrist_RaiseHoldLower_WithTheWatchUnderTheHologram_Green()
     {
         ShipGameController ship = null;
         yield return EnterShip(s => ship = s);
@@ -219,32 +219,63 @@ public class SurvivePhase09A3BlockArmsTests
             == FirstPersonBlockArmsController.WristPhase.Hold, 2f);
         Assert.AreEqual("WristHold", arms.CurrentStateName, "the hold phase is reached");
 
-        // The watch is held in the lower-left of the view direction. That is the
-        // aspect-independent contract: the same pose is measured on screen at the
-        // product resolution by the standalone evidence run (1920x1080, see
-        // export/phase09a3_shots/phase09a3_result.txt).
+        // The hold pose lays the forearm ACROSS the body, so the watch sits in
+        // the lower middle - under the hologram, which composites over it. The
+        // aspect-independent contract is checked in camera space; the on-screen
+        // numbers are pinned by the standalone evidence run at 1920x1080
+        // (export/phase09a3_shots/phase09a3_result.txt).
         Vector3 watchLocal = ship.Player.EyeCamera.transform.InverseTransformPoint(
             arms.Watch.position);
-        Assert.Less(watchLocal.x, 0f, "the watch is held left of the view axis");
         Assert.Less(watchLocal.y, 0f, "the watch is held below the view axis");
         Assert.Greater(watchLocal.z, 0.05f, "the watch is held in front of the eye");
+
+        // The forearm's own axis is the screen-horizontal world axis (the
+        // player's right): that is what makes the pose read as a horizontal bar
+        // instead of the old diagonal.
+        Vector3 armAxis = (arms.Watch.position - arms.LeftArmRoot.position).normalized;
+        Vector3 eyeRight = ship.Player.EyeCamera.transform.right;
+        Assert.Greater(Mathf.Abs(Vector3.Dot(armAxis, eyeRight)), 0.9f,
+            "the forearm runs across the view (dot with the eye's right = "
+            + Mathf.Abs(Vector3.Dot(armAxis, eyeRight)).ToString("F3") + ")");
+
+        // The watch face is turned to the camera.
+        Vector3 toEye = (ship.Player.EyeCamera.transform.position
+                         - arms.Watch.position).normalized;
+        Assert.Greater(Vector3.Dot(arms.Watch.forward, toEye), 0.65f,
+            "the watch face points at the camera ("
+            + Vector3.Dot(arms.Watch.forward, toEye).ToString("F3") + ")");
 
         Vector3 watch = arms.WatchViewport;
         if (Mathf.Abs(ship.Player.EyeCamera.aspect - 16f / 9f) < 0.01f)
         {
             Assert.IsTrue(arms.WatchOnScreen,
                 "the watch is inside the viewport " + watch.ToString("F3"));
-            Assert.Less(watch.x, 0.45f, "the watch sits in the left part of the screen");
-            Assert.Less(watch.y, 0.5f, "the watch sits in the lower part of the screen");
+            Assert.Greater(watch.x, 0.33f, "the watch sits near the middle of the frame");
+            Assert.Less(watch.x, 0.57f, "the watch sits near the middle of the frame");
+            Assert.Greater(watch.y, 0.17f, "the watch sits above the very bottom edge");
+            Assert.Less(watch.y, 0.36f, "the watch sits in the lower part of the screen");
         }
 
-        // UI above / watch below: the watch is left of and below the hologram pivot
+        // The right (resting) arm must not join the presentation.
+        Assert.AreEqual(0,
+            RenderersInsideFrustum(arms.RightArmRoot.GetComponentsInChildren<Renderer>()),
+            "the right arm stays out of frame while the wrist is presented");
+
+        // The hologram is the subject and the arm is its support: the UI centre
+        // sits above the device, and the softened arm is composited BEFORE the
+        // hologram so the readable content is never covered.
         Assert.IsNotNull(ship.Wrist.ProjectionPivot, "the existing wrist pivot exists");
-        Vector3 pivotViewport = ship.Player.EyeCamera.WorldToViewportPoint(
-            ship.Wrist.ProjectionPivot.position);
-        Assert.Less(watch.x, pivotViewport.x, "the watch stays left of the UI pivot");
-        Assert.Less(watch.y, pivotViewport.y + 0.02f,
-            "the watch stays below the UI pivot, never over the hologram");
+        Vector3 displayViewport = ship.Player.EyeCamera.WorldToViewportPoint(
+            ship.Wrist.Display.transform.position);
+        Assert.Greater(displayViewport.y, watch.y + 0.10f,
+            "the hologram centre sits above the physical watch");
+        Material displayMaterial = ship.Wrist.Display.SurfaceMaterial;
+        Assert.IsNotNull(displayMaterial, "the hologram surface material exists");
+        Assert.Less(FirstPersonBlockArmsController.SoftenedArmRenderQueue,
+            displayMaterial.renderQueue,
+            "the softened arm renders before the hologram ("
+            + FirstPersonBlockArmsController.SoftenedArmRenderQueue + " < "
+            + displayMaterial.renderQueue + ")");
 
         // close
         yield return PressButton(GamepadButton.North);
@@ -465,22 +496,30 @@ public class SurvivePhase09A3BlockArmsTests
 
     private static bool RendererInsideFrustum(Renderer[] renderers)
     {
+        return RenderersInsideFrustum(renderers) > 0;
+    }
+
+    /// <summary>How many of these renderers are inside the eye camera frustum.</summary>
+    private static int RenderersInsideFrustum(Renderer[] renderers)
+    {
         Camera eye = Camera.main;
         if (eye == null || renderers == null)
         {
-            return false;
+            return 0;
         }
 
         Plane[] planes = GeometryUtility.CalculateFrustumPlanes(eye);
+        int count = 0;
         foreach (Renderer renderer in renderers)
         {
-            if (renderer.enabled && GeometryUtility.TestPlanesAABB(planes, renderer.bounds))
+            if (renderer != null && renderer.enabled
+                && GeometryUtility.TestPlanesAABB(planes, renderer.bounds))
             {
-                return true;
+                count++;
             }
         }
 
-        return false;
+        return count;
     }
 
     private IEnumerator EnterShip(System.Action<ShipGameController> capture)

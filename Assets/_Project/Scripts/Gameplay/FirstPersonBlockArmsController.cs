@@ -17,11 +17,16 @@ using UnityEngine;
 ///     when the player looks down the camera pitches into them and both block
 ///     arms enter from the lower left / lower right, exactly like real arms
 ///     hanging at the body sides.
-///   * while the wrist terminal is being presented the root BLENDS into camera
-///     space (pitch follow), because the existing Wrist UI is camera-locked:
-///     that keeps the device framed against the hologram whatever pitch the
-///     player had when they opened it.  Look is frozen by the existing authority
-///     while the wrist is open, so this blend is stable.
+///   * while the wrist terminal is being presented ONLY the left arm (the
+///     presented one) follows the camera pitch, through its own presentation
+///     root. The shared root is never rotated, so the rest / look-down contract
+///     stays pure body space. Look is frozen by the existing authority while the
+///     wrist is open, so the compensation keeps the device framed against the
+///     camera-locked hologram whatever pitch the player opened it from.
+///   * the wrist hold pose lays the forearm ACROSS the body (screen-horizontal)
+///     with the watch face turned to the camera, and the whole arm is softened
+///     into a translucent ghost once the hologram is up, so the UI - not the
+///     arm - owns the frame.
 ///
 /// Authority separation: this class owns NO input, NO wrist open/close state,
 /// NO pause and NO scene logic.  It consumes the presentation phase pushed by
@@ -109,9 +114,53 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     private const float WalkSwayDegrees = 5.0f;
     private const float WalkRate = 2.6f;
 
-    /// <summary>Weakening applied to the physical arms while the hologram is up.</summary>
-    private const float SoftenedBaseScale = 0.62f;
-    private const float SoftenedEmissionScale = 0.5f;
+    // ---- wrist focus (Stage B) softening ----
+    //
+    // While the hologram is up the physical arm is only the SUPPORT for the UI,
+    // so it has to lose the visual competition completely - not by 5%: it drops
+    // to a translucent, desaturated, emissive-free ghost. See ApplySoftening for
+    // why this is a material swap instead of a real blur (the UI is a world quad
+    // rendered by the same camera, so any post-process blur would blur the UI
+    // with it, and blurring only the arms would need a second render path).
+    /// <summary>Opacity of the physical arm while the hologram owns the frame.</summary>
+    private const float SoftenedAlpha = 0.38f;
+
+    /// <summary>How far the softened arm is pushed toward the background grey.</summary>
+    private const float SoftenedDesaturation = 0.70f;
+
+    /// <summary>Brightness scale of the softened arm's albedo.</summary>
+    private const float SoftenedBaseScale = 0.52f;
+
+    /// <summary>Emission scale of the (physical) watch screen while softened.</summary>
+    private const float SoftenedEmissionScale = 0.18f;
+
+    /// <summary>
+    /// Soft halo copy of the presented arm: scale + opacity of the bleed.</summary>
+    private const float HaloScale = 1.075f;
+    private const float HaloAlpha = 0.11f;
+
+    /// <summary>
+    /// Render queue of the softened arm.
+    ///
+    /// The ghost material is alpha blended, so it moves into the transparent
+    /// range - where the wrist hologram also lives. The hologram MUST still be
+    /// drawn over the arm (it is the interface; the arm is its support), and the
+    /// arm is physically CLOSER to the camera, so distance sorting alone would
+    /// put the arm in front. An explicit queue just below the hologram's
+    /// (Transparent = 3000, see Survive/WristDisplayUnlit) settles it: the arm
+    /// blends first, the UI is composited on top of it, and the UI's readable
+    /// content is never covered.
+    /// </summary>
+    private const int SoftenedRenderQueue = 2900;
+
+    /// <summary>
+    /// Queue the softened (ghost) arm renders in. Exposed so the structural
+    /// validator can pin that it stays BELOW the wrist hologram's queue: the UI
+    /// must always composite over the physical arm that supports it.
+    /// </summary>
+    public static int SoftenedArmRenderQueue => SoftenedRenderQueue;
+
+    private static readonly Color BackgroundGrey = new Color(0.30f, 0.33f, 0.37f);
 
     private static readonly Color SuitColour = new Color(0.700f, 0.720f, 0.735f);
     private static readonly Color GloveColour = new Color(0.105f, 0.113f, 0.125f);
@@ -127,10 +176,13 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     private Transform _armsRoot;
     private Transform _leftArm;
     private Transform _rightArm;
+    private Transform _leftHalo;
     private Transform _watch;
     private Renderer[] _renderers = new Renderer[0];
+    private Renderer[] _haloRenderers = new Renderer[0];
+    private Material[] _normalMaterials = new Material[0];
+    private Material[] _ghostMaterials = new Material[0];
     private Renderer _screenRenderer;
-    private readonly List<Renderer> _softenedRenderers = new List<Renderer>();
 
     private Material _suit;
     private Material _glove;
@@ -139,10 +191,20 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     private Material _device;
     private Material _screen;
 
+    private Material _suitGhost;
+    private Material _gloveGhost;
+    private Material _cuffGhost;
+    private Material _accentGhost;
+    private Material _deviceGhost;
+    private Material _screenGhost;
+    private Material _halo;
+
     private Quaternion _leftRest;
+    private Quaternion _leftLift;
     private Quaternion _leftHold;
     private Quaternion _rightRest;
     private Vector3 _leftRestPosition;
+    private Vector3 _leftLiftPosition;
     private Vector3 _leftHoldPosition;
     private Vector3 _rightRestPosition;
 
@@ -255,24 +317,39 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         _leftRest = ArmRotation(restDirLeft, restFacingLeft);
         _rightRest = ArmRotation(restDirRight, restFacingRight);
 
-        // --- hold pose: the left forearm reaches forward AND across to the left
-        //     so the watch is presented in the lower-left of a LEVEL-gaze frame.
-        //     The across-the-body angle is what keeps the composition readable:
-        //     a forearm pushed straight forward projects as a wide diagonal that
-        //     climbs into the hologram's panel ring, while a forearm angled away
-        //     from the view axis stays inside the lower-left corner underneath
-        //     the wrist terminal. The pivot only moves forward, never outward,
-        //     so the shoulder motion stays physically plausible.
+        // --- hold pose: the whole forearm is laid ACROSS the body in front of the
+        //     chest, so at a level gaze it projects as a near-HORIZONTAL bar in
+        //     the lower half of the frame with the watch face turned to the
+        //     camera. The arm's own axis is the screen-horizontal world axis
+        //     (the player's right); the elbow stays low and to the left, the hand
+        //     ends around the middle of the frame.
+        //
+        //     Geometry (eye space, metres): the root is the elbow, the arm runs
+        //     0.30 m to the watch and 0.50 m to the finger tips, so at z = 0.50
+        //     the bar covers roughly viewport x 0.25..0.65 and the watch lands
+        //     near viewport x 0.49 / y 0.24 (bottom-left origin) - i.e. under the
+        //     hologram, which is drawn AFTER the opaque arms.
         Vector3 shoulderLeft = new Vector3(-ShoulderSide, -ShoulderDrop, ShoulderForward);
-        Vector3 holdShoulder = new Vector3(-0.260f, -0.219f, 0.173f);
-        Vector3 holdDir = new Vector3(-0.583f, -0.086f, 0.808f).normalized;
-        Vector3 holdFacing = new Vector3(0.30f, 0.86f, -0.42f).normalized;
+        Vector3 holdShoulder = new Vector3(-0.310f, -0.170f, 0.480f);
+        Vector3 holdDir = new Vector3(0.997f, -0.050f, 0.060f).normalized;
+        Vector3 holdFacing = new Vector3(0.10f, 0.30f, -0.95f).normalized;
         _leftHold = ArmRotation(holdDir, holdFacing);
+
+        // --- lift pose: the elbow comes up and forward while the forearm is
+        //     still angled inward, which is the natural middle of the motion.
+        //     The raise blends rest -> lift -> hold along ONE eased parameter, so
+        //     the orientation is distributed over the whole move instead of
+        //     snapping in the last 10%.
+        Vector3 liftShoulder = new Vector3(-0.315f, -0.115f, 0.300f);
+        Vector3 liftDir = new Vector3(-0.350f, 0.200f, 0.915f).normalized;
+        Vector3 liftFacing = new Vector3(0.25f, 0.55f, -0.80f).normalized;
+        _leftLift = ArmRotation(liftDir, liftFacing);
 
         _leftArm = BuildArm("LeftArmRoot", shoulderLeft, layer, true);
         _rightArm = BuildArm("RightArmRoot",
             new Vector3(ShoulderSide, -ShoulderDrop, ShoulderForward), layer, false);
         _leftRestPosition = shoulderLeft;
+        _leftLiftPosition = liftShoulder;
         _leftHoldPosition = holdShoulder;
         _rightRestPosition = _rightArm.localPosition;
 
@@ -285,11 +362,110 @@ public class FirstPersonBlockArmsController : MonoBehaviour
             renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
         }
 
+        CacheMaterials();
+        BuildSoftHalo(layer);
+
         _leftArm.localRotation = _leftRest;
         _rightArm.localRotation = _rightRest;
         ApplyMotion();
+        ApplySoftening();
         SetVisible(true);
         SetWristScreenActive(false);
+    }
+
+    /// <summary>
+    /// Remembers each block's normal material next to its softened ghost, so
+    /// SetSoftened only has to swap shared materials (no per-frame allocation,
+    /// no material instancing).
+    /// </summary>
+    private void CacheMaterials()
+    {
+        _normalMaterials = new Material[_renderers.Length];
+        _ghostMaterials = new Material[_renderers.Length];
+        for (int index = 0; index < _renderers.Length; index++)
+        {
+            Material normal = _renderers[index] != null
+                ? _renderers[index].sharedMaterial
+                : null;
+            _normalMaterials[index] = normal;
+            _ghostMaterials[index] = GhostOf(normal);
+        }
+    }
+
+    private Material GhostOf(Material normal)
+    {
+        if (normal == _suit)
+        {
+            return _suitGhost;
+        }
+
+        if (normal == _glove)
+        {
+            return _gloveGhost;
+        }
+
+        if (normal == _cuff)
+        {
+            return _cuffGhost;
+        }
+
+        if (normal == _accent)
+        {
+            return _accentGhost;
+        }
+
+        if (normal == _device)
+        {
+            return _deviceGhost;
+        }
+
+        if (normal == _screen)
+        {
+            return _screenGhost;
+        }
+
+        return _suitGhost;
+    }
+
+    /// <summary>
+    /// Builds the soft-focus bleed: a slightly larger, very faint copy of the
+    /// presented (left) arm that only exists while the hologram is up. It is a
+    /// presentation-only object on the arms layer, driven from the real arm's
+    /// transform every frame, so it can never desync from the pose.
+    /// </summary>
+    private void BuildSoftHalo(int layer)
+    {
+        if (_leftArm == null || _halo == null)
+        {
+            _haloRenderers = new Renderer[0];
+            return;
+        }
+
+        GameObject halo = Instantiate(_leftArm.gameObject, _armsRoot);
+        halo.name = "LeftArmSoftHalo";
+        halo.transform.localPosition = _leftArm.localPosition;
+        halo.transform.localRotation = _leftArm.localRotation;
+        halo.transform.localScale = Vector3.one * HaloScale;
+        halo.layer = layer;
+
+        foreach (Transform child in halo.GetComponentsInChildren<Transform>(true))
+        {
+            child.gameObject.layer = layer;
+        }
+
+        foreach (Renderer renderer in halo.GetComponentsInChildren<Renderer>(true))
+        {
+            renderer.sharedMaterial = _halo;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            renderer.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            renderer.enabled = false;
+        }
+
+        _haloRenderers = halo.GetComponentsInChildren<Renderer>(true);
+        _leftHalo = halo.transform;
+        halo.SetActive(false);
     }
 
     private void BuildMaterials()
@@ -315,6 +491,25 @@ public class FirstPersonBlockArmsController : MonoBehaviour
             _screen.globalIlluminationFlags =
                 MaterialGlobalIlluminationFlags.RealtimeEmissive;
         }
+
+        // ---- softened ghost set (Stage B: the UI owns the frame) ----
+        // Same geometry, but translucent, desaturated, dark and without the
+        // emissive accents that make the physical arm compete with the hologram.
+        _suitGhost = MakeTransparentCopy(_suit, "FPBlockArms_Suit_Ghost",
+            SoftenColour(SuitColour), SoftenedAlpha, 0.10f, null);
+        _gloveGhost = MakeTransparentCopy(_glove, "FPBlockArms_Glove_Ghost",
+            SoftenColour(GloveColour), SoftenedAlpha, 0.08f, null);
+        _cuffGhost = MakeTransparentCopy(_cuff, "FPBlockArms_Cuff_Ghost",
+            SoftenColour(CuffColour), SoftenedAlpha, 0.10f, null);
+        _accentGhost = MakeTransparentCopy(_accent, "FPBlockArms_Accent_Ghost",
+            SoftenColour(AccentColour), SoftenedAlpha * 0.8f, 0.10f, null);
+        _deviceGhost = MakeTransparentCopy(_device, "FPBlockArms_Device_Ghost",
+            SoftenColour(DeviceColour), SoftenedAlpha, 0.12f, null);
+        _screenGhost = MakeTransparentCopy(_screen, "FPBlockArms_Screen_Ghost",
+            SoftenColour(new Color(0.035f, 0.100f, 0.115f)), SoftenedAlpha, 0.20f,
+            ScreenEmissionIdle * SoftenedEmissionScale);
+        _halo = MakeTransparentCopy(_suit, "FPBlockArms_SoftHalo",
+            SoftenColour(SuitColour), HaloAlpha, 0.0f, null);
     }
 
     /// <summary>
@@ -337,6 +532,100 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         }
 
         return Quaternion.LookRotation(forward.normalized, -direction);
+    }
+
+    /// <summary>
+    /// Turns an opaque URP Lit material into a TRANSPARENT copy: same look at
+    /// full opacity, but it can actually fade. URP needs the surface type, the
+    /// blend state and the transparent keyword to agree, otherwise the shader
+    /// keeps writing opaque pixels.
+    /// </summary>
+    private static Material MakeTransparentCopy(Material source, string name, Color colour,
+        float alpha, float smoothness, Color? emission)
+    {
+        if (source == null)
+        {
+            return null;
+        }
+
+        var material = new Material(source) { name = name };
+        material.SetOverrideTag("RenderType", "Transparent");
+        if (material.HasProperty("_Surface"))
+        {
+            material.SetFloat("_Surface", 1f); // 0 = opaque, 1 = transparent
+        }
+
+        if (material.HasProperty("_Blend"))
+        {
+            material.SetFloat("_Blend", 0f); // alpha blend
+        }
+
+        if (material.HasProperty("_SrcBlend"))
+        {
+            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+        }
+
+        if (material.HasProperty("_DstBlend"))
+        {
+            material.SetFloat("_DstBlend",
+                (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+        }
+
+        if (material.HasProperty("_ZWrite"))
+        {
+            material.SetFloat("_ZWrite", 0f);
+        }
+
+        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+        material.DisableKeyword("_ALPHATEST_ON");
+        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+        material.renderQueue = SoftenedRenderQueue;
+
+        if (material.HasProperty("_BaseColor"))
+        {
+            material.SetColor("_BaseColor", new Color(colour.r, colour.g, colour.b, alpha));
+        }
+
+        if (material.HasProperty("_Metallic"))
+        {
+            material.SetFloat("_Metallic", 0f);
+        }
+
+        if (material.HasProperty("_Smoothness"))
+        {
+            material.SetFloat("_Smoothness", smoothness);
+        }
+
+        if (material.HasProperty("_EmissionColor"))
+        {
+            if (emission.HasValue)
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", emission.Value);
+                material.globalIlluminationFlags =
+                    MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            }
+            else
+            {
+                material.DisableKeyword("_EMISSION");
+                material.SetColor("_EmissionColor", Color.black);
+            }
+        }
+
+        return material;
+    }
+
+    /// <summary>
+    /// The softened look of one opaque arm material: desaturated toward the
+    /// background grey, darkened, flattened and faded to <see cref="SoftenedAlpha"/>.
+    /// </summary>
+    private static Color SoftenColour(Color colour)
+    {
+        Color desaturated = Color.Lerp(colour, BackgroundGrey, SoftenedDesaturation);
+        return new Color(desaturated.r * SoftenedBaseScale,
+            desaturated.g * SoftenedBaseScale,
+            desaturated.b * SoftenedBaseScale,
+            1f);
     }
 
     private static Material MakeMaterial(Shader shader, string name, Color colour,
@@ -490,6 +779,21 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         {
             _screenRenderer.enabled = visible && _screenActive;
         }
+
+        // The soft bleed is part of the arm presentation, never a separate object
+        // that could survive a hidden state (console view, device panel, pause).
+        if (_leftHalo != null)
+        {
+            _leftHalo.gameObject.SetActive(visible && _softened);
+        }
+
+        foreach (Renderer renderer in _haloRenderers)
+        {
+            if (renderer != null)
+            {
+                renderer.enabled = visible && _softened;
+            }
+        }
     }
 
     /// <summary>Watch screen brightness: dim at rest, brighter while presented.</summary>
@@ -511,9 +815,11 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     }
 
     /// <summary>
-    /// Softening used while the hologram is up: the physical arm is only the
-    /// support for the UI, so it is dimmed and desaturated a little instead of
-    /// competing with the sharp UI layer above it.
+    /// Stage B of the wrist presentation: the hologram owns the frame, so the
+    /// physical arm drops to a translucent desaturated ghost (plus a faint
+    /// oversized bleed) and stops competing with the UI. Set false restores the
+    /// crisp arm - the bridge does that as soon as the terminal is released,
+    /// before the arm lowers.
     /// </summary>
     public void SetSoftened(bool softened)
     {
@@ -545,66 +851,47 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         _screenRenderer.SetPropertyBlock(_block);
     }
 
+    /// <summary>
+    /// Swaps every block to its ghost material (or back) and shows the soft
+    /// bleed. A material SWAP rather than a property tweak on purpose: a real
+    /// blur is not available without a second render path - the hologram is a
+    /// world quad drawn by the same camera, so any post-process blur would blur
+    /// the UI with the arm - and alpha blending needs the transparent queue,
+    /// which is a blend state of the material.
+    /// </summary>
     private void ApplySoftening()
     {
-        if (_block == null)
+        for (int index = 0; index < _renderers.Length; index++)
         {
-            _block = new MaterialPropertyBlock();
-        }
-
-        foreach (Renderer renderer in _renderers)
-        {
-            if (renderer == null || renderer == _screenRenderer)
+            Renderer renderer = _renderers[index];
+            if (renderer == null)
             {
                 continue;
             }
 
-            Color baseColour = BaseColourOf(renderer);
-            renderer.GetPropertyBlock(_block);
-            _block.SetColor("_BaseColor",
-                _softened ? baseColour * SoftenedBaseScale : baseColour);
-            renderer.SetPropertyBlock(_block);
+            Material target = _softened && index < _ghostMaterials.Length
+                ? _ghostMaterials[index]
+                : index < _normalMaterials.Length ? _normalMaterials[index] : null;
+            if (target != null)
+            {
+                renderer.sharedMaterial = target;
+            }
+        }
+
+        if (_leftHalo != null)
+        {
+            _leftHalo.gameObject.SetActive(_softened && _visible);
+        }
+
+        foreach (Renderer renderer in _haloRenderers)
+        {
+            if (renderer != null)
+            {
+                renderer.enabled = _softened && _visible;
+            }
         }
 
         ApplyScreenEmission();
-    }
-
-    private Color BaseColourOf(Renderer renderer)
-    {
-        Material material = renderer != null ? renderer.sharedMaterial : null;
-        if (material == null)
-        {
-            return Color.grey;
-        }
-
-        if (material == _suit)
-        {
-            return SuitColour;
-        }
-
-        if (material == _glove)
-        {
-            return GloveColour;
-        }
-
-        if (material == _cuff)
-        {
-            return CuffColour;
-        }
-
-        if (material == _accent)
-        {
-            return AccentColour;
-        }
-
-        if (material == _device)
-        {
-            return DeviceColour;
-        }
-
-        return material.HasProperty("_BaseColor")
-            ? material.GetColor("_BaseColor")
-            : Color.grey;
     }
 
     // ====================================================================
@@ -702,10 +989,18 @@ public class FirstPersonBlockArmsController : MonoBehaviour
             return;
         }
 
-        // Body space at rest, camera space while the wrist terminal is presented.
+        // The SHARED root is never rotated: rest and look-down stay pure body
+        // space, so a level gaze keeps the hands out of frame and a look-down
+        // brings both arms in from the lower corners.
+        //
+        // Only the LEFT arm (the presented one) follows the camera pitch, and
+        // through its own presentation root: the existing Wrist UI is camera
+        // locked and the player cannot look around while it is open, so the pose
+        // the player opened it from has to be compensated or the device would be
+        // framed off-screen after looking down first.
         float presentBlend = Mathf.Clamp01(_raiseProgress);
         float pitch = _player != null ? _player.PitchDegrees : 0f;
-        _armsRoot.localRotation = Quaternion.Euler(pitch * presentBlend, 0f, 0f);
+        Quaternion pitchCompensation = Quaternion.Euler(pitch * presentBlend, 0f, 0f);
 
         // Eased presentation weight so the raise settles instead of stopping dead.
         float eased = presentBlend * presentBlend * (3f - 2f * presentBlend);
@@ -715,11 +1010,56 @@ public class FirstPersonBlockArmsController : MonoBehaviour
             ? 0.8f * Mathf.Sin(Time.time * 1.7f) * presentBlend
             : 0f;
 
-        _leftArm.localRotation = Quaternion.Slerp(_leftRest, _leftHold, eased)
-                                 * Quaternion.Euler(-sway + micro, 0f, 0f);
-        _leftArm.localPosition = Vector3.Lerp(_leftRestPosition, _leftHoldPosition, eased);
+        // rest -> lift -> hold along ONE eased parameter: the elbow comes up
+        // first and the forearm rotates to horizontal through the lift key, so
+        // no part of the move snaps (especially not the last 10%).
+        Quaternion poseRotation = PathRotation(_leftRest, _leftLift, _leftHold, eased)
+                                  * Quaternion.Euler(-sway + micro, 0f, 0f);
+        Vector3 posePosition = PathPosition(_leftRestPosition, _leftLiftPosition,
+            _leftHoldPosition, eased);
+
+        _leftArm.localRotation = pitchCompensation * poseRotation;
+        _leftArm.localPosition = pitchCompensation * posePosition;
+
+        // The soft-focus bleed follows the real arm exactly.
+        if (_leftHalo != null)
+        {
+            _leftHalo.localPosition = _leftArm.localPosition;
+            _leftHalo.localRotation = _leftArm.localRotation;
+        }
+
         _rightArm.localRotation = _rightRest
                                   * Quaternion.Euler(sway, 0f, 0f);
         _rightArm.localPosition = _rightRestPosition;
+    }
+
+    /// <summary>Two-segment eased rotation path rest -&gt; lift -&gt; hold.</summary>
+    private static Quaternion PathRotation(Quaternion rest, Quaternion lift,
+        Quaternion hold, float eased)
+    {
+        const float liftAt = 0.45f;
+        if (eased <= liftAt)
+        {
+            float local = Mathf.SmoothStep(0f, 1f, eased / liftAt);
+            return Quaternion.Slerp(rest, lift, local);
+        }
+
+        float upper = Mathf.SmoothStep(0f, 1f, (eased - liftAt) / (1f - liftAt));
+        return Quaternion.Slerp(lift, hold, upper);
+    }
+
+    /// <summary>Two-segment eased position path rest -&gt; lift -&gt; hold.</summary>
+    private static Vector3 PathPosition(Vector3 rest, Vector3 lift, Vector3 hold,
+        float eased)
+    {
+        const float liftAt = 0.45f;
+        if (eased <= liftAt)
+        {
+            float local = Mathf.SmoothStep(0f, 1f, eased / liftAt);
+            return Vector3.Lerp(rest, lift, local);
+        }
+
+        float upper = Mathf.SmoothStep(0f, 1f, (eased - liftAt) / (1f - liftAt));
+        return Vector3.Lerp(lift, hold, upper);
     }
 }

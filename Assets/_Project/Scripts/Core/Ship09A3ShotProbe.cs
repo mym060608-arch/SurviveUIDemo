@@ -152,7 +152,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
             sawWalk |= blockArms.CurrentStateName == "Walk";
             if (Time.realtimeSinceStartup > walkDeadline - 0.35f)
             {
-                yield return CaptureAndAnalyse("03_fp_walk_look_down",
+                yield return CaptureAndAnalyse("02b_fp_walk_look_down",
                     "Walk look down (45 deg)", ProbeExpectation.BothArmsAtSides);
             }
             else
@@ -173,18 +173,32 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Check("the existing terminal is not shown on the key press",
             !_ship.IsWristTerminalRevealed);
 
-        // 04/05 sit BEFORE the reveal: the physical watch arrives first.
+        // STAGE A - the raise: the arm is crisp and the hologram is not up yet.
         yield return WaitUntil(() => blockArms.WristRaiseProgress >= 0.55f, 3f);
-        yield return Capture("04_wrist_raise");
+        Check("the arm is still crisp during the raise (Stage A)",
+            !blockArms.IsSoftened);
+        // The capture is taken in THIS frame (CaptureScreenshot writes at the end
+        // of the current frame), so the file really is the middle of the raise.
+        yield return Capture("03_wrist_raise_mid");
         Info("raise: blend=" + blockArms.WristPresentationBlend.ToString("0.00")
              + " watchViewport=" + Format(blockArms.WatchViewport));
 
-        yield return WaitUntil(() => blockArms.WristRaiseProgress >= 0.98f, 3f);
-        yield return WaitUntil(() => blockArms.CurrentWristPhase
-            == FirstPersonBlockArmsController.WristPhase.Hold, 2f);
-        yield return CaptureAndAnalyse("05_wrist_hold", "Wrist hold (terminal not yet revealed)",
-            ProbeExpectation.WatchInLowerLeft, analyseHologram: false);
+        // Stage A ends here: the arm reaches the horizontal hold pose and is
+        // STILL CRISP. This is the "before focus" half of the comparison pair, so
+        // it is captured before any measurement (the masks would take longer than
+        // the hold beat the bridge allows before the hologram appears).
+        yield return WaitUntil(() => blockArms.WristPresentationBlend >= 0.995f, 3f);
+        Check("the hold pose is still crisp before the hologram appears (Stage A)",
+            !blockArms.IsSoftened);
+        yield return Capture("04_wrist_hold_physical");
+        Info("physical hold: blend="
+             + blockArms.WristPresentationBlend.ToString("0.000")
+             + " watchViewport=" + Format(blockArms.WatchViewport)
+             + " softened=" + blockArms.IsSoftened);
+        Check("the physical hold frame is the crisp reference of the focus pair",
+            !blockArms.IsSoftened);
 
+        // STAGE B - focus: the hologram appears and owns the frame.
         yield return WaitUntil(() => _ship.IsWristTerminalRevealed, 3f);
         Check("the existing terminal is revealed after the raise",
             _ship.IsWristTerminalRevealed);
@@ -195,16 +209,16 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Check("the existing wrist display is visible",
             _ship.Wrist != null && _ship.Wrist.Display != null && _ship.Wrist.Display.Visible);
         yield return new WaitForSecondsRealtime(0.5f);
-        yield return CaptureAndAnalyse("06_wrist_hold_ui_above_watch",
-            "Wrist hold with the UI above the physical watch",
-            ProbeExpectation.WatchInLowerLeft, analyseHologram: true);
+        yield return CaptureAndAnalyse("05_wrist_hold_focused_ui",
+            "Wrist hold - hologram focused, physical arm softened",
+            ProbeExpectation.WristHoldPose, analyseHologram: true);
         Check("the physical arms are softened while the hologram is up",
             blockArms.IsSoftened);
         Check("the watch screen is active while the wrist is presented",
             blockArms.IsWristScreenActive);
 
-        // Spatial contract of the composition: the wrist UI is anchored above
-        // the physical watch, which stays in the lower left as its support.
+        // Spatial contract: the hologram is the subject, the physical watch sits
+        // under it as the support it is projected from.
         if (_ship.Wrist != null && _ship.Wrist.Display != null && _eye != null)
         {
             Vector3 displayViewport =
@@ -215,40 +229,73 @@ public class Ship09A3ShotProbe : MonoBehaviour
             Info("composition: wrist display viewport=" + Format(displayViewport)
                  + " pivot viewport=" + Format(pivotViewport)
                  + " physical watch viewport=" + Format(blockArms.WatchViewport));
-            Check("the wrist UI is anchored above the physical watch ("
+            Check("the hologram centre sits above the physical watch ("
                   + displayViewport.y.ToString("0.000", CultureInfo.InvariantCulture)
                   + " vs "
                   + blockArms.WatchViewport.y.ToString("0.000", CultureInfo.InvariantCulture)
-                  + ")", displayViewport.y > blockArms.WatchViewport.y + 0.15f
-                       && pivotViewport.y > blockArms.WatchViewport.y);
+                  + ")", displayViewport.y > blockArms.WatchViewport.y + 0.10f);
         }
 
-        // Softening is measured, not just reported: the same hold frame is
-        // rendered once more with the dim switched off, and the arm pixels of
-        // the two frames are compared. The dim has to stay small - the physical
-        // arm is the support for the hologram, not a hidden object.
+        // The UI must stay razor sharp ON TOP of the physical arm. The arm is
+        // physically closer to the camera, so this is a real render-order claim:
+        // the softened arm is composited first (queue 2900), the hologram after
+        // it. Measured by hiding the arms for one frame and comparing the
+        // hologram's readable content.
+        yield return Capture("05b_wrist_hold_ui_only_arms_hidden_before");
+        blockArms.SetVisible(false);
+        yield return new WaitForSecondsRealtime(0.25f);
+        yield return Capture("05b_wrist_hold_ui_only");
+        blockArms.SetVisible(true);
+        yield return new WaitForSecondsRealtime(0.25f);
+
+        // Softening is MEASURED, not just reported: the same hold pose is
+        // rendered with the softening switched off and the arm pixels of the two
+        // frames are compared. The physical arm has to lose the visual
+        // competition completely (Stage B), so the gate is a real weight drop,
+        // not a brightness tweak.
         float softenedLuminance = _lastAnalysis != null
             ? _lastAnalysis.MeanLuminance
             : 0f;
+        int softenedPixels = _lastAnalysis != null ? _lastAnalysis.SolidCount : 0;
         blockArms.SetSoftened(false);
-        yield return MaskCapture("06b_hold_unsoftened", false);
-        yield return MaskCapture("06b_hold_unsoftened_dark", true);
+        yield return MaskCapture("06_wrist_focus_comparison_unsoftened", false);
+        yield return MaskCapture("06_wrist_focus_comparison_unsoftened_dark", true);
         Analysis unsoftened = AnalyseMask(
-            Path.Combine(_folder, "06b_hold_unsoftened.png"),
-            Path.Combine(_folder, "06b_hold_unsoftened_dark.png"));
+            Path.Combine(_folder, "06_wrist_focus_comparison_unsoftened.png"),
+            Path.Combine(_folder, "06_wrist_focus_comparison_unsoftened_dark.png"));
         blockArms.SetSoftened(true);
-        Info("softening: mean arm luminance "
-             + softenedLuminance.ToString("0.000", CultureInfo.InvariantCulture)
-             + " softened vs "
+        yield return null;
+        yield return MaskCapture("06_wrist_focus_comparison_focused", false);
+        yield return MaskCapture("06_wrist_focus_comparison_focused_dark", true);
+        Analysis focused = AnalyseMask(
+            Path.Combine(_folder, "06_wrist_focus_comparison_focused.png"),
+            Path.Combine(_folder, "06_wrist_focus_comparison_focused_dark.png"));
+
+        float crispWeight = unsoftened.SolidCount * unsoftened.MeanLuminance;
+        float focusedWeight = focused.SolidCount * focused.MeanLuminance;
+        float weightRatio = crispWeight > 0f ? focusedWeight / crispWeight : 1f;
+        Info("focus weight: crisp " + unsoftened.SolidCount + " px @ "
              + unsoftened.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
-             + " unsoftened (" + unsoftened.SolidCount + " px)");
-        Check("the presented arm is dimmed but still visible ("
+             + " = " + crispWeight.ToString("0", CultureInfo.InvariantCulture)
+             + " | focused " + focused.SolidCount + " px @ "
+             + focused.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
+             + " = " + focusedWeight.ToString("0", CultureInfo.InvariantCulture)
+             + " | ratio " + weightRatio.ToString("0.00", CultureInfo.InvariantCulture));
+        Check("the softened arm loses most of its visual weight (ratio "
+              + weightRatio.ToString("0.00", CultureInfo.InvariantCulture) + " of the crisp arm)",
+            crispWeight > 0f && weightRatio <= 0.55f);
+        Check("the focused arm still reads as a physical support ("
+              + focused.SolidCount + " px)",
+            focused.SolidCount > 2000);
+        Check("the softening is not just a small dim ("
               + softenedLuminance.ToString("0.000", CultureInfo.InvariantCulture)
               + " vs "
               + unsoftened.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
               + ")", softenedLuminance > 0f
-                   && softenedLuminance < unsoftened.MeanLuminance * 0.92f
-                   && softenedLuminance > unsoftened.MeanLuminance * 0.35f);
+                   && softenedLuminance < unsoftened.MeanLuminance * 0.65f);
+
+        yield return BuildFocusComparison();
+        CheckHologramReadability();
 
         // ---- 07: lower (terminal already released) ----
         _ship.ToggleWrist();
@@ -389,7 +436,9 @@ public class Ship09A3ShotProbe : MonoBehaviour
     {
         Hidden,
         BothArmsAtSides,
-        WatchInLowerLeft
+
+        /// <summary>The wrist hold composition: horizontal forearm, watch under the hologram.</summary>
+        WristHoldPose
     }
 
     private bool _driveForward;
@@ -457,59 +506,80 @@ public class Ship09A3ShotProbe : MonoBehaviour
                       + analysis.BoundsText() + ")",
                     analysis.MaxY < analysis.Height * 0.55f);
                 break;
-            case ProbeExpectation.WatchInLowerLeft:
-                Check(suffix + ": the arm is on screen (" + analysis.SolidCount + " px)",
-                    analysis.SolidCount > 2000);
-                Check(suffix + ": the arm stays in the lower left (bbox "
-                      + analysis.BoundsText() + ")",
-                    analysis.MaxX < analysis.Width * 0.6f
-                    && analysis.MaxY < analysis.Height * 0.6f);
-                Check(suffix + ": the watch is on screen and in the lower left",
-                    _ship.Arms.WatchOnScreen && _ship.Arms.WatchViewport.x < 0.45f
-                    && _ship.Arms.WatchViewport.y < 0.5f);
-                Info(suffix + ": watch viewport=" + Format(_ship.Arms.WatchViewport)
-                     + " softened=" + _ship.Arms.IsSoftened);
-                if (analyseHologram)
-                {
-                    CheckHologramClearance(suffix, analysis);
-                }
-
+            case ProbeExpectation.WristHoldPose:
+                CheckHologramClearance(suffix, analysis);
                 break;
         }
     }
 
+    /// <summary>
+    /// The wrist hold composition contract (Phase 09A_3 final):
+    ///
+    ///   * the forearm is laid ACROSS the body, so on screen the arm mask reads
+    ///     as a near-HORIZONTAL bar: the fitted principal axis stays within
+    ///     +/-15 degrees of horizontal and the footprint is clearly wider than
+    ///     it is tall (no diagonal composition, no vertical wrist),
+    ///   * the watch body lands in the intended band of the lower middle
+    ///     (viewport x 0.33..0.57, y 0.17..0.36 from the bottom = 0.64..0.83 from
+    ///     the top), i.e. just under the hologram,
+    ///   * only the left arm is presented: the right third stays empty,
+    ///   * the arm body stays inside the hologram's footprint instead of
+    ///     climbing out of it - the UI is composited over the arm (queue 2900 vs
+    ///     3000), so overlap is the intended "UI projected from the device"
+    ///     composition and the readable content is measured separately by
+    ///     CheckHologramReadability.
+    /// </summary>
     private void CheckHologramClearance(string suffix, Analysis analysis)
     {
-        // Hologram content geometry from the UI contract: the map disc is the
-        // central readable content, the parallel-cap panels sit in a ring around
-        // it. The physical watch/arm may graze the outer ring (it is the physical
-        // support for the hologram) but must never cover the map disc.
-        float discPixels = 0f;
-        float panelPixels = 0f;
-        foreach (Vector2 pixel in analysis.Points)
-        {
-            float ndcX = pixel.x / (analysis.Width - 1f) * 2f - 1f;
-            float ndcY = pixel.y / (analysis.Height - 1f) * 2f - 1f;
-            float radius = HologramRadiusUnits(ndcX, ndcY);
-            if (radius <= 1f)
-            {
-                discPixels += 1f;
-            }
-            else if (radius >= 1.055f && radius <= 1.553f)
-            {
-                panelPixels += 1f;
-            }
-        }
+        Check(suffix + ": the presented arm is on screen (" + analysis.SolidCount + " px)",
+            analysis.SolidCount > 2000);
 
-        Info(suffix + ": hologram disc pixels=" + discPixels
-             + " panel band pixels=" + panelPixels);
-        Check(suffix + ": the hologram map disc stays clear of the physical arm",
-            discPixels == 0f);
-        Check(suffix + ": the arm only grazes the outer hologram ring ("
-              + panelPixels + " px, "
-              + (panelPixels / Mathf.Max(1f, analysis.SolidCount) * 100f).ToString("0.0")
-              + "% of the arm)",
-            panelPixels <= analysis.SolidCount * 0.12f);
+        // The presented forearm runs across the frame, so its HAND may cross the
+        // midline (that is the pose). What must never happen is the RIGHT arm
+        // joining in: it stays out of frame entirely during the presentation.
+        int rightArmRenderers = RightArmRenderersInFrustum();
+        Check(suffix + ": the right arm stays out of frame (" + rightArmRenderers
+              + " renderers inside the frustum)", rightArmRenderers == 0);
+        Check(suffix + ": the presented forearm stays inside the frame (bbox "
+              + analysis.BoundsText() + ")",
+            analysis.MaxX < analysis.Width * 0.80f
+            && analysis.MinX > 0
+            && analysis.MaxY < analysis.Height * 0.6f);
+
+        float axisAngle = analysis.PrincipalAxisDegrees;
+        Check(suffix + ": the forearm reads as a horizontal bar (axis "
+              + axisAngle.ToString("0.0", CultureInfo.InvariantCulture) + " deg, bbox "
+              + analysis.BoundsText() + ")",
+            Mathf.Abs(axisAngle) <= 15f);
+
+        int width = analysis.MaxX - analysis.MinX;
+        int height = analysis.MaxY - analysis.MinY;
+        Check(suffix + ": the arm footprint is wide, not upright (" + width + "x" + height + ")",
+            height > 0 && width >= height * 2);
+
+        Vector3 watch = _ship.Arms.WatchViewport;
+        Info(suffix + ": watch viewport=" + Format(watch)
+             + " softened=" + _ship.Arms.IsSoftened);
+        Check(suffix + ": the physical watch is under the hologram ("
+              + watch.x.ToString("0.000", CultureInfo.InvariantCulture) + ", "
+              + watch.y.ToString("0.000", CultureInfo.InvariantCulture) + ")",
+            _ship.Arms.WatchOnScreen
+            && watch.x >= 0.33f && watch.x <= 0.57f
+            && watch.y >= 0.17f && watch.y <= 0.36f);
+
+        // The watch face is turned to the camera: its local +Z (the side the
+        // device is mounted on) has to point back at the eye.
+        Transform eye = _player != null ? _player.EyeCamera.transform : null;
+        if (eye != null && _ship.Arms.Watch != null)
+        {
+            Vector3 toEye = (eye.position - _ship.Arms.Watch.position).normalized;
+            float facing = Vector3.Dot(_ship.Arms.Watch.forward, toEye);
+            Info(suffix + ": watch facing dot="
+                 + facing.ToString("0.000", CultureInfo.InvariantCulture));
+            Check(suffix + ": the watch face is turned to the camera (dot "
+                  + facing.ToString("0.00", CultureInfo.InvariantCulture) + ")",
+                facing > 0.65f);
+        }
     }
 
     private static float HologramRadiusUnits(float ndcX, float ndcY)
@@ -692,6 +762,34 @@ public class Ship09A3ShotProbe : MonoBehaviour
             FindObjectsInactive.Include).Length;
     }
 
+    /// <summary>
+    /// How many renderers of the RIGHT (resting) arm are inside the eye camera's
+    /// frustum right now. The wrist presentation must never bring the right hand
+    /// into frame - it would compete with the hologram.
+    /// </summary>
+    private int RightArmRenderersInFrustum()
+    {
+        if (_eye == null || _ship == null || _ship.Arms == null
+            || _ship.Arms.RightArmRoot == null)
+        {
+            return 0;
+        }
+
+        Plane[] planes = GeometryUtility.CalculateFrustumPlanes(_eye);
+        int inside = 0;
+        foreach (Renderer renderer in _ship.Arms.RightArmRoot
+                     .GetComponentsInChildren<Renderer>(true))
+        {
+            if (renderer != null && renderer.enabled
+                && GeometryUtility.TestPlanesAABB(planes, renderer.bounds))
+            {
+                inside++;
+            }
+        }
+
+        return inside;
+    }
+
     private static string Format(Vector3 value)
     {
         return "(" + value.x.ToString("0.000", CultureInfo.InvariantCulture)
@@ -764,6 +862,274 @@ public class Ship09A3ShotProbe : MonoBehaviour
 
             return builder.ToString();
         }
+
+        /// <summary>
+        /// Orientation of the arm's principal (longest) axis in degrees from
+        /// horizontal, fitted over the mask pixels. A hold pose laid across the
+        /// body reads as ~0 degrees; the old diagonal presentation read as 30+
+        /// degrees. This is what makes "approx. horizontal" measurable instead of
+        /// a matter of opinion.
+        /// </summary>
+        public float PrincipalAxisDegrees
+        {
+            get
+            {
+                if (Points.Count < 32)
+                {
+                    return 90f;
+                }
+
+                double meanX = 0.0;
+                double meanY = 0.0;
+                foreach (Vector2 point in Points)
+                {
+                    meanX += point.x;
+                    meanY += point.y;
+                }
+
+                meanX /= Points.Count;
+                meanY /= Points.Count;
+
+                double covXX = 0.0;
+                double covYY = 0.0;
+                double covXY = 0.0;
+                foreach (Vector2 point in Points)
+                {
+                    double dx = point.x - meanX;
+                    double dy = point.y - meanY;
+                    covXX += dx * dx;
+                    covYY += dy * dy;
+                    covXY += dx * dy;
+                }
+
+                double angle = 0.5 * Math.Atan2(2.0 * covXY, covXX - covYY);
+                return (float)(angle * 180.0 / Math.PI);
+            }
+        }
+    }
+
+    // ====================================================================
+    // Focus evidence (Phase 09A_3 final): comparison frame + UI readability
+    // ====================================================================
+
+    /// <summary>
+    /// Writes 06_wrist_focus_comparison.png: a 2x2 evidence board at 1920x1080,
+    /// every tile downsampled by 2 on BOTH axes (no distortion).
+    ///
+    ///   top-left    04_wrist_hold_physical       - hold pose, arm crisp, no UI yet
+    ///   top-right   05_wrist_hold_focused_ui     - same pose, UI up, arm softened
+    ///   bottom-left arms-only mask, softening OFF - crisp arm weight
+    ///   bottom-right arms-only mask, softening ON - the same pose, ghosted
+    ///
+    /// The top row is the composition change (focus moves from the arm to the UI),
+    /// the bottom row isolates the softening itself at an identical pose.
+    /// </summary>
+    private IEnumerator BuildFocusComparison()
+    {
+        string crispPath = Path.Combine(_folder, "04_wrist_hold_physical.png");
+        string focusedPath = Path.Combine(_folder, "05_wrist_hold_focused_ui.png");
+        string crispMaskPath = Path.Combine(_folder,
+            "06_wrist_focus_comparison_unsoftened.png");
+        string softMaskPath = Path.Combine(_folder,
+            "06_wrist_focus_comparison_focused.png");
+        string outPath = Path.Combine(_folder, "06_wrist_focus_comparison.png");
+
+        Texture2D crisp = LoadTexture(crispPath);
+        Texture2D focused = LoadTexture(focusedPath);
+        Texture2D crispMask = LoadTexture(crispMaskPath);
+        Texture2D softMask = LoadTexture(softMaskPath);
+        if (crisp == null || focused == null || crispMask == null || softMask == null
+            || crisp.width != focused.width || crisp.height != focused.height)
+        {
+            Check("the focus comparison board could be built", false);
+            Destroy(crisp);
+            Destroy(focused);
+            Destroy(crispMask);
+            Destroy(softMask);
+            yield break;
+        }
+
+        int width = crisp.width;
+        int height = crisp.height;
+        int halfWidth = width / 2;
+        int halfHeight = height / 2;
+        Color32[] topLeft = crisp.GetPixels32();
+        Color32[] topRight = focused.GetPixels32();
+        Color32[] bottomLeft = crispMask.GetPixels32();
+        Color32[] bottomRight = softMask.GetPixels32();
+        var combined = new Color32[width * height];
+        var separator = new Color32(70, 190, 210, 255);
+        var background = new Color32(8, 10, 12, 255);
+
+        // GetPixels32 is bottom-up, so canvas row 0 is the BOTTOM of the board:
+        // the mask tiles sit in the bottom half, the real frames on top.
+        for (int y = 0; y < height; y++)
+        {
+            int row = y * width;
+            bool topHalf = y >= halfHeight;
+            int localY = topHalf ? y - halfHeight : y;
+            bool insideTile = localY >= 0 && localY < halfHeight;
+            Color32[] left = topHalf ? topLeft : bottomLeft;
+            Color32[] right = topHalf ? topRight : bottomRight;
+
+            for (int x = 0; x < width; x++)
+            {
+                if (!insideTile)
+                {
+                    combined[row + x] = background;
+                    continue;
+                }
+
+                int sourceRow = localY * 2 * width;
+                bool leftTile = x < halfWidth;
+                Color32[] source = leftTile ? left : right;
+                int sourceX = Mathf.Min(width - 1, (leftTile ? x : x - halfWidth) * 2);
+                combined[row + x] = source[sourceRow + sourceX];
+            }
+
+            // Separators between the tiles.
+            for (int x = halfWidth - 1; x <= halfWidth + 1 && x < width; x++)
+            {
+                combined[row + x] = separator;
+            }
+
+            if (y == halfHeight - 1 || y == halfHeight || y == height - 1)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    combined[row + x] = separator;
+                }
+            }
+        }
+
+        var board = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        board.SetPixels32(combined);
+        board.Apply();
+        File.WriteAllBytes(outPath, board.EncodeToPNG());
+        Destroy(board);
+        Destroy(crisp);
+        Destroy(focused);
+        Destroy(crispMask);
+        Destroy(softMask);
+
+        Check("the focus comparison board is written (top: physical | focused, "
+              + "bottom: crisp/softened arm)", File.Exists(outPath));
+        Info("focus comparison board: " + outPath);
+        yield return null;
+    }
+
+    private static void Destroy(Texture2D texture)
+    {
+        if (texture != null)
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
+    }
+
+    /// <summary>
+    /// The UI must stay razor sharp and readable ON TOP of the physical arm it is
+    /// projected from. The arm is nearer to the camera than the hologram, so this
+    /// is a real render-order claim (softened arm queue 2900, hologram 3000).
+    /// Measured by hiding the arms for one frame and comparing the hologram's
+    /// readable content inside the map disc.
+    /// </summary>
+    private void CheckHologramReadability()
+    {
+        string withArms = Path.Combine(_folder, "05_wrist_hold_focused_ui.png");
+        string withoutArms = Path.Combine(_folder, "05b_wrist_hold_ui_only.png");
+        Texture2D a = LoadTexture(withArms);
+        Texture2D b = LoadTexture(withoutArms);
+        if (a == null || b == null)
+        {
+            Check("the hologram readability frames exist", false);
+            return;
+        }
+
+        int discBright = 0;
+        int discBrightNoArm = 0;
+        float discPeak = 0f;
+        float discPeakNoArm = 0f;
+        int discPixels = 0;
+        var histogram = new int[64];
+        var histogramNoArm = new int[64];
+        Color32[] pixels = a.GetPixels32();
+        Color32[] pixelsNoArm = b.GetPixels32();
+        int width = a.width;
+        int height = a.height;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                float ndcX = x / (width - 1f) * 2f - 1f;
+                float ndcY = y / (height - 1f) * 2f - 1f;
+                if (HologramRadiusUnits(ndcX, ndcY) > 1f)
+                {
+                    continue;
+                }
+
+                discPixels++;
+                int index = y * width + x;
+                float luminance = Luminance(pixels[index]);
+                float luminanceNoArm = Luminance(pixelsNoArm[index]);
+                histogram[Mathf.Clamp((int)(luminance * 64f), 0, 63)]++;
+                histogramNoArm[Mathf.Clamp((int)(luminanceNoArm * 64f), 0, 63)]++;
+                if (luminance > 0.45f)
+                {
+                    discBright++;
+                }
+
+                if (luminanceNoArm > 0.45f)
+                {
+                    discBrightNoArm++;
+                }
+
+                discPeak = Mathf.Max(discPeak, luminance);
+                discPeakNoArm = Mathf.Max(discPeakNoArm, luminanceNoArm);
+            }
+        }
+
+        UnityEngine.Object.Destroy(a);
+        UnityEngine.Object.Destroy(b);
+
+        if (discPixels == 0)
+        {
+            Check("the hologram map disc was found in the captured frame", false);
+            return;
+        }
+
+        float brightRatio = discBrightNoArm > 0
+            ? discBright / (float)discBrightNoArm
+            : 0f;
+        Info("hologram readability: bright disc pixels " + discBright
+             + " with arm vs " + discBrightNoArm + " arm hidden (ratio "
+             + brightRatio.ToString("0.000", CultureInfo.InvariantCulture)
+             + ") | peak " + discPeak.ToString("0.000", CultureInfo.InvariantCulture)
+             + " vs " + discPeakNoArm.ToString("0.000", CultureInfo.InvariantCulture));
+        Check("the readable hologram content is not covered by the physical arm ("
+              + discBright + " bright px, " + (brightRatio * 100f).ToString("0.0")
+              + "% of the arm-hidden frame)",
+            discBrightNoArm > 500 && brightRatio >= 0.97f);
+        Check("the hologram stays sharp over the arm (peak luminance "
+              + discPeak.ToString("0.000", CultureInfo.InvariantCulture) + " vs "
+              + discPeakNoArm.ToString("0.000", CultureInfo.InvariantCulture) + ")",
+            discPeak >= discPeakNoArm - 0.02f);
+    }
+
+    private static float Luminance(Color32 colour)
+    {
+        return (colour.r * 0.299f + colour.g * 0.587f + colour.b * 0.114f) / 255f;
+    }
+
+    private static Texture2D LoadTexture(string path)
+    {
+        if (!File.Exists(path))
+        {
+            return null;
+        }
+
+        var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        return texture.LoadImage(File.ReadAllBytes(path)) ? texture : null;
     }
 
     private Analysis AnalyseMask(string path, string referencePath)
