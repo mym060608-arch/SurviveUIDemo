@@ -167,33 +167,59 @@ public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresenta
         }
     }
 
-    /// <summary>M and I both route to the single ToggleWrist semantic; Esc is the
-    /// wrist layer's Back key (it closes the terminal and nothing else). No second
-    /// wrist mode exists.</summary>
+    /// <summary>
+    /// The surface's ONE wrist / map authority.
+    ///
+    /// Phase 09A_4 root cause: this method used to read the raw M and I keys and
+    /// never consumed a logical action, so NO gamepad face control reached the
+    /// surface at all - Xbox X (buttonWest) could not open the map, and neither
+    /// could Xbox Y. It now consumes the two semantic actions instead:
+    ///
+    ///   Wrist (Xbox Y / M / I)   - the wrist terminal, whose centre IS the surface map
+    ///   Map   (Xbox X / M / I)   - the same surface map presentation
+    ///
+    /// Both route to the single wrist authority, so the two actions can never
+    /// stack two interfaces; while it is open either one toggles it closed, and Esc
+    /// (this layer's Back, resolved by UiInput so the physical key is never named
+    /// here) closes it without reaching the global Pause.
+    ///
+    /// Gating: opening is allowed ONLY from free surface gameplay. A local layer
+    /// above Gameplay (pause menu / modal panel / console view) owns the frame, and
+    /// the map must never open behind it.
+    /// </summary>
     private void PollWristKeys()
     {
-        Keyboard keyboard = Keyboard.current;
-
         // Publish this layer's state: with the wrist open, Escape is a LOCAL Back
         // that closes the terminal (UiInput resolves that, so the physical key is
         // never named here).
         UiInput.SetLayerActive(UiInput.UiLayer.Wrist, _isWristOpen);
 
-        if (_isWristOpen && UiInput.BackPressedForLayer(UiInput.UiLayer.Wrist))
+        if (_isWristOpen)
         {
-            UiInput.ConsumeBackForFrame();
-            SetWristOpen(false);
+            if (UiInput.BackPressedForLayer(UiInput.UiLayer.Wrist))
+            {
+                UiInput.ConsumeBackForFrame();
+                SetWristOpen(false);
+                return;
+            }
+
+            if (UiInput.WristPressed() || UiInput.MapPressed())
+            {
+                SetWristOpen(false);
+            }
+
             return;
         }
 
-        if (keyboard == null)
+        // Free gameplay only: pause / modal / console focus keep the map closed.
+        if (UiInput.ActiveBackLayer != UiInput.UiLayer.Gameplay)
         {
             return;
         }
 
-        if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame)
+        if (UiInput.WristPressed() || UiInput.MapPressed())
         {
-            ToggleWrist();
+            SetWristOpen(true);
         }
     }
 

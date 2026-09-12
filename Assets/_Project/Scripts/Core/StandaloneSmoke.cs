@@ -52,6 +52,16 @@ public class StandaloneSmoke : MonoBehaviour
         _sessionClaimed = true;
         _ownsRun = true;
 
+        // A smoke run is launched from a shell, so the player does not own the OS
+        // foreground for the whole journey. The Input System's default background
+        // behaviour disables devices that cannot run in the background and treats a
+        // device added while unfocused the same way, which is what made the
+        // recorded intermittent "input delivery" stalls possible: the virtual
+        // gamepad the smoke adds could be born disabled and its queued state events
+        // were then dropped. Ignoring focus for the flagged run makes the device
+        // path deterministic; a normal game launch never reaches this line.
+        InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+
         if (!string.IsNullOrEmpty(_shotFolder))
         {
             // The recorded frames are compared against the 1920x1080 phase

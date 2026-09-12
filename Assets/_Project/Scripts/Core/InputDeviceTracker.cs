@@ -62,6 +62,10 @@ public static class InputDeviceTracker
                 return GamepadActive ? "B" : "Esc";
             case UiAction.Pause:
                 return GamepadActive ? "Menu" : "Esc";
+            case UiAction.Wrist:
+                return GamepadActive ? "Y" : "M";
+            case UiAction.Map:
+                return GamepadActive ? "X" : "M";
             default:
                 return string.Empty;
         }

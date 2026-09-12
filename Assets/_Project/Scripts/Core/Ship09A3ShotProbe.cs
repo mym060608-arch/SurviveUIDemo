@@ -5,6 +5,8 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
@@ -59,6 +61,45 @@ public class Ship09A3ShotProbe : MonoBehaviour
     private SurfacePlayerController _player;
     private Camera _eye;
 
+    // The run's single virtual gamepad (see EnsureGamepadDevice).
+    private Gamepad _probePad;
+    private bool _addedProbePad;
+
+    /// <summary>
+    /// Creates the run's virtual gamepad once and proves that a queued state event
+    /// really reaches it. The probe presses buttonWest (the Map action) as the
+    /// probe event: on the ship interior that action does nothing at all, so the
+    /// delivery proof cannot disturb the product state.
+    /// </summary>
+    private IEnumerator EnsureGamepadDevice()
+    {
+        _probePad = Gamepad.current;
+        _addedProbePad = false;
+        if (_probePad == null)
+        {
+            _probePad = InputSystem.AddDevice<Gamepad>();
+            _addedProbePad = true;
+        }
+
+        yield return WaitUntil(() => Gamepad.current == _probePad, 5f);
+        Check("a gamepad device is available for the standalone input route",
+            Gamepad.current == _probePad);
+        if (Gamepad.current != _probePad)
+        {
+            yield break;
+        }
+
+        InputSystem.QueueStateEvent(_probePad,
+            new GamepadState().WithButton(GamepadButton.West));
+        yield return null;
+        float value = _probePad.buttonWest.ReadValue();
+        Check("a queued gamepad state event reaches the real device route (buttonWest "
+              + "value " + value.ToString("0.00", CultureInfo.InvariantCulture) + ")", value > 0.5f);
+        InputSystem.QueueStateEvent(_probePad, new GamepadState());
+        yield return null;
+        yield return null;
+    }
+
     private void Awake()
     {
         _folder = ParseFlag(Flag);
@@ -78,6 +119,19 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Directory.CreateDirectory(_folder);
         Application.runInBackground = true;
         Application.targetFrameRate = 60;
+
+        // The evidence player is driven from a shell and never owns the OS
+        // foreground for the whole run. The Input System's default background
+        // behaviour disables every device that cannot run in the background - and
+        // it treats a device ADDED while unfocused exactly like one that was
+        // already present when focus was lost. The virtual gamepad this probe adds
+        // for the surface map rows was therefore born disabled, and the queued
+        // state events were dropped (measured: buttonWest value stayed 0.00 while
+        // the device still reported Gamepad.current == pad). Ignoring focus for the
+        // flagged evidence run keeps the device live; a normal game launch never
+        // reaches this line and keeps the shipped behaviour.
+        InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+
         DontDestroyOnLoad(gameObject);
     }
 
@@ -151,6 +205,16 @@ public class Ship09A3ShotProbe : MonoBehaviour
     {
         Info("probe start stage=" + _stage + " folder=" + _folder);
         yield return EnterInteriorFromMenu();
+
+        // The surface map rows are driven by REAL queued gamepad state events, so
+        // the run needs a device the Input System has actually adopted. Measured:
+        // a pad created HERE receives them (buttonSouth value 1.00, edge true),
+        // while a pad created ~2.5 minutes later in the surface scene reports
+        // added / enabled / current / focused all true and still never receives a
+        // single one (buttonWest value stayed 0.00). The device is therefore
+        // created ONCE at the start of the run and reused - the same shape the
+        // standalone smoke uses.
+        yield return EnsureGamepadDevice();
 
         if (_ship == null || _ship.Player == null)
         {
@@ -435,7 +499,136 @@ public class Ship09A3ShotProbe : MonoBehaviour
             yield return SurfaceStage();
         }
 
+        // Tidy up the virtual device this run created (never a device the player
+        // actually has).
+        if (_addedProbePad && _probePad != null && _probePad.added)
+        {
+            InputSystem.RemoveDevice(_probePad);
+        }
+
         Finish(_allPassed ? 0 : 1);
+    }
+
+    /// <summary>
+    /// The surface map's controller contract, driven through REAL queued gamepad
+    /// state events - the same route a physical pad takes.
+    ///
+    /// Phase 09A_4 root cause: SurfaceGameController polled the raw M / I keys and
+    /// never consumed a logical action, so the surface had NO gamepad face control
+    /// at all - Xbox X (buttonWest) could not open the map and neither could Xbox Y.
+    /// This stage proves the fixed route end to end in the shipped build and writes
+    /// the four map frames.
+    /// </summary>
+    private IEnumerator SurfaceMapStage(SurfaceGameController surface)
+    {
+        if (surface == null)
+        {
+            Check("the surface is ready for the map contract", false);
+            yield break;
+        }
+
+        // The device was created and proven at the start of the run (see
+        // EnsureGamepadDevice); creating one HERE does not work - measured: a pad
+        // added in this scene reported added / enabled / current / focused all true
+        // and still never received a single queued state event.
+        Gamepad pad = _probePad;
+        Check("the run's gamepad device is still the current one for the map rows",
+            pad != null && pad.added && Gamepad.current == pad);
+        if (pad == null || !pad.added || Gamepad.current != pad)
+        {
+            yield break;
+        }
+
+        Info("map device: updateMode=" + InputSystem.settings.updateMode
+             + " timeScale=" + Time.timeScale
+             + " focused=" + Application.isFocused
+             + " enabled=" + pad.enabled
+             + " background=" + InputSystem.settings.backgroundBehavior
+             + " backLayer=" + UiInput.ActiveBackLayer);
+
+        Check("the surface map is closed before the press", !surface.IsWristOpen);
+        Check("the map is bound to the platform-neutral Map action",
+            Array.Exists(UiInput.BindingTable,
+                row => row.StartsWith("Map=Gamepad.buttonWest", StringComparison.Ordinal)));
+        Check("the keyboard route to the same surface map is still bound (M / I)",
+            Array.Exists(UiInput.BindingTable,
+                row => row.StartsWith("Map=Gamepad.buttonWest,Keyboard.mKey|iKey",
+                    StringComparison.Ordinal)));
+        Check("no logical action names a physical control",
+            !Array.Exists(UiInput.BindingTable,
+                row => row.Contains("XButton") || row.Contains("YButton")
+                       || row.Contains("PlayStation") || row.Contains("StartButton")));
+
+        // ---- free gameplay: X opens the surface map ----
+        yield return Stand(0f, 0f, 0f);
+        yield return Capture("surface_free_before_map");
+
+        Info("map device at press: current=" + (Gamepad.current == pad)
+             + " enabled=" + pad.enabled + " backLayer=" + UiInput.ActiveBackLayer);
+        yield return PressGamepad(pad, GamepadButton.West);
+        Check("Xbox X / buttonWest opened the surface map", surface.IsWristOpen);
+        Check("the queued gamepad event reached the real device route (last device "
+              + InputDeviceTracker.LastDevice + ")", InputDeviceTracker.GamepadActive);
+        yield return WaitUntil(() => MapVisible(surface), 3f);
+        Info("map after buttonWest: open=" + surface.IsWristOpen
+             + " displayVisible=" + MapVisible(surface));
+        yield return Capture("surface_map_open_gamepad");
+
+        // ---- Back closes it ----
+        yield return PressGamepad(pad, GamepadButton.East);
+        Check("buttonEast / Back closed the surface map", !surface.IsWristOpen);
+        yield return WaitUntil(() => !MapVisible(surface), 3f);
+        Check("the map presentation was released", !MapVisible(surface));
+        yield return Capture("surface_map_closed_back");
+
+        // ---- the wrist and the map are ONE authority: no second map can leak ----
+        yield return PressGamepad(pad, GamepadButton.North);
+        Check("buttonNorth / Y still opens the surface wrist", surface.IsWristOpen);
+        yield return PressGamepad(pad, GamepadButton.West);
+        Check("X on the already-open wrist closes it instead of leaking a second map",
+            !surface.IsWristOpen);
+        Check("exactly one surface map UI exists", CountSurfaceMapUis() == 1);
+        Check("no map presentation is left visible while the authority says closed",
+            !MapVisible(surface));
+        yield return Capture("surface_wrist_no_map_leak");
+
+        // ---- a higher local layer owns the frame: the map must not open behind it ----
+        UiInput.SetLayerActive(UiInput.UiLayer.PauseMenu, true);
+        yield return PressGamepad(pad, GamepadButton.West);
+        Check("X never opens the map behind the pause layer", !surface.IsWristOpen);
+        UiInput.SetLayerActive(UiInput.UiLayer.PauseMenu, false);
+
+        UiInput.SetLayerActive(UiInput.UiLayer.Modal, true);
+        yield return PressGamepad(pad, GamepadButton.West);
+        Check("X never opens the map behind a modal layer", !surface.IsWristOpen);
+        UiInput.SetLayerActive(UiInput.UiLayer.Modal, false);
+
+        // Leave the device tracker on the keyboard, so a later stage (or a rerun
+        // that reuses this one) still reads "(E)" in the interaction prompts.
+        InputDeviceTracker.NotifyKeyboardMouse();
+    }
+
+    private static bool MapVisible(SurfaceGameController surface)
+    {
+        return surface != null && surface.Wrist != null
+               && surface.Wrist.Display != null && surface.Wrist.Display.Visible;
+    }
+
+    private static int CountSurfaceMapUis()
+    {
+        return UnityEngine.Object.FindObjectsByType<SurfaceWristController>(
+            FindObjectsInactive.Include).Length;
+    }
+
+    /// <summary>Queues a real press/release of one gamepad button.</summary>
+    private static IEnumerator PressGamepad(Gamepad pad, GamepadButton button)
+    {
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(button));
+        yield return null;
+        yield return null;
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        yield return null;
+        yield return null;
     }
 
     /// <summary>
@@ -510,6 +703,9 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Check("walking on the surface presents the Walk state", sawSurfaceWalk);
         yield return CaptureAndAnalyse("surface_walk_lookdown",
             "Surface walk look down", ProbeExpectation.BothArmsAtSides);
+
+        // ---- the surface MAP controller contract (real queued gamepad events) ----
+        yield return SurfaceMapStage(surface);
 
         // ---- wrist raise / hold / lower on the surface ----
         yield return Stand(0f, 0f, 0f);

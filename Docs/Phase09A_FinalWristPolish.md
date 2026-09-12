@@ -1,6 +1,6 @@
-# Phase 09A 最终收口 — Wrist Raise 运动 / 键盘终端输入 / Frosted Focus
+# Phase 09A 最终收口 — Wrist Raise 运动 / 键盘终端输入 / Frosted Focus / Surface Map 手柄输入
 
-本文件记录 Phase09A 最后一次收口修订（task file: `SurviveUIDemo_Phase09A_3_FinalWristPolish_InputHotfix.md`）的三项修复、实测数据与证据位置。本轮不新增玩法、不重建模型、不重设计 Wrist UI 内容。
+本文件记录 Phase09A 的收口修订（task file: `SurviveUIDemo_Phase09A_3_FinalWristPolish_InputHotfix.md` 及后续人工验收缺口）的三项修复、Surface Map 手柄输入的回归修复（§12）、实测数据与证据位置。本轮不新增玩法、不重建模型、不重设计 Wrist UI 内容。
 
 ## 1. PASS 1 — 键盘 E 无法打开终端（输入回归）
 
@@ -48,10 +48,10 @@ worst |position - rotation| gap: 0.000   （第一帧即同时开始：blend=0.0
 
 | 项目 | 结果 |
 | --- | --- |
-| Release | `export/releases/phase09a/SurviveUIDemo.exe`（统一目录，构建于 2026-09-12 18:44，`release_build_result.txt`: errors 0 / warnings 1，108,678,061 bytes） |
+| Release | `export/releases/phase09a/SurviveUIDemo.exe`（统一目录，最新构建见 `release_build_result.txt`：errors 0 / warnings 1） |
 | Release smoke | `export/evidence/phase09a/smoke/smoke.txt` — **207 / 0，RESULT: SUCCESS**（同一二进制连跑两次均为 207/0） |
-| Release 视觉探针 | `export/evidence/phase09a/shots/phase09a3_result.txt` — **130 / 0**（`-stage 6`，含 Ship + Surface） |
-| PlayMode 全量 | `export/evidence/phase09a/playmode.xml` — **165 / 165** |
+| Release 视觉探针 | `export/evidence/phase09a/shots/phase09a3_result.txt` — **147 / 0**（`-stage 6`，含 Ship + Surface + Surface Map） |
+| PlayMode 全量 | `export/evidence/phase09a/playmode.xml` — **174 / 174** |
 | 结构 validator | `export/evidence/phase09a/validator.txt` — **424 / 0** |
 | 运动报告 | `export/evidence/phase09a/shots/wrist_motion_report.txt` |
 | Frosted 报告 | `export/evidence/phase09a/shots/wrist_focus_report.txt` |
@@ -74,6 +74,8 @@ UI 可读性       地图圆盘亮像素保持（有手臂 vs 隐藏手臂 ratio
 键盘终端        14/15/16_terminal_prompt / open / console_exit_esc
 Lower           17_wrist_lower               单一连续反向，回到 Rest 后清晰度恢复
 Pause / 返回    18_pause / 19_return_main_menu
+地表地图        surface_free_before_map / surface_map_open_gamepad /
+                surface_map_closed_back / surface_wrist_no_map_leak（真实 queued gamepad 事件）
 ```
 
 ## 6. 诚实标注
@@ -214,4 +216,80 @@ surface lookdown diag: pitch=45.0 eyeX=45.0 visible=True state=Rest  rootParent=
 眨眼覆层由 blink 组件销毁、输入锁由 Ship 控制器释放，二者在同一帧发生，协程先观察到哪一个取决于脚本执行顺序 —— 因此这是一帧竞态。修复：断言前在**有界窗口**（120 帧）内等待释放，断言本身不变（锁永不释放仍然 FAIL）。修复后同一 Release 连续两次 smoke 均为 **207 / 0 SUCCESS**。
 
 这两处修复都只改证据/harness 代码与被测行为无关的等待策略，没有改动任何玩法、呈现或输入合同。
+
+## 12. 收口修订 — Surface Map 的手柄输入（Xbox X / buttonWest）
+
+**人工反馈**：Planet / Surface gameplay 中，手柄按 X 无法打开地图。
+
+### 12.1 真实根因（代码 + 历史双重确认）
+
+不是「最近某次改动把旧轮询删掉了」，而是 **Surface 从来没有绑过任何手柄面键**：
+
+```csharp
+// 修复前 SurfaceGameController.PollWristKeys()
+Keyboard keyboard = Keyboard.current;
+...
+if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame) { ToggleWrist(); }
+```
+
+- 它**直接读键盘 M / I**，从不消费逻辑动作，因此 `buttonWest`（X）与 `buttonNorth`（Y）在星球地表**都没有任何效果**；
+- 全项目里 `buttonWest` 的唯一出现点是 `InputDeviceTracker.GamepadProducedInput()`（判断「玩家是否在用柄」），**从未绑定过任何 action**；
+- `UiInput.WristPressed()`（Y / M / I）只有 `ShipGameController` 调用，Surface 不用它；
+- `git log -p` 该文件的历史里也不存在被删除的手柄轮询 —— 所以这不是本轮的 `IArmsPresentationContext` 改造造成的回归（该改造的 diff 只新增了 arms/bridge 与显式接口实现，没有动输入）。
+
+### 12.2 修复（只动输入，不动表现 / 美术 / Block Arms）
+
+`UiInput` 新增平台无关的逻辑动作 **`Map`**：
+
+```text
+Map=Gamepad.buttonWest,Keyboard.mKey|iKey     <- 星球地表地图（Xbox X / PlayStation Square）
+Wrist=Gamepad.buttonNorth,Keyboard.mKey|iKey  <- 腕表（Xbox Y）
+```
+
+```csharp
+public static bool MapPressed()   // buttonWest 或 M / I；物理映射只活在这一层
+```
+
+`SurfaceGameController.PollWristKeys()` 改为消费两个语义动作，并沿用既有 Back 架构与优先级板：
+
+```text
+腕表已开：Esc / B -> 本层 Back 关闭（ConsumeBackForFrame，绝不穿透到 Pause）
+          X 或 Y   -> 关闭同一个地图（不叠加第二套 UI）
+腕表未开：仅当 ActiveBackLayer == Gameplay（自由玩法）才允许打开；
+          Pause / Modal / ConsoleFocus 拥有该帧时一律不开
+```
+
+地表地图就是腕表中央那张地图（Phase 06 的既有设计），因此 X 与 Y 指向**同一个权威**，不可能叠加出两份地图；键盘路径仍是原来的 M / I。ship 侧不消费 `Map`，所以 X 在舰内是空操作。
+
+### 12.3 测试与证据
+
+PlayMode 新增 `SurvivePhase09ASurfaceMapTests`（9 条，全部走**真实 queued Gamepad / Keyboard 设备事件**）：
+
+```text
+SurfaceFree_ButtonWest_OpensTheMap_Green                    X 打开地图 + 绑定表静态钉
+Surface_ButtonNorth_StillOpensTheWrist_Green                Y 仍打开腕表（X/Y 未互换）
+SurfaceMap_ButtonEast_ClosesTheMap_Green                    B 关闭
+SurfaceMap_Escape_ClosesTheMap_WithoutPause_Green           Esc 关闭且不 Pause
+SurfaceMap_ButtonWest_TogglesItClosed_WithoutASecondMap_Green  X 不会叠出第二份地图
+SurfacePauseLayer_ButtonWest_DoesNotOpenTheMap_Green        Pause 层拥有该帧 -> 不开
+SurfaceModalLayer_ButtonWest_DoesNotOpenTheMap_Green        模态层拥有该帧 -> 不开
+ShipInterior_ButtonWest_NeverOpensTheSurfaceMap_Green       舰内 X 空操作，Y 仍开腕表
+Surface_ConfirmBackAndPause_NeverOpenTheMap_Green           A / B / Menu 都不开地图
+```
+
+Release 探针新增 `SurfaceMapStage`，用真实 queued 事件端到端跑一遍并输出四张证据帧（`surface_free_before_map` / `surface_map_open_gamepad` / `surface_map_closed_back` / `surface_wrist_no_map_leak`），同时固化：绑定表包含 `Map=Gamepad.buttonWest` 与键盘路径、任何逻辑行都不出现 `XButton/YButton/PlayStation/StartButton`。
+
+### 12.4 harness 记录：standalone 探针里「运行中途新增的柄收不到事件」
+
+要让探针用**真实** queued 事件，必须先解决一个 harness 现象（已实测，不是推测）：
+
+```text
+运行开始时 AddDevice<Gamepad>()：buttonWest/buttonSouth 读数 1.00，edge=True   -> 事件正常投递
+运行约 2.5 分钟后（地表场景）AddDevice<Gamepad>()：
+  added=True enabled=True current=True focused=True background=IgnoreFocus updateMode=ProcessEventsInDynamicUpdate
+  但 buttonWest 读数恒为 0.00，任何 queued 事件都没有送达      -> 事件完全不投递
+```
+
+因此探针改为**在 run 开始时创建一次手柄并全程复用**（与 `StandaloneSmoke` 同样的形状），并在 `EnsureGamepadDevice()` 里用 `buttonWest` 自己证明投递（在舰内 X 是空操作，所以这条自证不会扰动产品状态）。`StandaloneSmoke` 与探针也都把 `backgroundBehavior` 设为 `IgnoreFocus`（仅在被 flag 的 harness 运行时生效，正常启动游戏不受影响），以消除「窗口失焦时新增设备被禁用」这一类不确定性。
+
 

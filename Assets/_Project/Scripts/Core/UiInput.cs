@@ -45,7 +45,16 @@ public enum UiAction
     /// <summary>Wrist terminal toggle (Xbox Y / M / I) - Phase 09A_2 adds the
     /// gamepad binding the ship wrist never had; the semantic name stays
     /// platform neutral.</summary>
-    Wrist
+    Wrist,
+
+    /// <summary>
+    /// Surface map toggle (Xbox X / PlayStation Square). Phase 09A_4: the planet
+    /// surface map had NO gamepad binding at all - the surface only polled the M
+    /// and I keys. The map is the wrist's central map, so this action and
+    /// <see cref="Wrist"/> drive the same surface presentation; the semantic name
+    /// stays platform neutral (no XButton / PlayStationSquare anywhere in logic).
+    /// </summary>
+    Map
 }
 
 /// <summary>
@@ -117,6 +126,7 @@ public static class UiInput
         "Back=Gamepad.buttonEast,Keyboard.escapeKey",
         "Pause=Gamepad.startButton,Keyboard.escapeKey",
         "Wrist=Gamepad.buttonNorth,Keyboard.mKey|iKey",
+        "Map=Gamepad.buttonWest,Keyboard.mKey|iKey",
         "Navigate=Gamepad.dpad|leftStick,Keyboard.arrowKeys"
     };
 
@@ -460,7 +470,8 @@ public static class UiInput
     /// semantic Wrist action: it is the one face control that neither Confirm
     /// (buttonSouth), Back (buttonEast) nor Pause (Menu/Start) uses, so no
     /// existing contract is disturbed. Physical mapping stays in this file - no
-    /// gameplay class names a control directly.
+    /// gameplay class names a control directly. (The remaining face control,
+    /// buttonWest, is the <see cref="Map"/> action - never the wrist.)
     /// </summary>
     public static bool WristPressed()
     {
@@ -471,6 +482,30 @@ public static class UiInput
 
         Gamepad pad = Gamepad.current;
         if (pad != null && pad.buttonNorth.wasPressedThisFrame)
+        {
+            return true;
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null
+               && (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame);
+    }
+
+    /// <summary>
+    /// True when the Map action was pressed this frame (Xbox X / PlayStation
+    /// Square, and the M / I keys - the keyboard route the surface map always had).
+    ///
+    /// Phase 09A_4: the planet surface map had no gamepad binding because
+    /// SurfaceGameController polled the M / I keys directly instead of consuming a
+    /// logical action, so no face control ever reached it. The surface map IS the
+    /// wrist's central map, so this action and <see cref="WristPressed"/> toggle the
+    /// same surface presentation; the physical mapping stays in this file and no
+    /// gameplay class names a control directly.
+    /// </summary>
+    public static bool MapPressed()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad != null && pad.buttonWest.wasPressedThisFrame)
         {
             return true;
         }
