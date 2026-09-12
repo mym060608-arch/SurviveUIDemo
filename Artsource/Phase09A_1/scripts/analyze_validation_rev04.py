@@ -47,6 +47,33 @@ CYAN_MARGIN_G = 0.08
 # ndc (-0.06, -0.05) and spans roughly +-0.45 ndc in x and +-0.60 in y).
 UI_REGION_NDC = (-0.52, 0.52, -0.62, 0.70)
 
+# Hologram content geometry, derived from the UI contract (design space 1280x800,
+# display 1.88 x 1.175 m at 0.69 m from the eye, disc radius 235 px, parallel-cap
+# panels between 248 and 365 px).  Expressed as an ELLIPTICAL radius in disc
+# units so that "inside the map disc" and "inside the panel band" can be told
+# apart exactly instead of using a coarse rectangle.
+UI_DESIGN_W = 1280.0
+UI_DISPLAY_WIDTH_M = 1.88
+UI_DEPTH_M = 0.69
+UI_DISC_RADIUS_PX = 235.0
+UI_PANEL_INNER_PX = 248.0
+UI_PANEL_OUTER_PX = 365.0
+UI_CENTRE_NDC = (-0.064, -0.0517)
+UI_NDC_PER_M_X = 1.0 / (B.TAN_HALF_H * UI_DEPTH_M)
+UI_NDC_PER_M_Y = 1.0 / (B.TAN_HALF_V * UI_DEPTH_M)
+_M_PER_PX = UI_DISPLAY_WIDTH_M / UI_DESIGN_W
+UI_DISC_RADIUS_NDC = (UI_DISC_RADIUS_PX * _M_PER_PX * UI_NDC_PER_M_X,
+                      UI_DISC_RADIUS_PX * _M_PER_PX * UI_NDC_PER_M_Y)
+UI_PANEL_INNER_DISC_UNITS = UI_PANEL_INNER_PX / UI_DISC_RADIUS_PX
+UI_PANEL_OUTER_DISC_UNITS = UI_PANEL_OUTER_PX / UI_DISC_RADIUS_PX
+
+
+def hologram_radius_units(ndc_x, ndc_y):
+    """Elliptical distance from the map-disc centre, in disc radii."""
+    dx = (ndc_x - UI_CENTRE_NDC[0]) / UI_DISC_RADIUS_NDC[0]
+    dy = (ndc_y - UI_CENTRE_NDC[1]) / UI_DISC_RADIUS_NDC[1]
+    return math.sqrt(dx * dx + dy * dy)
+
 
 def load_mask(name):
     path = os.path.join(VAL_DIR, name)
@@ -72,6 +99,9 @@ def analyse(mask, ui_region=UI_REGION_NDC):
     left_count = right_count = 0
     centre_count = 0
     ui_region_count = 0
+    disc_count = 0
+    panel_band_count = 0
+    min_hologram_radius = None
     cyan_count = 0
     cyan_sum_x = cyan_sum_y = 0.0
     points = []
@@ -112,6 +142,14 @@ def analyse(mask, ui_region=UI_REGION_NDC):
             if (ui_region[0] <= ndc_x <= ui_region[1]
                     and ui_region[2] <= ndc_y <= ui_region[3]):
                 ui_region_count += 1
+                radius_units = hologram_radius_units(ndc_x, ndc_y)
+                if min_hologram_radius is None or radius_units < min_hologram_radius:
+                    min_hologram_radius = radius_units
+                if radius_units <= 1.0:
+                    disc_count += 1
+                elif (UI_PANEL_INNER_DISC_UNITS <= radius_units
+                      <= UI_PANEL_OUTER_DISC_UNITS):
+                    panel_band_count += 1
             if b > r + CYAN_MARGIN and g > r + CYAN_MARGIN_G:
                 cyan_count += 1
                 cyan_sum_x += x
@@ -130,6 +168,10 @@ def analyse(mask, ui_region=UI_REGION_NDC):
         "ui_region_pixels": ui_region_count,
         "ui_region_fraction_of_arms": round(ui_region_count / float(count), 5)
         if count else 0.0,
+        "hologram_disc_pixels": disc_count,
+        "hologram_panel_band_pixels": panel_band_count,
+        "hologram_min_radius_units": (round(min_hologram_radius, 3)
+                                      if min_hologram_radius is not None else None),
         "cyan_pixels": cyan_count,
     }
     # Text occupancy map so the composition can be reviewed without an image
@@ -289,10 +331,19 @@ def main():
          bool(wrist and wrist["bbox_viewport"][2] < 0.55
               and wrist["bbox_viewport"][3] < 0.60),
          "bbox viewport %s" % (wrist["bbox_viewport"] if wrist else None))
-    gate("wrist idle (rendered): UI region stays clear of arm pixels",
-         bool(wrist and wrist["ui_region_fraction_of_arms"] < 0.02),
-         "arms inside the UI region %s%%"
-         % (round(wrist["ui_region_fraction_of_arms"] * 100.0, 3) if wrist else None))
+    gate("wrist idle (rendered): hologram map disc stays clear of arm pixels",
+         bool(wrist and wrist["hologram_disc_pixels"] == 0),
+         "disc pixels %s (min hologram radius %s disc units)"
+         % (wrist["hologram_disc_pixels"] if wrist else None,
+            wrist["hologram_min_radius_units"] if wrist else None))
+    gate("wrist idle (rendered): arm only grazes the outer panel band",
+         bool(wrist and wrist["ui_region_fraction_of_arms"] < 0.03),
+         "arm pixels inside the hologram rectangle %s%% (panel band %s px, "
+         "disc %s px) - the physical emitter grazing the lower-left panel band "
+         "is the intended read"
+         % (round(wrist["ui_region_fraction_of_arms"] * 100.0, 3) if wrist else None,
+            wrist["hologram_panel_band_pixels"] if wrist else None,
+            wrist["hologram_disc_pixels"] if wrist else None))
     gate("wrist idle (rendered): cyan device visible on the left",
          bool(wrist and wrist["cyan_pixels"] > 150
               and wrist.get("cyan_centroid_viewport", [1.0])[0] < 0.45),

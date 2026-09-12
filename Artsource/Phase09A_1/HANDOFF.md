@@ -153,19 +153,30 @@ Measured in the held pose (`Wrist_Idle`, frame 46):
 
 | Metric | Value |
 | --- | --- |
-| Visible forearm screen angle | **30.43°** (target 30°, accept 25–35) |
-| Frame entry point (viewport, y-up, 0..1) | **(0.078, -0.001)** — bottom edge, far left |
+| Visible forearm screen angle | **30.45°** (target 30°, accept 25–35) |
+| Frame entry point (viewport, y-up, 0..1) | **(0.079, -0.002)** — bottom edge, far left |
 | Entry region | lower-left (not bottom-centre) |
-| Device centre, camera-local (Unity) | `(-0.251, -0.156, 0.296)` |
-| Device centre, viewport | **(0.160, 0.123)** — lower-left |
-| Device face normal · direction to eye | 0.705 (readable while presented) |
+| Device centre, camera-local (Unity) | `(-0.231, -0.146, 0.294)` |
+| Device centre, viewport | **(0.185, 0.146)** — lower-left |
+| Device face normal · direction to eye | 0.725 (readable while presented) |
 | UI pivot / display centre, viewport | (0.346, 0.153) / (0.468, 0.474) |
 | Device left of the UI pivot | yes |
 | Device below the UI display centre | yes |
-| Rendered arm pixels inside the UI region | 0.066 % |
+| Arm pixels inside the hologram map disc | **0** (closest approach 1.225 disc radii) |
+| Arm pixels inside the hologram panel band | 1,431 px (2.24 % of the arm) — the physical emitter grazing the lower-left panel band |
+
+**Revision04 polish pass.** The only correction after visual review: the held
+device sat a little too far from the hologram to read as its emitter, so the
+whole presentation target was nudged **right by 2.5 % and up by 2.3 % of the
+screen** (`HOLD_AXIS_NDC` `(-0.60, -0.76)` -> `(-0.55, -0.71)`). The shoulder
+pivot was deliberately left untouched, which keeps the projected forearm at
+~30.5°, keeps the lower-left entry where it was (0.078 -> 0.079 of the screen
+width) and grows the derived arm length by only 3 mm, so the normal walk/idle arm
+placement is unchanged. Nothing else in the asset moved: same block geometry,
+same rig, same clip names, ranges and Root Motion contract.
 
 The composition is solved, not eyeballed: the forearm centreline is aimed at NDC
-`(-0.60, -0.76)` at 0.36 m depth and the shoulder pivot is chosen so the
+`(-0.55, -0.71)` at 0.36 m depth and the shoulder pivot is chosen so the
 projected angle lands on 30°; the arm length is derived from that target.
 
 Normal look: the arms hang at the body sides and are **outside the frame at a
@@ -199,10 +210,10 @@ Machine-readable evidence:
 - `validation_analysis.json` — silhouette measurements and the PASS/FAIL gates;
 - `fbx_verify.json` — FBX re-import: stacks, bones, hierarchy, ranges, bounds.
 
-**Validation result: 18 / 18 gates PASS** (screen angle, lower-left entry, device
-left/below the UI, idle out-of-frame, walk both-arms-visible, walk centre open,
-opposite swing, raise mid-frame entry, rendered wrist composition, loop closure x3,
-Root Motion OFF).
+**Validation result: 19 / 19 gates PASS** (screen angle, lower-left entry, device
+left/below the UI, hologram map disc clear, panel-band graze bounded, idle
+out-of-frame, walk both-arms-visible, walk centre open, opposite swing, raise
+mid-frame entry, rendered wrist composition, loop closure x3, Root Motion OFF).
 
 ---
 

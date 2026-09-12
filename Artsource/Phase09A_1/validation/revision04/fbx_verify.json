@@ -56,9 +56,9 @@
       -0.18
      ],
      "tail": [
-      0.329325,
-      -0.110409,
-      -0.509788
+      0.329411,
+      -0.111851,
+      -0.512286
      ]
     },
     {
@@ -79,27 +79,6 @@
   },
   {
    "name": "GEO_Arm_L",
-   "type": "MESH",
-   "parent": "RIG_FPArms",
-   "location": [
-    0.0,
-    0.0,
-    0.0
-   ],
-   "scale": [
-    1.0,
-    1.0,
-    1.0
-   ],
-   "vertices": 48,
-   "polygons": 52,
-   "materials": [
-    "MAT_Suit",
-    "MAT_Accent"
-   ]
-  },
-  {
-   "name": "GEO_Arm_R",
    "type": "MESH",
    "parent": "RIG_FPArms",
    "location": [
@@ -159,6 +138,27 @@
    "materials": [
     "MAT_Cuff",
     "MAT_Glove"
+   ]
+  },
+  {
+   "name": "GEO_Arm_R",
+   "type": "MESH",
+   "parent": "RIG_FPArms",
+   "location": [
+    0.0,
+    0.0,
+    0.0
+   ],
+   "scale": [
+    1.0,
+    1.0,
+    1.0
+   ],
+   "vertices": 48,
+   "polygons": 52,
+   "materials": [
+    "MAT_Suit",
+    "MAT_Accent"
    ]
   },
   {
@@ -276,12 +276,12 @@
  ],
  "triangles_total": 1028,
  "fbx_space_bounds_min": [
-  -0.403653,
-  -0.202191,
-  -0.59798
+  -0.40371,
+  -0.203634,
+  -0.600481
  ],
  "fbx_space_bounds_max": [
-  0.403653,
+  0.40371,
   0.133918,
   -0.149379
  ]

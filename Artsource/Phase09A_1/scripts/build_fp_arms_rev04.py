@@ -194,7 +194,15 @@ IDLE_DIR = {
 # Wrist_Raise / Wrist_Idle composition.  The forearm centreline is aimed at this
 # screen point at this depth; the arm length is DERIVED from it, so the composed
 # pose is exact rather than approximate.
-HOLD_AXIS_NDC = (-0.60, -0.76)
+#
+# Revision04 polish pass: the held device was ~2.5% of the screen width and
+# height further from the hologram than it should be, so the whole presentation
+# target was nudged right and up by the same amount.  The shoulder pivot is
+# deliberately unchanged: with this target the projected forearm angle stays at
+# ~30.5 deg (the constraint that fixed the pivot in the first place), the arm
+# still enters from the lower-left, and the arm length grows by only 3 mm so the
+# ordinary idle/walk arm placement is unaffected.
+HOLD_AXIS_NDC = (-0.55, -0.71)
 HOLD_AXIS_DEPTH = 0.36
 
 # Device facing in the held pose: towards the eye and up, so the terminal face

@@ -56,21 +56,21 @@
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -1.8557,
-     -5.6937
+     -1.8372,
+     -5.6612
     ],
     "WristDevice_L.head": [
-     -2.3638,
-     -6.3986
+     -2.3345,
+     -6.3493
     ],
     "WristDevice_L.tail": [
-     -2.3406,
-     -5.3008
+     -2.3159,
+     -5.2705
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.8557,
-     -5.6937
+     1.8372,
+     -5.6612
     ]
    },
    "arm_angle_deg": 44.785
@@ -88,21 +88,21 @@
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -1.8557,
-     -5.6937
+     -1.8372,
+     -5.6612
     ],
     "WristDevice_L.head": [
-     -2.3638,
-     -6.3986
+     -2.3345,
+     -6.3493
     ],
     "WristDevice_L.tail": [
-     -2.3406,
-     -5.3008
+     -2.3159,
+     -5.2705
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.8557,
-     -5.6937
+     1.8372,
+     -5.6612
     ]
    }
   },
@@ -115,25 +115,25 @@
    "camera_pitch_deg": 45.0,
    "ui_proxy_wireframe": false,
    "note": "Revision04 walk, look-down 45 deg, opposite swing",
-   "bytes": 532254,
+   "bytes": 532381,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -3.4798,
-     -11.4903
+     -3.4334,
+     -11.3881
     ],
     "WristDevice_L.head": [
-     -4.7375,
-     -13.7421
+     -4.6538,
+     -13.567
     ],
     "WristDevice_L.tail": [
-     -3.9807,
-     -9.728
+     -3.9299,
+     -9.6527
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.3219,
-     -3.8668
+     1.3099,
+     -3.848
     ]
    },
    "arm_angle_deg": 51.107
@@ -147,25 +147,25 @@
    "camera_pitch_deg": 45.0,
    "ui_proxy_wireframe": false,
    "note": "black-background mask for measurement",
-   "bytes": 274471,
+   "bytes": 274129,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -3.4798,
-     -11.4903
+     -3.4334,
+     -11.3881
     ],
     "WristDevice_L.head": [
-     -4.7375,
-     -13.7421
+     -4.6538,
+     -13.567
     ],
     "WristDevice_L.tail": [
-     -3.9807,
-     -9.728
+     -3.9299,
+     -9.6527
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.3219,
-     -3.8668
+     1.3099,
+     -3.848
     ]
    }
   },
@@ -178,25 +178,25 @@
    "camera_pitch_deg": 45.0,
    "ui_proxy_wireframe": false,
    "note": "Revision04 walk, look-down 45 deg, opposite swing",
-   "bytes": 535444,
+   "bytes": 535250,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -1.3219,
-     -3.8668
+     -1.3099,
+     -3.848
     ],
     "WristDevice_L.head": [
-     -1.6591,
-     -4.2797
+     -1.6407,
+     -4.2521
     ],
     "WristDevice_L.tail": [
-     -1.7405,
-     -3.724
+     -1.7232,
+     -3.7048
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     3.4798,
-     -11.4903
+     3.4334,
+     -11.3881
     ]
    },
    "arm_angle_deg": 41.42
@@ -210,25 +210,25 @@
    "camera_pitch_deg": 45.0,
    "ui_proxy_wireframe": false,
    "note": "black-background mask for measurement",
-   "bytes": 282676,
+   "bytes": 282497,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -1.3219,
-     -3.8668
+     -1.3099,
+     -3.848
     ],
     "WristDevice_L.head": [
-     -1.6591,
-     -4.2797
+     -1.6407,
+     -4.2521
     ],
     "WristDevice_L.tail": [
-     -1.7405,
-     -3.724
+     -1.7232,
+     -3.7048
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     3.4798,
-     -11.4903
+     3.4334,
+     -11.3881
     ]
    }
   },
@@ -241,28 +241,28 @@
    "camera_pitch_deg": 0.0,
    "ui_proxy_wireframe": false,
    "note": "Revision04 mid raise: left arm entering from the lower-left (the arm only reaches the frame around frame 19)",
-   "bytes": 537919,
+   "bytes": 545837,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -0.6401,
-     -0.8052
+     -0.5908,
+     -0.7507
     ],
     "WristDevice_L.head": [
-     -0.7696,
-     -0.92
+     -0.7177,
+     -0.8636
     ],
     "WristDevice_L.tail": [
-     -0.6775,
-     -0.6837
+     -0.6309,
+     -0.6376
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.7273,
-     -5.1532
+     1.7108,
+     -5.1251
     ]
    },
-   "arm_angle_deg": 30.533
+   "arm_angle_deg": 30.515
   },
   {
    "file": "wrist_raise_mid_mask.png",
@@ -273,25 +273,25 @@
    "camera_pitch_deg": 0.0,
    "ui_proxy_wireframe": false,
    "note": "black-background mask for the entry/angle measurement",
-   "bytes": 269605,
+   "bytes": 279559,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -0.6401,
-     -0.8052
+     -0.5908,
+     -0.7507
     ],
     "WristDevice_L.head": [
-     -0.7696,
-     -0.92
+     -0.7177,
+     -0.8636
     ],
     "WristDevice_L.tail": [
-     -0.6775,
-     -0.6837
+     -0.6309,
+     -0.6376
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.7273,
-     -5.1532
+     1.7108,
+     -5.1251
     ]
    }
   },
@@ -304,28 +304,28 @@
    "camera_pitch_deg": 0.0,
    "ui_proxy_wireframe": false,
    "note": "Revision04 held presentation pose (device left, UI above/right)",
-   "bytes": 547342,
+   "bytes": 556636,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -0.5976,
-     -0.7448
+     -0.5477,
+     -0.6951
     ],
     "WristDevice_L.head": [
-     -0.726,
-     -0.8613
+     -0.6741,
+     -0.8105
     ],
     "WristDevice_L.tail": [
-     -0.6323,
-     -0.6446
+     -0.585,
+     -0.6036
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.8823,
-     -5.6923
+     1.8638,
+     -5.6598
     ]
    },
-   "arm_angle_deg": 30.433
+   "arm_angle_deg": 30.449
   },
   {
    "file": "wrist_idle_mask.png",
@@ -336,25 +336,25 @@
    "camera_pitch_deg": 0.0,
    "ui_proxy_wireframe": false,
    "note": "black-background mask for measurement",
-   "bytes": 278988,
+   "bytes": 294821,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -0.5976,
-     -0.7448
+     -0.5477,
+     -0.6951
     ],
     "WristDevice_L.head": [
-     -0.726,
-     -0.8613
+     -0.6741,
+     -0.8105
     ],
     "WristDevice_L.tail": [
-     -0.6323,
-     -0.6446
+     -0.585,
+     -0.6036
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.8823,
-     -5.6923
+     1.8638,
+     -5.6598
     ]
    }
   },
@@ -367,28 +367,28 @@
    "camera_pitch_deg": 0.0,
    "ui_proxy_wireframe": true,
    "note": "read-only wireframe of the EXISTING Wrist UI (never exported)",
-   "bytes": 569837,
+   "bytes": 580497,
    "landmarks_ndc": {
     "Arm_L.head": null,
     "Arm_L.tail": [
-     -0.5976,
-     -0.7448
+     -0.5477,
+     -0.6951
     ],
     "WristDevice_L.head": [
-     -0.726,
-     -0.8613
+     -0.6741,
+     -0.8105
     ],
     "WristDevice_L.tail": [
-     -0.6323,
-     -0.6446
+     -0.585,
+     -0.6036
     ],
     "Arm_R.head": null,
     "Arm_R.tail": [
-     1.8823,
-     -5.6923
+     1.8638,
+     -5.6598
     ]
    },
-   "arm_angle_deg": 30.433
+   "arm_angle_deg": 30.449
   },
   {
    "file": "wrist_device_closeup.png",
@@ -398,7 +398,7 @@
    "mode": "review",
    "ui_proxy_wireframe": false,
    "note": "Revision04 compact polygonal terminal on the distal left forearm",
-   "bytes": 928155
+   "bytes": 933851
   },
   {
    "file": "external_overview.png",
@@ -408,7 +408,7 @@
    "mode": "review",
    "ui_proxy_wireframe": false,
    "note": "Revision04 both block arms externally (simple rectangular prisms)",
-   "bytes": 908082
+   "bytes": 907934
   },
   {
    "file": "external_overview_raise.png",
@@ -418,7 +418,7 @@
    "mode": "review",
    "ui_proxy_wireframe": false,
    "note": "Revision04 raised left arm externally",
-   "bytes": 917887
+   "bytes": 911389
   },
   {
    "file": "rig_overview.png",
@@ -428,7 +428,7 @@
    "mode": "review",
    "ui_proxy_wireframe": false,
    "note": "Revision04 minimal 4-bone rig (Root / Arm_L / WristDevice_L / Arm_R)",
-   "bytes": 908525
+   "bytes": 908326
   }
  ],
  "note": "Validation-only cameras, lights, wireframe and rig overlay are never exported to the FBX."
