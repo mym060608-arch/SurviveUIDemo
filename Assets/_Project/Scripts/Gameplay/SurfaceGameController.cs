@@ -43,6 +43,14 @@ public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresenta
 
     /// <summary>The planet's existing wrist terminal (the authoritative UI).</summary>
     public SurfaceWristController Wrist => _wrist;
+
+    /// <summary>
+    /// True once the surface terminal is actually presented. On open this becomes
+    /// true when the raise brings the wrist into view (the same staged reveal the
+    /// ship interior uses), never on the input that requested it.
+    /// </summary>
+    public bool IsWristTerminalRevealed =>
+        _wrist != null && _wrist.Display != null && _wrist.Display.Visible;
     // Legacy proximity helper range (semantic tests/probes only).
     public float interactRangeFallback = 3.0f;
 
@@ -276,16 +284,26 @@ public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresenta
 
         if (open)
         {
-            // The planet's terminal has always appeared the moment the wrist opens
-            // (that is its own contract and its tests pin it), so the SAME arm
-            // presentation simply raises underneath it: same single-move raise, same
-            // frost once the arm arrives, same close order. The ship interior keeps
-            // the staged reveal, where the hologram waits for the raise.
-            _wristBridge?.BeginWristRaise();
-            SetWristTerminalVisibleNow(true);
+            // Phase 09A_5: the surface runs the SAME presentation timing as the
+            // ship. The terminal is revealed by WristPresentationBridge once the
+            // raise has brought the wrist device into view (~0.82 of the raise),
+            // never on the key press - showing it here made the hologram pop in
+            // one frame while the arm only started moving afterwards.
+            //
+            // Presentation decides WHEN the terminal becomes visible, never
+            // WHETHER: this state is already authoritative. Without the arms the
+            // terminal opens immediately, which is the validated Phase 06
+            // behaviour and keeps the wrist reachable in every configuration.
+            bool deferred = _wristBridge != null && _wristBridge.BeginWristRaise();
+            if (!deferred)
+            {
+                SetWristTerminalVisibleNow(true);
+            }
         }
         else
         {
+            // Close order (unchanged): the terminal stops taking input, releases
+            // focus and hides FIRST, then the arm comes back down.
             _wristBridge?.BeginWristLower();
             SetWristTerminalVisibleNow(false);
         }

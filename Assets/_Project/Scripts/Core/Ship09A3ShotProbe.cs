@@ -608,6 +608,234 @@ public class Ship09A3ShotProbe : MonoBehaviour
         InputDeviceTracker.NotifyKeyboardMouse();
     }
 
+    /// <summary>
+    /// Phase 09A_5 - the surface wrist OPEN sequence.
+    ///
+    /// The defect was purely temporal (the hologram appeared on the input frame
+    /// while the arm only started raising afterwards), so the evidence records
+    /// raise progress and UI visibility TOGETHER, frame by frame, instead of
+    /// judging the end state.
+    ///
+    /// It runs the open TWICE, because a screenshot costs several frames and would
+    /// punch holes in a per-frame timing table (measured: capturing inline made the
+    /// first UI-visible sample read progress 1.00, i.e. the table looked like the
+    /// very pop it is supposed to disprove):
+    ///
+    ///   1. a fast sampling pass with no captures  -> the table in
+    ///      surface_wrist_open_timing.txt and every temporal gate,
+    ///   2. a capture pass                          -> surface_open_00/20/40/60/80/100.png
+    ///      (and surface_wrist_raise.png, the frame the earlier rounds already had).
+    /// </summary>
+    private IEnumerator SurfaceOpenSequenceStage(SurfaceGameController surface)
+    {
+        if (surface == null || surface.Arms == null)
+        {
+            Check("the surface is ready for the open sequence", false);
+            yield break;
+        }
+
+        Check("the surface terminal is not presented before the input",
+            !surface.IsWristTerminalRevealed);
+
+        // ---- pass 1: frame-accurate timing, no captures ----
+        var timing = new OpenTiming();
+        yield return SampleOpen(surface, timing);
+
+        Check("the arm starts raising BEFORE the terminal is presented (frame "
+              + timing.FirstMoveFrame + " < " + timing.FirstUiFrame + ")",
+            timing.FirstMoveFrame >= 0 && timing.FirstUiFrame > timing.FirstMoveFrame);
+        Check("the terminal stays hidden while the raise is early (no UI below 0.70)",
+            !timing.SawEarlyUi);
+        Check("the surface reveal waited for the raise (bridge reports progress "
+              + surface.WristPresentation.LastRevealProgress.ToString("0.00",
+                  CultureInfo.InvariantCulture) + ", first UI frame at "
+              + timing.FirstUiProgress.ToString("0.00", CultureInfo.InvariantCulture) + ")",
+            surface.WristPresentation.LastRevealProgress >= 0.70f
+            && surface.WristPresentation.LastRevealProgress <= 0.95f
+            && timing.FirstUiProgress >= 0.70f);
+        Check("the reveal came from the raise, not the timeout fallback ("
+              + surface.WristPresentation.LastRevealReason + ")",
+            surface.WristPresentation.LastRevealReason.StartsWith("raise reached"));
+        Check("the presented state crossfades instead of popping (intermediate focus "
+              + "blends sampled)", timing.SawIntermediateFocus);
+        Check("the sequence reaches Hold with the UI presented",
+            surface.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Hold
+            && surface.IsWristTerminalRevealed);
+
+        // ---- back to rest for the capture pass ----
+        surface.ToggleWrist();
+        yield return WaitUntil(() => !surface.IsWristOpen
+                                     && surface.Arms != null
+                                     && surface.Arms.CurrentWristPhase
+                                        == FirstPersonBlockArmsController.WristPhase.Rest, 5f);
+
+        // ---- pass 2: the six contract frames ----
+        yield return Stand(0f, 0f, 0f);
+        yield return Capture("surface_open_00");
+        yield return PressGamepad(_probePad, GamepadButton.North);
+        var checkpoints = new List<KeyValuePair<float, string>>
+        {
+            new KeyValuePair<float, string>(0.20f, "surface_open_20"),
+            new KeyValuePair<float, string>(0.40f, "surface_open_40"),
+            new KeyValuePair<float, string>(0.55f, "surface_wrist_raise"),
+            new KeyValuePair<float, string>(0.60f, "surface_open_60"),
+            new KeyValuePair<float, string>(0.80f, "surface_open_80")
+        };
+
+        int next = 0;
+        int guard = 0;
+        while (guard++ < 4000)
+        {
+            float progress = surface.Arms.WristPresentationBlend;
+            while (next < checkpoints.Count && progress >= checkpoints[next].Key)
+            {
+                yield return Capture(checkpoints[next].Value);
+                next++;
+            }
+
+            if (surface.IsWristTerminalRevealed && surface.Arms.CurrentWristPhase
+                == FirstPersonBlockArmsController.WristPhase.Hold
+                && surface.Arms.FocusBlend >= 0.999f)
+            {
+                break;
+            }
+
+            yield return null;
+        }
+
+        yield return new WaitForSecondsRealtime(0.3f);
+        yield return Capture("surface_open_100");
+        Check("the capture pass reached Hold with the UI presented (progress "
+              + surface.Arms.WristPresentationBlend.ToString("0.00",
+                  CultureInfo.InvariantCulture) + ")",
+            surface.IsWristOpen && surface.IsWristTerminalRevealed
+            && surface.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Hold);
+
+        WriteOpenTimingReport(surface, timing);
+    }
+
+    /// <summary>One frame of the open sequence (sampling pass).</summary>
+    private sealed class OpenTiming
+    {
+        public readonly List<string> Rows = new List<string>();
+        public int FirstMoveFrame = -1;
+        public int FirstUiFrame = -1;
+        public float FirstUiProgress = -1f;
+        public bool SawEarlyUi;
+        public bool SawIntermediateFocus;
+        public int Frames;
+        public float Seconds;
+    }
+
+    /// <summary>
+    /// Opens the surface wrist through the real gamepad route and records every
+    /// frame until the hold pose is presented. No captures happen in here, so the
+    /// table has no holes.
+    /// </summary>
+    private IEnumerator SampleOpen(SurfaceGameController surface, OpenTiming timing)
+    {
+        yield return Stand(0f, 0f, 0f);
+        yield return PressGamepad(_probePad, GamepadButton.North);
+        Check("the surface wrist opens on the real device route", surface.IsWristOpen);
+        Check("the surface does NOT present its terminal on the opening press",
+            !surface.IsWristTerminalRevealed);
+
+        float start = Time.realtimeSinceStartup;
+        int frame = 0;
+        while (frame < 4000)
+        {
+            float progress = surface.Arms.WristPresentationBlend;
+            float focus = surface.Arms.FocusBlend;
+            bool ui = surface.IsWristTerminalRevealed;
+            float scale = DisplayScale(surface);
+
+            if (progress > 0.02f && timing.FirstMoveFrame < 0)
+            {
+                timing.FirstMoveFrame = frame;
+            }
+
+            if (ui && timing.FirstUiFrame < 0)
+            {
+                timing.FirstUiFrame = frame;
+                timing.FirstUiProgress = progress;
+            }
+
+            if (ui && progress < 0.70f)
+            {
+                timing.SawEarlyUi = true;
+            }
+
+            if (focus > 0.05f && focus < 0.95f)
+            {
+                timing.SawIntermediateFocus = true;
+            }
+
+            timing.Rows.Add(frame.ToString().PadLeft(5) + "   "
+                + (Time.realtimeSinceStartup - start).ToString("0.000",
+                    CultureInfo.InvariantCulture).PadLeft(7) + "   "
+                + progress.ToString("0.000", CultureInfo.InvariantCulture).PadLeft(12) + "   "
+                + (ui ? "YES" : "no").PadLeft(9) + "   "
+                + scale.ToString("0.000", CultureInfo.InvariantCulture).PadLeft(7) + "   "
+                + focus.ToString("0.000", CultureInfo.InvariantCulture).PadLeft(9));
+
+            if (ui && surface.Arms.CurrentWristPhase
+                == FirstPersonBlockArmsController.WristPhase.Hold && focus >= 0.999f)
+            {
+                break;
+            }
+
+            frame++;
+            yield return null;
+        }
+
+        timing.Frames = frame;
+        timing.Seconds = Time.realtimeSinceStartup - start;
+    }
+
+    private void WriteOpenTimingReport(SurfaceGameController surface, OpenTiming timing)
+    {
+        var report = new StringBuilder();
+        report.AppendLine("=== SURFACE WRIST OPEN TIMING (Phase 09A_5) ===");
+        report.AppendLine("raise duration      : "
+            + FirstPersonBlockArmsController.RaiseDurationSeconds.ToString("0.00",
+                CultureInfo.InvariantCulture) + " s, ONE normalized timeline");
+        report.AppendLine("UI reveal threshold : "
+            + WristPresentationBridge.UiRevealNormalizedTime.ToString("0.00",
+                CultureInfo.InvariantCulture) + " of the raise");
+        report.AppendLine("bridge reveal reason: " + surface.WristPresentation.LastRevealReason);
+        report.AppendLine("uiVisible           : the surface terminal is a world-space"
+            + " RenderTexture display without an alpha fade, so its visibility is"
+            + " binary; the ramp that follows is the display's own 0.2 s scale-in"
+            + " (uiScale) plus the arm/frost crossfade (focusBlend)");
+        report.AppendLine("sampled with        : no captures in this pass, so the table"
+            + " has no holes; the contract images come from a second, identical open");
+        report.AppendLine();
+        report.AppendLine("frame   time(s)  raiseProgress  uiVisible  uiScale  focusBlend");
+        foreach (string row in timing.Rows)
+        {
+            report.AppendLine(row);
+        }
+
+        report.AppendLine();
+        report.AppendLine("first raise frame      : " + timing.FirstMoveFrame);
+        report.AppendLine("first UI-visible frame : " + timing.FirstUiFrame
+            + "   (raise progress "
+            + timing.FirstUiProgress.ToString("0.000", CultureInfo.InvariantCulture) + ")");
+        report.AppendLine("sampled frames         : " + timing.Frames
+            + " over " + timing.Seconds.ToString("0.000", CultureInfo.InvariantCulture) + " s");
+
+        string reportPath = Path.Combine(_folder, "surface_wrist_open_timing.txt");
+        File.WriteAllText(reportPath, report.ToString());
+        Info("open timing report written: " + reportPath);
+    }
+
+    private static float DisplayScale(SurfaceGameController surface)
+    {
+        return surface != null && surface.Wrist != null && surface.Wrist.Display != null
+            ? surface.Wrist.Display.transform.localScale.x
+            : 0f;
+    }
+
     private static bool MapVisible(SurfaceGameController surface)
     {
         return surface != null && surface.Wrist != null
@@ -707,16 +935,15 @@ public class Ship09A3ShotProbe : MonoBehaviour
         // ---- the surface MAP controller contract (real queued gamepad events) ----
         yield return SurfaceMapStage(surface);
 
-        // ---- wrist raise / hold / lower on the surface ----
-        yield return Stand(0f, 0f, 0f);
-        surface.ToggleWrist();
-        yield return null;
-        Check("the surface wrist opens", surface.IsWristOpen);
+        // ---- wrist OPEN sequence: raise first, reveal at the threshold ----
+        // Phase 09A_5: the surface used to show its terminal on the input that
+        // opened the wrist, so the hologram popped in one frame and the arm only
+        // started moving afterwards. This stage opens through the REAL gamepad
+        // route and records raise progress and UI visibility TOGETHER, frame by
+        // frame, plus the six contract frames.
+        yield return SurfaceOpenSequenceStage(surface);
 
-        yield return WaitUntil(() => surface.Arms != null
-            && surface.Arms.WristPresentationBlend >= 0.55f, 3f);
-        yield return Capture("surface_wrist_raise");
-
+        // ---- wrist hold / lower on the surface ----
         yield return WaitUntil(() => surface.Arms != null
             && surface.Arms.FocusBlend >= 0.999f, 4f);
         yield return new WaitForSecondsRealtime(0.4f);
@@ -733,6 +960,8 @@ public class Ship09A3ShotProbe : MonoBehaviour
         surface.ToggleWrist();
         yield return null;
         Check("the surface wrist closes", !surface.IsWristOpen);
+        Check("the surface terminal is released on the close, before the lower",
+            !surface.IsWristTerminalRevealed);
         yield return WaitUntil(() => surface.Arms != null
             && surface.Arms.WristPresentationBlend <= 0.45f, 3f);
         yield return Capture("surface_wrist_lower");

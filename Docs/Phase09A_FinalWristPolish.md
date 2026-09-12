@@ -1,6 +1,6 @@
-# Phase 09A 最终收口 — Wrist Raise 运动 / 键盘终端输入 / Frosted Focus / Surface Map 手柄输入
+# Phase 09A 最终收口 — Wrist Raise 运动 / 键盘终端输入 / Frosted Focus / Surface Map 手柄输入 / Surface 开启动时序
 
-本文件记录 Phase09A 的收口修订（task file: `SurviveUIDemo_Phase09A_3_FinalWristPolish_InputHotfix.md` 及后续人工验收缺口）的三项修复、Surface Map 手柄输入的回归修复（§12）、实测数据与证据位置。本轮不新增玩法、不重建模型、不重设计 Wrist UI 内容。
+本文件记录 Phase09A 的收口修订（task file: `SurviveUIDemo_Phase09A_3_FinalWristPolish_InputHotfix.md` 及后续人工验收缺口）的三项修复、Surface Map 手柄输入的回归修复（§12）、Surface Wrist 开启动时序的统一（§13）、实测数据与证据位置。本轮不新增玩法、不重建模型、不重设计 Wrist UI 内容。
 
 ## 1. PASS 1 — 键盘 E 无法打开终端（输入回归）
 
@@ -50,11 +50,12 @@ worst |position - rotation| gap: 0.000   （第一帧即同时开始：blend=0.0
 | --- | --- |
 | Release | `export/releases/phase09a/SurviveUIDemo.exe`（统一目录，最新构建见 `release_build_result.txt`：errors 0 / warnings 1） |
 | Release smoke | `export/evidence/phase09a/smoke/smoke.txt` — **207 / 0，RESULT: SUCCESS**（同一二进制连跑两次均为 207/0） |
-| Release 视觉探针 | `export/evidence/phase09a/shots/phase09a3_result.txt` — **147 / 0**（`-stage 6`，含 Ship + Surface + Surface Map） |
-| PlayMode 全量 | `export/evidence/phase09a/playmode.xml` — **174 / 174** |
+| Release 视觉探针 | `export/evidence/phase09a/shots/phase09a3_result.txt` — **157 / 0**（`-stage 6`：Ship + Surface + Surface Map + Surface Open Sequence） |
+| PlayMode 全量 | `export/evidence/phase09a/playmode.xml` — **181 / 181** |
 | 结构 validator | `export/evidence/phase09a/validator.txt` — **424 / 0** |
 | 运动报告 | `export/evidence/phase09a/shots/wrist_motion_report.txt` |
 | Frosted 报告 | `export/evidence/phase09a/shots/wrist_focus_report.txt` |
+| 地表开启动报告 | `export/evidence/phase09a/shots/surface_wrist_open_timing.txt` |
 | 构建 / 运行日志 | `export/logs/phase09a/` |
 
 关键实测（Release）：
@@ -76,6 +77,9 @@ Lower           17_wrist_lower               单一连续反向，回到 Rest �
 Pause / 返回    18_pause / 19_return_main_menu
 地表地图        surface_free_before_map / surface_map_open_gamepad /
                 surface_map_closed_back / surface_wrist_no_map_leak（真实 queued gamepad 事件）
+地表开启序列    surface_open_00/20/40/60/80/100（+ surface_wrist_raise）
+                逐帧 raiseProgress / uiVisible / uiScale / focusBlend 见
+                surface_wrist_open_timing.txt
 ```
 
 ## 6. 诚实标注
@@ -291,5 +295,104 @@ Release 探针新增 `SurfaceMapStage`，用真实 queued 事件端到端跑一�
 ```
 
 因此探针改为**在 run 开始时创建一次手柄并全程复用**（与 `StandaloneSmoke` 同样的形状），并在 `EnsureGamepadDevice()` 里用 `buttonWest` 自己证明投递（在舰内 X 是空操作，所以这条自证不会扰动产品状态）。`StandaloneSmoke` 与探针也都把 `backgroundBehavior` 设为 `IgnoreFocus`（仅在被 flag 的 harness 运行时生效，正常启动游戏不受影响），以消除「窗口失焦时新增设备被禁用」这一类不确定性。
+
+## 13. 收口修订 — Surface Wrist 开启动时序与 Ship 统一
+
+**人工反馈**：录屏证明 Surface 打开时「自由视角 → 下一帧 Wrist UI 几乎完整出现 → 左臂之后才开始 Raise」，即典型的一帧弹出。
+
+### 13.1 真实根因（调用链，与人工判断一致）
+
+```csharp
+// 修复前 SurfaceGameController.SetWristOpen(true)
+_wristBridge?.BeginWristRaise();          // 返回值被丢弃
+SetWristTerminalVisibleNow(true);         // <- 立即显示 terminal UI
+
+// ShipGameController.SetWristOpen(true)：早已是分阶段
+bool deferred = _wristBridge != null && _wristBridge.BeginWristRaise();
+if (!deferred) { RevealWristTerminal(true); }   // 只有没有 arms 时才立即显示
+```
+
+`WristPresentationBridge.BeginWristRaise()` 的合同本来就是「返回 true = 已把显示延后到 raise 到达阈值（0.82）」；Surface 忽略了这个返回值，于是 UI 先出现、手臂后抬起。**这不是最近某次改动删掉的东西，而是 Phase 06 遗留的旧合同**（`WristPresentationBridge` 的类注释里也写着「没有 arms 时立即显示 = 已验证的 Phase 08 行为」）。修复即让 Surface 采用 Ship 的同一分支。
+
+### 13.2 修复
+
+```csharp
+        if (open)
+        {
+            bool deferred = _wristBridge != null && _wristBridge.BeginWristRaise();
+            if (!deferred) { SetWristTerminalVisibleNow(true); }
+        }
+        else
+        {
+            _wristBridge?.BeginWristLower();
+            SetWristTerminalVisibleNow(false);      // 关闭顺序保持不变
+        }
+```
+
+- Surface 只提供 **context / authority**，不再自己抢先显示 terminal；显示时机完全由 `WristPresentationBridge` 决定（与 Ship 同一常量：`UiRevealNormalizedTime = 0.82`、`HoldSettleSeconds = 0.04`、`FocusCrossfadeSeconds = 0.14`）。
+- **X 与 Y 走同一条路**：两者都只是把权威置为 Opening（`SetWristOpen`），不存在「X 直显 / Y 动画」的分支；两者都进 raise → 阈值揭示 → focus crossfade → Hold。
+- 新增只读语义 `SurfaceGameController.IsWristTerminalRevealed`（与 Ship 同名概念），供测试/探针读取「是否已呈现」，**不是**新的显示通路。
+- 未改动：最终 Hold pose、frost、Block Arms 几何、输入绑定、UI 美术、关闭顺序（关闭仍是「先释放 UI，再 Lower」）。
+
+### 13.3 时序合同（Release 实测）
+
+```text
+raise                0.58 s，单一 normalized timeline，位移 + 旋转同时进行（未改动）
+UI reveal threshold  0.82（与 Ship 共用，未改动）
+bridge 实测揭示点     raise reached 0.92   <- 阈值 + 0.04 s settle（0.04/0.58 ≈ 0.069）
+逐帧（surface_wrist_open_timing.txt，无截图干扰的采样遍）：
+  frame 0..28        raiseProgress 0.115 -> 0.98    uiVisible = no        focusBlend = 0.000
+  frame 29           raiseProgress 1.000           uiVisible = YES
+  frame 34..37       focusBlend 0.714 -> 0.833 -> 0.952 -> 1.000（crossfade，非一帧跳变）
+```
+
+**诚实说明（重要）**：Surface terminal 是**世界空间 RenderTexture 显示**，没有 alpha 通道淡入 —— 它的「出现」是二值的（`uiVisible`），随后由显示自身 0.2 s 的 scale-in（`uiScale`）与手臂/frost 的 crossfade（`focusBlend`）承担平滑。因此判定门用的是「0.70 之前 UI 必须不可见」+「crossfade 必须经过中间值」，而不是去读一个并不存在的 UI alpha。另外：**首次可见帧落在 0.92 而不是 0.82**，因为共用常量里还有 0.04 s 的 settle 节拍（0.82 + 0.04 s 的推进 ≈ 0.89–0.92）。这正是 Ship 上已被人工验收的时序，本轮要求「Ship 不得改坏、Surface 与 Ship 共用同一合同」，因此没有为了贴合 0.78–0.85 而单独改这个共享常量。
+
+### 13.4 测试
+
+PlayMode 新增 `SurvivePhase09ASurfaceRevealTests`（7 条，全部采样逐帧序列而不是只看终态）：
+
+```text
+SurfaceY_Open_DoesNotRevealUiImmediately_Green       腕表打开：手臂先动、UI 后出
+SurfaceX_Open_DoesNotRevealUiImmediately_Green       地图打开：同上（两条入口一致）
+Surface_Open_UiAppearsOnlyAfterRevealThreshold_Green 阈值门 + 必须来自 raise 而非 timeout
+Surface_Open_UiAlphaDoesNotJumpZeroToOneInOneFrame_Green  crossfade 经过中间值
+Surface_Open_ReachesHoldWithUiVisible_Green          Hold + UI 呈现 + 位移/旋转同时到位
+Surface_Close_UsesTheExistingPresentationSequence_Green  关闭顺序未变
+Ship_And_Surface_ShareTheSameRevealTiming_Green      Ship 与 Surface 揭示点一致（±0.06）
+```
+
+**Phase 06 测试的同步更新（诚实标注）**：`SurvivePhase06RevisionTests` 里有 10 条用例在旧合同下断言「打开后 UI 立即可见」（`controller.SetWristOpen(true)` 后只等约 10 帧）。它们编码的正是本轮要改掉的旧时序，因此改为等待真实呈现（新增 `OpenWristAndWait`），**断言本身一字未改**。这不是放宽测试，而是把「立即可见」换成「呈现后可见」。
+
+### 13.5 证据
+
+```text
+surface_open_00.png   自由视角，无 UI
+surface_open_20.png   手臂开始抬起，无 UI
+surface_open_40.png   手臂继续运动，无 UI
+surface_open_60.png   腕表接近位置，UI 仍未出现
+surface_open_80.png   UI 开始显现（含 scale-in 与 crossfade）
+surface_open_100.png  Hold + UI 完整
+surface_wrist_raise.png  与既有轮次同一时刻的帧（保留）
+surface_wrist_open_timing.txt  逐帧 time / raiseProgress / uiVisible / uiScale / focusBlend
+```
+
+探针 `SurfaceOpenSequenceStage` 用**真实 queued gamepad 事件**（Y）开启，并跑两遍：第一遍只逐帧采样（无截图干扰，表格无空洞），第二遍专门截取六张契约帧 —— 因为一次截图会占用数帧，混在一起会让表格出现「空洞」（首版实现就因此把首次可见记成了 progress 1.00，看起来恰好像它本该证伪的那个「啪一下」）。探针新增门：
+
+```text
+PASS :: the surface does NOT present its terminal on the opening press
+PASS :: the terminal stays hidden while the raise is early (no UI below 0.70)
+PASS :: the arm starts raising BEFORE the terminal is presented (frame 0 < 29)
+PASS :: the surface reveal waited for the raise (bridge reports progress 0.92)
+PASS :: the reveal came from the raise, not the timeout fallback (raise reached 0.92)
+PASS :: the presented state crossfades instead of popping
+PASS :: the surface terminal is released on the close, before the lower
+```
+
+### 13.6 本轮踩到并修掉的 harness 陷阱（如实记录）
+
+1. **帧预算等待在 batch-mode 下会提前超时**：`SurvivePhase06RevisionTests.WaitUntil` 以「最多 1500 帧」为预算，而 batch-mode 编辑器帧率极高，实测 0.58 s 的 raise 在 1500 帧内只走到 0.76 → 新加的呈现等待偶发超时。已新增按**真实时间**等待的 `WaitUntilRealTime(condition, seconds)` 并用于呈现类等待。
+2. **`replace_all` 命中了自己刚写的辅助函数**：把 14 处 `controller.SetWristOpen(true);` 批量替换成 `yield return OpenWristAndWait(controller);` 时，也替换了辅助函数内部那一行，形成**无限递归 → 栈溢出 → Unity 编辑器以 ntdll 访问违例（0xc0000005）崩溃**。现象是 PlayMode 跑到第 6 个地表用例时编辑器直接消失、无 XML；已定位并修好（隔离运行单条用例复现，类过滤运行复现，修正后 181/181）。教训：`replace_all` 之前先确认辅助函数不在替换范围内。
+
 
 
