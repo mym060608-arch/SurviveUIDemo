@@ -77,6 +77,9 @@ public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresenta
     public FirstPersonInteractor Interactor => _interactor;
     public SurfacePlayerController Player => _player;
 
+    /// <summary>The surface HUD (owns the document the shared prompt bar lives in).</summary>
+    public SurfaceHudController Hud => _hud;
+
     public bool IsWristOpen => _isWristOpen;
 
     /// <summary>Phase 07B: the surface is the wrist's original return source.</summary>
@@ -173,7 +176,34 @@ public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresenta
         {
             _wrist.Tick();
         }
+
+        // The prompt is presentation: it refreshes AFTER the wrist has ticked, so the
+        // row it shows always belongs to the device the player used in THIS frame
+        // (the wrist is what polls the device while the map is open).
+        RefreshControllerPrompt();
     }
+
+    /// <summary>
+    /// Phase 09B: the surface's controller prompt. While the map is actually
+    /// presented the bar shows the map rows (cursor / select / zoom / back); in
+    /// free exploration the bar stays hidden, because the interaction prompt in
+    /// the world layer already names its own key. The map row set is cached so the
+    /// bar is only rebuilt when the page really changes it.
+    /// </summary>
+    private void RefreshControllerPrompt()
+    {
+        if (_hud == null)
+        {
+            return;
+        }
+
+        bool mapPresented = _isWristOpen && IsWristTerminalRevealed;
+        _hud.SetControllerPrompt(mapPresented, MapPromptRows);
+    }
+
+    /// <summary>The surface map's prompt rows (built once, device-independent).</summary>
+    private static readonly ControllerPromptRow[] MapPromptRows =
+        ControllerPromptBar.SurfaceMapRows();
 
     /// <summary>
     /// The surface's ONE wrist / map authority.

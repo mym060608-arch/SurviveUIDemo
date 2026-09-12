@@ -54,6 +54,10 @@ public class SurfaceHudController : MonoBehaviour
     private Label _navName;
     private Label _navDistance;
 
+    // ---- Phase 09B: shared controller prompt bar ----
+    private ControllerPromptBar _promptBar;
+    private ControllerPromptRow[] _promptRows;
+
     // ---- Round 9 compass HUD (screen-space surface layer) ----
     private CompassTapeElement _compassTape;
     private VisualElement _compassHost;
@@ -151,11 +155,51 @@ public class SurfaceHudController : MonoBehaviour
 
         BindCompass(root);
 
+        // Phase 09B: the shared controller prompt bar lives on the document ROOT,
+        // outside HudLayer - the normal exploration layer is hidden while the wrist
+        // hologram is open, and the map still needs its own prompt row there.
+        _promptBar = ControllerPromptBar.Attach(root, _cjkFont);
+
         if (_returnButton != null && _controller != null)
         {
             // 返回舰船 now routes into the physical ship interior (07A.1).
             _returnButton.clicked += _controller.ReturnToShip;
         }
+    }
+
+    /// <summary>The shared prompt bar of this document (tests / probes).</summary>
+    public ControllerPromptBar PromptBar => _promptBar;
+
+    /// <summary>The HUD document root (the prompt bar's host; tests / probes).</summary>
+    public VisualElement UiRoot => _root;
+
+    /// <summary>
+    /// Shows the prompt rows for the current page state, or hides the bar. Called
+    /// every frame by the surface controller: the rows are only rebuilt when the
+    /// page actually changed them, and the glyphs follow the device the player is
+    /// holding (Xbox / PlayStation-compatible pad / mouse+keyboard).
+    /// </summary>
+    public void SetControllerPrompt(bool visible, ControllerPromptRow[] rows)
+    {
+        if (_promptBar == null)
+        {
+            return;
+        }
+
+        if (!visible)
+        {
+            _promptBar.SetVisible(false);
+            return;
+        }
+
+        if (rows != null && !ReferenceEquals(_promptRows, rows))
+        {
+            _promptRows = rows;
+            _promptBar.SetRows(rows);
+        }
+
+        _promptBar.Tick();
+        _promptBar.SetVisible(true);
     }
 
     // ---- Round 9 compass bind + refresh ----
