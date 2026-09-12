@@ -31,42 +31,32 @@ using UnityEngine;
 public class WristPresentationBridge : MonoBehaviour
 {
     /// <summary>
-    /// Fraction of the raise (0.800 s) after which the existing terminal UI
-    /// fades in.
+    /// Fraction of the raise after which the existing terminal UI starts to fade
+    /// in.
     ///
-    /// Phase 09A_3 final: the reveal waits for the raise to COMPLETE. That is
-    /// what makes the two presentation stages real instead of cosmetic:
-    ///
-    ///   Stage A - the whole raise is the arm's moment: crisp geometry, no
-    ///             hologram, the player watches the wrist come up into the
-    ///             horizontal hold pose.
-    ///   Stage B - the hologram appears ON that pose and the arm drops to a
-    ///             ghost, so the focus switch is visible in one frame pair at an
-    ///             identical pose (see 04/05 in the 09A_3 evidence run).
-    ///
-    /// The staged evidence depends on this value: anything below 1.0 would
-    /// soften the arm before the hold pose is reached and the "before focus"
-    /// frame would no longer be crisp.
+    /// Phase 09A_3 final polish: 0.82 - the hologram begins to appear while the
+    /// wrist is still arriving, so the motion and the UI finish TOGETHER instead
+    /// of "arm arrives, wait, then UI". The arm is already close to the final
+    /// pose by then (the raise eases out), so the device reads as the surface the
+    /// interface unfolds from.
     /// </summary>
-    public const float UiRevealNormalizedTime = 1f;
+    public const float UiRevealNormalizedTime = 0.82f;
 
     /// <summary>
     /// Safety net: if the presentation never reports the raise state, the
     /// terminal still reveals so the wrist can never become unreachable. It sits
-    /// above raise + hold beat (0.80 s + 0.30 s) so it can never cut the staged
+    /// above raise + hold beat (0.58 s + 0.04 s) so it can never cut the staged
     /// presentation short.
     /// </summary>
     public const float RaiseRevealTimeoutSeconds = 1.6f;
 
     /// <summary>
-    /// Pause between the arm reaching the hold pose and the hologram appearing.
-    ///
-    /// Stage A ends with the arm HELD in the horizontal pose and still crisp;
-    /// this beat is what makes that state real instead of a single frame, and it
-    /// is the state the "before focus" evidence frame captures (so it has to be
-    /// long enough for a screenshot to land inside it).
+    /// Tiny beat between the arm reaching the hold pose and the last of the
+    /// hologram fade-in. The reveal itself already starts at 0.82 of the raise,
+    /// so this only keeps the very end of the two motions aligned instead of
+    /// adding a visible pause (the old 0.30 s wait is gone).
     /// </summary>
-    public const float HoldSettleSeconds = 0.30f;
+    public const float HoldSettleSeconds = 0.04f;
 
     private ShipGameController _ship;
     private FirstPersonBlockArmsController _arms;
@@ -82,6 +72,13 @@ public class WristPresentationBridge : MonoBehaviour
 
     /// <summary>Raise animation progress at the last tick (-1 when not raising).</summary>
     public float LastRaiseProgress { get; private set; } = -1f;
+
+    /// <summary>
+    /// Raise progress at the moment the hologram was revealed. This is the number
+    /// that proves the reveal starts BEFORE the raise ends; LastRaiseProgress
+    /// itself already reads -1 once the presentation moved on to the hold phase.
+    /// </summary>
+    public float LastRevealProgress { get; private set; } = -1f;
 
     /// <summary>Reason the last reveal fired (diagnostics / tests).</summary>
     public string LastRevealReason { get; private set; } = "<never>";
@@ -185,6 +182,7 @@ public class WristPresentationBridge : MonoBehaviour
         }
 
         _awaitingReveal = false;
+        LastRevealProgress = progress;
         LastRevealReason = arrived
             ? "raise reached " + progress.ToString("0.00")
             : "raise timeout after " + _awaitElapsed.ToString("0.00") + "s";
@@ -219,6 +217,15 @@ public class WristPresentationBridge : MonoBehaviour
         bool presented = _wrist != null && _wrist.Display != null && _wrist.Display.Visible;
         _arms.SetWristScreenActive(_arms.CurrentWristPhase != FirstPersonBlockArmsController.WristPhase.Rest);
         _arms.SetSoftened(presented);
+
+        // The hologram itself becomes the frosted lens while the focus is on it:
+        // inside the map disc the sheet lets the physical wrist read through as a
+        // soft cyan glow, and it follows the same crossfade as the arm so the two
+        // never step in one frame.
+        if (_wrist != null && _wrist.Display != null)
+        {
+            _wrist.Display.SetFrost(_arms.FocusBlend);
+        }
     }
 
     /// <summary>

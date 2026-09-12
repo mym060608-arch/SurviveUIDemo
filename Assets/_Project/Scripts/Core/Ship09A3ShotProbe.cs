@@ -165,57 +165,104 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Check("walking presents the Walk state", sawWalk);
         Check("arms stay clear of the centre while walking", true);
 
-        // ---- PASS 4: wrist raise / hold / lower + UI above the watch ----
+        // ---- PASS 4: wrist motion, reveal timing, frosted focus ----
         yield return Stand(0f, 0f, 0f);
         _ship.ToggleWrist();
         yield return null;
         Check("the Wrist action opens the authority immediately", _ship.IsWristOpen);
         Check("the existing terminal is not shown on the key press",
             !_ship.IsWristTerminalRevealed);
+        Check("the wrist opens CRISP (the frost is a focus state, not the idle look)",
+            !blockArms.IsSoftened && blockArms.FocusBlend <= 0.001f);
+        Info("crisp arm material: " + blockArms.MaterialDiagnostics());
 
-        // STAGE A - the raise: the arm is crisp and the hologram is not up yet.
-        yield return WaitUntil(() => blockArms.WristRaiseProgress >= 0.55f, 3f);
-        Check("the arm is still crisp during the raise (Stage A)",
-            !blockArms.IsSoftened);
-        // The capture is taken in THIS frame (CaptureScreenshot writes at the end
-        // of the current frame), so the file really is the middle of the raise.
-        yield return Capture("03_wrist_raise_mid");
-        Info("raise: blend=" + blockArms.WristPresentationBlend.ToString("0.00")
-             + " watchViewport=" + Format(blockArms.WatchViewport));
+        // ---- one continuous raise: sample the timeline and shoot 20/40/60/80% ----
+        var timeline = new List<Vector3>();
+        var raiseFrames = new List<KeyValuePair<float, string>>
+        {
+            new KeyValuePair<float, string>(0.20f, "03_wrist_raise_20"),
+            new KeyValuePair<float, string>(0.40f, "04_wrist_raise_40"),
+            new KeyValuePair<float, string>(0.60f, "05_wrist_raise_60"),
+            new KeyValuePair<float, string>(0.80f, "06_wrist_raise_80")
+        };
 
-        // Stage A ends here: the arm reaches the horizontal hold pose and is
-        // STILL CRISP. This is the "before focus" half of the comparison pair, so
-        // it is captured before any measurement (the masks would take longer than
-        // the hold beat the bridge allows before the hologram appears).
-        yield return WaitUntil(() => blockArms.WristPresentationBlend >= 0.995f, 3f);
-        Check("the hold pose is still crisp before the hologram appears (Stage A)",
-            !blockArms.IsSoftened);
-        yield return Capture("04_wrist_hold_physical");
+        var shotState = new bool[raiseFrames.Count];
+        var pendingShots = new List<string>();
+        float raiseStart = Time.realtimeSinceStartup;
+        while (blockArms.WristPresentationBlend < 0.999f
+               && Time.realtimeSinceStartup - raiseStart < 4f)
+        {
+            timeline.Add(new Vector3(blockArms.WristPresentationBlend,
+                blockArms.PositionProgress, blockArms.RotationProgress));
+
+            for (int index = 0; index < raiseFrames.Count; index++)
+            {
+                if (!shotState[index]
+                    && blockArms.WristPresentationBlend >= raiseFrames[index].Key)
+                {
+                    shotState[index] = true;
+                    // Request-only capture: the file lands at the end of THIS
+                    // frame, so the motion keyframes really are the requested
+                    // percentages instead of "whenever the write finished".
+                    pendingShots.Add(raiseFrames[index].Value);
+                    ScreenCapture.CaptureScreenshot(
+                        Path.Combine(_folder, raiseFrames[index].Value + ".png"));
+                }
+            }
+
+            yield return null;
+        }
+
+        float raiseDuration = Time.realtimeSinceStartup - raiseStart;
+        yield return SettleScreenshots(pendingShots);
+        Info("raise duration observed=" + raiseDuration.ToString("0.000")
+             + "s declared=" + FirstPersonBlockArmsController.RaiseDurationSeconds
+             + "s frames=" + timeline.Count);
+        WriteMotionReport(timeline, raiseDuration);
+
+        // ---- 07: the physical hold pose (the arm has arrived) ----
+        yield return WaitUntil(() => blockArms.WristPresentationBlend >= 0.999f, 3f);
+        yield return Capture("07_wrist_hold_physical");
         Info("physical hold: blend="
              + blockArms.WristPresentationBlend.ToString("0.000")
              + " watchViewport=" + Format(blockArms.WatchViewport)
-             + " softened=" + blockArms.IsSoftened);
-        Check("the physical hold frame is the crisp reference of the focus pair",
-            !blockArms.IsSoftened);
+             + " focusBlend=" + blockArms.FocusBlend.ToString("0.00"));
 
-        // STAGE B - focus: the hologram appears and owns the frame.
+        // ---- 08/09: the hologram starts to appear BEFORE the raise ends ----
         yield return WaitUntil(() => _ship.IsWristTerminalRevealed, 3f);
-        Check("the existing terminal is revealed after the raise",
-            _ship.IsWristTerminalRevealed);
-        Check("the reveal waited for the raise (progress "
-              + _ship.WristPresentation.LastRaiseProgress.ToString("0.00") + ")",
-            _ship.WristPresentation.LastRaiseProgress < 0f
-            || _ship.WristPresentation.LastRaiseProgress >= 0.7f);
+        yield return Capture("08_wrist_before_ui");
+        float revealProgress = _ship.WristPresentation.LastRevealProgress;
+        Check("the hologram starts appearing before the raise ends (progress "
+              + revealProgress.ToString("0.00") + ")",
+            revealProgress > 0.7f && revealProgress < 0.99f);
         Check("the existing wrist display is visible",
             _ship.Wrist != null && _ship.Wrist.Display != null && _ship.Wrist.Display.Visible);
-        yield return new WaitForSecondsRealtime(0.5f);
-        yield return CaptureAndAnalyse("05_wrist_hold_focused_ui",
-            "Wrist hold - hologram focused, physical arm softened",
+
+        yield return WaitUntil(() => blockArms.FocusBlend >= 0.35f, 2f);
+        yield return Capture("09_wrist_ui_reveal");
+        Info("reveal: focusBlend=" + blockArms.FocusBlend.ToString("0.00")
+             + " armAlpha=" + blockArms.PhysicalArmAlpha.ToString("0.00"));
+
+        yield return WaitUntil(() => blockArms.FocusBlend >= 0.999f, 3f);
+        yield return new WaitForSecondsRealtime(0.45f);
+        Info("lens at focus: " + LensState());
+        yield return CaptureAndAnalyse("10_wrist_hold_frosted",
+            "Wrist hold - hologram focused, physical arm frosted",
             ProbeExpectation.WristHoldPose, analyseHologram: true);
-        Check("the physical arms are softened while the hologram is up",
-            blockArms.IsSoftened);
+        Check("the physical arms are frosted while the hologram is up",
+            blockArms.IsSoftened && blockArms.FocusBlend >= 0.999f);
         Check("the watch screen is active while the wrist is presented",
             blockArms.IsWristScreenActive);
+        Check("the frosted arm is translucent, never blacked out (alpha "
+              + blockArms.PhysicalArmAlpha.ToString("0.00") + ", brightness "
+              + blockArms.PhysicalArmBrightness.ToString("0.00") + ")",
+            blockArms.PhysicalArmAlpha >= 0.4f && blockArms.PhysicalArmBrightness >= 0.7f);
+        Color coreEmission = blockArms.WatchCoreEmission;
+        Check("the cyan watch core keeps emitting (" + coreEmission.g.ToString("0.00")
+              + "/" + coreEmission.b.ToString("0.00") + ")",
+            coreEmission.g > 0.05f && coreEmission.b > coreEmission.r);
+        Info("frosted arm material: " + blockArms.MaterialDiagnostics());
+        ReportWristRenderTexture();
 
         // Spatial contract: the hologram is the subject, the physical watch sits
         // under it as the support it is projected from.
@@ -236,80 +283,66 @@ public class Ship09A3ShotProbe : MonoBehaviour
                   + ")", displayViewport.y > blockArms.WatchViewport.y + 0.10f);
         }
 
-        // The UI must stay razor sharp ON TOP of the physical arm. The arm is
-        // physically closer to the camera, so this is a real render-order claim:
-        // the softened arm is composited first (queue 2900), the hologram after
-        // it. Measured by hiding the arms for one frame and comparing the
-        // hologram's readable content.
-        yield return Capture("05b_wrist_hold_ui_only_arms_hidden_before");
-        blockArms.SetVisible(false);
-        yield return new WaitForSecondsRealtime(0.25f);
-        yield return Capture("05b_wrist_hold_ui_only");
-        blockArms.SetVisible(true);
-        yield return new WaitForSecondsRealtime(0.25f);
+        // ---- 11 + 13: the UI-only reference and the through-map proof ----
+        // Both frames are captured with the ship tick frozen, so nothing (bridge,
+        // warm-up animation, state push) can differ between them: the only
+        // variable is whether the physical arm is being drawn.
+        yield return CoreThroughMapCaptures(blockArms);
 
-        // Softening is MEASURED, not just reported: the same hold pose is
-        // rendered with the softening switched off and the arm pixels of the two
-        // frames are compared. The physical arm has to lose the visual
-        // competition completely (Stage B), so the gate is a real weight drop,
-        // not a brightness tweak.
-        float softenedLuminance = _lastAnalysis != null
-            ? _lastAnalysis.MeanLuminance
-            : 0f;
-        int softenedPixels = _lastAnalysis != null ? _lastAnalysis.SolidCount : 0;
+        // ---- arm masks: crisp vs frosted at the identical pose ----
         blockArms.SetSoftened(false);
-        yield return MaskCapture("06_wrist_focus_comparison_unsoftened", false);
-        yield return MaskCapture("06_wrist_focus_comparison_unsoftened_dark", true);
+        yield return WaitUntil(() => blockArms.FocusBlend <= 0.001f, 2f);
+        yield return MaskCapture("12_wrist_arm_crisp", false);
+        yield return MaskCapture("12_wrist_arm_crisp_dark", true);
         Analysis unsoftened = AnalyseMask(
-            Path.Combine(_folder, "06_wrist_focus_comparison_unsoftened.png"),
-            Path.Combine(_folder, "06_wrist_focus_comparison_unsoftened_dark.png"));
+            Path.Combine(_folder, "12_wrist_arm_crisp.png"),
+            Path.Combine(_folder, "12_wrist_arm_crisp_dark.png"));
         blockArms.SetSoftened(true);
-        yield return null;
-        yield return MaskCapture("06_wrist_focus_comparison_focused", false);
-        yield return MaskCapture("06_wrist_focus_comparison_focused_dark", true);
-        Analysis focused = AnalyseMask(
-            Path.Combine(_folder, "06_wrist_focus_comparison_focused.png"),
-            Path.Combine(_folder, "06_wrist_focus_comparison_focused_dark.png"));
+        yield return WaitUntil(() => blockArms.FocusBlend >= 0.999f, 2f);
+        yield return MaskCapture("12_wrist_arm_frosted", false);
+        yield return MaskCapture("12_wrist_arm_frosted_dark", true);
+        Analysis frosted = AnalyseMask(
+            Path.Combine(_folder, "12_wrist_arm_frosted.png"),
+            Path.Combine(_folder, "12_wrist_arm_frosted_dark.png"));
 
         float crispWeight = unsoftened.SolidCount * unsoftened.MeanLuminance;
-        float focusedWeight = focused.SolidCount * focused.MeanLuminance;
-        float weightRatio = crispWeight > 0f ? focusedWeight / crispWeight : 1f;
+        float frostedWeight = frosted.SolidCount * frosted.MeanLuminance;
+        float weightRatio = crispWeight > 0f ? frostedWeight / crispWeight : 1f;
         Info("focus weight: crisp " + unsoftened.SolidCount + " px @ "
              + unsoftened.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
              + " = " + crispWeight.ToString("0", CultureInfo.InvariantCulture)
-             + " | focused " + focused.SolidCount + " px @ "
-             + focused.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
-             + " = " + focusedWeight.ToString("0", CultureInfo.InvariantCulture)
+             + " | frosted " + frosted.SolidCount + " px @ "
+             + frosted.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
+             + " = " + frostedWeight.ToString("0", CultureInfo.InvariantCulture)
              + " | ratio " + weightRatio.ToString("0.00", CultureInfo.InvariantCulture));
-        Check("the softened arm loses most of its visual weight (ratio "
-              + weightRatio.ToString("0.00", CultureInfo.InvariantCulture) + " of the crisp arm)",
-            crispWeight > 0f && weightRatio <= 0.55f);
-        Check("the focused arm still reads as a physical support ("
-              + focused.SolidCount + " px)",
-            focused.SolidCount > 2000);
-        Check("the softening is not just a small dim ("
-              + softenedLuminance.ToString("0.000", CultureInfo.InvariantCulture)
-              + " vs "
-              + unsoftened.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
-              + ")", softenedLuminance > 0f
-                   && softenedLuminance < unsoftened.MeanLuminance * 0.65f);
+        float frostingRatio = unsoftened.MeanLuminance > 0f
+            ? frosted.MeanLuminance / unsoftened.MeanLuminance
+            : 1f;
+        Check("the frosted arm recedes (flatter, translucent) but stays visible (luminance "
+              + frostingRatio.ToString("0.00", CultureInfo.InvariantCulture)
+              + " of the crisp arm, still " + frosted.SolidCount + " px)",
+            frostingRatio <= 0.92f && frostingRatio >= 0.35f
+            && frosted.SolidCount > 2000);
 
         yield return BuildFocusComparison();
-        CheckHologramReadability();
+        CheckCyanCoreThroughMap();
+        WriteFrostedReport(blockArms, weightRatio, unsoftened, frosted);
 
-        // ---- 07: lower (terminal already released) ----
+        // ---- 17: lower (terminal already released) ----
         _ship.ToggleWrist();
         yield return null;
         Check("closing releases the terminal first",
             !_ship.IsWristOpen && !_ship.IsWristTerminalRevealed);
-        yield return WaitUntil(() => blockArms.WristPresentationBlend <= 0.55f, 3f);
-        yield return Capture("07_wrist_lower");
+        yield return WaitUntil(() => blockArms.WristPresentationBlend <= 0.45f, 3f);
+        yield return Capture("17_wrist_lower");
         yield return WaitUntil(() => blockArms.CurrentWristPhase
             == FirstPersonBlockArmsController.WristPhase.Rest, 3f);
         Check("the arm returns to the rest presentation",
             blockArms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Rest);
-        Check("the physical arms stop being softened after the wrist closes",
-            !blockArms.IsSoftened);
+        Check("the arm is crisp again after the wrist closes",
+            !blockArms.IsSoftened && blockArms.FocusBlend <= 0.01f);
+        Check("the lower is one continuous move (translation and rotation together)",
+            Mathf.Abs(blockArms.PositionProgress - blockArms.RotationProgress) < 0.02f);
 
         if (_stage < 4)
         {
@@ -317,10 +350,80 @@ public class Ship09A3ShotProbe : MonoBehaviour
             yield break;
         }
 
-        // ---- PASS 4: Phase 08 compatibility ----
+        // ---- PASS 5: keyboard terminal + compatibility ----
+        yield return TerminalStage(blockArms);
         yield return CompatibilityStage(blockArms);
 
         Finish(_allPassed ? 0 : 1);
+    }
+
+    /// <summary>
+    /// PASS 5 - the keyboard terminal contract: the gaze prompt, entering the
+    /// console view with E, leaving it with Escape (never the pause), and the
+    /// gamepad pair remaining identical.
+    /// </summary>
+    private IEnumerator TerminalStage(FirstPersonBlockArmsController blockArms)
+    {
+        ShipConsoleInteractable console = _ship.Consoles[0];
+        Vector3 dir = ConsoleScreenDir(0);
+        _player.TeleportTo(console.transform.position + dir * 1.7f);
+        _player.SetFacing(Mathf.Atan2(-dir.x, -dir.z) * Mathf.Rad2Deg, 0f);
+        yield return null;
+        yield return new WaitForSecondsRealtime(0.4f);
+
+        _ship.Interactor.RefreshTarget();
+        Check("the gaze resolves the terminal", _ship.Interactor.HasValidTarget);
+        yield return Capture("14_terminal_prompt_keyboard");
+        Info("terminal prompt: " + (_ship.Interactor.ResolvePrompt() ?? "<none>")
+             + " focus=" + _ship.IsConsoleFocusActive);
+
+        // The keyboard E is the physical Interact press; the harness cannot
+        // deliver a synthetic keyboard EDGE, so the seam reports the physical
+        // press and every layer below (gaze gating, focus controller, Back board)
+        // runs for real. See UiInput.InjectInteractForAutomation.
+        UiInput.InjectInteractForAutomation();
+        yield return null;
+        yield return WaitUntil(() => _ship.Focus.State
+            == ShipConsoleFocusController.ShipConsoleFocusState.ShipConsoleFocus, 4f);
+        Check("keyboard E opens the console view", _ship.IsConsoleFocusActive);
+        Check("opening a terminal never pauses", !_ship.PauseMenu.IsOpen);
+        yield return Capture("15_terminal_open_keyboard");
+
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
+        yield return WaitUntil(() => !_ship.IsConsoleFocusActive, 4f);
+        Check("keyboard Esc leaves the console view", !_ship.IsConsoleFocusActive);
+        Check("Esc on a terminal never opens the pause",
+            !_ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+        yield return WaitUntil(() => _player.InputEnabled, 3f);
+        Check("movement and look come back after the Escape exit", _player.InputEnabled);
+        _ship.Interactor.RefreshTarget();
+        yield return Capture("16_console_exit_esc");
+
+        // Gamepad pair stays identical (real queued device events are covered by
+        // the PlayMode suite; here the same public entry points are used).
+        bool entered = false;
+        for (int i = 0; i < 400 && !entered; i++)
+        {
+            _ship.Interactor.RefreshTarget();
+            if (ReferenceEquals(_ship.Interactor.CurrentTarget, console)
+                && _ship.Interactor.HasValidTarget)
+            {
+                entered = _ship.Interactor.TryInteract();
+            }
+
+            if (!entered)
+            {
+                yield return null;
+            }
+        }
+
+        yield return WaitUntil(() => _ship.IsConsoleFocusActive, 4f);
+        Check("the gamepad confirm path still enters the console view", entered);
+        _ship.Focus.RequestExit();
+        yield return WaitUntil(() => !_ship.IsConsoleFocusActive, 4f);
+        Check("leaving the console view never pauses", !_ship.PauseMenu.IsOpen);
+        yield return new WaitForSecondsRealtime(0.4f);
     }
 
     private IEnumerator CompatibilityStage(FirstPersonBlockArmsController blockArms)
@@ -352,7 +455,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Check("console focus entered through the real interactor",
             entered && _ship.IsConsoleFocusActive);
         yield return new WaitForSecondsRealtime(0.7f);
-        yield return CaptureAndAnalyse("08_console_focus", "Console focus",
+        yield return CaptureAndAnalyse("20_console_focus_compat", "Console focus",
             ProbeExpectation.Hidden);
         Check("console focus hides the block arms", !blockArms.IsVisible);
 
@@ -366,7 +469,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
         {
             _ship.Overlay.OpenLoadout(ShipOverlayUi.LoadoutReturnTarget.ShipExplore);
             yield return new WaitForSecondsRealtime(0.6f);
-            yield return CaptureAndAnalyse("09_device_panel", "Device panel",
+            yield return CaptureAndAnalyse("21_device_panel_compat", "Device panel",
                 ProbeExpectation.Hidden);
             Check("the device panel hides the block arms", !blockArms.IsVisible);
             _ship.Overlay.CloseToExplore();
@@ -377,7 +480,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
         // ---- pause ----
         _ship.PauseMenu.Open();
         yield return new WaitForSecondsRealtime(0.5f);
-        yield return Capture("10_pause_menu");
+        yield return Capture("18_pause");
         Check("pause freezes the arms presentation", blockArms.IsFrozen);
         Check("pause keeps the menu open", _ship.PauseMenu.IsOpen);
         _ship.PauseMenu.ResumeGame();
@@ -393,7 +496,7 @@ public class Ship09A3ShotProbe : MonoBehaviour
         yield return WaitUntil(() => SceneManager.GetActiveScene().name
             == SceneRouting.MainMenuSceneName, 15f);
         yield return new WaitForSecondsRealtime(0.8f);
-        yield return Capture("11_return_main_menu");
+        yield return Capture("19_return_main_menu");
         Check("return to the main menu leaves zero block arms instances (found "
               + CountArms() + ")", CountArms() == 0);
 
@@ -926,13 +1029,11 @@ public class Ship09A3ShotProbe : MonoBehaviour
     /// </summary>
     private IEnumerator BuildFocusComparison()
     {
-        string crispPath = Path.Combine(_folder, "04_wrist_hold_physical.png");
-        string focusedPath = Path.Combine(_folder, "05_wrist_hold_focused_ui.png");
-        string crispMaskPath = Path.Combine(_folder,
-            "06_wrist_focus_comparison_unsoftened.png");
-        string softMaskPath = Path.Combine(_folder,
-            "06_wrist_focus_comparison_focused.png");
-        string outPath = Path.Combine(_folder, "06_wrist_focus_comparison.png");
+        string crispPath = Path.Combine(_folder, "08_wrist_before_ui.png");
+        string focusedPath = Path.Combine(_folder, "10_wrist_hold_frosted.png");
+        string crispMaskPath = Path.Combine(_folder, "12_wrist_arm_crisp.png");
+        string softMaskPath = Path.Combine(_folder, "12_wrist_arm_frosted.png");
+        string outPath = Path.Combine(_folder, "12_wrist_hold_frosted_comparison.png");
 
         Texture2D crisp = LoadTexture(crispPath);
         Texture2D focused = LoadTexture(focusedPath);
@@ -1012,18 +1113,452 @@ public class Ship09A3ShotProbe : MonoBehaviour
         Destroy(crispMask);
         Destroy(softMask);
 
-        Check("the focus comparison board is written (top: physical | focused, "
-              + "bottom: crisp/softened arm)", File.Exists(outPath));
+        Check("the focus comparison board is written (top: physical | frosted, "
+              + "bottom: crisp/frosted arm)", File.Exists(outPath));
         Info("focus comparison board: " + outPath);
         yield return null;
     }
 
-    private static void Destroy(Texture2D texture)
+    /// <summary>
+    /// Waits for the non-blocking keyframe screenshots of the raise to land.
+    /// They are requested DURING the motion (so each file really is the sampled
+    /// percentage) and only verified afterwards.
+    /// </summary>
+    private IEnumerator SettleScreenshots(List<string> names)
     {
-        if (texture != null)
+        for (int attempt = 0; attempt < 600; attempt++)
         {
-            UnityEngine.Object.Destroy(texture);
+            bool allThere = true;
+            foreach (string name in names)
+            {
+                string path = Path.Combine(_folder, name + ".png");
+                if (!File.Exists(path) || new FileInfo(path).Length < 20000)
+                {
+                    allThere = false;
+                    break;
+                }
+            }
+
+            if (allThere)
+            {
+                break;
+            }
+
+            yield return null;
         }
+
+        foreach (string name in names)
+        {
+            string path = Path.Combine(_folder, name + ".png");
+            Check("the raise keyframe is written: " + name + ".png", File.Exists(path));
+        }
+
+        yield return new WaitForSecondsRealtime(0.15f);
+    }
+
+    /// <summary>
+    /// wrist_motion_report.txt - the numbers that prove translation and rotation
+    /// ride ONE timeline: both channels are sampled at 20/40/60/80/100% and have
+    /// to agree, so no part of the move can read as "lift, then turn".
+    /// </summary>
+    private void WriteMotionReport(List<Vector3> timeline, float observedDuration)
+    {
+        var builder = new StringBuilder();
+        builder.AppendLine("=== WRIST MOTION REPORT (Phase 09A final) ===");
+        builder.AppendLine("raise duration      : "
+                           + FirstPersonBlockArmsController.RaiseDurationSeconds.ToString("0.000",
+                               CultureInfo.InvariantCulture) + " s (observed "
+                           + observedDuration.ToString("0.000", CultureInfo.InvariantCulture) + " s)");
+        builder.AppendLine("lower duration      : "
+                           + FirstPersonBlockArmsController.LowerDurationSeconds.ToString("0.000",
+                               CultureInfo.InvariantCulture) + " s");
+        builder.AppendLine("ui reveal normalized: "
+                           + WristPresentationBridge.UiRevealNormalizedTime.ToString("0.00",
+                               CultureInfo.InvariantCulture));
+        builder.AppendLine("hold settle         : "
+                           + WristPresentationBridge.HoldSettleSeconds.ToString("0.00",
+                               CultureInfo.InvariantCulture) + " s");
+        builder.AppendLine("focus crossfade     : "
+                           + FirstPersonBlockArmsController.FocusCrossfadeDuration.ToString("0.00",
+                               CultureInfo.InvariantCulture) + " s");
+        builder.AppendLine("position curve      : easeOutCubic on t (quadratic Bezier path)");
+        builder.AppendLine("rotation curve      : easeOutCubic on t (Quaternion.Slerp, geodesic)");
+        builder.AppendLine("stages              : ONE (rest -> hold); the elbow pose is a Bezier");
+        builder.AppendLine("                      control point only, never an endpoint");
+        builder.AppendLine();
+        builder.AppendLine("samples (blend / position progress / rotation progress):");
+
+        float[] marks = { 0.20f, 0.40f, 0.60f, 0.80f, 1.00f };
+        float worstGap = 0f;
+        foreach (float mark in marks)
+        {
+            Vector3 best = Vector3.zero;
+            float bestDelta = float.MaxValue;
+            foreach (Vector3 sample in timeline)
+            {
+                float delta = Mathf.Abs(sample.x - mark);
+                if (delta < bestDelta)
+                {
+                    bestDelta = delta;
+                    best = sample;
+                }
+            }
+
+            if (bestDelta > 0.12f && mark < 1f)
+            {
+                builder.AppendLine("  " + (mark * 100f).ToString("0") + "%: <not sampled>");
+                continue;
+            }
+
+            float gap = Mathf.Abs(best.y - best.z);
+            worstGap = Mathf.Max(worstGap, gap);
+            builder.AppendLine("  " + (mark * 100f).ToString("0") + "%"
+                               + "  position=" + best.y.ToString("0.000", CultureInfo.InvariantCulture)
+                               + "  rotation=" + best.z.ToString("0.000", CultureInfo.InvariantCulture)
+                               + "  gap=" + gap.ToString("0.000", CultureInfo.InvariantCulture));
+        }
+
+        builder.AppendLine();
+        builder.AppendLine("worst |position - rotation| gap: "
+                           + worstGap.ToString("0.000", CultureInfo.InvariantCulture)
+                           + (worstGap < 0.02f
+                               ? "  -> translation and rotation are locked together (no two-stage feel)"
+                               : "  -> WARNING: the two channels drift apart"));
+        builder.AppendLine("first sampled frame: blend="
+                           + (timeline.Count > 0 ? timeline[0].x.ToString("0.000", CultureInfo.InvariantCulture) : "-")
+                           + " position="
+                           + (timeline.Count > 0 ? timeline[0].y.ToString("0.000", CultureInfo.InvariantCulture) : "-")
+                           + " rotation="
+                           + (timeline.Count > 0 ? timeline[0].z.ToString("0.000", CultureInfo.InvariantCulture) : "-")
+                           + "  (both move from the first frame)");
+
+        File.WriteAllText(Path.Combine(_folder, "wrist_motion_report.txt"), builder.ToString());
+        Info("motion report written (worst gap "
+             + worstGap.ToString("0.000", CultureInfo.InvariantCulture) + ")");
+        Check("translation and rotation share one timeline (worst gap "
+              + worstGap.ToString("0.000", CultureInfo.InvariantCulture) + ")",
+            worstGap < 0.02f);
+    }
+
+    /// <summary>
+    /// wrist_focus_report.txt - the frosted presentation contract, with the real
+    /// numbers instead of adjectives. It states plainly that this is a
+    /// pseudo-frosted implementation (translucency + desaturation + a soft halo),
+    /// not a Gaussian blur.
+    /// </summary>
+    private void WriteFrostedReport(FirstPersonBlockArmsController arms, float weightRatio,
+        Analysis crisp, Analysis frosted)
+    {
+        Material displayMaterial = _ship.Wrist != null && _ship.Wrist.Display != null
+            ? _ship.Wrist.Display.SurfaceMaterial
+            : null;
+        var builder = new StringBuilder();
+        builder.AppendLine("=== WRIST FOCUS / FROSTED REPORT (Phase 09A final) ===");
+        builder.AppendLine("implementation      : pseudo-frosted (translucent + desaturated + "
+                           + "milky tint + soft halo).");
+        builder.AppendLine("                      NOT a Gaussian blur: the hologram is a world "
+                           + "quad drawn by the");
+        builder.AppendLine("                      same camera, so any post-process blur would blur "
+                           + "the UI with it.");
+        builder.AppendLine("ui sorting (hologram): queue "
+                           + (displayMaterial != null ? displayMaterial.renderQueue.ToString() : "?")
+                           + "  ("
+                           + (displayMaterial != null && displayMaterial.shader != null
+                               ? displayMaterial.shader.name
+                               : "?") + ")");
+        builder.AppendLine("physical arm sorting: queue "
+                           + FirstPersonBlockArmsController.SoftenedArmRenderQueue
+                           + "  -> the UI always composites over the physical watch");
+        builder.AppendLine("physical alpha      : " + arms.PhysicalArmAlpha.ToString("0.00",
+                           CultureInfo.InvariantCulture) + "  (1.00 = crisp, never 0)");
+        builder.AppendLine("physical saturation : " + (1f - arms.PhysicalArmDesaturation)
+                           .ToString("0.00", CultureInfo.InvariantCulture)
+                           + "  (desaturation " + arms.PhysicalArmDesaturation.ToString("0.00",
+                               CultureInfo.InvariantCulture) + ")");
+        builder.AppendLine("physical brightness : " + arms.PhysicalArmBrightness.ToString("0.00",
+                           CultureInfo.InvariantCulture));
+        builder.AppendLine("cyan core emission  : " + arms.WatchCoreEmission.ToString("F3")
+                           + "  (kept above a floor so the device stays readable through the UI)");
+        builder.AppendLine("halo (soft edge)    : alpha " + arms.HaloOpacity.ToString("0.000",
+                           CultureInfo.InvariantCulture) + ", scale 1.060, unfocused bleed");
+        builder.AppendLine("frost crossfade     : " + FirstPersonBlockArmsController
+                           .FocusCrossfadeDuration.ToString("0.00", CultureInfo.InvariantCulture)
+                           + " s (continuous, no one-frame material step)");
+        builder.AppendLine("world blur          : NONE - no DOF, no post-process pass was added");
+        builder.AppendLine("ui sharpness        : untouched; the readable content is measured "
+                           + "below");
+        builder.AppendLine();
+        builder.AppendLine("measured arm weight  : crisp " + crisp.SolidCount + " px @ "
+                           + crisp.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
+                           + "  ->  frosted " + frosted.SolidCount + " px @ "
+                           + frosted.MeanLuminance.ToString("0.000", CultureInfo.InvariantCulture)
+                           + "  (ratio " + weightRatio.ToString("0.00", CultureInfo.InvariantCulture)
+                           + ")");
+        builder.AppendLine("measured focus blend : " + arms.FocusBlend.ToString("0.00",
+                           CultureInfo.InvariantCulture));
+        builder.AppendLine("reported by          : Ship09A3ShotProbe (export/phase09a_final_shots)");
+
+        File.WriteAllText(Path.Combine(_folder, "wrist_focus_report.txt"), builder.ToString());
+        Info("frosted report written");
+    }
+
+    /// <summary>
+    /// Reads the wrist hologram's RenderTexture and reports its ALPHA
+    /// distribution. That number decides whether the physical watch can show
+    /// through the hologram at all: a quad whose texture is opaque everywhere
+    /// hides whatever is behind it, no matter how translucent the arm is.
+    /// </summary>
+    private void ReportWristRenderTexture()
+    {
+        RenderTexture texture = _ship != null && _ship.Wrist != null
+            ? _ship.Wrist.CurrentRenderTexture
+            : null;
+        if (texture == null || !texture.IsCreated())
+        {
+            Info("wrist render texture: <none>");
+            return;
+        }
+
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = texture;
+        var readable = new Texture2D(texture.width, texture.height,
+            TextureFormat.RGBA32, false);
+        readable.ReadPixels(new Rect(0f, 0f, texture.width, texture.height), 0, 0);
+        readable.Apply();
+        RenderTexture.active = previous;
+
+        Color32[] pixels = readable.GetPixels32();
+        int transparent = 0;
+        int translucent = 0;
+        int opaque = 0;
+        double alphaSum = 0.0;
+        foreach (Color32 pixel in pixels)
+        {
+            alphaSum += pixel.a / 255.0;
+            if (pixel.a <= 8)
+            {
+                transparent++;
+            }
+            else if (pixel.a < 240)
+            {
+                translucent++;
+            }
+            else
+            {
+                opaque++;
+            }
+        }
+
+        int centre = (texture.height / 2) * texture.width + texture.width / 2;
+        Info("wrist render texture " + texture.width + "x" + texture.height
+             + ": alpha mean=" + (alphaSum / pixels.Length).ToString("0.000",
+                 CultureInfo.InvariantCulture)
+             + " transparent=" + (100f * transparent / pixels.Length).ToString("0.0") + "%"
+             + " translucent=" + (100f * translucent / pixels.Length).ToString("0.0") + "%"
+             + " opaque=" + (100f * opaque / pixels.Length).ToString("0.0") + "%"
+             + " centreAlpha=" + (pixels[centre].a / 255f).ToString("0.00",
+                 CultureInfo.InvariantCulture));
+        Destroy(readable);
+
+        Material display = _ship.Wrist.Display != null
+            ? _ship.Wrist.Display.SurfaceMaterial
+            : null;
+        if (display != null)
+        {
+            Info("hologram lens material: " + display.name
+                 + " queue=" + display.renderQueue
+                 + " mapCentre=" + (display.HasProperty("_MapCentre")
+                     ? display.GetVector("_MapCentre").ToString("F3")
+                     : "<none>")
+                 + " mapRadius=" + (display.HasProperty("_MapRadius")
+                     ? display.GetVector("_MapRadius").ToString("F3")
+                     : "<none>")
+                 + " frostOpacity=" + (display.HasProperty("_FrostOpacity")
+                     ? display.GetFloat("_FrostOpacity").ToString("0.00")
+                     : "<none>")
+                 + " frostTint=" + (display.HasProperty("_FrostTint")
+                     ? display.GetFloat("_FrostTint").ToString("0.00")
+                     : "<none>"));
+        }
+        else
+        {
+            Info("hologram lens material: <none>");
+        }
+    }
+
+    /// <summary>
+    /// The frosted contract, measured: inside the hologram's map disc the physical
+    /// watch must still be faintly visible THROUGH the UI (a soft colour/darkness
+    /// shift, and a bluer average from the cyan core) while the UI's own readable
+    /// content stays untouched (measured separately by CheckHologramReadability).
+    /// Comparing the focused frame with the arm hidden frame isolates the arm's
+    /// contribution behind the hologram.
+    /// </summary>
+    private void CheckCyanCoreThroughMap()
+    {
+        Texture2D withArm = LoadTexture(Path.Combine(_folder, "10_wrist_hold_frosted.png"));
+        Texture2D withoutArm = LoadTexture(
+            Path.Combine(_folder, "11_wrist_hold_ui_only_reference.png"));
+        Texture2D armMask = LoadTexture(Path.Combine(_folder, "12_wrist_arm_frosted.png"));
+        if (withArm == null || withoutArm == null || armMask == null)
+        {
+            Check("the core-through-map frames exist", false);
+            return;
+        }
+
+        Color32[] a = withArm.GetPixels32();
+        Color32[] b = withoutArm.GetPixels32();
+        Color32[] mask = armMask.GetPixels32();
+        int width = withArm.width;
+        int height = withArm.height;
+        double sumAbsDiff = 0.0;
+        double sumBlueShift = 0.0;
+        double sumLuminanceDiff = 0.0;
+        int measured = 0;
+        int changed = 0;
+        int discArmPixels = 0;
+
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                int index = y * width + x;
+                // Region of interest: where the physical watch IS, and only where
+                // the hologram sheet covers it. Measuring the whole disc would
+                // dilute a small device into a 466k pixel average.
+                if (Luminance(mask[index]) <= 0.05f)
+                {
+                    continue;
+                }
+
+                float ndcX = x / (width - 1f) * 2f - 1f;
+                float ndcY = y / (height - 1f) * 2f - 1f;
+                if (HologramRadiusUnits(ndcX, ndcY) > 1f)
+                {
+                    continue;
+                }
+
+                discArmPixels++;
+                Color32 withArmPixel = a[index];
+                Color32 withoutArmPixel = b[index];
+                float diff = (Mathf.Abs(withArmPixel.r - withoutArmPixel.r)
+                              + Mathf.Abs(withArmPixel.g - withoutArmPixel.g)
+                              + Mathf.Abs(withArmPixel.b - withoutArmPixel.b)) / 3f;
+                sumAbsDiff += diff;
+                if (diff > 3f)
+                {
+                    changed++;
+                }
+
+                // Cyan core = the arm pushes blue above red where it sits.
+                sumBlueShift += (withArmPixel.b - withArmPixel.r)
+                                - (withoutArmPixel.b - withoutArmPixel.r);
+                sumLuminanceDiff += Luminance(withArmPixel) - Luminance(withoutArmPixel);
+                measured++;
+            }
+        }
+
+        if (measured == 0)
+        {
+            // Fall back to the whole disc when the mask overlaps nothing.
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    float ndcX = x / (width - 1f) * 2f - 1f;
+                    float ndcY = y / (height - 1f) * 2f - 1f;
+                    if (HologramRadiusUnits(ndcX, ndcY) > 1f)
+                    {
+                        continue;
+                    }
+
+                    int index = y * width + x;
+                    float diff = (Mathf.Abs(a[index].r - b[index].r)
+                                  + Mathf.Abs(a[index].g - b[index].g)
+                                  + Mathf.Abs(a[index].b - b[index].b)) / 3f;
+                    sumAbsDiff += diff;
+                    if (diff > 3f)
+                    {
+                        changed++;
+                    }
+
+                    sumBlueShift += (a[index].b - a[index].r) - (b[index].b - b[index].r);
+                    sumLuminanceDiff += Luminance(a[index]) - Luminance(b[index]);
+                    measured++;
+                }
+            }
+        }
+
+        if (measured == 0)
+        {
+            Check("the through-map region was found", false);
+            Destroy(withArm);
+            Destroy(withoutArm);
+            Destroy(armMask);
+            return;
+        }
+
+        float meanAbsDiff = (float)(sumAbsDiff / measured);
+        float meanBlueShift = (float)(sumBlueShift / measured);
+        float meanLuminanceDiff = (float)(sumLuminanceDiff / measured);
+        float changedFraction = changed / (float)measured;
+
+        // The cyan core is the element that has to read through the map. It is a
+        // small, bright, saturated block: measuring only it keeps the claim
+        // honest instead of averaging a 2% device into the whole arm.
+        double coreDiff = 0.0;
+        double coreBlue = 0.0;
+        int corePixels = 0;
+        for (int index = 0; index < mask.Length; index++)
+        {
+            Color32 maskPixel = mask[index];
+            if (maskPixel.b < 120 || maskPixel.b <= maskPixel.r + 40)
+            {
+                continue; // not a cyan core pixel
+            }
+
+            int x = index % width;
+            int y = index / width;
+            float ndcX = x / (width - 1f) * 2f - 1f;
+            float ndcY = y / (height - 1f) * 2f - 1f;
+            if (HologramRadiusUnits(ndcX, ndcY) > 1f)
+            {
+                continue;
+            }
+
+            corePixels++;
+            coreDiff += (Mathf.Abs(a[index].r - b[index].r)
+                         + Mathf.Abs(a[index].g - b[index].g)
+                         + Mathf.Abs(a[index].b - b[index].b)) / 3f;
+            coreBlue += (a[index].b - a[index].r) - (b[index].b - b[index].r);
+        }
+
+        Destroy(withArm);
+        Destroy(withoutArm);
+        Destroy(armMask);
+
+        float coreMeanDiff = corePixels > 0 ? (float)(coreDiff / corePixels) : 0f;
+        float coreBlueShift = corePixels > 0 ? (float)(coreBlue / corePixels) : 0f;
+        Info("core through map: armPixelsBehindDisc=" + discArmPixels
+             + " measured=" + measured
+             + " mean|diff|=" + meanAbsDiff.ToString("0.00")
+             + " blue shift=" + meanBlueShift.ToString("0.00")
+             + " changed=" + (changedFraction * 100f).ToString("0.0") + "%"
+             + " | cyan core px=" + corePixels
+             + " coreDiff=" + coreMeanDiff.ToString("0.00")
+             + " coreBlue=" + coreBlueShift.ToString("0.00"));
+
+        Check("the physical watch is faintly visible THROUGH the hologram (mean |diff| "
+              + meanAbsDiff.ToString("0.00") + " over "
+              + (changedFraction * 100f).ToString("0.0") + "% of the covered device area)",
+            meanAbsDiff >= 0.2f && changedFraction >= 0.01f);
+        Check("the cyan core reads through the map (core pixels changed by "
+              + coreMeanDiff.ToString("0.00") + ", blue shift "
+              + coreBlueShift.ToString("0.00") + ")", corePixels > 100
+                   && coreMeanDiff >= 0.7f && coreBlueShift >= 1.0f);
+        Check("the physical watch never dominates the readable area (mean luminance shift "
+              + meanLuminanceDiff.ToString("0.000") + ")",
+            Mathf.Abs(meanLuminanceDiff) <= 0.12f);
     }
 
     /// <summary>
@@ -1035,8 +1570,8 @@ public class Ship09A3ShotProbe : MonoBehaviour
     /// </summary>
     private void CheckHologramReadability()
     {
-        string withArms = Path.Combine(_folder, "05_wrist_hold_focused_ui.png");
-        string withoutArms = Path.Combine(_folder, "05b_wrist_hold_ui_only.png");
+        string withArms = Path.Combine(_folder, "10_wrist_hold_frosted.png");
+        string withoutArms = Path.Combine(_folder, "11_wrist_hold_ui_only_reference.png");
         Texture2D a = LoadTexture(withArms);
         Texture2D b = LoadTexture(withoutArms);
         if (a == null || b == null)
@@ -1119,6 +1654,71 @@ public class Ship09A3ShotProbe : MonoBehaviour
     private static float Luminance(Color32 colour)
     {
         return (colour.r * 0.299f + colour.g * 0.587f + colour.b * 0.114f) / 255f;
+    }
+
+    /// <summary>
+    /// Captures the controlled pair that proves the frosted presentation:
+    /// 13_wrist_core_through_map (hologram + frosted arm) and
+    /// 11_wrist_hold_ui_only_reference (hologram, arm hidden). The ship tick is
+    /// parked for both frames, so the only difference is the physical arm.
+    /// </summary>
+    private IEnumerator CoreThroughMapCaptures(FirstPersonBlockArmsController blockArms)
+    {
+        bool shipWasEnabled = _ship != null && _ship.enabled;
+        if (_ship != null)
+        {
+            _ship.enabled = false;
+        }
+
+        yield return new WaitForSecondsRealtime(0.3f);
+        Info("lens at capture: " + LensState());
+        yield return Capture("13_wrist_core_through_map");
+
+        blockArms.SetVisible(false);
+        yield return new WaitForSecondsRealtime(0.3f);
+        yield return Capture("11_wrist_hold_ui_only_reference");
+
+        blockArms.SetVisible(true);
+        if (_ship != null)
+        {
+            _ship.enabled = shipWasEnabled;
+        }
+
+        yield return new WaitForSecondsRealtime(0.3f);
+        CheckHologramReadability();
+    }
+
+    private static void Destroy(Texture2D texture)
+    {
+        if (texture != null)
+        {
+            UnityEngine.Object.Destroy(texture);
+        }
+    }
+
+    /// <summary>One-line read-out of the hologram sheet's frosted lens state.</summary>
+    private string LensState()
+    {
+        Material display = _ship != null && _ship.Wrist != null && _ship.Wrist.Display != null
+            ? _ship.Wrist.Display.SurfaceMaterial
+            : null;
+        if (display == null)
+        {
+            return "<no display material>";
+        }
+
+        return "frostOpacity=" + (display.HasProperty("_FrostOpacity")
+                   ? display.GetFloat("_FrostOpacity").ToString("0.00")
+                   : "?")
+               + " tint=" + (display.HasProperty("_FrostTint")
+                   ? display.GetFloat("_FrostTint").ToString("0.00")
+                   : "?")
+               + " grain=" + (display.HasProperty("_FrostGrain")
+                   ? display.GetFloat("_FrostGrain").ToString("0.000")
+                   : "?")
+               + " focusBlend=" + (_ship != null && _ship.Arms != null
+                   ? _ship.Arms.FocusBlend.ToString("0.00")
+                   : "?");
     }
 
     private static Texture2D LoadTexture(string path)

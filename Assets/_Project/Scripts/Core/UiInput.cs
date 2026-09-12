@@ -123,6 +123,7 @@ public static class UiInput
     private static int _injectedPauseFrame = -1000;
     private static int _injectedEscapeFrame = -1000;
     private static int _injectedWristFrame = -1000;
+    private static int _injectedInteractFrame = -1000;
     private static int _backConsumedFrame = -1000;
 
     private static readonly bool[] LayerActive =
@@ -204,6 +205,7 @@ public static class UiInput
         _injectedPauseFrame = -1000;
         _injectedEscapeFrame = -1000;
         _injectedWristFrame = -1000;
+        _injectedInteractFrame = -1000;
     }
 
     /// <summary>
@@ -382,6 +384,15 @@ public static class UiInput
     /// </summary>
     public static bool ConsoleExitPressed()
     {
+        // The historical exit key is literally the interact key (E), so the
+        // automation seam that reports an interact press has to appear here too:
+        // that is what makes the "the E that opened the view is still readable as
+        // its exit in the same frame" regression reproducible in the harness.
+        if (InteractInjectedThisFrame)
+        {
+            return true;
+        }
+
         Gamepad pad = Gamepad.current;
         if (pad != null && pad.buttonEast.wasPressedThisFrame)
         {
@@ -395,6 +406,11 @@ public static class UiInput
     /// <summary>True when the context interaction action was pressed (A / E).</summary>
     public static bool InteractPressed()
     {
+        if (InteractInjectedThisFrame)
+        {
+            return true;
+        }
+
         Gamepad pad = Gamepad.current;
         if (pad != null && pad.buttonSouth.wasPressedThisFrame)
         {
@@ -404,6 +420,27 @@ public static class UiInput
         Keyboard keyboard = Keyboard.current;
         return keyboard != null && keyboard.eKey.wasPressedThisFrame;
     }
+
+    /// <summary>
+    /// Automation seam: reports an INTERACT press (Keyboard E / Xbox A) for the
+    /// next frame.
+    ///
+    /// The batch-mode harness cannot deliver keyboard state to a synthetic
+    /// Keyboard device: a queued KeyboardState reaches the control's VALUE but
+    /// never produces the wasPressedThisFrame edge (measured - the control reads
+    /// 1 while the edge stays false), which is the same limitation the Escape and
+    /// Wrist seams already work around. Injecting the physical press here keeps
+    /// every layer below real - the gaze-gated interactor, the console focus
+    /// controller, the Back priority board - and the gamepad rows of the suites
+    /// stay on real queued device events.
+    /// </summary>
+    public static void InjectInteractForAutomation()
+    {
+        _injectedInteractFrame = Time.frameCount + 1;
+    }
+
+    private static bool InteractInjectedThisFrame =>
+        Time.frameCount == _injectedInteractFrame;
 
     /// <summary>
     /// Automation seam: reports a Wrist press for the next frame, so a test can

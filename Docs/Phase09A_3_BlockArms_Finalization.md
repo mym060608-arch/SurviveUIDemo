@@ -1,5 +1,11 @@
 # Phase 09A_3 — Block Arms Runtime Finalization
 
+> **Note:** the wrist motion, UI reveal timing and focus presentation described
+> here were revised once more in the Phase 09A final polish round — see
+> `Docs/Phase09A_FinalWristPolish.md` (single-timeline raise, reveal at 0.82,
+> frosted focus with the cyan core readable through the map). The Hold pose
+> itself is unchanged.
+
 本文件记录 Phase 09A_3 的最终收束：把第一人称手臂的**运行时表现**从 Codex 的 FBX/Animator 资产换成 DSH 直接生成的 voxel / block-style 手臂，并与既有 Wrist System、控制台、暂停、返回主菜单等契约共存。Phase 09A_2 的资产与文档保留为历史，不再参与运行时。
 
 ## 1. 决策与范围

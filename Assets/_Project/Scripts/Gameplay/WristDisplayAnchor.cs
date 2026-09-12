@@ -17,6 +17,7 @@ public class WristDisplayAnchor : MonoBehaviour
     private Material _materialInstance;
     private Vector3 _baseLocalScale = Vector3.one;
     private bool _visible;
+    private float _frostAmount;
 
     public Renderer SurfaceRenderer => _renderer;
     public Material SurfaceMaterial => _materialInstance;
@@ -48,8 +49,100 @@ public class WristDisplayAnchor : MonoBehaviour
         {
             _materialInstance = _renderer.material;
             _materialInstance.color = Color.white;
+
+            // The frosted lens needs the map disc's position in the UI texture.
+            // Both come from the accepted radial layout, so the mask can never
+            // drift from the geometry the player reads.
+            Vector2 centre = new Vector2(
+                RadialWristElement.Center.x / RadialWristElement.DesignWidth,
+                RadialWristElement.Center.y / RadialWristElement.DesignHeight);
+            Vector2 radius = new Vector2(
+                RadialWristElement.MapRadius / RadialWristElement.DesignWidth,
+                RadialWristElement.MapRadius / RadialWristElement.DesignHeight);
+            if (_materialInstance.HasProperty("_MapCentre"))
+            {
+                _materialInstance.SetVector("_MapCentre", new Vector4(centre.x, centre.y, 0f, 0f));
+            }
+
+            if (_materialInstance.HasProperty("_MapRadius"))
+            {
+                _materialInstance.SetVector("_MapRadius", new Vector4(radius.x, radius.y, 0f, 0f));
+            }
+
+            SetFrost(0f);
         }
     }
+
+    /// <summary>
+    /// Frosted hologram lens amount (0 = clear sheet, 1 = fully frosted).
+    ///
+    /// Inside the map disc the sheet becomes partly transparent and picks up a
+    /// milky tint plus a faint grain, so the physical wrist behind it reads as a
+    /// soft cyan/blue glow instead of being hidden. The UI's own content is drawn
+    /// with its own pixels: nothing here blurs or dims the readable layer, and
+    /// nothing outside the disc changes at all.
+    /// </summary>
+    public void SetFrost(float amount)
+    {
+        EnsureMaterial();
+        _frostAmount = Mathf.Clamp01(amount);
+        if (_materialInstance == null)
+        {
+            return;
+        }
+
+        float blend = _frostAmount;
+        if (_materialInstance.HasProperty("_Opacity"))
+        {
+            _materialInstance.SetFloat("_Opacity", 1f);
+        }
+
+        if (_materialInstance.HasProperty("_FrostOpacity"))
+        {
+            _materialInstance.SetFloat("_FrostOpacity",
+                Mathf.Lerp(1f, FrostedDiscOpacity, blend));
+        }
+
+        if (_materialInstance.HasProperty("_FrostTint"))
+        {
+            _materialInstance.SetFloat("_FrostTint", FrostMilkyTint * blend);
+        }
+
+        if (_materialInstance.HasProperty("_FrostGrain"))
+        {
+            _materialInstance.SetFloat("_FrostGrain", FrostGrain * blend);
+        }
+    }
+
+    /// <summary>
+    /// Re-asserts the frosted lens every frame. The presentation drives the value,
+    /// and this makes the material state impossible to drift from it (a shader
+    /// property left over from another state would silently change how much of the
+    /// physical watch shows through the map).
+    /// </summary>
+    private void LateUpdate()
+    {
+        if (_materialInstance == null)
+        {
+            return;
+        }
+
+        float expected = Mathf.Lerp(1f, FrostedDiscOpacity, _frostAmount);
+        if (_materialInstance.HasProperty("_FrostOpacity")
+            && !Mathf.Approximately(_materialInstance.GetFloat("_FrostOpacity"), expected))
+        {
+            SetFrost(_frostAmount);
+        }
+    }
+
+    /// <summary>Opacity of the hologram sheet inside the map disc when frosted.</summary>
+    public const float FrostedDiscOpacity = 0.70f;
+
+    /// <summary>Milky lift applied inside the frosted disc.</summary>
+    public const float FrostMilkyTint = 0.26f;
+
+    /// <summary>Static per-pixel grain applied inside the frosted disc.</summary>
+    public const float FrostGrain = 0.035f;
 
     public void Show(bool visible)
     {

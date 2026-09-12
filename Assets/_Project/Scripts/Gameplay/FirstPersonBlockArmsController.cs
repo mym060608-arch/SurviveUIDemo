@@ -107,37 +107,48 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     private const float HandLength = 0.130f;
     private const float HandWidth = 0.114f;
 
-    private const float RaiseSeconds = 0.800f;
-    private const float LowerSeconds = 0.667f;
+    /// <summary>
+    /// Raise / Lower durations. Each is ONE continuous motion: translation and
+    /// rotation ride the same normalized 0..1 timeline, so the old "lift, then
+    /// turn the wrist" staging is gone from the presentation.
+    /// </summary>
+    private const float RaiseSeconds = 0.580f;
+    private const float LowerSeconds = 0.550f;
 
     /// <summary>Idle walk sway amplitude and rate (deliberately small).</summary>
     private const float WalkSwayDegrees = 5.0f;
     private const float WalkRate = 2.6f;
 
-    // ---- wrist focus (Stage B) softening ----
+    // ---- wrist focus frosting ----
     //
-    // While the hologram is up the physical arm is only the SUPPORT for the UI,
-    // so it has to lose the visual competition completely - not by 5%: it drops
-    // to a translucent, desaturated, emissive-free ghost. See ApplySoftening for
-    // why this is a material swap instead of a real blur (the UI is a world quad
-    // rendered by the same camera, so any post-process blur would blur the UI
-    // with it, and blurring only the arms would need a second render path).
+    // While the hologram is up the physical arm is the SUPPORT for the UI: it
+    // recedes into a translucent FROSTED layer - milky, low contrast, softly
+    // visible - and keeps its cyan core glowing, so the device can still be read
+    // through the map. It must never read as "the hand suddenly went black".
     /// <summary>Opacity of the physical arm while the hologram owns the frame.</summary>
-    private const float SoftenedAlpha = 0.38f;
+    private const float SoftenedAlpha = 0.60f;
 
-    /// <summary>How far the softened arm is pushed toward the background grey.</summary>
-    private const float SoftenedDesaturation = 0.70f;
+    /// <summary>How far the softened arm is pushed toward the milky frost tint.</summary>
+    private const float SoftenedDesaturation = 0.45f;
 
-    /// <summary>Brightness scale of the softened arm's albedo.</summary>
-    private const float SoftenedBaseScale = 0.52f;
+    /// <summary>Brightness scale of the softened arm's albedo (never a black-out).</summary>
+    private const float SoftenedBaseScale = 0.88f;
 
-    /// <summary>Emission scale of the (physical) watch screen while softened.</summary>
-    private const float SoftenedEmissionScale = 0.18f;
+    /// <summary>Emission scale of the physical watch core while softened.</summary>
+    private const float SoftenedEmissionScale = 0.60f;
 
     /// <summary>
-    /// Soft halo copy of the presented arm: scale + opacity of the bleed.</summary>
-    private const float HaloScale = 1.075f;
-    private const float HaloAlpha = 0.11f;
+    /// Floor applied to the watch core's emission while softened: the cyan core
+    /// is the one element that must stay recognisable through the hologram.
+    /// </summary>
+    private const float CoreEmissionFloor = 0.26f;
+
+    /// <summary>Crossfade between the crisp arm and the frosted one.</summary>
+    private const float FocusCrossfadeSeconds = 0.14f;
+
+    /// <summary>Soft halo copy of the presented arm: scale + opacity of the bleed.</summary>
+    private const float HaloScale = 1.060f;
+    private const float HaloAlpha = 0.10f;
 
     /// <summary>
     /// Render queue of the softened arm.
@@ -161,6 +172,12 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     public static int SoftenedArmRenderQueue => SoftenedRenderQueue;
 
     private static readonly Color BackgroundGrey = new Color(0.30f, 0.33f, 0.37f);
+
+    /// <summary>
+    /// Milky frost tint the softened arm is pulled toward. Deliberately LIGHT and
+    /// slightly cool: frosted glass, not a black silhouette.
+    /// </summary>
+    private static readonly Color FrostTint = new Color(0.620f, 0.680f, 0.760f);
 
     private static readonly Color SuitColour = new Color(0.700f, 0.720f, 0.735f);
     private static readonly Color GloveColour = new Color(0.105f, 0.113f, 0.125f);
@@ -215,6 +232,9 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     private bool _moving;
     private bool _screenActive;
     private bool _softened;
+    private bool _ghostSetActive;
+    private float _softenBlend;
+    private float _softenTarget;
     private float _walkPhase;
     private Vector3 _lastPlayerPosition;
     private bool _hasLastPosition;
@@ -234,6 +254,96 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     public bool IsMoving => _moving;
     public bool IsWristScreenActive => _screenActive;
     public bool IsSoftened => _softened;
+
+    /// <summary>Current focus crossfade weight: 0 = crisp arm, 1 = fully frosted.</summary>
+    public float FocusBlend => _softenBlend;
+
+    /// <summary>Raise / lower duration of one presentation move (seconds).</summary>
+    public static float RaiseDurationSeconds => RaiseSeconds;
+    public static float LowerDurationSeconds => LowerSeconds;
+
+    /// <summary>Duration of the crisp -&gt; frosted crossfade (seconds).</summary>
+    public static float FocusCrossfadeDuration => FocusCrossfadeSeconds;
+
+    /// <summary>Opacity applied to the physical arm right now (never 0 while focused).</summary>
+    public float PhysicalArmAlpha => Mathf.Lerp(1f, SoftenedAlpha, Mathf.Clamp01(_softenBlend));
+
+    /// <summary>Desaturation applied to the physical arm right now.</summary>
+    public float PhysicalArmDesaturation => SoftenedDesaturation * Mathf.Clamp01(_softenBlend);
+
+    /// <summary>Brightness scale applied to the physical arm right now.</summary>
+    public float PhysicalArmBrightness =>
+        Mathf.Lerp(1f, SoftenedBaseScale, Mathf.Clamp01(_softenBlend));
+
+    /// <summary>Opacity of the soft halo right now.</summary>
+    public float HaloOpacity => HaloAlpha * Mathf.Clamp01(_softenBlend);
+
+    /// <summary>
+    /// Compact runtime diagnostic of what the arm is ACTUALLY rendering with: the
+    /// bound material, its queue and its transparency setup, plus the alpha the
+    /// property block writes. Used by the evidence probe and the frosted report so
+    /// "the arm is translucent" is never an assumption.
+    /// </summary>
+    public string MaterialDiagnostics()
+    {
+        Renderer renderer = null;
+        for (int index = 0; index < _renderers.Length; index++)
+        {
+            if (_renderers[index] != null && _renderers[index] != _screenRenderer)
+            {
+                renderer = _renderers[index];
+                break;
+            }
+        }
+
+        if (renderer == null)
+        {
+            return "<no renderer>";
+        }
+
+        Material material = renderer.sharedMaterial;
+        var block = new MaterialPropertyBlock();
+        renderer.GetPropertyBlock(block);
+        Color blockColour = block.isEmpty ? Color.magenta : block.GetColor("_BaseColor");
+        return "mat=" + (material != null ? material.name : "?")
+               + " queue=" + (material != null ? material.renderQueue : -1)
+               + " surface=" + (material != null && material.HasProperty("_Surface")
+                   ? material.GetFloat("_Surface").ToString("0")
+                   : "?")
+               + " src=" + (material != null && material.HasProperty("_SrcBlend")
+                   ? material.GetFloat("_SrcBlend").ToString("0")
+                   : "?")
+               + " dst=" + (material != null && material.HasProperty("_DstBlend")
+                   ? material.GetFloat("_DstBlend").ToString("0")
+                   : "?")
+               + " zwrite=" + (material != null && material.HasProperty("_ZWrite")
+                   ? material.GetFloat("_ZWrite").ToString("0")
+                   : "?")
+               + " transparentKeyword=" + (material != null
+                   && material.IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"))
+               + " blockAlpha=" + blockColour.a.ToString("0.00");
+    }
+
+    /// <summary>
+    /// Emission colour currently driving the physical watch core. The cyan core
+    /// must never reach black: it is what stays readable through the hologram.
+    /// </summary>
+    public Color WatchCoreEmission
+    {
+        get
+        {
+            Color crisp = _screenActive ? ScreenEmissionActive : ScreenEmissionIdle;
+            Color frosted = FrostedCoreColour();
+            return Color.Lerp(crisp, new Color(frosted.r, frosted.g, frosted.b), 
+                Mathf.Clamp01(_softenBlend));
+        }
+    }
+
+    /// <summary>Eased translation progress of the current raise / lower (0..1).</summary>
+    public float PositionProgress { get; private set; }
+
+    /// <summary>Eased rotation progress of the current raise / lower (0..1).</summary>
+    public float RotationProgress { get; private set; }
     public WristPhase CurrentWristPhase => _phase;
     public float WristPresentationBlend => _raiseProgress;
 
@@ -368,15 +478,15 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         _leftArm.localRotation = _leftRest;
         _rightArm.localRotation = _rightRest;
         ApplyMotion();
-        ApplySoftening();
+        ApplyMaterials();
         SetVisible(true);
         SetWristScreenActive(false);
     }
 
     /// <summary>
-    /// Remembers each block's normal material next to its softened ghost, so
-    /// SetSoftened only has to swap shared materials (no per-frame allocation,
-    /// no material instancing).
+    /// Remembers each block's crisp material next to its transparent (frostable)
+    /// copy, so the focus crossfade only writes property blocks - no per-frame
+    /// allocation and no material instancing.
     /// </summary>
     private void CacheMaterials()
     {
@@ -492,24 +602,35 @@ public class FirstPersonBlockArmsController : MonoBehaviour
                 MaterialGlobalIlluminationFlags.RealtimeEmissive;
         }
 
-        // ---- softened ghost set (Stage B: the UI owns the frame) ----
-        // Same geometry, but translucent, desaturated, dark and without the
-        // emissive accents that make the physical arm compete with the hologram.
-        _suitGhost = MakeTransparentCopy(_suit, "FPBlockArms_Suit_Ghost",
-            SoftenColour(SuitColour), SoftenedAlpha, 0.10f, null);
-        _gloveGhost = MakeTransparentCopy(_glove, "FPBlockArms_Glove_Ghost",
-            SoftenColour(GloveColour), SoftenedAlpha, 0.08f, null);
-        _cuffGhost = MakeTransparentCopy(_cuff, "FPBlockArms_Cuff_Ghost",
-            SoftenColour(CuffColour), SoftenedAlpha, 0.10f, null);
-        _accentGhost = MakeTransparentCopy(_accent, "FPBlockArms_Accent_Ghost",
-            SoftenColour(AccentColour), SoftenedAlpha * 0.8f, 0.10f, null);
-        _deviceGhost = MakeTransparentCopy(_device, "FPBlockArms_Device_Ghost",
-            SoftenColour(DeviceColour), SoftenedAlpha, 0.12f, null);
-        _screenGhost = MakeTransparentCopy(_screen, "FPBlockArms_Screen_Ghost",
-            SoftenColour(new Color(0.035f, 0.100f, 0.115f)), SoftenedAlpha, 0.20f,
-            ScreenEmissionIdle * SoftenedEmissionScale);
-        _halo = MakeTransparentCopy(_suit, "FPBlockArms_SoftHalo",
-            SoftenColour(SuitColour), HaloAlpha, 0.0f, null);
+        // ---- frostable set (flat, translucent frosted glass) ----
+        //
+        // Built from the project's own transparent shader (Survive/WristDisplayUnlit,
+        // the one the hologram already renders through) instead of a converted URP
+        // Lit material: URP Lit kept rendering the blocks opaque no matter how the
+        // surface/blend state was set, and this shader is proven to alpha blend in
+        // this project. Being unlit is also exactly the look the frost needs - the
+        // arm loses its shading detail and reads as a soft colour mass, while the
+        // per-part colours still tell the shapes apart.
+        Shader frost = Shader.Find("Survive/WristDisplayUnlit");
+        if (frost == null)
+        {
+            Debug.LogError("[BlockArms] frosted shader missing - the focus state would "
+                           + "have no material to fade into");
+            frost = lit;
+        }
+
+        _suitGhost = MakeFrostMaterial(frost, "FPBlockArms_Suit_Frost", SuitColour);
+        _gloveGhost = MakeFrostMaterial(frost, "FPBlockArms_Glove_Frost", GloveColour);
+        _cuffGhost = MakeFrostMaterial(frost, "FPBlockArms_Cuff_Frost", CuffColour);
+        _accentGhost = MakeFrostMaterial(frost, "FPBlockArms_Accent_Frost", AccentColour);
+        _deviceGhost = MakeFrostMaterial(frost, "FPBlockArms_Device_Frost", DeviceColour);
+        _screenGhost = MakeFrostMaterial(frost, "FPBlockArms_Screen_Frost",
+            new Color(0.16f, 0.62f, 0.72f));
+        _halo = MakeFrostMaterial(frost, "FPBlockArms_SoftHalo", SuitColour);
+        if (_halo != null)
+        {
+            _halo.renderQueue = SoftenedRenderQueue - 10;
+        }
     }
 
     /// <summary>
@@ -535,97 +656,26 @@ public class FirstPersonBlockArmsController : MonoBehaviour
     }
 
     /// <summary>
-    /// Turns an opaque URP Lit material into a TRANSPARENT copy: same look at
-    /// full opacity, but it can actually fade. URP needs the surface type, the
-    /// blend state and the transparent keyword to agree, otherwise the shader
-    /// keeps writing opaque pixels.
+    /// One flat frosted material: the crisp colour, made translucent and pulled
+    /// toward the milky tint. The actual opacity is written per frame through a
+    /// property block, so the crossfade stays continuous.
     /// </summary>
-    private static Material MakeTransparentCopy(Material source, string name, Color colour,
-        float alpha, float smoothness, Color? emission)
+    private static Material MakeFrostMaterial(Shader shader, string name, Color colour)
     {
-        if (source == null)
+        if (shader == null)
         {
             return null;
         }
 
-        var material = new Material(source) { name = name };
-        material.SetOverrideTag("RenderType", "Transparent");
-        if (material.HasProperty("_Surface"))
-        {
-            material.SetFloat("_Surface", 1f); // 0 = opaque, 1 = transparent
-        }
-
-        if (material.HasProperty("_Blend"))
-        {
-            material.SetFloat("_Blend", 0f); // alpha blend
-        }
-
-        if (material.HasProperty("_SrcBlend"))
-        {
-            material.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
-        }
-
-        if (material.HasProperty("_DstBlend"))
-        {
-            material.SetFloat("_DstBlend",
-                (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-        }
-
-        if (material.HasProperty("_ZWrite"))
-        {
-            material.SetFloat("_ZWrite", 0f);
-        }
-
-        material.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-        material.DisableKeyword("_ALPHATEST_ON");
-        material.DisableKeyword("_ALPHAPREMULTIPLY_ON");
-        material.renderQueue = SoftenedRenderQueue;
-
+        var material = new Material(shader) { name = name };
+        Color frosted = FrostColour(colour);
         if (material.HasProperty("_BaseColor"))
         {
-            material.SetColor("_BaseColor", new Color(colour.r, colour.g, colour.b, alpha));
+            material.SetColor("_BaseColor", frosted);
         }
 
-        if (material.HasProperty("_Metallic"))
-        {
-            material.SetFloat("_Metallic", 0f);
-        }
-
-        if (material.HasProperty("_Smoothness"))
-        {
-            material.SetFloat("_Smoothness", smoothness);
-        }
-
-        if (material.HasProperty("_EmissionColor"))
-        {
-            if (emission.HasValue)
-            {
-                material.EnableKeyword("_EMISSION");
-                material.SetColor("_EmissionColor", emission.Value);
-                material.globalIlluminationFlags =
-                    MaterialGlobalIlluminationFlags.RealtimeEmissive;
-            }
-            else
-            {
-                material.DisableKeyword("_EMISSION");
-                material.SetColor("_EmissionColor", Color.black);
-            }
-        }
-
+        material.renderQueue = SoftenedRenderQueue;
         return material;
-    }
-
-    /// <summary>
-    /// The softened look of one opaque arm material: desaturated toward the
-    /// background grey, darkened, flattened and faded to <see cref="SoftenedAlpha"/>.
-    /// </summary>
-    private static Color SoftenColour(Color colour)
-    {
-        Color desaturated = Color.Lerp(colour, BackgroundGrey, SoftenedDesaturation);
-        return new Color(desaturated.r * SoftenedBaseScale,
-            desaturated.g * SoftenedBaseScale,
-            desaturated.b * SoftenedBaseScale,
-            1f);
     }
 
     private static Material MakeMaterial(Shader shader, string name, Color colour,
@@ -782,16 +832,17 @@ public class FirstPersonBlockArmsController : MonoBehaviour
 
         // The soft bleed is part of the arm presentation, never a separate object
         // that could survive a hidden state (console view, device panel, pause).
+        bool haloVisible = _visible && _ghostSetActive && _softenBlend > 0.01f;
         if (_leftHalo != null)
         {
-            _leftHalo.gameObject.SetActive(visible && _softened);
+            _leftHalo.gameObject.SetActive(haloVisible);
         }
 
         foreach (Renderer renderer in _haloRenderers)
         {
             if (renderer != null)
             {
-                renderer.enabled = visible && _softened;
+                renderer.enabled = haloVisible;
             }
         }
     }
@@ -811,15 +862,15 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         }
 
         _screenRenderer.enabled = _visible && active;
-        ApplyScreenEmission();
+        ApplyMaterials();
     }
 
     /// <summary>
-    /// Stage B of the wrist presentation: the hologram owns the frame, so the
-    /// physical arm drops to a translucent desaturated ghost (plus a faint
-    /// oversized bleed) and stops competing with the UI. Set false restores the
-    /// crisp arm - the bridge does that as soon as the terminal is released,
-    /// before the arm lowers.
+    /// Wrist focus: the hologram owns the frame, so the physical arm crossfades
+    /// into the FROSTED layer - translucent, milky, low contrast, softly visible,
+    /// cyan core kept - instead of switching to a black ghost in one frame.
+    /// Set false (the bridge does that as soon as the terminal is released)
+    /// crossfades the crisp arm back before it lowers.
     /// </summary>
     public void SetSoftened(bool softened)
     {
@@ -829,37 +880,49 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         }
 
         _softened = softened;
-        ApplySoftening();
-    }
-
-    private void ApplyScreenEmission()
-    {
-        if (_screenRenderer == null)
-        {
-            return;
-        }
-
-        if (_block == null)
-        {
-            _block = new MaterialPropertyBlock();
-        }
-
-        float scale = _softened ? SoftenedEmissionScale : 1f;
-        _block.Clear();
-        _block.SetColor("_EmissionColor",
-            (_screenActive ? ScreenEmissionActive : ScreenEmissionIdle) * scale);
-        _screenRenderer.SetPropertyBlock(_block);
+        _softenTarget = softened ? 1f : 0f;
     }
 
     /// <summary>
-    /// Swaps every block to its ghost material (or back) and shows the soft
-    /// bleed. A material SWAP rather than a property tweak on purpose: a real
-    /// blur is not available without a second render path - the hologram is a
-    /// world quad drawn by the same camera, so any post-process blur would blur
-    /// the UI with the arm - and alpha blending needs the transparent queue,
-    /// which is a blend state of the material.
+    /// Advances the focus crossfade and applies the resulting material blend.
+    ///
+    /// The ghost material set is entered as soon as the crossfade starts, but it
+    /// begins at the CRISP values (full alpha, crisp colour), so the set switch is
+    /// invisible; every visible step of the transition is then a continuous fade
+    /// through a property block:
+    ///
+    ///   alpha       1.0        -> 0.60      (translucent, never gone)
+    ///   albedo      crisp      -> milky frost tint, 88% brightness (never black)
+    ///   saturation  full       -> 55%       (colour blobs survive)
+    ///   emission    crisp      -> 60%, with a floor on the watch core so the cyan
+    ///                            device stays readable through the hologram
     /// </summary>
-    private void ApplySoftening()
+    private void AdvanceFocusBlend()
+    {
+        if (!Mathf.Approximately(_softenBlend, _softenTarget))
+        {
+            float step = FocusCrossfadeSeconds > 0f
+                ? Time.unscaledDeltaTime / FocusCrossfadeSeconds
+                : 1f;
+            _softenBlend = Mathf.MoveTowards(_softenBlend, _softenTarget, step);
+
+            // The frosted set is flat (unlit), so it is entered once the fade is
+            // already a third of the way in: at that point the arm is milky and
+            // 14% transparent, which hides the shading change inside the
+            // crossfade instead of popping at its start.
+            bool wantGhost = _softenBlend >= 0.35f;
+            if (wantGhost != _ghostSetActive)
+            {
+                _ghostSetActive = wantGhost;
+                ApplyMaterialSet();
+            }
+        }
+
+        ApplyMaterials();
+    }
+
+    /// <summary>Selects the opaque or the transparent (frostable) material set.</summary>
+    private void ApplyMaterialSet()
     {
         for (int index = 0; index < _renderers.Length; index++)
         {
@@ -869,7 +932,7 @@ public class FirstPersonBlockArmsController : MonoBehaviour
                 continue;
             }
 
-            Material target = _softened && index < _ghostMaterials.Length
+            Material target = _ghostSetActive && index < _ghostMaterials.Length
                 ? _ghostMaterials[index]
                 : index < _normalMaterials.Length ? _normalMaterials[index] : null;
             if (target != null)
@@ -878,21 +941,116 @@ public class FirstPersonBlockArmsController : MonoBehaviour
             }
         }
 
+        bool haloVisible = _ghostSetActive && _softenBlend > 0.01f && _visible;
         if (_leftHalo != null)
         {
-            _leftHalo.gameObject.SetActive(_softened && _visible);
+            _leftHalo.gameObject.SetActive(haloVisible);
         }
 
         foreach (Renderer renderer in _haloRenderers)
         {
             if (renderer != null)
             {
-                renderer.enabled = _softened && _visible;
+                renderer.enabled = haloVisible;
             }
         }
-
-        ApplyScreenEmission();
     }
+
+    /// <summary>
+    /// Writes the current frost blend into every block (and the halo) through
+    /// property blocks, so the crossfade costs nothing per frame and never
+    /// mutates the shared materials.
+    /// </summary>
+    private void ApplyMaterials()
+    {
+        if (_block == null)
+        {
+            _block = new MaterialPropertyBlock();
+        }
+
+        float blend = Mathf.Clamp01(_softenBlend);
+        for (int index = 0; index < _renderers.Length; index++)
+        {
+            Renderer renderer = _renderers[index];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            Material crisp = index < _normalMaterials.Length
+                ? _normalMaterials[index]
+                : null;
+            Color baseColour = crisp != null && crisp.HasProperty("_BaseColor")
+                ? crisp.GetColor("_BaseColor")
+                : Color.grey;
+            Color frosted = renderer == _screenRenderer
+                ? FrostedCoreColour()
+                : FrostColour(baseColour);
+
+            Color applied = Color.Lerp(baseColour, frosted, blend);
+            applied.a = Mathf.Lerp(1f, frosted.a, blend);
+
+            _block.Clear();
+            _block.SetColor("_BaseColor", applied);
+
+            // The crisp set is lit, so its emission still has to travel: idle vs
+            // presented brightness on the watch screen.
+            if (!_ghostSetActive && crisp != null && crisp.HasProperty("_EmissionColor"))
+            {
+                Color crispEmission = renderer == _screenRenderer
+                    ? (_screenActive ? ScreenEmissionActive : ScreenEmissionIdle)
+                    : crisp.GetColor("_EmissionColor");
+                _block.SetColor("_EmissionColor", crispEmission);
+            }
+
+            renderer.SetPropertyBlock(_block);
+        }
+
+        float haloAlpha = HaloAlpha * blend;
+        foreach (Renderer renderer in _haloRenderers)
+        {
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            _block.Clear();
+            _block.SetColor("_BaseColor", new Color(FrostColour(SuitColour).r,
+                FrostColour(SuitColour).g, FrostColour(SuitColour).b, haloAlpha));
+            renderer.SetPropertyBlock(_block);
+        }
+    }
+
+    /// <summary>
+    /// Frosted look of one block: pulled toward the milky tint, but NEVER brighter
+    /// than the crisp material (a dark glove must not turn into a bright blob just
+    /// because it was desaturated), then faded to a translucent frosted layer.
+    /// </summary>
+    private static Color FrostColour(Color colour)
+    {
+        Color desaturated = Color.Lerp(colour, FrostTint, SoftenedDesaturation);
+        return new Color(
+            Mathf.Min(desaturated.r, colour.r + 0.08f) * SoftenedBaseScale,
+            Mathf.Min(desaturated.g, colour.g + 0.08f) * SoftenedBaseScale,
+            Mathf.Min(desaturated.b, colour.b + 0.08f) * SoftenedBaseScale,
+            SoftenedAlpha);
+    }
+
+    /// <summary>
+    /// Frosted look of the watch core: the cyan hue survives, the shell only
+    /// softens. This is what stays visible through the map.
+    /// </summary>
+    private static Color FrostedCoreColour()
+    {
+        return new Color(FrostedCoreColourValue.r, FrostedCoreColourValue.g,
+            FrostedCoreColourValue.b, FrostedCoreAlpha);
+    }
+
+    /// <summary>Flat cyan the physical watch core becomes while frosted.</summary>
+    private static readonly Color FrostedCoreColourValue =
+        new Color(0.35f, 1.00f, 1.15f);
+
+    private const float FrostedCoreAlpha = 0.95f;
 
     // ====================================================================
     // Per-frame presentation
@@ -907,6 +1065,7 @@ public class FirstPersonBlockArmsController : MonoBehaviour
 
         UpdateLocomotion();
         AdvancePhase();
+        AdvanceFocusBlend();
         ApplyMotion();
     }
 
@@ -990,32 +1149,29 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         }
 
         // The SHARED root is never rotated: rest and look-down stay pure body
-        // space, so a level gaze keeps the hands out of frame and a look-down
-        // brings both arms in from the lower corners.
-        //
-        // Only the LEFT arm (the presented one) follows the camera pitch, and
-        // through its own presentation root: the existing Wrist UI is camera
-        // locked and the player cannot look around while it is open, so the pose
-        // the player opened it from has to be compensated or the device would be
-        // framed off-screen after looking down first.
-        float presentBlend = Mathf.Clamp01(_raiseProgress);
+        // space. Only the presented (left) arm follows the camera pitch, through
+        // its own presentation root, because the existing Wrist UI is camera
+        // locked and look is frozen while it is open.
+        float t = Mathf.Clamp01(_raiseProgress);
         float pitch = _player != null ? _player.PitchDegrees : 0f;
-        Quaternion pitchCompensation = Quaternion.Euler(pitch * presentBlend, 0f, 0f);
+        Quaternion pitchCompensation = Quaternion.Euler(pitch * t, 0f, 0f);
 
-        // Eased presentation weight so the raise settles instead of stopping dead.
-        float eased = presentBlend * presentBlend * (3f - 2f * presentBlend);
+        // ONE normalized timeline for BOTH channels (Phase 09A_3 final polish):
+        // position and rotation start together at t = 0, share the same easing and
+        // finish together, so the raise reads as a single continuous movement
+        // instead of "lift, then turn". The elbow/lift pose survives only as the
+        // quadratric Bezier CONTROL POINT of the position path - it is never an
+        // endpoint, and the rotation path is a plain geodesic slerp.
+        float eased = EaseOutCubic(t);
+        PositionProgress = eased;
+        RotationProgress = eased;
 
         float sway = _moving ? WalkSwayDegrees * Mathf.Sin(_walkPhase) : 0f;
-        float micro = presentBlend > 0.01f
-            ? 0.8f * Mathf.Sin(Time.time * 1.7f) * presentBlend
-            : 0f;
+        float micro = t > 0.01f ? 0.8f * Mathf.Sin(Time.time * 1.7f) * t : 0f;
 
-        // rest -> lift -> hold along ONE eased parameter: the elbow comes up
-        // first and the forearm rotates to horizontal through the lift key, so
-        // no part of the move snaps (especially not the last 10%).
-        Quaternion poseRotation = PathRotation(_leftRest, _leftLift, _leftHold, eased)
+        Quaternion poseRotation = Quaternion.Slerp(_leftRest, _leftHold, eased)
                                   * Quaternion.Euler(-sway + micro, 0f, 0f);
-        Vector3 posePosition = PathPosition(_leftRestPosition, _leftLiftPosition,
+        Vector3 posePosition = ElbowArc(_leftRestPosition, _leftLiftPosition,
             _leftHoldPosition, eased);
 
         _leftArm.localRotation = pitchCompensation * poseRotation;
@@ -1033,33 +1189,21 @@ public class FirstPersonBlockArmsController : MonoBehaviour
         _rightArm.localPosition = _rightRestPosition;
     }
 
-    /// <summary>Two-segment eased rotation path rest -&gt; lift -&gt; hold.</summary>
-    private static Quaternion PathRotation(Quaternion rest, Quaternion lift,
-        Quaternion hold, float eased)
+    /// <summary>Fast start, continuous middle, gentle settle.</summary>
+    private static float EaseOutCubic(float t)
     {
-        const float liftAt = 0.45f;
-        if (eased <= liftAt)
-        {
-            float local = Mathf.SmoothStep(0f, 1f, eased / liftAt);
-            return Quaternion.Slerp(rest, lift, local);
-        }
-
-        float upper = Mathf.SmoothStep(0f, 1f, (eased - liftAt) / (1f - liftAt));
-        return Quaternion.Slerp(lift, hold, upper);
+        float inverse = 1f - Mathf.Clamp01(t);
+        return 1f - inverse * inverse * inverse;
     }
 
-    /// <summary>Two-segment eased position path rest -&gt; lift -&gt; hold.</summary>
-    private static Vector3 PathPosition(Vector3 rest, Vector3 lift, Vector3 hold,
-        float eased)
+    /// <summary>
+    /// Quadratic Bezier through the elbow-lift control point. The control point
+    /// only bends the path (the arm lifts its elbow slightly on the way in); it is
+    /// never reached as a pose, which is what removes the two-stage feel.
+    /// </summary>
+    private static Vector3 ElbowArc(Vector3 rest, Vector3 control, Vector3 hold, float t)
     {
-        const float liftAt = 0.45f;
-        if (eased <= liftAt)
-        {
-            float local = Mathf.SmoothStep(0f, 1f, eased / liftAt);
-            return Vector3.Lerp(rest, lift, local);
-        }
-
-        float upper = Mathf.SmoothStep(0f, 1f, (eased - liftAt) / (1f - liftAt));
-        return Vector3.Lerp(lift, hold, upper);
+        float u = 1f - t;
+        return u * u * rest + 2f * u * t * control + t * t * hold;
     }
 }

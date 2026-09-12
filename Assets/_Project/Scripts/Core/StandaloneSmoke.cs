@@ -419,18 +419,53 @@ public class StandaloneSmoke : MonoBehaviour
             && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Raise);
 
         yield return WaitFor(() => ship.IsWristTerminalRevealed, 4f);
+        log.Check("the hologram starts appearing before the raise ends (progress "
+                  + ship.WristPresentation.LastRevealProgress.ToString("0.00") + ")",
+            ship.WristPresentation.LastRevealProgress > 0.70f
+            && ship.WristPresentation.LastRevealProgress < 0.99f);
+        log.Check("the raise is one continuous move (translation and rotation together)",
+            ship.Arms != null
+            && Mathf.Abs(ship.Arms.PositionProgress - ship.Arms.RotationProgress) < 0.02f);
         log.Check("the existing wrist terminal is revealed after the raise",
             ship.IsWristTerminalRevealed && ship.Wrist.Display != null
             && ship.Wrist.Display.Visible);
         log.Check("the reveal waited for the raise animation (progress "
-                  + ship.WristPresentation.LastRaiseProgress.ToString("0.00") + ")",
-            ship.WristPresentation.LastRaiseProgress > 0.7f);
+                  + ship.WristPresentation.LastRevealProgress.ToString("0.00") + ")",
+            ship.WristPresentation.LastRevealProgress > 0.7f);
         yield return WaitFor(() => ship.Arms != null
             && ship.Arms.CurrentStateName == "WristHold", 4f);
         log.Check("the wrist presentation settles into the hold loop",
             ship.Arms != null && ship.Arms.CurrentStateName == "WristHold");
         log.Check("the wrist screens glow while the terminal is presented",
             ship.Arms != null && ship.Arms.IsWristScreenActive);
+
+        // Stage B: the physical wrist is a FROSTED support, never a black ghost.
+        if (ship.Arms != null)
+        {
+            yield return WaitFor(() => ship.Arms.FocusBlend >= 0.999f, 3f);
+            log.Check("the focus crossfades instead of switching material in one frame ("
+                      + ship.Arms.FocusBlend.ToString("0.00") + ")",
+                ship.Arms.FocusBlend >= 0.999f);
+            log.Check("the frosted arm stays visibly present (alpha "
+                      + ship.Arms.PhysicalArmAlpha.ToString("0.00") + ", brightness "
+                      + ship.Arms.PhysicalArmBrightness.ToString("0.00") + ")",
+                ship.Arms.PhysicalArmAlpha >= 0.4f
+                && ship.Arms.PhysicalArmBrightness >= 0.7f);
+            log.Check("the cyan watch core keeps emitting through the hologram ("
+                      + ship.Arms.WatchCoreEmission.ToString("F2") + ")",
+                ship.Arms.WatchCoreEmission.g > 0.05f
+                && ship.Arms.WatchCoreEmission.b > ship.Arms.WatchCoreEmission.r);
+        }
+
+        Material lensMaterial = ship.Wrist != null && ship.Wrist.Display != null
+            ? ship.Wrist.Display.SurfaceMaterial
+            : null;
+        log.Check("the hologram sheet becomes the frosted lens ("
+                  + (lensMaterial != null && lensMaterial.HasProperty("_FrostOpacity")
+                      ? lensMaterial.GetFloat("_FrostOpacity").ToString("0.00")
+                      : "?") + ")",
+            lensMaterial != null && lensMaterial.HasProperty("_FrostOpacity")
+            && lensMaterial.GetFloat("_FrostOpacity") < 0.95f);
         log.Check("the open wrist owns Escape (Back before Pause)",
             UiInput.ActiveBackLayer == UiInput.UiLayer.Wrist);
 
@@ -442,7 +477,9 @@ public class StandaloneSmoke : MonoBehaviour
         log.Check("Escape on the wrist never opens the pause",
             !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
         log.Check("the terminal releases before the arm lowers",
-            !ship.IsWristTerminalRevealed && !ship.Wrist.Display.Visible);
+            !ship.IsWristTerminalRevealed
+            && (ship.Wrist == null || ship.Wrist.Display == null
+                || !ship.Wrist.Display.Visible));
         log.Check("the arm starts lowering",
             ship.Arms != null
             && ship.Arms.CurrentWristPhase == FirstPersonBlockArmsController.WristPhase.Lower);
@@ -484,6 +521,27 @@ public class StandaloneSmoke : MonoBehaviour
             ship.Player.SetFacing(overviewConsole.transform.eulerAngles.y + 180f, 0f);
             yield return WaitFor(() =>
                 ship.Interactor.CurrentTarget == (IFirstPersonInteractable)overviewConsole, 4f);
+
+            // Keyboard E -> console view (the physical Interact press is injected:
+            // a standalone player cannot deliver a synthetic keyboard EDGE), then
+            // Escape leaves it WITHOUT pausing. This is the regression the phase
+            // fixed, so the smoke drives it on the real route.
+            UiInput.InjectInteractForAutomation();
+            yield return null;
+            yield return WaitFor(() => ship.Focus.FocusActive, 3f);
+            log.Check("keyboard E enters the console view", ship.Focus.FocusActive);
+            log.Check("keyboard E never pauses while opening a terminal",
+                !ship.PauseMenu.IsOpen);
+
+            UiInput.InjectEscapeForAutomation();
+            yield return null;
+            yield return WaitFor(() => !ship.Focus.FocusActive, 4f);
+            log.Check("keyboard Esc leaves the console view", !ship.Focus.FocusActive);
+            log.Check("keyboard Esc on a terminal never pauses",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            yield return WaitFor(() => ship.Player.InputEnabled, 3f);
+            log.Check("free first person is restored after the Escape exit",
+                ship.Player.InputEnabled);
 
             // A -> console view.
             yield return PressGamepadButton(pad, GamepadButton.South);

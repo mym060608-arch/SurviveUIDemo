@@ -322,10 +322,16 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void TickTransitionIn()
     {
-        // Back (Xbox B / Escape) cancels the zoom-in: the same local Back step the
-        // focused state offers, so one Escape can never mean "pause" while a
-        // console view is being entered.
-        if (TryLeaveConsoleView())
+        // Entering is not leaving.
+        //
+        // Only the real Back semantic (Xbox B / Escape) may cancel the zoom-in.
+        // The view's HISTORICAL E exit binding must not be read here: the very
+        // same E press is what started this transition in this same frame (the
+        // interactor and this controller have no defined update order), so
+        // reading it here cancelled the entry immediately and made the terminal
+        // look unreachable from the keyboard. Gamepad A never hit this because it
+        // is not part of the exit binding.
+        if (TryLeaveConsoleView(includeLegacyExitKey: false))
         {
             RequestExit();
             return;
@@ -358,7 +364,7 @@ public class ShipConsoleFocusController : MonoBehaviour
         // closed and free first person is back. The E key stays as the view's
         // historical exit binding and is gated by the same ownership rule, so B
         // can never leave a console that is frozen underneath the pause.
-        if (TryLeaveConsoleView())
+        if (TryLeaveConsoleView(includeLegacyExitKey: true))
         {
             RequestExit();
         }
@@ -367,8 +373,13 @@ public class ShipConsoleFocusController : MonoBehaviour
     /// <summary>
     /// True when this layer owns Back this frame and it was pressed. Consumes the
     /// press so no other layer (and not the global pause) can read it again.
+    ///
+    /// <paramref name="includeLegacyExitKey"/> adds the view's historical E exit
+    /// binding. It is only honoured in the FOCUSED state: during the entry
+    /// transition the E that started it is still "pressed this frame" and must
+    /// not cancel it (see TickTransitionIn).
     /// </summary>
-    private bool TryLeaveConsoleView()
+    private bool TryLeaveConsoleView(bool includeLegacyExitKey)
     {
         if (!UiInput.IsTopBackLayer(UiInput.UiLayer.ConsoleFocus))
         {
@@ -381,7 +392,7 @@ public class ShipConsoleFocusController : MonoBehaviour
             return true;
         }
 
-        return UiInput.ConsoleExitPressed();
+        return includeLegacyExitKey && UiInput.ConsoleExitPressed();
     }
 
     private void TickTransitionOut()
