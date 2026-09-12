@@ -169,10 +169,28 @@ public class ShipConsoleFocusController : MonoBehaviour
 
         _state = ShipConsoleFocusState.ShipExplore;
         _active = null;
+        UiInput.SetLayerActive(UiInput.UiLayer.ConsoleFocus, false);
+    }
+
+    /// <summary>
+    /// Publishes whether this layer can consume Back right now (see
+    /// UiInput.ActiveBackLayer). It is called on every state change AND at the top
+    /// of Update, so the Escape priority is always exact: a state that just ended
+    /// releases Escape in the same frame, and a state that just began claims it.
+    /// </summary>
+    private void PublishBackLayer()
+    {
+        UiInput.SetLayerActive(UiInput.UiLayer.ConsoleFocus, FocusActive);
     }
 
     private void Update()
     {
+        // Publish this layer's own state every frame (cheap and idempotent):
+        // while a console view exists, Escape is a LOCAL Back (leave the view)
+        // and must never be read as the global pause. Doing it here rather than
+        // in the pause's tick makes the answer independent of update order.
+        PublishBackLayer();
+
         // The pause menu freezes the whole gameplay context, including a running
         // transition: the console view simply stays where it was.
         if (_ship != null && _ship.IsPaused)
@@ -234,6 +252,7 @@ public class ShipConsoleFocusController : MonoBehaviour
         _state = ShipConsoleFocusState.TransitionIn;
         _transitionStart = Time.unscaledTime;
         _transitionDuration = Mathf.Max(0.05f, transitionDuration);
+        UiInput.SetLayerActive(UiInput.UiLayer.ConsoleFocus, true);
 
         // Phase 07B.2.2: bring the sharp focus path up WITH the transition, so
         // the screen stays crisp while the environment DOF rises. The physical
@@ -291,6 +310,7 @@ public class ShipConsoleFocusController : MonoBehaviour
 
         _state = ShipConsoleFocusState.ShipExplore;
         _active = null;
+        UiInput.SetLayerActive(UiInput.UiLayer.ConsoleFocus, false);
 
         if (_cursor != null)
         {
@@ -302,6 +322,15 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void TickTransitionIn()
     {
+        // Back (Xbox B / Escape) cancels the zoom-in: the same local Back step the
+        // focused state offers, so one Escape can never mean "pause" while a
+        // console view is being entered.
+        if (TryLeaveConsoleView())
+        {
+            RequestExit();
+            return;
+        }
+
         float elapsed = Time.unscaledTime - _transitionStart;
         float t = Mathf.Clamp01(elapsed / _transitionDuration);
         float smooth = Mathf.SmoothStep(0f, 1f, t);
@@ -313,6 +342,7 @@ public class ShipConsoleFocusController : MonoBehaviour
         if (t >= 1f)
         {
             _state = ShipConsoleFocusState.ShipConsoleFocus;
+            PublishBackLayer();
             ApplyConsoleCursor();
             Debug.Log("[ShipConsoleFocus] focused console "
                       + (_active != null ? _active.ConsoleId.ToString() : "?"));
@@ -321,13 +351,37 @@ public class ShipConsoleFocusController : MonoBehaviour
 
     private void TickFocused()
     {
-        // Leave the console view with the Back semantic (Xbox B / E). Escape is
-        // deliberately NOT part of it: Escape stays the global Pause key, so the
-        // two actions can never fight over one press.
-        if (UiInput.ConsoleExitPressed())
+        // Leaving the console view is a LOCAL Back step: Xbox B and Escape both
+        // mean "leave this layer" while the console view owns Back (see
+        // UiInput.ActiveBackLayer). Escape must therefore never open the pause
+        // over a focused terminal - the pause only returns once the view is
+        // closed and free first person is back. The E key stays as the view's
+        // historical exit binding and is gated by the same ownership rule, so B
+        // can never leave a console that is frozen underneath the pause.
+        if (TryLeaveConsoleView())
         {
             RequestExit();
         }
+    }
+
+    /// <summary>
+    /// True when this layer owns Back this frame and it was pressed. Consumes the
+    /// press so no other layer (and not the global pause) can read it again.
+    /// </summary>
+    private bool TryLeaveConsoleView()
+    {
+        if (!UiInput.IsTopBackLayer(UiInput.UiLayer.ConsoleFocus))
+        {
+            return false;
+        }
+
+        if (UiInput.BackPressedForLayer(UiInput.UiLayer.ConsoleFocus))
+        {
+            UiInput.ConsumeBackForFrame();
+            return true;
+        }
+
+        return UiInput.ConsoleExitPressed();
     }
 
     private void TickTransitionOut()
@@ -343,6 +397,7 @@ public class ShipConsoleFocusController : MonoBehaviour
         if (t >= 1f)
         {
             _state = ShipConsoleFocusState.ShipExplore;
+            PublishBackLayer();
             _active = null;
             TransitionProgress01 = 0f;
             // Focus fully released: the sharp path and its overlay camera go

@@ -1994,25 +1994,42 @@ Navigate  = Gamepad.dpad / leftStick | arrow keys
 
 `UiInput.BindingTable` is the authoritative table; `AButton` / `BButton` /
 `StartButton` names must never appear as logical semantics. Escape is shared
-between Pause (gameplay layers) and Back (overlay layers) on purpose: the ASKING
-LAYER resolves it (`UiInput.PausePressed(UiInput.UiLayer)`), so the two can never
-fight over one press. Menu/Start is unambiguous - it is always Pause.
+between Pause and Back on purpose, and it is resolved as
+**Back-or-Pause-fallback**: the highest-priority LOCAL layer that can go back
+consumes it, and only when no such layer exists is Escape the global Pause key.
 
 ```text
-layer Gameplay (free first person / console view / wrist)
-    Escape = Pause
-layer Modal (an open device panel / deployment confirmation / loadout)
-    Escape = Back for that layer, Menu/Start = Pause above it
+Escape priority (UiInput.UiLayer, lowest value wins)
+    PauseMenu     the pause is open              -> Escape resumes
+    Modal         device panel / deployment      -> Escape closes it
+    Wrist         the wrist terminal is open     -> Escape closes it
+    ConsoleFocus  a console view is focused      -> Escape leaves the view
+    Gameplay      free first person, nothing open -> Escape is Pause
 ```
+
+Every layer publishes its own state through `UiInput.SetLayerActive`, and the
+answer is read from that state (`UiInput.ActiveBackLayer`) - never from
+MonoBehaviour update order. A layer takes a press only via
+`UiInput.BackPressedForLayer(layer)` and consumes it with
+`UiInput.ConsumeBackForFrame()`, so one Escape press can never dispatch two
+actions. Menu/Start is unambiguous: it is always the GLOBAL pause, in every
+layer.
 
 ## 64.3 Behaviour
 
 ```text
-gameplay (free first person or console view) + Menu/Start or Escape
+free first person (nothing open) + Escape, or any layer + Menu/Start
     -> 暂停 opens: Time.timeScale = 0, movement/look/world interaction/wrist
        and the world-console pointer frozen, cursor free, focus on 继续游戏
-继续游戏 / B / Menu-Start again / Escape
+       (the layer underneath stays frozen and is what 继续游戏 returns to)
+继续游戏 / B / Menu-Start again / Escape (while the pause is open)
     -> closes and restores the previous timeScale and the exact gameplay state
+device panel + Escape / B
+    -> closes that panel only; the pause never opens in the same press
+wrist terminal + Escape / B
+    -> closes the terminal only
+console view + Escape / B
+    -> leaves the view and restores free first person; the pause never opens
 返回主菜单
     -> timeScale 1, pause and console view cleaned, SceneRouting to 04_MainMenu,
        GameSession untouched so 继续游戏 stays enabled and returns here
@@ -2089,8 +2106,14 @@ open panel + Menu/Start
 Dispatch chain (one press = one action, the consumer consumes it):
 
 ```text
-Pause Menu  >  Active Device Panel / Modal  >  Console Focus  >  Free First Person
+Pause Menu  >  Active Device Panel / Modal  >  Wrist Terminal  >  Console Focus
+            >  Free First Person (Escape falls back to the global Pause)
 ```
+
+The chain is resolved from published STATE (`UiInput.SetLayerActive` /
+`UiInput.ActiveBackLayer`), not from script order, and every local layer takes
+its press through `UiInput.BackPressedForLayer`, so a lower layer can never act
+on a press that belongs to a higher one.
 
 ## 65.3 Implementation notes
 

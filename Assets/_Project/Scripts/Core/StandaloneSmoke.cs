@@ -431,9 +431,16 @@ public class StandaloneSmoke : MonoBehaviour
             ship.Arms != null && ship.Arms.CurrentStateName == "WristHold");
         log.Check("the wrist screens glow while the terminal is presented",
             ship.Arms != null && ship.Arms.IsWristScreenActive);
+        log.Check("the open wrist owns Escape (Back before Pause)",
+            UiInput.ActiveBackLayer == UiInput.UiLayer.Wrist);
 
-        yield return PressGamepadButton(pad, GamepadButton.North);
-        log.Check("the Wrist binding closes the wrist authority", !ship.IsWristOpen);
+        // Escape closes the wrist terminal and nothing else (Escape is
+        // Back-or-Pause-fallback; the global pause only returns once no local
+        // layer can go back).
+        yield return PressEscapeKey();
+        log.Check("Escape closes the wrist authority", !ship.IsWristOpen);
+        log.Check("Escape on the wrist never opens the pause",
+            !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
         log.Check("the terminal releases before the arm lowers",
             !ship.IsWristTerminalRevealed && !ship.Wrist.Display.Visible);
         log.Check("the arm starts lowering",
@@ -502,6 +509,52 @@ public class StandaloneSmoke : MonoBehaviour
             log.Check("the pause freezes time", Mathf.Approximately(Time.timeScale, 0f));
             log.Check("the console view stays as the underlying state", ship.Focus.FocusActive);
             log.Check("the pause focus lands on 继续游戏", ship.PauseMenu.FocusedItemId == "Resume");
+            log.Check("the pause outranks the console view for Escape",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.PauseMenu);
+
+            // Escape #1 (inside the pause) -> continue, and NOT the console's Back.
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape inside the pause continues the game", !ship.PauseMenu.IsOpen);
+            log.Check("Escape in the pause never leaves the console view",
+                ship.Focus.FocusActive);
+            log.Check("the console view owns Escape again",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.ConsoleFocus);
+
+            // Escape #2 -> leave the console view (the reported bug: it paused).
+            yield return PressEscapeKey();
+            yield return WaitFor(() =>
+                ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore, 4f);
+            log.Check("Escape leaves the console view",
+                ship.Focus.State == ShipConsoleFocusController.ShipConsoleFocusState.ShipExplore);
+            log.Check("Escape in the console view never opens the pause",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            yield return WaitFor(() => ship.Player.InputEnabled, 3f);
+            log.Check("movement and look are restored after the Escape exit",
+                ship.Player.InputEnabled);
+            log.Check("free first person owns Escape again",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+
+            // Escape #3 -> with nothing local left, it is the global pause again.
+            yield return PressEscapeKey();
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape pauses in free first person", ship.PauseMenu.IsOpen);
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape continues from the pause", !ship.PauseMenu.IsOpen);
+            log.Check("no quit from any Escape press", AppQuit.RequestCount == 0);
+
+            // A second visit, so the gamepad paths below still run on a focused
+            // console.
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => ship.Focus.FocusActive, 3f);
+            log.Check("A enters the console view again", ship.Focus.FocusActive);
+
+            // Menu/Start again, then the gamepad's own Continue (A on 继续游戏).
+            yield return PressGamepadButton(pad, GamepadButton.Start);
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Menu/Start opens the pause over the console view again",
+                ship.PauseMenu.IsOpen);
 
             // Continue -> back to the console view.
             yield return PressGamepadButton(pad, GamepadButton.South);
@@ -548,6 +601,22 @@ public class StandaloneSmoke : MonoBehaviour
             yield return WaitFor(() => ship.Arms != null && !ship.Arms.IsFrozen, 2f);
             log.Check("continue releases the frozen arms presentation",
                 ship.Arms != null && !ship.Arms.IsFrozen);
+
+            // Escape in free first person is the global pause, and Escape inside
+            // that pause is Continue again.
+            log.Check("free first person owns Escape for the pause",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+            yield return PressEscapeKey();
+            yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape pauses in free first person", ship.PauseMenu.IsOpen);
+            log.Check("the pause owns Escape while it is open",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.PauseMenu);
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !ship.PauseMenu.IsOpen, 3f);
+            log.Check("Escape continues from the pause",
+                !ship.PauseMenu.IsOpen && ship.Player.InputEnabled);
+            log.Check("Escape restores free first person afterwards",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
 
             yield return PressGamepadButton(pad, GamepadButton.Start);
             yield return WaitFor(() => ship.PauseMenu.IsOpen, 3f);
@@ -730,6 +799,23 @@ public class StandaloneSmoke : MonoBehaviour
         // The console view could not be set up: fail loudly instead of passing.
         log.Fail("the console view / pause loop could not run (console or pause menu missing)");
         Finish(log, 1);
+    }
+
+    /// <summary>
+    /// Presses Escape through UiInput's automation seam and lets the layer
+    /// resolution run. A batch-mode standalone player cannot deliver keyboard
+    /// state to a synthetic Keyboard device, so the seam injects the PHYSICAL
+    /// escape press (not a logical action) and every layer below - the priority
+    /// board, the consumption guard, the pause and the local Back handlers -
+    /// still runs for real. The physical mapping is pinned by
+    /// UiInput.BindingTable.
+    /// </summary>
+    private static IEnumerator PressEscapeKey()
+    {
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
+        yield return null;
+        yield return null;
     }
 
     /// <summary>Queues a real press/release of one gamepad button.</summary>
@@ -1150,6 +1236,29 @@ public class StandaloneSmoke : MonoBehaviour
                 ReferenceEquals(ship.Interactor.CurrentTarget,
                     (IFirstPersonInteractable)locker)
                 && ship.Interactor.ResolvePrompt().Contains("调整远征装备"));
+
+            // ---- Escape is this panel's Back key too, and never the pause ----
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.Loadout, 5f);
+            log.Check("A reopens 装备整理", overlay.IsOpen);
+            log.Check("the equipment panel owns Escape while it is open",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Modal);
+
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !overlay.IsOpen && ship.Player.InputEnabled, 5f);
+
+            log.Check("Escape closes 装备整理", !overlay.IsOpen);
+            log.Check("Escape on the equipment panel never opens the pause",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            log.Check("Escape performed exactly ONE Back action ("
+                      + (overlay.BackActionCount - lockerBackBaseline)
+                      + " in this section)",
+                overlay.BackActionCount == lockerBackBaseline + 2);
+            log.Check("Escape restores free first person after the panel",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+            log.Check("Escape on the equipment panel never quits",
+                AppQuit.RequestCount == 0);
         }
 
         // ---- 出征前准备: deployment station -> pause above the panel ----
@@ -1232,6 +1341,27 @@ public class StandaloneSmoke : MonoBehaviour
                 ReferenceEquals(ship.Interactor.CurrentTarget,
                     (IFirstPersonInteractable)ship.Airlock)
                 && ship.Interactor.ResolvePrompt().Contains("前往 NEREID-04 地表"));
+
+            // ---- Escape is this panel's Back key as well (no pause) ----
+            yield return PressGamepadButton(pad, GamepadButton.South);
+            yield return WaitFor(() => overlay.IsOpen
+                && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm, 5f);
+            log.Check("A reopens 出征前准备", overlay.IsOpen);
+            log.Check("the deployment panel owns Escape while it is open",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Modal);
+
+            yield return PressEscapeKey();
+            yield return WaitFor(() => !overlay.IsOpen && ship.Player.InputEnabled, 5f);
+
+            log.Check("Escape closes 出征前准备", !overlay.IsOpen);
+            log.Check("Escape on the deployment panel never opens the pause",
+                !ship.PauseMenu.IsOpen && Mathf.Approximately(Time.timeScale, 1f));
+            log.Check("Escape performed exactly ONE Back action ("
+                      + (overlay.BackActionCount - backBaseline) + " in this section)",
+                overlay.BackActionCount == backBaseline + 2);
+            log.Check("Escape restores free first person after the panel",
+                UiInput.ActiveBackLayer == UiInput.UiLayer.Gameplay);
+            log.Check("Escape on the panel never quits", AppQuit.RequestCount == 0);
         }
     }
 

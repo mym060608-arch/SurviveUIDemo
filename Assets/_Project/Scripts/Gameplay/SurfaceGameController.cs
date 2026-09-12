@@ -131,11 +131,25 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
         }
     }
 
-    /// <summary>M and I both route to the single ToggleWrist semantic; Esc only
-    /// closes while the wrist is open. No second wrist mode exists.</summary>
+    /// <summary>M and I both route to the single ToggleWrist semantic; Esc is the
+    /// wrist layer's Back key (it closes the terminal and nothing else). No second
+    /// wrist mode exists.</summary>
     private void PollWristKeys()
     {
         Keyboard keyboard = Keyboard.current;
+
+        // Publish this layer's state: with the wrist open, Escape is a LOCAL Back
+        // that closes the terminal (UiInput resolves that, so the physical key is
+        // never named here).
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, _isWristOpen);
+
+        if (_isWristOpen && UiInput.BackPressedForLayer(UiInput.UiLayer.Wrist))
+        {
+            UiInput.ConsumeBackForFrame();
+            SetWristOpen(false);
+            return;
+        }
+
         if (keyboard == null)
         {
             return;
@@ -144,13 +158,13 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
         if (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame)
         {
             ToggleWrist();
-            return;
         }
+    }
 
-        if (_isWristOpen && keyboard.escapeKey.wasPressedThisFrame)
-        {
-            SetWristOpen(false);
-        }
+    private void OnDisable()
+    {
+        // The scene leaving must not strand the Escape priority board.
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, false);
     }
 
     private void PollWorldKeys()
@@ -184,6 +198,7 @@ public class SurfaceGameController : MonoBehaviour, IWristContext
         }
 
         _isWristOpen = open;
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, open);
 
         // Wrist mode: freeze exploration input, disable world interaction,
         // release the OS cursor (hidden), show the project cursor.

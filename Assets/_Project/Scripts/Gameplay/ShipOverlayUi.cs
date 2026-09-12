@@ -58,6 +58,18 @@ public class ShipOverlayUi : MonoBehaviour
     private ShipGameController _ship;
 
     private OverlayMode _mode = OverlayMode.None;
+
+    /// <summary>
+    /// The one place that changes the panel mode. It also publishes whether this
+    /// layer owns Escape right now (see UiInput.ActiveBackLayer): Modal while a
+    /// panel is up, so Escape closes that panel and never stacks a pause on it.
+    /// </summary>
+    private void SetMode(OverlayMode mode)
+    {
+        _mode = mode;
+        UiInput.SetLayerActive(UiInput.UiLayer.Modal, mode != OverlayMode.None);
+    }
+
     private LoadoutReturnTarget _loadoutReturn = LoadoutReturnTarget.ShipExplore;
     private bool _ready;
     private bool _pendingSurfaceRouting;
@@ -144,6 +156,13 @@ public class ShipOverlayUi : MonoBehaviour
             return;
         }
 
+        // Publish this layer's own state every frame (cheap and idempotent).
+        // Escape is handed to the highest-priority local layer (pause > this
+        // modal > wrist > console view) and that answer must not depend on which
+        // MonoBehaviour updates first, so the press below is only taken when this
+        // layer still owns Back.
+        UiInput.SetLayerActive(UiInput.UiLayer.Modal, IsOpen);
+
         // The 确认降临 handler defers the scene switch by one frame so the
         // UI Toolkit pointer dispatch (which invoked the button) fully
         // completes before the scene teardown begins.
@@ -159,10 +178,12 @@ public class ShipOverlayUi : MonoBehaviour
             return;
         }
 
-        // Dispatch priority, step 1: the pause menu is the TOP layer and it
-        // owns the input context while it is open. A device panel can stay open
+        // Dispatch priority, step 1: the pause menu is the TOP layer and it owns
+        // the input context while it is open. A device panel can stay open
         // underneath it (§14.4), so Back here must NOT close that panel - the
         // press belongs to the pause, which only resumes the game.
+        // BackPressedForLayer enforces exactly that, from published state rather
+        // than update order.
         if (_ship != null && _ship.IsPaused)
         {
             return;
@@ -171,10 +192,17 @@ public class ShipOverlayUi : MonoBehaviour
         // Dispatch priority, step 2: this modal layer consumes Back.
         // UiInput is the only place that names the physical control (Xbox B /
         // Escape); nothing here reads a key directly.
-        if (UiInput.BackPressed())
+        if (UiInput.BackPressedForLayer(UiInput.UiLayer.Modal))
         {
             HandleBack();
         }
+    }
+
+    private void OnDisable()
+    {
+        // Never leave a layer flagged as open when this component goes away (the
+        // ship scene unloading must not strand the Escape priority board).
+        UiInput.SetLayerActive(UiInput.UiLayer.Modal, false);
     }
 
     // ---- Public entry points (interactables / tests) ----
@@ -235,7 +263,7 @@ public class ShipOverlayUi : MonoBehaviour
             return false;
         }
 
-        _mode = OverlayMode.DeploymentConfirm;
+        SetMode(OverlayMode.DeploymentConfirm);
         ShowDeploymentConfirmPage();
         EnterOverlayInput();
         Debug.Log("[OVERLAY] opened 出征前准备 (deployment confirmation)");
@@ -257,7 +285,7 @@ public class ShipOverlayUi : MonoBehaviour
             return false;
         }
 
-        _mode = OverlayMode.Loadout;
+        SetMode(OverlayMode.Loadout);
         _loadoutReturn = returnTarget;
         ShowLoadoutPage();
         EnterOverlayInput();
@@ -284,7 +312,7 @@ public class ShipOverlayUi : MonoBehaviour
             return;
         }
 
-        _mode = OverlayMode.None;
+        SetMode(OverlayMode.None);
         if (_deployPage != null)
         {
             _deployPage.SetVisible(false);
@@ -323,7 +351,7 @@ public class ShipOverlayUi : MonoBehaviour
 
     private void OnAdjustGear()
     {
-        _mode = OverlayMode.Loadout;
+        SetMode(OverlayMode.Loadout);
         _loadoutReturn = LoadoutReturnTarget.DeploymentConfirm;
         ShowLoadoutPage();
     }
@@ -357,7 +385,7 @@ public class ShipOverlayUi : MonoBehaviour
 
     private void ShowDeploymentConfirmPage()
     {
-        _mode = OverlayMode.DeploymentConfirm;
+        SetMode(OverlayMode.DeploymentConfirm);
         if (_deployPage != null)
         {
             _deployPage.RefreshAll();
@@ -374,7 +402,7 @@ public class ShipOverlayUi : MonoBehaviour
 
     private void ShowLoadoutPage()
     {
-        _mode = OverlayMode.Loadout;
+        SetMode(OverlayMode.Loadout);
         if (_loadoutPage != null)
         {
             _loadoutPage.SetVisible(true);

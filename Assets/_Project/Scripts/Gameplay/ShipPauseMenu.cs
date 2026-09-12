@@ -240,6 +240,13 @@ public class ShipPauseMenu : MonoBehaviour
         return mouse.delta.ReadValue().sqrMagnitude > 0.01f || mouse.leftButton.isPressed;
     }
 
+    private void OnDisable()
+    {
+        // A pause that goes away with its scene must not leave the Escape
+        // priority board thinking this layer is still open.
+        UiInput.SetLayerActive(UiInput.UiLayer.PauseMenu, false);
+    }
+
     private void Update()
     {
         if (!_built)
@@ -250,20 +257,25 @@ public class ShipPauseMenu : MonoBehaviour
         InputDeviceTracker.Poll();
         UpdateHint();
 
+        // Publish this layer's own state (cheap, idempotent): Escape is handed to
+        // the highest-priority local layer, and that answer must not depend on
+        // which MonoBehaviour updates first (see UiInput.ActiveBackLayer).
+        UiInput.SetLayerActive(UiInput.UiLayer.PauseMenu, _open);
+
         if (!_open)
         {
-            // Escape means different things per layer: inside an open device
-            // panel it is that panel's Back key (the panel closes itself), while
-            // in gameplay it is the global pause. Menu/Start pauses above an open
-            // panel and leaves it as the frozen underlying state.
-            bool overlayOpen = _ship != null && _ship.IsOverlayOpen;
-            UiInput.UiLayer layer = overlayOpen ? UiInput.UiLayer.Modal : UiInput.UiLayer.Gameplay;
+            // Escape means different things per layer. It belongs to whatever
+            // local layer can go back right now - an open device panel, the
+            // wrist terminal or a focused console view - and only falls back to
+            // the global pause when nothing is open. Menu/Start pauses in every
+            // layer and leaves that layer as the frozen underlying state.
+            UiInput.UiLayer localLayer = UiInput.ActiveBackLayer;
 
-            if (UiInput.PausePressed(layer))
+            if (UiInput.PausePressed(localLayer))
             {
                 Debug.Log("[PAUSE] pause input seen: canPause=" + CanPause()
-                          + " layer=" + layer
-                          + " overlayOpen=" + overlayOpen
+                          + " localLayer=" + localLayer
+                          + " overlayOpen=" + (_ship != null && _ship.IsOverlayOpen)
                           + " device=" + (Gamepad.current != null ? Gamepad.current.name : "-")
                           + "/" + (Keyboard.current != null ? Keyboard.current.name : "-"));
                 if (CanPause())
@@ -305,10 +317,11 @@ public class ShipPauseMenu : MonoBehaviour
         }
 
         // The pause is the TOP layer: while it is open, a Back press belongs to
-        // it (resume) and never to the device panel that may be open underneath.
-        // Consuming the press makes that independent of update order.
-        bool backPressed = UiInput.BackPressed();
-        if (backPressed || UiInput.PausePressed())
+        // it (resume) and never to the device panel, the wrist or the console
+        // view that may be open underneath. Consuming the press makes that
+        // independent of update order.
+        bool backPressed = UiInput.BackPressedForLayer(UiInput.UiLayer.PauseMenu);
+        if (backPressed || UiInput.PausePressed(UiInput.UiLayer.PauseMenu))
         {
             if (backPressed)
             {
@@ -344,6 +357,7 @@ public class ShipPauseMenu : MonoBehaviour
         _open = true;
         _previousTimeScale = Time.timeScale > 0f ? Time.timeScale : 1f;
         Time.timeScale = 0f;
+        UiInput.SetLayerActive(UiInput.UiLayer.PauseMenu, true);
 
         _overlay.style.display = DisplayStyle.Flex;
         _overlay.pickingMode = PickingMode.Position;
@@ -398,6 +412,7 @@ public class ShipPauseMenu : MonoBehaviour
     private void Close()
     {
         _open = false;
+        UiInput.SetLayerActive(UiInput.UiLayer.PauseMenu, false);
         Time.timeScale = _previousTimeScale > 0f ? _previousTimeScale : 1f;
 
         if (_overlay != null)

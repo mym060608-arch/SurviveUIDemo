@@ -639,6 +639,13 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
     }
 
+    private void OnDisable()
+    {
+        // Never strand the Escape priority board: a layer that no longer exists
+        // must not keep Escape away from the global pause.
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, false);
+    }
+
     private void Update()
     {
         if (!_ready)
@@ -705,6 +712,11 @@ public class ShipGameController : MonoBehaviour, IWristContext
 
     private void PollWristKeys()
     {
+        // Publish this layer's own state (cheap and idempotent): with the wrist
+        // open, Escape is a LOCAL Back that closes the terminal and must never be
+        // read as the global pause (see UiInput.ActiveBackLayer).
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, _isWristOpen);
+
         // The pause menu owns the input context: no wrist key may fire while it
         // is open (one press, one action).
         if (_paused)
@@ -717,8 +729,15 @@ public class ShipGameController : MonoBehaviour, IWristContext
         // semantic action.
         if (_isWristOpen)
         {
-            // Escape is the GLOBAL pause key and must not double as "close the
-            // wrist": the Wrist action toggles it instead.
+            // Escape IS this layer's Back key while the terminal is open: it
+            // closes the wrist and nothing else. The Wrist action toggles it too.
+            if (UiInput.BackPressedForLayer(UiInput.UiLayer.Wrist))
+            {
+                UiInput.ConsumeBackForFrame();
+                SetWristOpen(false);
+                return;
+            }
+
             if (UiInput.WristPressed())
             {
                 SetWristOpen(false);
@@ -767,6 +786,7 @@ public class ShipGameController : MonoBehaviour, IWristContext
         }
 
         _isWristOpen = open;
+        UiInput.SetLayerActive(UiInput.UiLayer.Wrist, open);
 
         if (_player != null)
         {

@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -53,26 +54,52 @@ public enum UiAction
 public static class UiInput
 {
     /// <summary>
-    /// Which UI layer is asking for an action that Escape shares between Pause
-    /// and Back (Phase 08 device-panel hotfix).
+    /// Which UI layer owns Escape, and what Escape means there.
     ///
     /// The gamepad never has this problem because its two controls are distinct
     /// (Menu/Start = Pause, B = Back). Escape is one key standing for two
     /// semantics, so the ASKING LAYER decides which one it is:
     ///
-    ///   Gameplay- free first person / console view / wrist: Escape pauses
-    ///              (there is no UI layer to leave).
-    ///   Modal   - a device panel / deployment confirmation / loadout is open:
-    ///              Escape is Back for that layer, so it closes the panel and
-    ///              must NOT also open the pause over it.
+    ///   Escape = Back-or-Pause-fallback
+    ///   --------------------------------
+    ///   Escape is handed to the highest-priority LOCAL layer that can go back.
+    ///   Only when no local layer can, Escape is the global Pause key.
+    ///
+    /// Priority (lowest value wins = declared by enum order):
+    ///
+    ///   PauseMenu    the pause is open              -> Escape resumes
+    ///   Modal        device panel / deployment      -> Escape closes it
+    ///   Wrist        the wrist terminal is open     -> Escape closes it
+    ///   ConsoleFocus a console view is focused      -> Escape leaves the view
+    ///   Gameplay     free first person: NO local back -> Escape is Pause
+    ///
+    /// The resolution is STATE based, never update-order based: every layer
+    /// publishes its own state through <see cref="SetLayerActive"/>, and the
+    /// consumers (the pause menu, the panels, the wrist, the console view) ask
+    /// <see cref="ActiveBackLayer"/> before acting. Menu/Start stays a global
+    /// pause in every layer, and the pause can always be opened ABOVE the
+    /// current local layer, which then stays as the frozen underlying state.
     /// </summary>
     public enum UiLayer
     {
-        /// <summary>No modal UI layer is open: Escape is the global Pause key.</summary>
-        Gameplay,
+        /// <summary>The pause menu is open: Escape (and B) resumes the game.</summary>
+        PauseMenu = 0,
 
-        /// <summary>A modal UI layer owns Escape as Back.</summary>
-        Modal
+        /// <summary>A modal UI layer (device panel / deployment confirmation) owns Escape as Back.</summary>
+        Modal = 1,
+
+        /// <summary>The wrist terminal is open: Escape closes it.</summary>
+        Wrist = 2,
+
+        /// <summary>A console view is focused: Escape leaves it and restores free first person.</summary>
+        ConsoleFocus = 3,
+
+        /// <summary>
+        /// No local layer can go back: Escape is the global Pause key. This is
+        /// also the value <see cref="ActiveBackLayer"/> reports when nothing is
+        /// open.
+        /// </summary>
+        Gameplay = 4
     }
 
     /// <summary>Stick magnitude that counts as a navigation press.</summary>
@@ -97,6 +124,87 @@ public static class UiInput
     private static int _injectedEscapeFrame = -1000;
     private static int _injectedWristFrame = -1000;
     private static int _backConsumedFrame = -1000;
+
+    private static readonly bool[] LayerActive =
+        new bool[Enum.GetValues(typeof(UiLayer)).Length];
+
+    /// <summary>
+    /// Publishes whether a local layer can go back right now.
+    ///
+    /// Every layer that owns a Back step reports its OWN authoritative state here
+    /// (the pause reports "I am open", the overlay "I am showing", the wrist "I
+    /// am open", the console view "I am focused") instead of being polled in some
+    /// script order. That is what makes Escape resolution independent of
+    /// MonoBehaviour update order: the value only changes with the state it
+    /// describes, so every consumer in the same frame sees the same answer no
+    /// matter who runs first.
+    ///
+    /// A layer may call this from its state setter and/or republish it in its own
+    /// tick (the same value), which removes any chance of a stale board.
+    /// </summary>
+    public static void SetLayerActive(UiLayer layer, bool active)
+    {
+        int index = (int)layer;
+        if (index >= 0 && index < LayerActive.Length)
+        {
+            LayerActive[index] = active;
+        }
+    }
+
+    /// <summary>
+    /// The highest-priority local layer that can consume Back this frame, or
+    /// <see cref="UiLayer.Gameplay"/> when nothing can (free first person).
+    /// </summary>
+    public static UiLayer ActiveBackLayer
+    {
+        get
+        {
+            for (int index = 0; index < (int)UiLayer.Gameplay; index++)
+            {
+                if (LayerActive[index])
+                {
+                    return (UiLayer)index;
+                }
+            }
+
+            return UiLayer.Gameplay;
+        }
+    }
+
+    /// <summary>True when this layer is the one Escape belongs to right now.</summary>
+    public static bool IsTopBackLayer(UiLayer layer)
+    {
+        return layer != UiLayer.Gameplay && ActiveBackLayer == layer;
+    }
+
+    /// <summary>
+    /// True when THIS local layer owns a Back press this frame. Local layers use
+    /// this instead of <see cref="BackPressed"/> so a lower layer can never act
+    /// on a press that belongs to a higher one (the pause above an open panel,
+    /// the pause above the wrist, the pause above the console view).
+    /// </summary>
+    public static bool BackPressedForLayer(UiLayer layer)
+    {
+        return IsTopBackLayer(layer) && BackPressed();
+    }
+
+    /// <summary>
+    /// Automation seam: forgets every published layer. Tests use it so a scene
+    /// from a previous test can never leave a layer flagged as open; the game
+    /// code only ever moves these flags together with the state they describe.
+    /// </summary>
+    public static void ResetLayersForAutomation()
+    {
+        for (int index = 0; index < LayerActive.Length; index++)
+        {
+            LayerActive[index] = false;
+        }
+
+        _backConsumedFrame = -1000;
+        _injectedPauseFrame = -1000;
+        _injectedEscapeFrame = -1000;
+        _injectedWristFrame = -1000;
+    }
 
     /// <summary>
     /// Marks the Back action as CONSUMED for this frame (Phase 08 §14.3).
@@ -207,10 +315,14 @@ public static class UiInput
     /// the layer that is asking (see <see cref="UiLayer"/>).
     ///
     /// Menu/Start always pauses - it works in free first person, inside the
-    /// console view and above an OPEN device panel (the panel stays as the
-    /// frozen underlying state). Escape pauses only in the gameplay layer,
-    /// because inside a modal layer Escape IS that layer's Back key and the
-    /// press must close the panel instead of stacking a pause on top of it.
+    /// console view, with the wrist open and above an open device panel (all of
+    /// them stay as the frozen underlying state).
+    ///
+    /// Escape pauses only when NOTHING local can go back: if any local layer is
+    /// active (pause &gt; modal panel &gt; wrist &gt; console view), the press is
+    /// that layer's Back and must never also stack a pause on top of it. The
+    /// answer comes from the published layer state, so it does not depend on
+    /// which MonoBehaviour happens to update first.
     /// </summary>
     public static bool PausePressed(UiLayer layer)
     {
@@ -225,14 +337,22 @@ public static class UiInput
             return true;
         }
 
-        if (layer == UiLayer.Modal)
+        if (layer != UiLayer.Gameplay)
+        {
+            // The caller already knows it sits in a local layer.
+            return false;
+        }
+
+        // Escape may have been consumed as Back by a local layer THIS frame (the
+        // panel that just closed, the wrist that just closed): then the same
+        // press is not a pause either.
+        if (BackConsumedThisFrame)
         {
             return false;
         }
 
-        // Escape may have been consumed as Back by a modal layer THIS frame (the
-        // panel that just closed): then the same press is not a pause either.
-        if (BackConsumedThisFrame)
+        // A local layer owns Escape while it can still go back.
+        if (ActiveBackLayer != UiLayer.Gameplay)
         {
             return false;
         }
@@ -251,8 +371,14 @@ public static class UiInput
 
     /// <summary>
     /// True when the console-view exit action was pressed this frame
-    /// (Xbox B / E). Escape is deliberately NOT part of it: Escape stays the
-    /// global Pause key so the two can never fight.
+    /// (Xbox B / E key).
+    ///
+    /// This is the console view's historical exit binding and NOT a Back
+    /// semantic: Back (Xbox B / Escape) is resolved through
+    /// <see cref="BackPressedForLayer"/> so the console view obeys the same
+    /// priority as every other layer. Callers must only act on it while they own
+    /// the layer (see <see cref="IsTopBackLayer"/>), otherwise B would leave a
+    /// console that is sitting frozen underneath the pause.
     /// </summary>
     public static bool ConsoleExitPressed()
     {
