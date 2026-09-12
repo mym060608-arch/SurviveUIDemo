@@ -33,6 +33,13 @@ using UnityEngine.UIElements;
 /// Cursor.SetCursor while WristMode is open. There is deliberately NO
 /// UI Toolkit cursor overlay / trail anywhere.
 ///
+/// Phase 09B: the cursor position itself is the SHARED pointer
+/// (UiPointerState) - the mouse writes it, the right stick moves it at a steady
+/// speed and the OS cursor is warped onto it, so the pad drives the SAME cursor
+/// instead of a second, pad-only map. Confirm (Xbox A) is the exact equivalent of
+/// the mouse's left button on the map, LT/RT zoom the map content, and the
+/// left stick stays unbound because this map has no pan.
+///
 /// Parallax: the hologram tilts around the WristProjectionPivot (localRotation
 /// on a captured base pose), clamped to yaw +-4 / pitch +-3 / roll +-0.5 deg,
 /// damped; it never translates around the screen.
@@ -52,6 +59,14 @@ public class SurfaceWristController : MonoBehaviour
     /// <summary>Minimum horizontal padding used by row slot bounds (Round 9.2
     /// requires >= 10 px; 14 is the authored padding).</summary>
     public const float RowSlotPadding = 14f;
+
+    // ---- Phase 09B: controller map cursor + zoom ----
+
+    /// <summary>Zoom rate at full trigger deflection (zoom units per second).</summary>
+    public const float ZoomRatePerSecond = 1.1f;
+
+    /// <summary>Zoom step for one mouse wheel notch.</summary>
+    public const float ZoomWheelStep = 0.14f;
 
     private const float ParallaxYawLimit = 4f;
     private const float ParallaxPitchLimit = 3f;
@@ -176,6 +191,15 @@ public class SurfaceWristController : MonoBehaviour
     private float _completedAt;
     private bool _bound;
     private int _hoverNodeId = -1;
+
+    // ---- Phase 09B: map view state ----
+
+    /// <summary>Map content zoom (1 = the frozen Phase 06 mapping).</summary>
+    private float _mapZoom = 1f;
+    private int _lastSelectedByConfirmFrame = -1;
+
+    /// <summary>Current map content zoom (diagnostics / tests / probes).</summary>
+    public float MapZoom => _mapZoom;
 
     /// <summary>Exposed for tests: the wrist document's root element.</summary>
     public VisualElement RootElement => _root;
@@ -1040,6 +1064,12 @@ public class SurfaceWristController : MonoBehaviour
             {
                 _cursorService.SetHover(false);
             }
+
+            // Phase 09B: a closed map owns no pointer region and reopens at the
+            // authored 1:1 zoom, so every open starts from the same known view.
+            UiPointerState.ClearBounds();
+            ResetMapZoom();
+            _hoverNodeId = -1;
         }
     }
 
@@ -1514,17 +1544,20 @@ public class SurfaceWristController : MonoBehaviour
             Mathf.Clamp(y, -1f, 1f));
     }
 
-    private void UpdateParallaxFromMouse()
+    private void UpdateParallax()
     {
         if (_projectionPivot == null)
         {
             return;
         }
 
-        Mouse mouse = Mouse.current;
-        if (mouse != null)
+        // The hologram tilt follows the SHARED pointer, so the pad tilts the
+        // hologram exactly like the mouse always did. When nothing drives the
+        // pointer (an automation run with no mouse device and no stick), the value
+        // the caller set is kept - the Phase 06 parallax contract.
+        if (UiPointerState.IsDrivenByDevice)
         {
-            Vector2 pos = mouse.position.ReadValue();
+            Vector2 pos = UiPointerState.Position;
             float nx = Mathf.Clamp((pos.x / Mathf.Max(1, Screen.width) - 0.5f) * 2f, -1f, 1f);
             float ny = Mathf.Clamp((pos.y / Mathf.Max(1, Screen.height) - 0.5f) * 2f, -1f, 1f);
             SetParallaxNormalized(nx, ny);
@@ -1568,31 +1601,115 @@ public class SurfaceWristController : MonoBehaviour
             return;
         }
 
+        // Phase 09B: the open terminal polls the device itself, so the prompt and
+        // the cursor follow whichever device the player picked up last (the
+        // exploration player controller is frozen while the map is open).
+        InputDeviceTracker.Poll();
+
+        // The cursor is the SHARED pointer: the mouse writes it, the right stick
+        // moves it, and both go through the same position this frame.
+        UiPointerState.Tick(Time.unscaledDeltaTime);
+        RefreshPointerBounds();
+        RefreshZoom(Time.unscaledDeltaTime);
+
         EnsureStyleSheets();
         RefreshMapGeometry();
         RefreshActiveProgress();
-        UpdateParallaxFromMouse();
-        ProcessHardwarePointer();
+        UpdateParallax();
+        ProcessPointer();
     }
 
-    // ---- Hardware pointer (real mouse -> display ray -> wrist pixel) ----
+    /// <summary>
+    /// Declares the region the pad may move the cursor inside: the projection of
+    /// the wrist display quad. Together with the shared pointer's clamp this is
+    /// what guarantees the cursor can never be pushed off the hologram and lost.
+    /// </summary>
+    private void RefreshPointerBounds()
+    {
+        if (_display == null || _mainCamera == null || Screen.width <= 0)
+        {
+            UiPointerState.ClearBounds();
+            return;
+        }
 
-    /// <summary>Screen-space node hover for tests/probes: maps the real mouse
-    /// position through the display collider to a node id (-1 = none).</summary>
-    public int HitTestFromScreenMouse()
+        Transform t = _display.transform;
+        Vector3 scale = t.localScale;
+        float minX = float.MaxValue, minY = float.MaxValue;
+        float maxX = float.MinValue, maxY = float.MinValue;
+        bool any = false;
+        for (int sx = -1; sx <= 1; sx += 2)
+        {
+            for (int sy = -1; sy <= 1; sy += 2)
+            {
+                Vector3 corner = t.position + t.right * (sx * scale.x * 0.5f)
+                                 + t.up * (sy * scale.y * 0.5f);
+                Vector3 screen = _mainCamera.WorldToScreenPoint(corner);
+                if (screen.z <= 0f)
+                {
+                    continue;
+                }
+
+                any = true;
+                minX = Mathf.Min(minX, screen.x);
+                maxX = Mathf.Max(maxX, screen.x);
+                minY = Mathf.Min(minY, screen.y);
+                maxY = Mathf.Max(maxY, screen.y);
+            }
+        }
+
+        if (!any)
+        {
+            UiPointerState.ClearBounds();
+            return;
+        }
+
+        UiPointerState.SetBounds(new Rect(minX, minY, maxX - minX, maxY - minY));
+    }
+
+    /// <summary>
+    /// LT zoom out / RT zoom in (and the mouse wheel), integrated at a steady rate
+    /// and clamped to the authored zoom range. At the default zoom nothing changes,
+    /// so the frozen Phase 06 map mapping is preserved exactly.
+    /// </summary>
+    private void RefreshZoom(float deltaTime)
+    {
+        float axis = UiInput.ZoomAxis();
+        float wheel = UiInput.ZoomWheelSteps();
+        if (Mathf.Approximately(axis, 0f) && Mathf.Approximately(wheel, 0f))
+        {
+            return;
+        }
+
+        SetMapZoom(_mapZoom
+                   + axis * ZoomRatePerSecond * Mathf.Max(0f, deltaTime)
+                   + wheel * ZoomWheelStep);
+    }
+
+    /// <summary>Sets the map content zoom, clamped to the authored range.</summary>
+    public void SetMapZoom(float zoom)
+    {
+        _mapZoom = Mathf.Clamp(zoom, WristMapCoordinates.MinZoom, WristMapCoordinates.MaxZoom);
+    }
+
+    /// <summary>Returns the map to its default 1:1 mapping.</summary>
+    public void ResetMapZoom()
+    {
+        _mapZoom = 1f;
+    }
+
+    // ---- Shared pointer (mouse OR right stick) -> display ray -> wrist pixel ----
+
+    /// <summary>Screen-space node hover for probes: maps the SHARED pointer
+    /// position (mouse or pad, whichever drives it) through the display collider
+    /// to a node id (-1 = none).</summary>
+    public int HitTestFromPointer()
     {
         if (_mainCamera == null || _display == null)
         {
             return -1;
         }
 
-        Mouse mouse = Mouse.current;
-        if (mouse == null)
-        {
-            return -1;
-        }
-
-        Ray ray = _mainCamera.ScreenPointToRay(mouse.position.ReadValue());
+        Ray ray = _mainCamera.ScreenPointToRay(UiPointerState.Position);
         if (!_display.RaycastToLocal(ray, out Vector2 uv))
         {
             return -1;
@@ -1601,21 +1718,27 @@ public class SurfaceWristController : MonoBehaviour
         return HitTestNode(UVToWristPixel(uv));
     }
 
-    private void ProcessHardwarePointer()
+    /// <summary>
+    /// The map's pointer frame, driven by the shared pointer authority:
+    ///
+    ///   * hover      - the dot+ring cursor reacts to the node under the pointer,
+    ///                  whether the mouse or the right stick put it there;
+    ///   * select     - the Confirm action (Xbox A / E / Enter) is the EXACT
+    ///                  equivalent of the mouse's left button on the map
+    ///                  ("A：执行鼠标左键等价操作"), and both call the same single
+    ///                  selector, so a pad and a mouse can never select differently;
+    ///   * no cursor  - the visual cursor stays the existing OS cursor; the pad
+    ///                  moves it through UiPointerState's warp. No second, pad-only
+    ///                  map and no UI Toolkit cursor overlay exist.
+    /// </summary>
+    private void ProcessPointer()
     {
         if (_controller == null || _mainCamera == null || _display == null)
         {
             return;
         }
 
-        Mouse mouse = Mouse.current;
-        if (mouse == null)
-        {
-            return;
-        }
-
-        Vector2 mousePosition = mouse.position.ReadValue();
-        Ray ray = _mainCamera.ScreenPointToRay(mousePosition);
+        Ray ray = _mainCamera.ScreenPointToRay(UiPointerState.Position);
         if (!_display.RaycastToLocal(ray, out Vector2 uv))
         {
             _hoverNodeId = -1;
@@ -1635,10 +1758,21 @@ public class SurfaceWristController : MonoBehaviour
             _cursorService.SetHover(hit >= 0);
         }
 
-        if (hit >= 0 && mouse.leftButton.wasPressedThisFrame)
+        if (hit < 0)
         {
-            // Real hardware left click -> deterministic hit-test -> single
-            // authoritative selector.
+            return;
+        }
+
+        Mouse mouse = Mouse.current;
+        bool clicked = mouse != null && mouse.leftButton.wasPressedThisFrame;
+        bool confirmed = UiInput.ConfirmPressed();
+
+        // Confirm is read once per frame: the surface interactor cannot act while
+        // the wrist is open (exploration input is frozen), so the same press can
+        // never both select a map target and interact with the world.
+        if (clicked || (confirmed && _lastSelectedByConfirmFrame != Time.frameCount))
+        {
+            _lastSelectedByConfirmFrame = Time.frameCount;
             _controller.TrySelectNavigationTarget(hit);
         }
     }
@@ -1653,8 +1787,9 @@ public class SurfaceWristController : MonoBehaviour
     }
 
     /// <summary>Deterministic wrist-pixel node hit-test. Returns the node id
-    /// or -1. Draw position and hit-test share WristMapCoordinates so marker
-    /// and hit geometry can never drift apart; Depleted nodes are skipped.</summary>
+    /// or -1. Draw position and hit-test share WristMapCoordinates (and the
+    /// current map zoom) so marker and hit geometry can never drift apart;
+    /// Depleted nodes are skipped.</summary>
     public int HitTestNode(Vector2 wristPixel)
     {
         if (_controller == null)
@@ -1671,7 +1806,8 @@ public class SurfaceWristController : MonoBehaviour
                 continue;
             }
 
-            Vector2 nodePixel = WristMapCoordinates.WorldToWristMap(node.transform.position);
+            Vector2 nodePixel = WristMapCoordinates.WorldToWristMap(node.transform.position,
+                _mapZoom);
             if ((wristPixel - nodePixel).sqrMagnitude <= hitRadiusSq)
             {
                 return i;
@@ -1953,13 +2089,15 @@ public class SurfaceWristController : MonoBehaviour
         if (_playerMarker != null)
         {
             Vector3 playerPos = _controller.Player.transform.position;
-            SetMarkerPosition(_playerMarker, WristMapCoordinates.WorldToWristMap(playerPos));
+            SetMarkerPosition(_playerMarker,
+                WristMapCoordinates.WorldToWristMap(playerPos, _mapZoom));
             _playerMarker.style.rotate = new Rotate(new Angle(-_controller.Player.YawDegrees));
         }
 
         if (_landingMarker != null)
         {
-            SetMarkerPosition(_landingMarker, WristMapCoordinates.WorldToWristMap(Vector3.zero));
+            SetMarkerPosition(_landingMarker,
+                WristMapCoordinates.WorldToWristMap(Vector3.zero, _mapZoom));
         }
 
         for (int i = 0; i < _nodeMarkers.Length; i++)
@@ -1975,7 +2113,8 @@ public class SurfaceWristController : MonoBehaviour
                 continue;
             }
 
-            SetMarkerPosition(_nodeMarkers[i], WristMapCoordinates.WorldToWristMap(node.transform.position));
+            SetMarkerPosition(_nodeMarkers[i],
+                WristMapCoordinates.WorldToWristMap(node.transform.position, _mapZoom));
             ApplyMarkerState(_nodeMarkers[i], node, _controller.NavigationTargetNodeId == i);
         }
 
@@ -1986,7 +2125,8 @@ public class SurfaceWristController : MonoBehaviour
                 SurfaceResourceNode target = _controller.GetNodeById(_controller.NavigationTargetNodeId);
                 if (target != null)
                 {
-                    SetMarkerPosition(_selectedRing, WristMapCoordinates.WorldToWristMap(target.transform.position));
+                    SetMarkerPosition(_selectedRing,
+                        WristMapCoordinates.WorldToWristMap(target.transform.position, _mapZoom));
                     _selectedRing.style.display = DisplayStyle.Flex;
                 }
                 else
