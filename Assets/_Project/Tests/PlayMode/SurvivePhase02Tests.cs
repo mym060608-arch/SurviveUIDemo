@@ -71,7 +71,8 @@ public class SurvivePhase02Tests
         Assert.AreEqual("20", LabelText(root, ElementNames.MineralsValue), "default Minerals");
         Assert.AreEqual("8", LabelText(root, ElementNames.FuelValue), "default Fuel");
         Assert.AreEqual("5", LabelText(root, ElementNames.AlloyValue), "default Alloy");
-        Assert.AreEqual("NEREID-04", LabelText(root, ElementNames.DestinationValue), "destination hero");
+        Assert.AreEqual(PlanetIdentity.DisplayName,
+            LabelText(root, ElementNames.DestinationValue), "destination hero");
 
         // ---- Phase 02 visual composition structure is present ----
         string[] structure =

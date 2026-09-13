@@ -46,6 +46,16 @@ public class SurvivePhase07B23Tests
 
     // ---- helpers ----
 
+    /// <summary>Waits in real time: the landing hold is measured in seconds.</summary>
+    private static IEnumerator WaitSeconds(float seconds)
+    {
+        float deadline = Time.realtimeSinceStartup + seconds;
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+        }
+    }
+
     private static IEnumerator WaitUntil(System.Func<bool> condition,
         int maxFrames = MaxWaitFrames)
     {
@@ -260,9 +270,10 @@ public class SurvivePhase07B23Tests
             ElementNames.BatteryRowButton, "loadout battery row");
 
         // ---- Deployment confirmation ----
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "loadout 返回 clicked");
+        // The loadout has no top-right 返回 button any more: Back (Esc / B) is
+        // the documented exit and the overlay's own handler is the same one.
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => !overlay.IsOpen && controller.Player.InputEnabled);
         Assert.AreEqual(ShipGameController.ShipPointerOwner.None,
             controller.PointerOwner, "ShipExplore owns nothing but the camera");
@@ -388,9 +399,8 @@ public class SurvivePhase07B23Tests
         Assert.IsTrue(session.BatterySelected && session.DroneSelected,
             "loadout ready state reflects both optional items");
 
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => !overlay.IsOpen && controller.Player.InputEnabled);
         Assert.AreEqual(GameSession.ShipInteriorSceneName, ActiveSceneName(),
             "locker-sourced loadout returns to ShipExplore");
@@ -436,9 +446,8 @@ public class SurvivePhase07B23Tests
         yield return null;
         Assert.IsTrue(session.BatterySelected, "loadout edited from the deploy route");
 
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => overlay.Mode
             == ShipOverlayUi.OverlayMode.DeploymentConfirm);
         Assert.AreEqual(GameSession.ShipInteriorSceneName, ActiveSceneName(),
@@ -462,7 +471,15 @@ public class SurvivePhase07B23Tests
         int mineralsBefore = session.Minerals;
         Button confirm = overlay.DeployPage.Root
             .Q<Button>(ShipDeployConfirmPage.ConfirmButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(confirm), "确认降临 clicked");
+
+        // Phase 09B PASS 8: a click is NOT enough any more - 确认降临 is a HELD
+        // action, so the gesture is a real press, a real hold past the authored
+        // duration, and a release.
+        Assert.IsTrue(UiToolkitPointerSimulator.PointerDown(confirm), "确认降临 pressed");
+        yield return WaitSeconds(ShipDeployConfirmPage.HoldSeconds + 0.25f);
+        // The completed hold may already have routed to the surface (which
+        // unloads this document), so the release itself is best-effort.
+        UiToolkitPointerSimulator.PointerUp(confirm);
         yield return WaitUntil(() => ActiveSceneName() == GameSession.SurfaceSceneName);
         yield return WaitForSurface(_ => { });
 

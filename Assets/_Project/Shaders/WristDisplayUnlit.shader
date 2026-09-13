@@ -8,6 +8,11 @@ Shader "Survive/WristDisplayUnlit"
         // lets the physical wrist behind it show through as soft colour while the
         // readable UI stays on top and sharp.
         _Opacity ("Sheet Opacity", Range(0, 1)) = 1
+        // Phase 09B PASS 3: the PERIPHERAL structure (the four module plates and
+        // the status arcs, everything outside the map disc) is a translucent
+        // industrial sheet, so the world keeps showing through the instrument
+        // instead of the panels reading as opaque cards. 1 = untouched.
+        _StructureOpacity ("Structure Opacity (outside the disc)", Range(0, 1)) = 1
         _FrostOpacity ("Map Disc Opacity", Range(0, 1)) = 1
         _MapCentre ("Map Centre (UV)", Vector) = (0.5, 0.5, 0, 0)
         _MapRadius ("Map Radius (UV)", Vector) = (0.18359, 0.29375, 0, 0)
@@ -55,6 +60,7 @@ Shader "Survive/WristDisplayUnlit"
                 float4 _MapCentre;
                 float4 _MapRadius;
                 float _Opacity;
+                float _StructureOpacity;
                 float _FrostOpacity;
                 float _FrostSoftness;
                 float _FrostTint;
@@ -87,6 +93,11 @@ Shader "Survive/WristDisplayUnlit"
                 float distanceFromCentre = length(centred);
                 float lens = 1.0 - smoothstep(1.0 - _FrostSoftness,
                                               1.0 + _FrostSoftness, distanceFromCentre);
+
+                // PASS 3: outside the disc the sheet is a translucent structure
+                // (the plates and arcs let the world through); inside it the
+                // frosted lens below keeps its own accepted behaviour.
+                colour.a *= lerp(_StructureOpacity, 1.0, lens);
 
                 colour.a *= lerp(_Opacity, _FrostOpacity, lens);
                 colour.rgb = lerp(colour.rgb, colour.rgb * 0.90 + 0.08, lens * _FrostTint);

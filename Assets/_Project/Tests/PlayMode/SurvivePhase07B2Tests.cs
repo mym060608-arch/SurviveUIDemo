@@ -245,17 +245,17 @@ public class SurvivePhase07B2Tests
                     ? surface.WarehouseHost.Root
                     : null;
                 Assert.IsNotNull(warehouseRoot, "console 2 warehouse root");
-                Assert.AreEqual("仓库总览",
+                Assert.AreEqual("仓库",
                     warehouseRoot.Q<Label>("WarehouseTitleLabel").text,
-                    "console 2 title 仓库总览");
+                    "console 2 title 仓库");
                 Assert.IsNotNull(
                     warehouseRoot.Q<Label>(ShipWarehouseScreenHost.MineralsValueName),
                     "console 2 minerals row");
             }
             else if (c == 2)
             {
-                Assert.IsNotNull(root.Q<Button>(ElementNames.Batch5Button),
-                    "console 3 shows Processing batch controls");
+                Assert.IsNotNull(root.Q<Button>(ElementNames.ProcessingQuantityUp),
+                    "console 3 shows the Processing quantity control");
             }
             else
             {
@@ -687,11 +687,10 @@ public class SurvivePhase07B2Tests
         Assert.IsTrue(session.BatterySelected,
             "GameSession battery changed by the real click");
 
-        // 返回 closes back to ShipExplore (locker return context).
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsNotNull(back, "loadout 返回 button present");
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        // 返回 closes back to ShipExplore (locker return context). The overlay
+        // has no top-right button any more: Back (Esc / B) is the exit.
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => !overlay.IsOpen && controller.Player.InputEnabled);
         GameSession.Ensure().ResetSession();
     }
@@ -762,11 +761,9 @@ public class SurvivePhase07B2Tests
         Assert.IsTrue(session.DroneSelected,
             "drone changed through GameSession (same authority as the locker)");
 
-        // 返回 -> back to the deployment confirmation.
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsNotNull(back, "loadout 返回 button present");
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        // 返回 -> back to the deployment confirmation (Back / Esc owns it now).
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => overlay.IsOpen
             && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm);
 
@@ -802,7 +799,14 @@ public class SurvivePhase07B2Tests
         Button confirm = overlay.DeployPage.Root
             .Q<Button>(ShipDeployConfirmPage.ConfirmButtonName);
         Assert.IsNotNull(confirm, "确认降临 button present");
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(confirm), "确认降临 clicked");
+
+        // Phase 09B PASS 8: 确认降临 is a HOLD - press, hold past the authored
+        // duration, release. A plain click must never deploy any more.
+        Assert.IsTrue(UiToolkitPointerSimulator.PointerDown(confirm), "确认降临 pressed");
+        yield return WaitSeconds(ShipDeployConfirmPage.HoldSeconds + 0.25f);
+        // The completed hold may already have routed to the surface (which
+        // unloads this document), so the release itself is best-effort.
+        UiToolkitPointerSimulator.PointerUp(confirm);
         yield return WaitUntil(() => ActiveSceneName() == GameSession.SurfaceSceneName);
         yield return WaitForSurface(_ => { });
         Assert.AreEqual(session.Minerals, mineralsBefore,

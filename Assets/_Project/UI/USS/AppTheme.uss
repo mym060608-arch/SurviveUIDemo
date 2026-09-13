@@ -337,3 +337,34 @@
     padding-left: 6px;
     padding-right: 6px;
 }
+
+/* =====================================================================
+ * One cursor language for every terminal page (Phase 09B PASS 6 follow-up).
+ *
+ * UI Toolkit re-applies the hovered element's own cursor on every hover
+ * change; with no cursor authored, that means the stock Windows arrow - which
+ * is what kept appearing over the console screens. The project's own dot (the
+ * same one the map / wrist / Outpost cursor use) is authored here as a real
+ * cursor asset and inherited by the whole app tree, so whatever the runtime
+ * applies is our dot, on the hub and on every physical terminal.
+ * ===================================================================== */
+
+/* The universal selector matters here: USS does not inherit "cursor" down the
+   tree the way CSS does, so a rule on the root alone left every child resolving
+   to the default arrow. */
+.app-root,
+.app-root * {
+    cursor: url("../Cursors/T_CursorDot.png") 16 16;
+}
+
+.nav-button,
+.button-primary,
+.equipment-button,
+.outpost-action,
+.confirm-action,
+.process-action,
+.quantity-arrow,
+.recipe-row,
+.outpost-node {
+    cursor: url("../Cursors/T_CursorRing.png") 16 16;
+}

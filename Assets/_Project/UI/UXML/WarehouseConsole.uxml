@@ -1,70 +1,57 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <!-- Phase 07B.2 Console02 = 仓库总览 (CARGO // STORAGE).
-         Authoritative read-only summary of ship-held GameSession resources +
-         current expedition equipment state. It is NOT a loadout editor. -->
+    <!-- Phase 09B PASS 9 Console02 = 仓库 (Warehouse).
+         Approved reference: a clean 仓库 title, two category tabs that carry
+         the LB / RB paging hint, a 4 x 3 item grid on the left and the selected
+         item's detail on the right. Read-only view - no item action exists, so
+         the page never promises a Confirm key. -->
     <ui:VisualElement name="WarehouseScreen" class="warehouse-root">
-        <!-- Screen header -->
+        <!-- Title: 仓库 only (the old decorative English sub-label is gone). -->
         <ui:VisualElement class="wh-header">
-            <ui:VisualElement class="wh-header-text">
-                <ui:Label name="WarehouseTitleLabel" class="wh-title" text="仓库总览" />
-                <ui:Label name="WarehouseMetaLabel" class="wh-meta" text="CARGO // STORAGE" />
-            </ui:VisualElement>
+            <ui:Label name="WarehouseTitleLabel" class="wh-title" text="仓库" />
             <ui:VisualElement class="wh-header-rule" />
             <ui:Label class="wh-index" text="02" />
         </ui:VisualElement>
 
+        <!-- Category tabs; the paging hint lives in this row. -->
+        <ui:VisualElement class="wh-tabs">
+            <ui:Button name="WarehouseResourcesTab" class="wh-tab">
+                <ui:Label class="wh-tab-label" text="资源" />
+            </ui:Button>
+            <ui:Button name="WarehouseEquipmentTab" class="wh-tab">
+                <ui:Label class="wh-tab-label" text="装备" />
+            </ui:Button>
+            <ui:VisualElement class="wh-tab-spacer" />
+            <ui:Label name="WarehouseTabPrevHint" class="wh-tab-key" text="LB" />
+            <ui:Label class="wh-tab-arrow" text="◀" />
+            <ui:Label class="wh-tab-arrow" text="▶" />
+            <ui:Label name="WarehouseTabNextHint" class="wh-tab-key" text="RB" />
+        </ui:VisualElement>
+
         <ui:VisualElement class="wh-body">
-            <!-- LEFT: authoritative resource inventory -->
-            <ui:VisualElement class="wh-col wh-col-left">
-                <ui:Label class="wh-group-label" text="资源库存" />
-                <ui:VisualElement class="wh-panel">
-                    <ui:VisualElement class="store-row">
-                        <ui:Label class="store-name" text="矿物" />
-                        <ui:Label name="WarehouseMineralsValue" class="store-value" text="0" />
-                        <ui:Label class="store-unit" text="" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="row-rule" />
-                    <ui:VisualElement class="store-row">
-                        <ui:Label class="store-name" text="燃料" />
-                        <ui:Label name="WarehouseFuelValue" class="store-value" text="0" />
-                        <ui:Label class="store-unit" text="" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="row-rule" />
-                    <ui:VisualElement class="store-row">
-                        <ui:Label class="store-name" text="合金" />
-                        <ui:Label name="WarehouseAlloyValue" class="store-value" text="0" />
-                        <ui:Label class="store-unit" text="" />
-                    </ui:VisualElement>
-                </ui:VisualElement>
-                <ui:Label class="wh-caption" text="舰船权威库存 · 由本舰各系统共同更新" />
+            <!-- LEFT: the item grid (cells are built in code; empty slots are
+                 inert and can never take focus). -->
+            <ui:VisualElement class="wh-grid-column">
+                <ui:VisualElement name="WarehouseGrid" class="wh-grid" />
             </ui:VisualElement>
 
-            <!-- RIGHT: current expedition equipment summary (read-only) -->
-            <ui:VisualElement class="wh-col wh-col-right">
-                <ui:Label class="wh-group-label" text="当前远征装备" />
-                <ui:VisualElement class="wh-panel">
-                    <ui:VisualElement class="gear-row">
-                        <ui:Label class="gear-name" text="采集器 MK-I" />
-                        <ui:Label name="WarehouseHarvesterState" class="gear-state gear-state-required" text="必需" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="row-rule" />
-                    <ui:VisualElement class="gear-row">
-                        <ui:Label class="gear-name" text="备用电池组" />
-                        <ui:Label name="WarehouseBatteryState" class="gear-state" text="未选择" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="row-rule" />
-                    <ui:VisualElement class="gear-row">
-                        <ui:Label class="gear-name" text="勘测无人机" />
-                        <ui:Label name="WarehouseDroneState" class="gear-state" text="未选择" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="row-rule" />
-                    <ui:VisualElement class="gear-row">
-                        <ui:Label class="gear-name" text="载荷" />
-                        <ui:Label name="WarehouseCargoValue" class="gear-cargo" text="45 / 100 KG" />
-                    </ui:VisualElement>
+            <!-- RIGHT: the focused item's detail. -->
+            <ui:VisualElement class="wh-detail-column">
+                <ui:Label class="wh-detail-kicker" text="详情" />
+                <ui:VisualElement name="WarehouseDetailIconHost" class="wh-detail-icon-host" />
+                <ui:VisualElement class="wh-detail-head">
+                    <ui:Label name="WarehouseDetailName" class="wh-detail-name" text="—" />
+                    <ui:Label name="WarehouseDetailCount" class="wh-detail-count" text="" />
                 </ui:VisualElement>
-                <ui:Label name="WarehouseNoteLabel" class="wh-caption" text="远征装备可在气闸装备柜调整" />
+                <ui:Label name="WarehouseDetailState" class="wh-detail-state" text="" />
+                <ui:Label name="WarehouseDetailText" class="wh-detail-text" text="" />
+                <ui:VisualElement class="wh-detail-rule" />
+                <ui:Label name="WarehouseNoteLabel" class="wh-caption"
+                          text="远征装备可在气闸装备柜调整" />
             </ui:VisualElement>
         </ui:VisualElement>
+
+        <!-- Bottom key line: only the keys that really work here. The paging
+             hint already lives in the tab row above. -->
+        <ui:VisualElement name="WarehousePromptHost" class="wh-prompt-host" />
     </ui:VisualElement>
 </ui:UXML>

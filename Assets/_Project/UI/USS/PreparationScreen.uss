@@ -402,3 +402,937 @@
     border-color: #A9AFB5;
     color: #EDEFF1;
 }
+
+/* =====================================================================
+ * Preparation visual pass 01 - Deep Space Industrial Terminal.
+ *
+ * Everything below is scoped to .preparation-screen: this sheet is attached
+ * to the WHOLE hub document (one UIDocument carries all four screens), so an
+ * unscoped rule here would repaint Overview / Processing / Outpost too.
+ *
+ * Tokens (extended from AppTheme.uss; no USS variables are used, for runtime
+ * safety - this block is the single source of truth for this page):
+ *
+ *   canvas      #E9EBED  page background (identical to Processing)
+ *   strip       #E4E7EA  system strip / controller bar
+ *   panel       #F6F7F8  primary panel
+ *   panel-2     #FFFFFF  lit surface (focused equipment slot)
+ *   well        #F3F5F6  recessed well (chips, keycaps)
+ *   line        #DEE2E5  hairline
+ *   line-2      #C9CFD4  frame / notch
+ *   ink         #161B20  primary text
+ *   ink-2       #4A525C  secondary text
+ *   ink-3       #7B858F  metadata
+ *   ink-4       #A6ADB4  low-weight labels
+ *   accent      #0E7F8C  the project accent
+ *   accent-lit  #0A616C  accent at reading brightness (focus / ready)
+ *   caution     #C8721B  real caution state only
+ *
+ * Depth comes from one hairline + one brighter surface, never from glow:
+ * this screen has no bloom, no gradient and no rounded corner.
+ * ===================================================================== */
+
+.preparation-screen {
+    /* Same canvas as the Processing page (the app-root tone), so the two
+       pages read as one product without a full-white slab. */
+    background-color: #E9EBED;
+}
+
+/* ---------- System strip ---------- */
+
+.preparation-screen .prep-topbar {
+    height: 62px;
+    padding-left: 34px;
+    padding-right: 34px;
+    background-color: #E4E7EA;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.preparation-screen .topbar-left {
+    flex-direction: row;
+    align-items: center;
+}
+
+.preparation-screen .prep-brand {
+    font-size: 11px;
+    letter-spacing: 2px;
+    -unity-font-style: bold;
+    color: #A6ADB4;
+}
+
+.preparation-screen .prep-brand-rule {
+    width: 1px;
+    height: 24px;
+    margin-left: 16px;
+    margin-right: 16px;
+    background-color: #C9CFD4;
+}
+
+/* The page name is the mission-strip hero now, so the system strip carries the
+   same role label the other hub terminals use. */
+.preparation-screen .topbar-role {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #7B858F;
+}
+
+.preparation-screen .prep-subtitle {
+    font-size: 11px;
+    letter-spacing: 0;
+    color: #9AA1A8;
+    margin-top: 6px;
+}
+
+.preparation-screen .topbar-right {
+    flex-direction: row;
+    align-items: center;
+}
+
+.preparation-screen .prep-top-note {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #9AA1A8;
+}
+
+.preparation-screen .prep-top-sep {
+    width: 1px;
+    height: 16px;
+    margin-left: 14px;
+    margin-right: 14px;
+    background-color: #C9CFD4;
+}
+
+.preparation-screen .prep-online {
+    flex-direction: row;
+    align-items: center;
+}
+
+.preparation-screen .prep-online-dot {
+    width: 5px;
+    height: 5px;
+    margin-right: 7px;
+    background-color: #0A616C;
+}
+
+.preparation-screen .prep-online-text {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #7B858F;
+}
+
+/* ---------- Mission identity ---------- */
+
+.preparation-screen .mission-summary {
+    min-height: 98px;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    padding-left: 34px;
+    padding-right: 34px;
+    background-color: #F3F5F6;
+    border-bottom-width: 1px;
+    border-bottom-color: #DEE2E5;
+}
+
+.preparation-screen .mission-head {
+    flex-direction: column;
+    justify-content: center;
+}
+
+.preparation-screen .mission-planet {
+    font-size: 34px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    color: #161B20;
+    margin-top: 2px;
+}
+
+.preparation-screen .mission-data {
+    flex-direction: row;
+    align-items: center;
+}
+
+/* Resource token: the mission strip's only right-hand element. */
+.preparation-screen .mission-resource-label {
+    font-size: 13px;
+    letter-spacing: 2px;
+    color: #4A525C;
+    margin-right: 16px;
+}
+
+.preparation-screen .mission-resource-disc {
+    width: 50px;
+    height: 50px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    background-color: #F3F5F6;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    border-radius: 50%;
+}
+
+.preparation-screen .mission-resource-icon {
+    width: 34px;
+    height: 24px;
+    flex-grow: 0;
+    flex-shrink: 0;
+}
+
+/* One engraved drawing fills the host box it was mounted in: the telemetry
+   mark, the equipment sketch, and the mark inside the round resource token
+   are all the same element with a different host size. */
+.preparation-screen .prep-sketch {
+    flex-grow: 1;
+}
+
+/* ---------- Three-column body ---------- */
+
+.preparation-screen .preparation-body {
+    padding-top: 18px;
+    padding-bottom: 14px;
+    padding-left: 34px;
+    padding-right: 34px;
+}
+
+.preparation-screen .prep-col-left,
+.preparation-screen .prep-col-center,
+.preparation-screen .prep-col-right {
+    background-color: #F6F7F8;
+    border-width: 1px;
+    border-color: #DEE2E5;
+    padding-top: 16px;
+    padding-bottom: 14px;
+}
+
+.preparation-screen .prep-col-left {
+    width: 336px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+.preparation-screen .prep-col-center {
+    margin-left: 10px;
+    margin-right: 10px;
+    padding-left: 22px;
+    padding-right: 22px;
+}
+
+.preparation-screen .prep-col-right {
+    width: 366px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+/* ---------- Panel headers ---------- */
+
+.preparation-screen .panel-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.preparation-screen .panel-header-text {
+    font-size: 15px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+}
+
+.preparation-screen .panel-header-code {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #B0B7BE;
+    margin-left: 9px;
+    margin-top: 3px;
+}
+
+.preparation-screen .panel-header-rule {
+    flex-grow: 1;
+    height: 1px;
+    margin-left: 12px;
+    background-color: #DEE2E5;
+}
+
+/* ---------- Environment telemetry ---------- */
+
+.preparation-screen .env-row {
+    height: 58px;
+    flex-direction: row;
+    align-items: center;
+    border-bottom-width: 1px;
+    border-bottom-color: #F6F7F8;
+}
+
+.preparation-screen .env-state {
+    width: 5px;
+    height: 5px;
+    flex-shrink: 0;
+    margin-right: 10px;
+    background-color: #C9CFD4;
+}
+
+.preparation-screen .env-state-caution {
+    background-color: #C8721B;
+}
+
+.preparation-screen .env-state-dim {
+    background-color: #D3D8DC;
+}
+
+.preparation-screen .env-state-unknown {
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 1px;
+    border-color: #A6ADB4;
+}
+
+.preparation-screen .env-icon {
+    width: 26px;
+    height: 19px;
+    flex-shrink: 0;
+    margin-right: 12px;
+}
+
+.preparation-screen .env-copy {
+    flex-direction: column;
+    width: 78px;
+}
+
+.preparation-screen .env-name {
+    width: auto;
+    font-size: 14px;
+    letter-spacing: 0;
+    color: #D5DADD;
+}
+
+.preparation-screen .env-code {
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: #B0B7BE;
+    margin-top: 1px;
+}
+
+.preparation-screen .env-value {
+    width: auto;
+    flex-grow: 1;
+    font-size: 17px;
+    -unity-font-style: bold;
+    letter-spacing: 0;
+    color: #161B20;
+    -unity-text-align: middle-right;
+}
+
+.preparation-screen .env-risk {
+    width: 58px;
+    flex-grow: 0;
+    font-size: 11px;
+    letter-spacing: 0;
+    color: #8A9199;
+    -unity-text-align: middle-right;
+}
+
+.preparation-screen .env-risk-caution {
+    color: #C8721B;
+}
+
+.preparation-screen .env-risk-dim {
+    color: #C9CFD4;
+}
+
+.preparation-screen .env-risk-unknown {
+    color: #A6ADB4;
+    letter-spacing: 1px;
+}
+
+.preparation-screen .panel-footnote {
+    margin-top: auto;
+    padding-top: 14px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.preparation-screen .footnote-tick {
+    width: 12px;
+    height: 1px;
+    margin-right: 8px;
+    background-color: #C9CFD4;
+}
+
+.preparation-screen .footnote-label {
+    font-size: 11px;
+    color: #A6ADB4;
+}
+
+/* ---------- Equipment slots (first visual focus) ---------- */
+
+.preparation-screen .equipment-row {
+    height: 144px;
+    flex-shrink: 0;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-left: 20px;
+    padding-right: 18px;
+    background-color: #FFFFFF;
+    border-width: 1px;
+    border-color: #F3F5F6;
+    border-left-width: 1px;
+    border-left-color: #F3F5F6;
+    transition-property: background-color, border-color, translate;
+    transition-duration: 0.14s;
+}
+
+.preparation-screen .equipment-row:hover {
+    background-color: #EDF0F2;
+    border-color: #D3D8DC;
+}
+
+.preparation-screen .equipment-bar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: rgba(14, 127, 140, 0);
+    transition-property: background-color;
+    transition-duration: 0.16s;
+}
+
+.preparation-screen .equipment-index {
+    width: 26px;
+    flex-shrink: 0;
+    font-size: 15px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #B0B7BE;
+    transition-property: color;
+    transition-duration: 0.14s;
+}
+
+.preparation-screen .equipment-sketch {
+    width: 168px;
+    height: 116px;
+    flex-shrink: 0;
+    margin-left: 14px;
+    opacity: 0.55;
+    transition-property: opacity;
+    transition-duration: 0.16s;
+}
+
+.preparation-screen .equipment-copy {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    margin-left: 18px;
+}
+
+.preparation-screen .equipment-name {
+    font-size: 21px;
+    -unity-font-style: bold;
+    letter-spacing: 0;
+    color: #4A525C;
+}
+
+.preparation-screen .equipment-purpose {
+    font-size: 12px;
+    color: #8A9199;
+    margin-top: 6px;
+}
+
+.preparation-screen .equipment-trailing {
+    width: 132px;
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-left: auto;
+}
+
+.preparation-screen .equipment-weight-line {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.preparation-screen .equipment-weight {
+    font-size: 22px;
+    -unity-font-style: bold;
+    letter-spacing: 0;
+    color: #161B20;
+    margin-bottom: 0;
+}
+
+.preparation-screen .equipment-weight-unit {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #9AA1A8;
+    margin-left: 5px;
+    margin-bottom: 4px;
+}
+
+.preparation-screen .equipment-chip {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #7B858F;
+    margin-top: 10px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    padding-left: 8px;
+    padding-right: 8px;
+    background-color: #F3F5F6;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    transition-property: color, border-color, background-color;
+    transition-duration: 0.16s;
+}
+
+.preparation-screen .equipment-row.row-required .equipment-chip {
+    color: #4A525C;
+    border-color: #C9CFD4;
+}
+
+.preparation-screen .equipment-equipped {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #0E7F8C;
+    margin-top: 6px;
+}
+
+/* Carried state - a DIM accent marker, never competing with the focus ring. */
+.preparation-screen .equipment-row.row-selected .equipment-bar {
+    background-color: #0A616C;
+}
+
+.preparation-screen .equipment-row.row-selected .equipment-chip {
+    color: #0E7F8C;
+    border-color: #0A616C;
+    background-color: rgba(14, 127, 140, 0.10);
+}
+
+/* Focus ring - moved LAST so it always wins over the carried state.
+   The whole feedback is: brighter border, one step of surface brightness,
+   the accent bar lights up and the slot nudges 3px. No scale, no glow. */
+.preparation-screen .equipment-row:focus {
+    background-color: #FFFFFF;
+    border-color: #0E7F8C;
+    translate: 3px 0;
+}
+
+.preparation-screen .equipment-row:focus .equipment-bar {
+    background-color: #0A616C;
+}
+
+.preparation-screen .equipment-row:focus .equipment-index {
+    color: #0A616C;
+}
+
+.preparation-screen .equipment-row:focus .equipment-sketch {
+    opacity: 0.85;
+}
+
+/* The shared focus navigator paints its ring with a class, not :focus, so a
+   page that adopts it renders the identical focus look. */
+.preparation-screen .equipment-row.ui-focus {
+    background-color: #FFFFFF;
+    border-color: #0E7F8C;
+    translate: 3px 0;
+}
+
+.preparation-screen .equipment-row.ui-focus .equipment-bar {
+    background-color: #0A616C;
+}
+
+.preparation-screen .equipment-row.ui-focus .equipment-index {
+    color: #0A616C;
+}
+
+.preparation-screen .loadout-hint {
+    margin-top: auto;
+    padding-top: 12px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.preparation-screen .loadout-hint-rule {
+    width: 14px;
+    height: 1px;
+    margin-right: 8px;
+    background-color: #C9CFD4;
+}
+
+.preparation-screen .loadout-hint-text {
+    font-size: 11px;
+    letter-spacing: 0;
+    color: #A6ADB4;
+    -unity-text-align: middle-left;
+}
+
+/* ---------- Right column: payload / readiness ---------- */
+
+.preparation-screen .cargo-block,
+.preparation-screen .readiness-block,
+.preparation-screen .prep-mission-block {
+    padding-bottom: 10px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    border-bottom-width: 1px;
+    border-bottom-color: #F6F7F8;
+}
+
+.preparation-screen .prep-mission-block {
+    padding-bottom: 0;
+    margin-bottom: 0;
+    border-bottom-width: 0;
+}
+
+.preparation-screen .cargo-line {
+    flex-direction: row;
+    align-items: flex-end;
+}
+
+.preparation-screen .cargo-value {
+    font-size: 34px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+    transition-property: color;
+    transition-duration: 0.22s;
+}
+
+.preparation-screen .cargo-value.cargo-pulse {
+    color: #0A616C;
+}
+
+.preparation-screen .cargo-unit {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #9AA1A8;
+    margin-left: 10px;
+    margin-bottom: 9px;
+}
+
+.preparation-screen .cargo-track {
+    height: 8px;
+    margin-top: 10px;
+    background-color: #EDEFF1;
+    border-width: 1px;
+    border-color: #EDF0F2;
+}
+
+.preparation-screen .cargo-fill {
+    height: 100%;
+    background-color: #0E7F8C;
+    transition-property: background-color;
+    transition-duration: 0.22s;
+}
+
+.preparation-screen .cargo-fill.cargo-pulse {
+    background-color: #0A616C;
+}
+
+/* Weak capacity scale: four hairlines on the empty part of the well. */
+/* UI Toolkit blends alpha in LINEAR space, so a 1px white overlay on a near
+   black well reads far brighter than its sRGB alpha suggests: 0.03 is already
+   a clearly visible hairline here. */
+.preparation-screen .cargo-tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-color: rgba(22, 27, 32, 0.03);
+}
+
+.preparation-screen .cargo-tick-a {
+    left: 20%;
+}
+
+.preparation-screen .cargo-tick-b {
+    left: 40%;
+}
+
+.preparation-screen .cargo-tick-c {
+    left: 60%;
+}
+
+.preparation-screen .cargo-tick-d {
+    left: 80%;
+}
+
+.preparation-screen .readiness-state {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 2px;
+}
+
+.preparation-screen .readiness-state-dot {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    margin-right: 10px;
+    background-color: #C9CFD4;
+    transition-property: background-color;
+    transition-duration: 0.22s;
+}
+
+.preparation-screen .readiness-status {
+    font-size: 27px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #8A9199;
+    margin-top: 0;
+    transition-property: color;
+    transition-duration: 0.22s;
+}
+
+/* Ready / confirmed: the text lifts one step and the lamp lights. This is the
+   ONLY "state celebration" on the page - no flash, no particles. */
+.preparation-screen .readiness-state.ready .readiness-state-dot {
+    background-color: #0A616C;
+}
+
+.preparation-screen .readiness-state.ready .readiness-status {
+    color: #0E7F8C;
+}
+
+.preparation-screen .readiness-state.blocked .readiness-state-dot {
+    background-color: #C8721B;
+}
+
+.preparation-screen .readiness-state.blocked .readiness-status {
+    color: #D5DADD;
+}
+
+.preparation-screen .readiness-sub {
+    font-size: 11px;
+    letter-spacing: 0;
+    color: #9AA1A8;
+    margin-top: 4px;
+    margin-bottom: 8px;
+}
+
+.preparation-screen .readiness-row {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    height: 26px;
+    border-bottom-width: 1px;
+    border-bottom-color: #F6F7F8;
+}
+
+.preparation-screen .readiness-dot {
+    width: 5px;
+    height: 5px;
+    flex-shrink: 0;
+    margin-right: 10px;
+    background-color: #C9CFD4;
+}
+
+.preparation-screen .readiness-row.row-active .readiness-dot {
+    background-color: #0A616C;
+}
+
+.preparation-screen .readiness-key {
+    flex-grow: 1;
+    font-size: 12px;
+    letter-spacing: 0;
+    color: #7B858F;
+}
+
+.preparation-screen .readiness-value {
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #A6ADB4;
+}
+
+.preparation-screen .readiness-value.readiness-active {
+    -unity-font-style: bold;
+    color: #0E7F8C;
+}
+
+/* ---------- Mission list ---------- */
+
+.preparation-screen .prep-details-button {
+    margin-left: auto;
+    padding: 0;
+    background-color: rgba(0, 0, 0, 0);
+    border-width: 0;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #8A9199;
+    transition-property: color;
+    transition-duration: 0.14s;
+}
+
+.preparation-screen .prep-details-button:hover {
+    color: #0A616C;
+}
+
+.preparation-screen .prep-objective {
+    height: 26px;
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 13px;
+    letter-spacing: 0;
+    color: #4A525C;
+}
+
+.preparation-screen .prep-mission-details {
+    height: 0;
+    flex-shrink: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition-property: height, opacity;
+    transition-duration: 0.18s;
+}
+
+.preparation-screen .prep-mission-details.details-open {
+    height: 104px;
+    opacity: 1;
+}
+
+.preparation-screen .prep-detail-row {
+    height: 20px;
+    margin-top: 0;
+    margin-bottom: 0;
+    font-size: 12px;
+    letter-spacing: 0;
+    color: #7B858F;
+}
+
+/* ---------- Controller bar ---------- */
+
+.preparation-screen .prep-actionbar {
+    height: 64px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 34px;
+    padding-right: 34px;
+    background-color: #E4E7EA;
+    border-top-width: 1px;
+    border-top-color: #DEE2E5;
+}
+
+.preparation-screen .actionbar-context {
+    margin-right: auto;
+    font-size: 11px;
+    letter-spacing: 1px;
+    color: #A6ADB4;
+}
+
+.preparation-screen .prep-hints {
+    flex-direction: row;
+    align-items: center;
+}
+
+.preparation-screen .prep-key-hint {
+    margin-left: 8px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 11px;
+    letter-spacing: 0;
+    white-space: nowrap;
+    color: #8A9199;
+    background-color: #F3F5F6;
+    border-width: 1px;
+    border-color: #EDF0F2;
+}
+
+.preparation-screen .prep-key-hint.prep-key-primary {
+    color: #0A616C;
+    background-color: rgba(14, 127, 140, 0.10);
+    border-color: #0A616C;
+}
+
+.preparation-screen .confirm-action {
+    width: 152px;
+    height: 38px;
+    margin-left: 20px;
+    -unity-text-align: middle-center;
+    font-size: 13px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #0A616C;
+    background-color: rgba(14, 127, 140, 0.14);
+    border-width: 1px;
+    border-color: #0A616C;
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.14s;
+}
+
+.preparation-screen .confirm-action:hover {
+    background-color: rgba(14, 127, 140, 0.18);
+    border-color: #0E7F8C;
+    color: #0A616C;
+}
+
+.preparation-screen .confirm-action:active {
+    background-color: rgba(14, 127, 140, 0.25);
+    border-color: #0E7F8C;
+}
+
+.preparation-screen .confirm-action:disabled {
+    background-color: #F3F5F6;
+    border-color: #EDF0F2;
+    color: #B0B7BE;
+}
+
+/* ---------- Shared bottom navigation, terminal appearance ----------
+ * The hub keeps ONE bottom tab strip for all four screens. This page owns the
+ * terminal look only while it is the active screen: AppController toggles
+ * "nav-terminal" together with the existing per-screen tab-active state, so
+ * Overview / Processing / Outpost are untouched. */
+
+.bottom-nav.nav-terminal {
+    background-color: #EDEFF1;
+    border-top-color: #DEE2E5;
+}
+
+.bottom-nav.nav-terminal .nav-button {
+    border-left-color: rgba(22, 27, 32, 0.02);
+}
+
+.bottom-nav.nav-terminal .nav-button:hover {
+    background-color: rgba(22, 27, 32, 0.03);
+}
+
+.bottom-nav.nav-terminal .nav-button:hover .nav-label {
+    color: #0A616C;
+}
+
+.bottom-nav.nav-terminal .nav-index {
+    color: #B0B7BE;
+}
+
+.bottom-nav.nav-terminal .nav-label {
+    color: #7B858F;
+}
+
+.bottom-nav.nav-terminal .nav-button.tab-active {
+    background-color: #F6F7F8;
+}
+
+.bottom-nav.nav-terminal .nav-button.tab-active .nav-rule-top {
+    background-color: #0A616C;
+}
+
+.bottom-nav.nav-terminal .nav-button.tab-active .nav-index {
+    color: #0A616C;
+}
+
+.bottom-nav.nav-terminal .nav-button.tab-active .nav-label {
+    color: #161B20;
+}
+
+/* =====================================================================
+ * Project cursor, document-wide (Phase 09B PASS 6 follow-up).
+ *
+ * UI Toolkit re-applies the hovered element's own cursor on every hover
+ * change. Every document (hub app, ship HUD, surface HUD / wrist, main menu,
+ * warehouse console, modal sheets) therefore carries the project's dot, so no
+ * element can ever resolve to the stock Windows arrow. Actionable elements
+ * override it with the dot+ring asset where a page defines them.
+ * ===================================================================== */
+
+* {
+    cursor: url("../Cursors/T_CursorDot.png") 16 16;
+}

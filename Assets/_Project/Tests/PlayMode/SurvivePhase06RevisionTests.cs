@@ -397,15 +397,22 @@ public class SurvivePhase06RevisionTests
         Assert.AreEqual("健康度 37", LabelText(root, "HealthLabel"), "health label live");
         Assert.AreEqual("饱食度 64", LabelText(root, "SatietyLabel"), "satiety label live");
 
-        // Equipment panel lists the real loadout lines and marks selection
-        // state through the row-off class (no fake inventory).
+        // Equipment panel is a READ-ONLY list of the REAL loadout: an equipped
+        // module is listed, an unequipped one is not drawn at all (Phase 09B PASS 3
+        // revision - the loadout authority is the ship's loadout page, never the
+        // wrist, so there is no muted "not equipped" line and nothing to toggle).
         Assert.AreEqual("采集器 MK-I", LabelText(root, "EquipHarvester"), "harvester listed");
-        Assert.AreEqual("备用电池", LabelText(root, "EquipBattery"), "battery listed");
-        Assert.AreEqual("勘测无人机", LabelText(root, "EquipDrone"), "drone listed");
+        Assert.AreEqual("备用电池", LabelText(root, "EquipBattery"), "battery equipped -> listed");
         VisualElement battery = root.Q<VisualElement>("EquipBattery");
         VisualElement drone = root.Q<VisualElement>("EquipDrone");
-        Assert.IsFalse(battery.ClassListContains("row-off"), "battery selected -> not muted");
-        Assert.IsTrue(drone.ClassListContains("row-off"), "drone deselected -> muted");
+        Assert.AreNotEqual(DisplayStyle.None, battery.resolvedStyle.display,
+            "the equipped battery is drawn");
+        Assert.AreEqual(DisplayStyle.None, drone.resolvedStyle.display,
+            "the unequipped drone is not drawn");
+        Assert.AreEqual(string.Empty, LabelText(root, "EquipDrone"),
+            "and it carries no text either (no fake inventory line)");
+        Assert.IsFalse(drone.ClassListContains("row-off"),
+            "there is no muted not-equipped style any more");
 
         // The single triangle-mesh radial hologram is present and driven.
         RadialWristElement radial = root.Q<RadialWristElement>();

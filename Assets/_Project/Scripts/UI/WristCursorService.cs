@@ -24,7 +24,10 @@ public sealed class WristCursorService
         DotWithRing
     }
 
-    private const int DotCursorSize = 16;
+    // Both cursor textures are authored at 32x32: Windows only accepts 32x32
+    // hardware cursors, and a smaller dot texture made the OS fall back to the
+    // stock arrow whenever the page re-applied it.
+    private const int DotCursorSize = 32;
     private const int DotRingCursorSize = 32;
 
     private const float DotRadiusPx = 3.0f;      // solid 6px dot
@@ -107,6 +110,23 @@ public sealed class WristCursorService
         Cursor.SetCursor(
             hoveringNode ? _hoverCursor : _normalCursor,
             hoveringNode ? DotRingCursorHotSpot : DotCursorHotSpot,
+            CursorMode.Auto);
+    }
+
+    /// <summary>
+    /// Re-applies the CURRENT cursor texture to the OS.
+    ///
+    /// UI Toolkit owns the OS cursor while the pointer is over a UI element and
+    /// re-applies that element's cursor on every hover change; a page that keeps
+    /// its own cursor therefore has to re-assert it after those changes instead
+    /// of only when its own hover state flips. Cheap: one SetCursor call.
+    /// </summary>
+    public void Reassert()
+    {
+        Initialize();
+        Cursor.SetCursor(
+            _hoverState ? _hoverCursor : _normalCursor,
+            _hoverState ? DotRingCursorHotSpot : DotCursorHotSpot,
             CursorMode.Auto);
     }
 

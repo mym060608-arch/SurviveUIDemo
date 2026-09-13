@@ -38,11 +38,16 @@ public static class SurviveProjectValidator
     private const string PauseUxmlPath = "Assets/_Project/Resources/ShipPauseMenu.uxml";
     private const string PauseUssPath = "Assets/_Project/Resources/ShipPauseMenu.uss";
     private const string DeployUxmlPath = "Assets/_Project/UI/UXML/ShipDeployConfirm.uxml";
+    private const string WarehouseUxmlPath = "Assets/_Project/UI/UXML/WarehouseConsole.uxml";
+    private const string WarehouseUssPath = "Assets/_Project/UI/USS/WarehouseConsole.uss";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
     private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
     private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
+    private const string CursorDotPath = "Assets/_Project/UI/Cursors/T_CursorDot.png";
+    private const string CursorRingPath = "Assets/_Project/UI/Cursors/T_CursorRing.png";
+    private const string CursorBlankPath = "Assets/_Project/UI/Cursors/T_CursorBlank.png";
     private const string SurfaceHudUxmlPath = "Assets/_Project/UI/UXML/SurfaceHUD.uxml";
     private const string SurfaceHudUssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
     private const string SurfaceWristUxmlPath = "Assets/_Project/UI/UXML/SurfaceWrist.uxml";
@@ -86,6 +91,9 @@ public static class SurviveProjectValidator
         "EquipHeading", "EquipHarvester", "EquipBattery", "EquipDrone",
         "StateHeading", "ActionState", "SignalState", "RecoveredState",
         "NavHeading", "NavTarget", "NavDistance",
+        // Phase 09B PASS 3: the navigation radar's standby "?" symbol (the radar
+        // ring and its sweep are RadialWristElement mesh geometry).
+        "NavRadarGlyph",
         "HarvestHeading", "HarvestNode", "HarvestState", "HarvestProgress",
         "WristIdentity"
     };
@@ -151,6 +159,31 @@ public static class SurviveProjectValidator
         Record(File.Exists(PreparationUssPath), "preparation uss exists: " + PreparationUssPath);
         Record(File.Exists(ProcessingUssPath), "processing uss exists: " + ProcessingUssPath);
         Record(File.Exists(OutpostUssPath), "outpost uss exists: " + OutpostUssPath);
+
+        // ---- Phase 09B PASS 6: the UI cursor assets ----
+        // UI Toolkit applies these as the OS cursor on hover. A cursor texture
+        // that is not CPU readable (or is compressed) makes SetCursor fail and
+        // silently brings the stock Windows arrow back - which is exactly the
+        // bug this pass spent several rounds chasing, so it is pinned here.
+        foreach (string cursorPath in new[] { CursorDotPath, CursorRingPath, CursorBlankPath })
+        {
+            var importer = AssetImporter.GetAtPath(cursorPath) as TextureImporter;
+            Record(importer != null, "cursor texture imports: " + cursorPath);
+            Record(importer != null && importer.isReadable,
+                "cursor texture is CPU readable (SetCursor would fall back to the arrow): " + cursorPath);
+            Record(importer != null
+                   && importer.textureCompression == TextureImporterCompression.Uncompressed,
+                "cursor texture is uncompressed: " + cursorPath);
+        }
+
+        var themeDeps = new System.Collections.Generic.List<string>(
+            AssetDatabase.GetDependencies(UssPath, true));
+        var outpostDeps = new System.Collections.Generic.List<string>(
+            AssetDatabase.GetDependencies(OutpostUssPath, true));
+        Record(themeDeps.Contains(CursorDotPath) && themeDeps.Contains(CursorRingPath),
+            "AppTheme.uss really references the dot / ring cursor assets");
+        Record(outpostDeps.Contains(CursorBlankPath),
+            "OutpostScreen.uss really references the blank cursor asset");
         Record(File.Exists(SurfaceHudUxmlPath), "surface HUD uxml exists: " + SurfaceHudUxmlPath);
         Record(File.Exists(SurfaceHudUssPath), "surface HUD uss exists: " + SurfaceHudUssPath);
         Record(File.Exists(SurfaceWristUxmlPath), "surface wrist uxml exists: " + SurfaceWristUxmlPath);
@@ -264,6 +297,125 @@ public static class SurviveProjectValidator
                 Record(present.Contains(expected), "MainApp.uxml outpost structure: " + expected);
             }
         }
+
+        // ---- Phase 09B PASS 7 follow-up: ONE planet display name ----
+        // Every player-facing surface names the CURRENT planet, and the old
+        // display name must not survive anywhere the player can read it. The
+        // internal IDs (scene 02_NereidSurface, the surface builder, the routing
+        // and the GameSession fields) deliberately keep their NEREID names.
+        string[] planetCopySources =
+        {
+            UxmlPath,
+            DeployUxmlPath,
+            SurfaceHudUxmlPath,
+            SurfaceWristUxmlPath,
+            ShipHudUxmlPath,
+            MainMenuUxmlPath
+        };
+
+        foreach (string path in planetCopySources)
+        {
+            string fullPath = Path.Combine(Application.dataPath, "..", path);
+            if (!File.Exists(fullPath))
+            {
+                Record(false, "planet copy source exists: " + path);
+                continue;
+            }
+
+            string copy = File.ReadAllText(fullPath);
+            Record(!copy.Contains("NEREID-04"),
+                "player-facing copy has no stale planet name: " + path);
+        }
+
+        string projectRoot = Path.Combine(Application.dataPath, "..");
+        string mainAppCopy = File.ReadAllText(Path.Combine(projectRoot, UxmlPath));
+        Record(mainAppCopy.Contains("勘测 " + PlanetIdentity.DisplayName),
+            "MainApp.uxml objective names the current planet");
+        Record(mainAppCopy.Contains(PlanetIdentity.ExpeditionContext),
+            "MainApp.uxml preparation context names the current planet");
+
+        string deployCopy = File.ReadAllText(Path.Combine(projectRoot, DeployUxmlPath));
+        Record(deployCopy.Contains("text=\"" + PlanetIdentity.DisplayName + "\""),
+            "deployment sheet names the current planet: " + PlanetIdentity.DisplayName);
+
+        string surfaceHudCopy = File.ReadAllText(Path.Combine(projectRoot, SurfaceHudUxmlPath));
+        Record(surfaceHudCopy.Contains("text=\"" + PlanetIdentity.DisplayName + "\""),
+            "surface HUD names the current planet: " + PlanetIdentity.DisplayName);
+
+        string wristCopy = File.ReadAllText(Path.Combine(projectRoot, SurfaceWristUxmlPath));
+        Record(wristCopy.Contains(PlanetIdentity.SurfaceIdentity),
+            "wrist identity names the current planet: " + PlanetIdentity.SurfaceIdentity);
+
+        // The airlock prompt reads the same source instead of hardcoding a name.
+        string airlockPath = Path.Combine(Application.dataPath,
+            "..", "Assets/_Project/Scripts/Gameplay/ShipAirlockInteractable.cs");
+        if (File.Exists(airlockPath))
+        {
+            string airlock = File.ReadAllText(airlockPath);
+            Record(airlock.Contains("PlanetIdentity.SurfacePrompt"),
+                "airlock prompt reads the shared planet name");
+            Record(!airlock.Contains("NEREID-04"),
+                "airlock prompt carries no stale planet name");
+        }
+        else
+        {
+            Record(false, "airlock interactable exists: " + airlockPath);
+        }
+
+        // ---- Phase 09B PASS 9: Console02 仓库 / Warehouse ----
+        // The page is a read-only tabbed grid: 仓库 title, exactly TWO category
+        // tabs carrying the LB/RB hint, the item grid, the detail panel and a
+        // single Back key line. It must never grow an item action (no Confirm
+        // row) or a second prompt bar, and the old copy is gone.
+        Record(File.Exists(Path.Combine(projectRoot, WarehouseUxmlPath)),
+            "warehouse uxml exists: " + WarehouseUxmlPath);
+        Record(File.Exists(Path.Combine(projectRoot, WarehouseUssPath)),
+            "warehouse uss exists: " + WarehouseUssPath);
+
+        var warehouseUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(WarehouseUxmlPath);
+        Record(warehouseUxml != null, "warehouse uxml imports: " + WarehouseUxmlPath);
+        if (warehouseUxml != null)
+        {
+            TemplateContainer warehouseTemplate = warehouseUxml.Instantiate();
+            HashSet<string> warehousePresent = new HashSet<string>();
+            warehouseTemplate.Query<VisualElement>().ForEach(element =>
+            {
+                if (!string.IsNullOrEmpty(element.name))
+                {
+                    warehousePresent.Add(element.name);
+                }
+            });
+
+            foreach (string expected in ElementNames.WarehouseStructure)
+            {
+                Record(warehousePresent.Contains(expected),
+                    "warehouse structure: " + expected);
+            }
+
+            int tabs = warehouseTemplate
+                .Query<Button>(className: "wh-tab").ToList().Count;
+            int grids = warehouseTemplate
+                .Query<VisualElement>(className: "wh-grid").ToList().Count;
+            int promptHosts = warehouseTemplate
+                .Query<VisualElement>(className: "wh-prompt-host").ToList().Count;
+            Record(tabs == 2, "仓库 has exactly two category tabs (found " + tabs + ")");
+            Record(grids == 1, "仓库 has exactly one item grid (found " + grids + ")");
+            Record(promptHosts == 1,
+                "仓库 has exactly one key-line host (found " + promptHosts + ")");
+
+            Label warehouseTitle = warehouseTemplate.Q<Label>(ElementNames.WarehouseTitle);
+            Record(warehouseTitle != null && warehouseTitle.text == "仓库",
+                "仓库 title is just 仓库 (actual: "
+                + (warehouseTitle != null ? warehouseTitle.text : "<missing>") + ")");
+
+            string warehouseCopy = File.ReadAllText(
+                Path.Combine(projectRoot, WarehouseUxmlPath));
+            Record(!warehouseCopy.Contains("CARGO") && !warehouseCopy.Contains("STORAGE"),
+                "仓库 carries no CARGO / STORAGE decoration any more");
+            Record(!warehouseCopy.Contains("仓库总览"),
+                "仓库 is not the old text summary any more");
+        }
+
 
         // ---- SurfaceHUD.uxml coverage (Phase 06 + Revision HUD structure) ----
         var surfaceUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SurfaceHudUxmlPath);
@@ -406,24 +558,61 @@ public static class SurviveProjectValidator
                 "03_ShipInterior authors no pause menu (runtime-created, found "
                 + CountInScene<ShipPauseMenu>() + ")");
 
-            // ---- Phase 08 §14: the two Airlock device panels ----
-            // 出征前准备 must show its real Back binding ("[B] 返回" on a
-            // controller / "[Esc] 返回" on the keyboard), rewritten at runtime by
-            // ShipDeployConfirmPage for the device in hand.
+            // ---- Phase 08 §14 / PASS 8: the Airlock landing confirmation ----
+            // The key glyphs live INSIDE the three action cards (the device-aware
+            // presentation is refreshed at runtime by ShipDeployConfirmPage), and
+            // the page must NOT grow a second prompt row.
             var deployUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(DeployUxmlPath);
-            Record(deployUxml != null, "deployment panel uxml imports: " + DeployUxmlPath);
+            Record(deployUxml != null, "landing panel uxml imports: " + DeployUxmlPath);
             if (deployUxml != null)
             {
                 TemplateContainer deployTemplate = deployUxml.Instantiate();
-                Label deployHint = deployTemplate.Q<Label>(ShipDeployConfirmPage.BackHintName);
-                Record(deployHint != null,
-                    "出征前准备 carries its Back hint line (element "
-                    + ShipDeployConfirmPage.BackHintName + ")");
-                Record(deployHint != null && deployHint.text.Contains("返回"),
-                    "the 出征前准备 Back hint really reads 返回 (actual: "
-                    + (deployHint != null ? deployHint.text : "<missing>") + ")");
+
+                Record(deployTemplate.Q<Label>(ShipDeployConfirmPage.AdjustKeyName) != null
+                       && deployTemplate.Q<Label>(ShipDeployConfirmPage.ConfirmKeyName) != null
+                       && deployTemplate.Q<Label>(ShipDeployConfirmPage.CancelKeyName) != null,
+                    "最终确认 fuses the X / A / B glyphs into the action cards");
+
+                Record(deployTemplate.Q<VisualElement>(ShipDeployConfirmPage.HoldFillName) != null,
+                    "最终确认 carries the hold progress bar inside the confirm card");
+
+                int holdTracks = deployTemplate
+                    .Query<VisualElement>(className: "landing-hold-track").ToList().Count;
+                int cards = deployTemplate
+                    .Query<Button>(className: "landing-card").ToList().Count;
+                int promptBars = deployTemplate
+                    .Query<VisualElement>(className: "prompt-bar").ToList().Count;
+                Record(holdTracks == 1,
+                    "最终确认 has exactly one hold bar (found " + holdTracks + ")");
+                Record(cards == 3,
+                    "最终确认 has exactly three action cards (found " + cards + ")");
+                Record(promptBars == 0,
+                    "最终确认 adds no second prompt bar (found " + promptBars + ")");
+
+                string landingCopy = File.ReadAllText(Path.Combine(projectRoot, DeployUxmlPath));
+                Record(!landingCopy.Contains("BackHint"),
+                    "最终确认 has no separate Back hint row any more");
+                Record(!landingCopy.Contains("Icon"),
+                    "最终确认 equipment list carries no pictogram host");
+
                 Record(deployTemplate.Q<Button>(ShipDeployConfirmPage.CancelButtonName) != null,
-                    "出征前准备 keeps its 取消 button (the same Back action)");
+                    "最终确认 keeps its 返回 card (the same Back action)");
+
+                // Stable structure of the rebuilt page (names only).
+                HashSet<string> landingPresent = new HashSet<string>();
+                deployTemplate.Query<VisualElement>().ForEach(element =>
+                {
+                    if (!string.IsNullOrEmpty(element.name))
+                    {
+                        landingPresent.Add(element.name);
+                    }
+                });
+
+                foreach (string expected in ElementNames.LandingStructure)
+                {
+                    Record(landingPresent.Contains(expected),
+                        "最终确认 structure: " + expected);
+                }
             }
 
             // Revision 2: the title screen carries 活下去 and exactly four

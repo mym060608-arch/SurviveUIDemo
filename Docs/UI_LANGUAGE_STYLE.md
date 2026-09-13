@@ -100,7 +100,7 @@ SURVIVE // DRIFT
 ### 世界观编号
 
 ```text
-NEREID-04
+AURELIA-01
 ARK-07
 UNIT-01
 MK-I
@@ -225,7 +225,7 @@ ARK-07
 Destination:
 
 ```text
-NEREID-04
+AURELIA-01
 ```
 
 ---
@@ -359,11 +359,22 @@ English may remain as tiny supporting metadata only.
 
 # 9. Overview Canonical Copy
 
-Recommended primary copy:
+> Phase 09B PASS 7 (2026-09-13) rewrote this page against the user's confirmed
+> reference and sketch: the decorative system strip (`SURVIVE // DRIFT` /
+> `SHIP // ARK-07` / `CYCLE` / `SYSTEM ONLINE`) is gone, the planet display name
+> lives in ONE place (`PlanetIdentity.DisplayName`), and the page key line lists
+> only the keys that really work here. The copy below is the current contract.
+
+Page title (top-left, the only text in the strip):
+
+```text
+星球总览
+```
+
+Left column:
 
 ```text
 舰船状态
-SHIP STATUS
 
 生存指标
 
@@ -375,24 +386,30 @@ SHIP STATUS
 矿物
 燃料
 合金
+
+舰船系统 正常
 ```
 
 Center:
 
 ```text
 当前目的地
-CURRENT DESTINATION
 
-NEREID-04
+AURELIA-01
 
 未知地表 · 资源候选区
+
+类型    冰原行星
+地表    寒带 / 山脉
+
+探索度
+73%
 ```
 
 Mission:
 
 ```text
-当前任务
-CURRENT OBJECTIVE
+当前目标
 
 活下去
 
@@ -403,16 +420,49 @@ CURRENT OBJECTIVE
 Objective list:
 
 ```text
-01  勘测 NEREID-04        进行中
-02  获取原始资源           待处理
-03  恢复燃料储备           待处理
+01  勘测 AURELIA-01      进行中
+02  获取原始资源          未完成
+03  恢复燃料储备          未完成
 ```
 
-Primary CTA:
+Mission status:
+
+```text
+任务状态
+
+阶段    已锁定
+准备度  72%
+```
+
+Primary CTA (legacy Hub host only; the ship terminal hides it):
 
 ```text
 准备远征 »
 ```
+
+Controller key line (bottom of the page, device-aware):
+
+```text
+gamepad   [RS] 旋转星球   [B] 返回
+keyboard  [鼠标] 旋转星球 [Esc] 返回
+```
+
+Both hosts print the same two rows: `[RS] 旋转星球   [B] 返回` on a controller,
+`[鼠标] 旋转星球 [Esc] 返回` on mouse+keyboard. The Hub's Back is its normal page
+step (return to the screen the player arrived from; from the very first screen it
+stays on Overview - the four tabs are the Hub's navigation, and Back never
+invents a fifth page). The ship's physical terminal leaves its console view with
+B, which the console focus layer owns.
+
+Planet display name (follow-up round): `AURELIA-01` is the CURRENT expedition
+target on EVERY player-facing surface - the Overview hero + objective, the
+Preparation action bar, the deployment sheet, the surface HUD, the wrist
+identity and the airlock prompt. The single source is
+`Assets/_Project/Scripts/UI/PlanetIdentity.cs`; the authored UXML carries the
+same literal and the structural validator fails if `NEREID-04` reappears in any
+player-facing document. Internal IDs keep their names on purpose: the scene is
+still `02_NereidSurface`, and the routing / builder / GameSession fields keep
+their NEREID names.
 
 ---
 
@@ -1495,7 +1545,7 @@ Example:
 当前目的地
 CURRENT DESTINATION
 
-NEREID-04
+AURELIA-01
 
 未知地表 · 资源候选区
 ```
@@ -1638,7 +1688,7 @@ Accumulate, do not request yet:
 ```text
 正式中文字库
 Logo / Wordmark
-NEREID-04 行星表面
+AURELIA-01 行星表面（内部场景仍为 02_NereidSurface）
 资源图标
 装备 pictogram
 任务图标
@@ -1756,7 +1806,7 @@ across different screens unless each has a clearly different meaning.
 SURVIVE // DRIFT
 EXPEDITION CONTROL
 SHIP // ARK-07
-NEREID-04
+AURELIA-01
 MK-I
 UNIT-01
 SHIP STATUS
@@ -2070,7 +2120,7 @@ input system exists:
 ```text
 装备整理    EquipmentLockerInteractable -> ShipOverlayUi.OpenLoadoutFromLocker
             -> ShipLoadoutPage (the shared loadout view, GameSession authority)
-出征前准备  ShipAirlockInteractable     -> ShipOverlayUi.OpenDeploymentConfirm
+最终确认    ShipAirlockInteractable     -> ShipOverlayUi.OpenDeploymentConfirm
             -> ShipDeployConfirmPage    (no scene load until 确认降临)
 ```
 
@@ -2078,13 +2128,30 @@ input system exists:
 
 ```text
 装备整理 (ShipLoadoutPage)     top-right: [B] 返回   +  返回 button
-出征前准备 (ShipDeployConfirm) bottom:    [B] 返回   (device line)
+最终确认 (ShipDeployConfirm)    three action cards, each carrying its own glyph:
+    [X] 出发准备 / 调整装备      (ContextAction -> the shared loadout)
+    [A] 确认降临 / 长按确认      (Confirm, HELD -> the real surface routing)
+    [B] 返回   / 取消操作        (Back -> ShipExplore)
 ```
 
-The hint is device-aware (`InputDeviceTracker.FormatPrompt(UiAction.Back, "返回")`):
-`[B] 返回` on a controller, `[Esc] 返回` on the keyboard. `[A] 确认` is NOT shown -
-the panels have no focus navigation yet (Phase 09), so the copy must not promise
-it.
+Phase 09B PASS 8 rebuilt the landing confirmation: the page title is 最终确认
+with 长按确认降临 under it, the destination block reads 目的地 / AURELIA-01 /
+微光之地 · 资源探测区, the equipment list (采集器 MK-I / 备用电池组 / 勘测无人机 /
+载荷, states 必需 / 已装备 / 未选择, cargo `45 / 100 KG`) is TEXT ONLY - no
+pictograms - and there is NO separate prompt row: the three action cards ARE the
+key line. The glyph is presentation only (`InputDeviceTracker.PromptGlyph`):
+`X / A / B` on an Xbox pad, `□ / ✕ / ○` on a PlayStation-compatible pad,
+`M / E / Esc` on mouse+keyboard. Logic only ever names `ContextAction` /
+`Confirm` / `Back`.
+
+Hold Confirm: a tap never lands. Holding the logical Confirm action (or the mouse
+on the A card) fills the bar INSIDE that card from 0% to 100% in
+`ShipDeployConfirmPage.HoldSeconds` (the single authored duration); releasing
+early rolls it back to 0% and stays on the page. The press that opened the page
+cannot start a hold - a fresh press is required.
+
+The 装备整理 hint stays device-aware (`[B] 返回` on a controller, `[Esc] 返回` on
+the keyboard). Neither panel promises a key it does not have.
 
 ## 65.2 Back contract
 
@@ -2094,8 +2161,11 @@ open panel + B / Escape
        no scene change, GameSession untouched
     -> movement, look, world interaction, the gaze prompt and the cursor are
        exactly what they were before the panel opened
-出征前准备 --调整装备--> 装备整理 + B
-    -> one step back to 出征前准备 (not straight out)
+最终确认 --出发准备 (X)--> 装备整理;  B there steps back to 最终确认
+    -> one step back to the landing confirmation (not straight out)
+最终确认 + a COMPLETED Hold Confirm (A)
+    -> the existing ShipInterior -> Surface routing runs; a tap, or a hold
+       released before 100%, changes nothing and resets the bar
 open panel + Menu/Start
     -> 暂停 opens ABOVE the panel: Time.timeScale = 0, the panel stays as the
        frozen underlying state
@@ -2132,3 +2202,56 @@ on a press that belongs to a higher one.
 
 
 
+
+---
+
+# 66. Warehouse Terms (Phase 09B PASS 9)
+
+Console02's 仓库 (Warehouse) page is a READ-ONLY tabbed inventory view. The
+approved reference defines the structure: `分类页签 + 网格背包 + 右侧详情`.
+
+## 66.1 Page copy
+
+```text
+仓库                                  02
+
+[资源] [装备]                    LB ◀ ▶ RB
+
+item cell:  code-drawn mark + 数量 (x10 / x12 / x7) or 装备状态 (必需 / 已装备 / 未选择)
+
+详情
+  <enlarged mark>
+  矿物        x20
+  常见的天然矿物资源。
+  可用于制作、建造和设备升级。
+  远征装备可在气闸装备柜调整
+
+                                    [B] 返回
+```
+
+Canonical item terms (the ONLY items the warehouse may show - all real):
+
+```text
+资源    矿物 / 燃料 / 合金
+装备    采集器 MK-I / 备用电池组 / 勘测无人机
+载荷    45 / 100 KG
+```
+
+States: `必需` / `已装备` / `未选择`. Amounts always read the authoritative
+GameSession; descriptions live in ONE place
+(`Assets/_Project/Scripts/UI/WarehouseCatalog.cs`), never in a controller.
+
+## 66.2 Controller / mouse contract
+
+```text
+LB / RB        PreviousTab / NextTab   -> 资源 / 装备 (exactly two pages)
+LS / D-Pad     Navigate                -> move the cell focus (empty slots are
+                                          never focusable and never a dead end)
+B / Escape     Back                    -> leave the terminal (never a pause)
+mouse          hover / click a cell or a tab -> the SAME focus authority
+```
+
+The page has NO item action (no use / drop / dismantle / sell / transfer /
+equip), so it never prints a Confirm key and A does nothing. The paging hint
+lives in the tab row (`LB ◀ ▶ RB`, device aware: `L1/R1`, `Q/Tab`), so the
+bottom key line only names `[B] 返回`.

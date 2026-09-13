@@ -472,23 +472,23 @@ public class SurvivePhase07B21Tests
             + "bottom-right (got " + panelTl + " vs " + panelBr + ")");
 
         // A UI button must be reachable exactly where it is displayed.
-        Button batch5 = surface.Document.rootVisualElement
-            .Q<Button>(ElementNames.Batch5Button);
-        Assert.IsNotNull(batch5, "batch 05 button present");
+        Button quantityUp = surface.Document.rootVisualElement
+            .Q<Button>(ElementNames.ProcessingQuantityUp);
+        Assert.IsNotNull(quantityUp, "quantity control present");
         Assert.IsTrue(ConsoleScreenProjection.TryElementViewport(surface, eye,
-            batch5, out Vector2 buttonViewport), "batch button projects on screen");
+            quantityUp, out Vector2 buttonViewport), "quantity control projects on screen");
         Vector2 buttonPixel = buttonViewport;
         Assert.IsTrue(router.TryScreenToPanelPixel(
             new Vector2(buttonPixel.x * Screen.width, buttonPixel.y * Screen.height),
             out Vector2 mappedBack), "button viewport maps back into the panel");
-        Vector2 expected = batch5.worldBound.center;
+        Vector2 expected = quantityUp.worldBound.center;
         // The router ray hits the screen collider's FRONT FACE (2 cm in front
         // of the quad plane), so a small parallax offset is expected; what must
         // hold is that clicking the displayed button position lands inside the
         // button itself.
-        Assert.IsTrue(batch5.worldBound.Contains(mappedBack),
-            "pointer position matches the displayed button (mapped " + mappedBack
-            + " inside " + batch5.worldBound + ")");
+        Assert.IsTrue(quantityUp.worldBound.Contains(mappedBack),
+            "pointer position matches the displayed control (mapped " + mappedBack
+            + " inside " + quantityUp.worldBound + ")");
         Assert.IsTrue(Vector2.Distance(mappedBack, expected)
                       < WorldConsoleSurface.UiWidth * 0.03f,
             "pointer round-trip stays within 3% of the panel width (mapped "

@@ -1,8 +1,17 @@
 /*
- * Survive UI Demo - Processing / Resource Processing layout (Phase 04).
- * Inherits the Phase 02/03 industrial/aerospace language. Chinese-first copy
- * with restrained letter spacing; shared section primitives are reused from
- * OverviewScreen.uss / PreparationScreen.uss where possible.
+ * Survive UI Demo - Processing / 资源加工 (Phase 04; rebuilt in Phase 09B PASS 5).
+ *
+ * The page keeps the light industrial / aerospace language of the other Hub
+ * screens: cold grey canvas, hairline rules, one low-saturation cyan accent for
+ * interaction and a restrained orange for the refinery heat. No gradients, no
+ * glow, no neon: the refinery core is the single visual anchor and everything
+ * else stays quiet around it.
+ *
+ * Layout contract (the reference the round was approved against):
+ *   left    加工列表 / 当前配方 / 加工数量 < n >
+ *   centre  矿物 -> 精炼炉 -> 燃料 + 合金 (progress + run bar)
+ *   right   当前库存 / 加工效率
+ *   bottom  [B] 返回 · [A] 确认加工
  */
 
 /* ---------- Screen shell / top system bar ---------- */
@@ -29,8 +38,8 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    padding-top: 16px;
-    padding-bottom: 16px;
+    padding-top: 14px;
+    padding-bottom: 14px;
     padding-left: 64px;
     padding-right: 64px;
     border-bottom-width: 1px;
@@ -70,17 +79,17 @@
     min-height: 0;
     flex-direction: row;
     align-items: stretch;
-    padding-top: 26px;
-    padding-bottom: 24px;
+    padding-top: 22px;
+    padding-bottom: 20px;
     padding-left: 64px;
     padding-right: 64px;
 }
 
 .process-col-left {
-    width: 340px;
+    width: 348px;
     flex-shrink: 0;
     flex-direction: column;
-    padding-right: 34px;
+    padding-right: 30px;
     border-right-width: 1px;
     border-right-color: #DEE2E5;
 }
@@ -89,91 +98,251 @@
     flex-grow: 1;
     min-width: 0;
     flex-direction: column;
-    padding-left: 34px;
-    padding-right: 34px;
+    padding-left: 30px;
+    padding-right: 30px;
 }
 
 .process-col-right {
-    width: 340px;
+    width: 332px;
     flex-shrink: 0;
     flex-direction: column;
-    padding-left: 32px;
+    padding-left: 30px;
     border-left-width: 1px;
     border-left-color: #DEE2E5;
 }
 
-/* ---------- Left: raw storage ---------- */
+.panel-header-tag {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #A6ADB4;
+    margin-left: 12px;
+}
 
-.storage-line {
+/* ---------- Left: 加工列表 ---------- */
+
+.recipe-list {
+    flex-direction: column;
+    margin-top: 6px;
+}
+
+.recipe-row {
     flex-direction: row;
-    align-items: flex-end;
+    align-items: center;
+    height: 74px;
+    padding-left: 14px;
+    padding-right: 14px;
+    background-color: #FFFFFF;
+    border-width: 1px;
+    border-color: #D8DCE0;
+    border-left-width: 3px;
+    border-left-color: rgba(0, 0, 0, 0);
+    transition-property: background-color, border-color;
+    transition-duration: 0.12s;
+}
+
+.recipe-row:hover {
+    background-color: #F4F7F8;
+    border-color: #C3CBD1;
+}
+
+.recipe-row.recipe-selected {
+    background-color: #F7FAFA;
+    border-color: #C6D3D6;
+    border-left-color: #0E7F8C;
+}
+
+.recipe-row.ui-focus {
+    background-color: #EEF6F7;
+    border-color: #0E7F8C;
+    border-left-color: #0E7F8C;
+}
+
+.recipe-row:disabled {
+    background-color: #F3F5F6;
+    border-color: #E1E5E8;
+}
+
+/* Code-drawn marks fill whatever box their host defines (same contract as the
+   Preparation sketches: an inline flex-grow on the drawing would outrank every
+   layout rule and stretch the mark inside its token). */
+.process-sketch {
+    flex-grow: 1;
+}
+
+.refinery-core-graphic {
+    flex-grow: 1;
+}
+
+.recipe-icon {
+    width: 40px;
+    height: 30px;
+    flex-shrink: 0;
+    margin-right: 14px;
+}
+
+.recipe-text {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.recipe-name {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #161B20;
+}
+
+.recipe-sub {
+    font-size: 10px;
+    color: #7B858F;
     margin-top: 4px;
 }
 
-.storage-caption {
-    font-size: 11px;
-    color: #7B858F;
-    margin-bottom: 8px;
-    margin-right: auto;
+.recipe-chevron {
+    font-size: 16px;
+    color: #0E7F8C;
+    margin-left: 8px;
 }
 
-.storage-value {
-    font-size: 46px;
+.recipe-note {
+    font-size: 10px;
+    color: #9AA1A8;
+    margin-top: 8px;
+}
+
+/* ---------- Left: 当前配方 ---------- */
+
+.recipe-current {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 6px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-bottom-width: 1px;
+    border-bottom-color: #E4E7EA;
+}
+
+.recipe-current-icon {
+    width: 42px;
+    height: 32px;
+    flex-shrink: 0;
+    margin-right: 14px;
+}
+
+.recipe-current-text {
+    flex-direction: column;
+    min-width: 0;
+}
+
+.recipe-current-name {
+    font-size: 17px;
     -unity-font-style: bold;
     color: #161B20;
 }
 
-/* ---------- Left: batch selection ---------- */
+.recipe-current-flow {
+    font-size: 11px;
+    color: #4A525C;
+    margin-top: 4px;
+}
 
-.batch-row {
+/* ---------- Left: 加工数量 < n > ---------- */
+
+.quantity-row {
     flex-direction: row;
     align-items: stretch;
+    height: 78px;
+    margin-top: 8px;
 }
 
-.batch-button {
-    flex-grow: 1;
-    height: 66px;
+.quantity-arrow {
+    width: 52px;
+    flex-shrink: 0;
     -unity-text-align: middle-center;
-    font-size: 20px;
-    -unity-font-style: bold;
+    font-size: 24px;
     color: #161B20;
-    background-color: #F3F5F6;
+    background-color: #F1F3F5;
     border-width: 1px;
     border-color: #C9CFD4;
-    border-left-width: 3px;
-    border-left-color: rgba(0, 0, 0, 0);
-    margin-right: 10px;
+    transition-property: background-color, border-color, color;
+    transition-duration: 0.12s;
 }
 
-.batch-button.batch-last {
-    margin-right: 0px;
-}
-
-.batch-button:hover {
-    background-color: #EDF0F2;
-    border-color: #BFC6CC;
-}
-
-.batch-button.batch-selected {
-    background-color: #FFFFFF;
-    border-color: #B9CDD1;
-    border-left-color: #0E7F8C;
+.quantity-arrow:hover {
+    background-color: #E7EDEF;
+    border-color: #0E7F8C;
     color: #0A616C;
 }
 
-.batch-button:disabled {
-    background-color: #F3F5F6;
-    border-color: #DEE2E5;
-    color: #A9AFB5;
+.quantity-arrow:disabled {
+    background-color: #F5F6F7;
+    border-color: #E1E5E8;
+    color: #B7BDC3;
 }
 
-.batch-unit {
+.quantity-box {
+    flex-grow: 1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    background-color: #FFFFFF;
+    border-top-width: 1px;
+    border-bottom-width: 1px;
+    border-color: #C9CFD4;
+    transition-property: border-color, background-color;
+    transition-duration: 0.12s;
+}
+
+.quantity-row .quantity-box {
+    border-left-width: 1px;
+    border-right-width: 1px;
+}
+
+.quantity-value {
+    font-size: 34px;
+    -unity-font-style: bold;
+    color: #161B20;
+    min-width: 62px;
+    -unity-text-align: middle-center;
+}
+
+.quantity-unit {
+    font-size: 11px;
+    color: #7B858F;
+    margin-left: 8px;
+}
+
+/* Focus / lock states of the quantity control. */
+.quantity-row.ui-focus .quantity-box {
+    background-color: #F2F9FA;
+    border-color: #0E7F8C;
+}
+
+.quantity-row.ui-focus .quantity-value {
+    color: #0A616C;
+}
+
+.quantity-row.ui-focus .quantity-arrow:enabled {
+    border-color: #0E7F8C;
+    color: #0A616C;
+}
+
+.quantity-row.quantity-disabled .quantity-box {
+    background-color: #F5F6F7;
+    border-color: #E1E5E8;
+}
+
+.quantity-row.quantity-disabled .quantity-value {
+    color: #8C939A;
+}
+
+.quantity-hint {
     font-size: 10px;
     color: #7B858F;
-    margin-top: 12px;
+    margin-top: 8px;
 }
 
-/* ---------- Center: refinery core panel ---------- */
+/* ---------- Centre: work area ---------- */
 
 .core-sys-dot {
     width: 6px;
@@ -188,6 +357,17 @@
     color: #7B858F;
 }
 
+.core-strip {
+    flex-shrink: 0;
+    height: 8px;
+    margin-top: 10px;
+}
+
+.process-dot-strip {
+    flex-grow: 1;
+    height: 8px;
+}
+
 .core-panel {
     flex-grow: 1;
     min-height: 0;
@@ -195,11 +375,11 @@
     border-width: 1px;
     border-color: #D8DCE0;
     background-color: #F6F7F8;
-    padding-top: 20px;
-    padding-bottom: 18px;
+    padding-top: 18px;
+    padding-bottom: 16px;
     padding-left: 24px;
     padding-right: 24px;
-    margin-top: 8px;
+    margin-top: 6px;
 }
 
 /* Main state + live progress readout (visual anchor of the panel) */
@@ -230,18 +410,18 @@
     font-size: 30px;
     -unity-font-style: bold;
     color: #0A616C;
-    min-width: 84px;
+    min-width: 90px;
     -unity-text-align: middle-right;
 }
 
-/* Refinery flow track: minerals -> module -> fuel / alloy */
+/* Refinery flow track: 矿物 -> 精炼炉 -> 燃料 / 合金 */
 .core-flow {
     flex-grow: 1;
     min-height: 0;
     flex-direction: row;
     align-items: center;
-    margin-top: 18px;
-    margin-bottom: 16px;
+    margin-top: 14px;
+    margin-bottom: 12px;
 }
 
 .flow-node {
@@ -250,11 +430,17 @@
     align-items: center;
     background-color: #FFFFFF;
     border-width: 1px;
-    border-color: #C9CFD4;
-    padding-top: 14px;
-    padding-bottom: 14px;
-    padding-left: 26px;
-    padding-right: 26px;
+    border-color: #D8DCE0;
+    padding-top: 12px;
+    padding-bottom: 12px;
+    padding-left: 22px;
+    padding-right: 22px;
+}
+
+.flow-icon {
+    width: 54px;
+    height: 38px;
+    margin-bottom: 8px;
 }
 
 .flow-node-text {
@@ -269,9 +455,25 @@
     margin-top: 6px;
 }
 
-.flow-node-core {
-    background-color: #FFFFFF;
-    border-color: #B9CDD1;
+/* The refinery itself: the page's first visual anchor. */
+.flow-core {
+    flex-shrink: 0;
+    flex-direction: column;
+    align-items: center;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.refinery-core {
+    width: 238px;
+    height: 238px;
+}
+
+.flow-core-text {
+    font-size: 16px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 6px;
 }
 
 .core-batch-note {
@@ -281,53 +483,64 @@
 
 .flow-conn {
     flex-grow: 1;
-    flex-direction: row;
-    align-items: center;
+    min-width: 48px;
+    align-self: center;
+    height: 18px;
     margin-left: 10px;
     margin-right: 10px;
 }
 
-.flow-line {
+.process-flow-line {
     flex-grow: 1;
-    height: 1px;
-    background-color: #C9CFD4;
+    height: 18px;
 }
 
-.flow-arrow {
-    font-size: 15px;
-    color: #0E7F8C;
-    margin-left: 8px;
-}
-
+/* Output branch: two product rows behind one rail. */
 .flow-output {
     flex-direction: column;
     align-items: stretch;
-    margin-left: 4px;
+    flex-shrink: 0;
 }
 
 .flow-node-output {
+    flex-direction: row;
+    align-items: center;
     padding-top: 8px;
     padding-bottom: 8px;
-    padding-left: 20px;
-    padding-right: 20px;
-    background-color: #FFFFFF;
+    padding-left: 16px;
+    padding-right: 22px;
+}
+
+.flow-node-output .flow-icon {
+    width: 46px;
+    height: 32px;
+    margin-bottom: 0px;
+    margin-right: 12px;
+}
+
+.flow-output-text {
+    flex-direction: column;
 }
 
 .flow-split-rule {
     height: 1px;
-    background-color: #C9CFD4;
+    background-color: #D8DCE0;
     margin-top: 4px;
     margin-bottom: 4px;
+    margin-left: 22px;
 }
 
 /* Active / settled state emphasis (driven by stage classes) */
-.process-col-center.stage-running .flow-node-core {
-    background-color: #E9F3F4;
-    border-color: #0E7F8C;
+.process-col-center.stage-running .flow-core-text {
+    color: #0A616C;
 }
 
 .process-col-center.stage-running .core-progress-caption {
     color: #0A616C;
+}
+
+.process-col-center.stage-running .progress-fill {
+    background-color: #C8721B;
 }
 
 .process-col-center.stage-complete .result-panel {
@@ -339,7 +552,7 @@
     color: #0A616C;
 }
 
-/* ---------- Center: expected / settled output row ---------- */
+/* ---------- Centre: expected / settled output row ---------- */
 
 .result-panel {
     flex-shrink: 0;
@@ -387,11 +600,11 @@
     margin-left: 14px;
 }
 
-/* ---------- Center: capacity progress rule ---------- */
+/* ---------- Centre: run progress rule ---------- */
 
 .core-track-row {
     flex-shrink: 0;
-    margin-top: 14px;
+    margin-top: 12px;
 }
 
 .progress-track {
@@ -405,14 +618,29 @@
     background-color: #0E7F8C;
 }
 
-/* ---------- Right: current inventory + refinery meta ---------- */
+/* ---------- Right: 当前库存 + 加工效率 ---------- */
 
 .inventory-line {
     flex-direction: row;
     align-items: center;
-    height: 56px;
+    height: 58px;
     border-bottom-width: 1px;
     border-bottom-color: #DEE2E5;
+}
+
+.inventory-icon {
+    width: 40px;
+    height: 28px;
+    flex-shrink: 0;
+    margin-right: 12px;
+}
+
+.inventory-line-raw {
+    height: 66px;
+}
+
+.inventory-line-raw .inventory-value {
+    font-size: 32px;
 }
 
 .inventory-key {
@@ -461,9 +689,37 @@
     background-color: #E4E7EA;
 }
 
+.actionbar-context {
+    flex-direction: column;
+    margin-right: auto;
+}
+
+.actionbar-label {
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: #7B858F;
+}
+
+.actionbar-note {
+    font-size: 10px;
+    color: #9AA1A8;
+    margin-top: 4px;
+}
+
+/* The shared Phase 09B prompt bar is mounted here (inside the action strip,
+   left of the confirm action) so the keys sit next to the operation they
+   describe instead of floating over the page. */
+.process-prompt-host {
+    width: 560px;
+    height: 40px;
+    flex-shrink: 0;
+    margin-right: 26px;
+}
+
 .process-action {
-    width: 340px;
+    width: 320px;
     height: 50px;
+    flex-shrink: 0;
     -unity-text-align: middle-center;
     font-size: 15px;
     -unity-font-style: bold;
@@ -471,6 +727,8 @@
     background-color: #161B20;
     border-width: 1px;
     border-color: #161B20;
+    transition-property: background-color, border-color;
+    transition-duration: 0.12s;
 }
 
 .process-action:hover {
@@ -487,4 +745,18 @@
     background-color: #B7BDC3;
     border-color: #A9AFB5;
     color: #EDEFF1;
+}
+
+/* =====================================================================
+ * Project cursor, document-wide (Phase 09B PASS 6 follow-up).
+ *
+ * UI Toolkit re-applies the hovered element's own cursor on every hover
+ * change. Every document (hub app, ship HUD, surface HUD / wrist, main menu,
+ * warehouse console, modal sheets) therefore carries the project's dot, so no
+ * element can ever resolve to the stock Windows arrow. Actionable elements
+ * override it with the dot+ring asset where a page defines them.
+ * ===================================================================== */
+
+* {
+    cursor: url("../Cursors/T_CursorDot.png") 16 16;
 }

@@ -70,8 +70,36 @@ public class WristDisplayAnchor : MonoBehaviour
             }
 
             SetFrost(0f);
+            ApplyStructureOpacity();
         }
     }
+
+    /// <summary>
+    /// Phase 09B PASS 3: how opaque the PERIPHERAL structure of the hologram is
+    /// (the four module plates and the status arcs - everything outside the map
+    /// disc). The UI Toolkit render target hands the sheet its pixels with their
+    /// authored colours but not their authored translucency, so the one place the
+    /// peripheral opacity can live is this sheet shader; 0.66 keeps the world
+    /// visibly behind the instrument while leaving the readable layer crisp.
+    /// The central disc is explicitly EXCLUDED (its own frosted lens owns it), so
+    /// the accepted "frosted map + cyan core showing through" relation is
+    /// untouched.
+    /// </summary>
+    public const float StructureSheetOpacity = 0.66f;
+
+    private void ApplyStructureOpacity()
+    {
+        if (_materialInstance != null && _materialInstance.HasProperty("_StructureOpacity"))
+        {
+            _materialInstance.SetFloat("_StructureOpacity", StructureSheetOpacity);
+        }
+    }
+
+    /// <summary>Current peripheral structure opacity of the sheet material.</summary>
+    public float StructureOpacity =>
+        _materialInstance != null && _materialInstance.HasProperty("_StructureOpacity")
+            ? _materialInstance.GetFloat("_StructureOpacity")
+            : 1f;
 
     /// <summary>
     /// Frosted hologram lens amount (0 = clear sheet, 1 = fully frosted).
@@ -132,6 +160,15 @@ public class WristDisplayAnchor : MonoBehaviour
             && !Mathf.Approximately(_materialInstance.GetFloat("_FrostOpacity"), expected))
         {
             SetFrost(_frostAmount);
+        }
+
+        // Same protection for the PASS 3 structure sheet: a leftover shader value
+        // would silently change how much of the world shows through the plates.
+        if (_materialInstance.HasProperty("_StructureOpacity")
+            && !Mathf.Approximately(_materialInstance.GetFloat("_StructureOpacity"),
+                StructureSheetOpacity))
+        {
+            ApplyStructureOpacity();
         }
     }
 

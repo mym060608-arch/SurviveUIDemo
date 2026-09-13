@@ -36,6 +36,14 @@ public interface IWristContext
     /// controller (rejected on ship / depleted nodes).</summary>
     bool TrySelectNavigationTarget(int nodeId);
 
+    /// <summary>
+    /// Clears the current navigation target through the owner controller
+    /// (Phase 09B PASS 3: the wrist's 当前导航 module is operable while a target
+    /// is set). Returns false when there was nothing to clear - the ship
+    /// interior has no surface navigation at all.
+    /// </summary>
+    bool TryClearNavigationTarget();
+
     /// <summary>Raised by the owner whenever the wrist opens or closes.</summary>
     event Action<bool> WristOpenChanged;
 

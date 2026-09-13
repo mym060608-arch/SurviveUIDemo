@@ -54,7 +54,46 @@ public enum UiAction
     /// <see cref="Wrist"/> drive the same surface presentation; the semantic name
     /// stays platform neutral (no XButton / PlayStationSquare anywhere in logic).
     /// </summary>
-    Map
+    Map,
+
+    /// <summary>
+    /// The current page's context action (Phase 09B). Physically it is the same
+    /// control as <see cref="Map"/> (Xbox X / PlayStation Square / M / I): the
+    /// surface page's context action IS opening the map, while a preparation or
+    /// processing page will use the very same control for its own context action.
+    /// Logic must ask for THIS action and let the page decide what it means; the
+    /// surface page reaches it through <see cref="UiInput.MapPressed"/>, which is
+    /// this action under its surface-page name.
+    /// </summary>
+    ContextAction,
+
+    /// <summary>Previous tab / page group (LB / L1).</summary>
+    PreviousTab,
+
+    /// <summary>Next tab / page group (RB / R1).</summary>
+    NextTab,
+
+    /// <summary>
+    /// The map cursor (right stick / mouse). Not a press: the surface map moves
+    /// its existing cursor with the right stick instead of the mouse, so the
+    /// action is a continuously read vector, never an edge.
+    /// </summary>
+    MapCursor,
+
+    /// <summary>Zoom in (RT / R2 / wheel up).</summary>
+    ZoomIn,
+
+    /// <summary>Zoom out (LT / L2 / wheel down).</summary>
+    ZoomOut,
+
+    /// <summary>
+    /// Focus navigation (D-Pad / left stick / arrow keys). This action has always
+    /// existed as the "Navigate=" row of <see cref="UiInput.BindingTable"/>; Phase
+    /// 09B PASS 3 gives it an enum identity so a page can put it in a PROMPT row
+    /// ("[D-Pad] 选择") instead of hard-coding a control name. Appended last, so
+    /// every previously frozen enum value keeps its index.
+    /// </summary>
+    Navigate
 }
 
 /// <summary>
@@ -114,10 +153,18 @@ public static class UiInput
     /// <summary>Stick magnitude that counts as a navigation press.</summary>
     public const float StickThreshold = 0.55f;
 
+    /// <summary>Stick magnitude that counts as map-cursor movement.</summary>
+    public const float CursorDeadzone = 0.18f;
+
     /// <summary>
     /// The authoritative binding table (logical action -&gt; physical controls).
     /// It is data on purpose: reviewers can read it and tests can pin it, so the
     /// semantic split cannot silently drift back to "A button" naming.
+    ///
+    /// Phase 09B adds the console-interaction rows: the page context action, the
+    /// shoulder tabs, the map cursor and the zoom pair. The pre-09B rows stay
+    /// byte-identical - the Phase 09A suites pin them, and the frozen input chain
+    /// must not move.
     /// </summary>
     public static readonly string[] BindingTable =
     {
@@ -127,6 +174,12 @@ public static class UiInput
         "Pause=Gamepad.startButton,Keyboard.escapeKey",
         "Wrist=Gamepad.buttonNorth,Keyboard.mKey|iKey",
         "Map=Gamepad.buttonWest,Keyboard.mKey|iKey",
+        "ContextAction=Gamepad.buttonWest,Keyboard.mKey|iKey",
+        "PreviousTab=Gamepad.leftShoulder,Keyboard.qKey",
+        "NextTab=Gamepad.rightShoulder,Keyboard.tabKey",
+        "MapCursor=Gamepad.rightStick,Mouse.position",
+        "ZoomIn=Gamepad.rightTrigger,Keyboard.pageUpKey|Mouse.wheelUp",
+        "ZoomOut=Gamepad.leftTrigger,Keyboard.pageDownKey|Mouse.wheelDown",
         "Navigate=Gamepad.dpad|leftStick,Keyboard.arrowKeys"
     };
 
@@ -298,6 +351,30 @@ public static class UiInput
                    || keyboard.enterKey.wasPressedThisFrame
                    || keyboard.numpadEnterKey.wasPressedThisFrame
                    || keyboard.spaceKey.wasPressedThisFrame);
+    }
+
+    /// <summary>
+    /// True while the logical Confirm action is HELD (not an edge).
+    ///
+    /// <see cref="ConfirmPressed"/> answers "was pressed this frame"; the
+    /// landing confirmation's hold-to-deploy accumulates progress and needs the
+    /// LEVEL, so it reads THIS. The physical controls are still named only here
+    /// (south face control / E / Enter / Space) - no page logic ever names one.
+    /// </summary>
+    public static bool ConfirmHeld()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad != null && pad.buttonSouth.isPressed)
+        {
+            return true;
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null
+               && (keyboard.eKey.isPressed
+                   || keyboard.enterKey.isPressed
+                   || keyboard.numpadEnterKey.isPressed
+                   || keyboard.spaceKey.isPressed);
     }
 
     /// <summary>
@@ -501,8 +578,28 @@ public static class UiInput
     /// wrist's central map, so this action and <see cref="WristPressed"/> toggle the
     /// same surface presentation; the physical mapping stays in this file and no
     /// gameplay class names a control directly.
+    ///
+    /// Phase 09B: this is the surface page's name for
+    /// <see cref="ContextActionPressed"/> and delegates to it, so the west face
+    /// control has exactly one read path. The pinned "Map=" binding row and this
+    /// entry point stay, because the surface map is the page that owns the press.
     /// </summary>
     public static bool MapPressed()
+    {
+        return ContextActionPressed();
+    }
+
+    /// <summary>
+    /// True when the current page's context action was pressed this frame
+    /// (Xbox X / PlayStation Square / M / I).
+    ///
+    /// Phase 09B: this is the ONE semantic behind the west face control. The
+    /// surface page's instantiation of it is <see cref="MapPressed"/> (the same
+    /// physical press under the surface-page name), so the two names can never
+    /// disagree and no second binding path exists. A page that has its own
+    /// context action consumes THIS action while it owns the layer.
+    /// </summary>
+    public static bool ContextActionPressed()
     {
         Gamepad pad = Gamepad.current;
         if (pad != null && pad.buttonWest.wasPressedThisFrame)
@@ -513,6 +610,169 @@ public static class UiInput
         Keyboard keyboard = Keyboard.current;
         return keyboard != null
                && (keyboard.mKey.wasPressedThisFrame || keyboard.iKey.wasPressedThisFrame);
+    }
+
+    /// <summary>
+    /// The left stick as a navigation vector (x = right, y = up, each -1..1),
+    /// with the D-Pad taking the axis it presses. The D-Pad wins a tie because a
+    /// digital press is unambiguous, while a stick resting slightly off-centre
+    /// must never drift the focus.
+    /// </summary>
+    public static Vector2 NavigationVector()
+    {
+        Vector2 result = Vector2.zero;
+        Gamepad pad = Gamepad.current;
+        if (pad != null)
+        {
+            Vector2 dpad = pad.dpad.ReadValue();
+            if (dpad.x > 0.5f)
+            {
+                result.x = 1f;
+            }
+            else if (dpad.x < -0.5f)
+            {
+                result.x = -1f;
+            }
+
+            if (dpad.y > 0.5f)
+            {
+                result.y = 1f;
+            }
+            else if (dpad.y < -0.5f)
+            {
+                result.y = -1f;
+            }
+
+            Vector2 stick = pad.leftStick.ReadValue();
+            if (Mathf.Abs(stick.x) > CursorDeadzone && Mathf.Approximately(result.x, 0f))
+            {
+                result.x = Mathf.Clamp(stick.x, -1f, 1f);
+            }
+
+            if (Mathf.Abs(stick.y) > CursorDeadzone && Mathf.Approximately(result.y, 0f))
+            {
+                result.y = Mathf.Clamp(stick.y, -1f, 1f);
+            }
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null)
+        {
+            if (keyboard.rightArrowKey.wasPressedThisFrame)
+            {
+                result.x = 1f;
+            }
+            else if (keyboard.leftArrowKey.wasPressedThisFrame)
+            {
+                result.x = -1f;
+            }
+
+            if (keyboard.upArrowKey.wasPressedThisFrame)
+            {
+                result.y = 1f;
+            }
+            else if (keyboard.downArrowKey.wasPressedThisFrame)
+            {
+                result.y = -1f;
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// The map cursor vector: right stick, x = right, y = up, each -1..1, with the
+    /// dead zone already applied. There is deliberately no acceleration curve - a
+    /// steady stick gives a steady cursor, which is what the surface map contract
+    /// asks for ("光标速度稳定，不突然加速").
+    /// </summary>
+    public static Vector2 MapCursorVector()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad == null)
+        {
+            return Vector2.zero;
+        }
+
+        Vector2 stick = pad.rightStick.ReadValue();
+        // Radially dead-zoned so a diagonal drift cannot leak a single axis.
+        return stick.magnitude < CursorDeadzone ? Vector2.zero : stick;
+    }
+
+    /// <summary>
+    /// Continuous zoom axis: +1 = zoom in (RT), -1 = zoom out (LT). Triggers are
+    /// analogue, so the caller integrates this over time instead of treating it as
+    /// a press.
+    /// </summary>
+    public static float ZoomAxis()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad == null)
+        {
+            return 0f;
+        }
+
+        return Mathf.Clamp(pad.rightTrigger.ReadValue() - pad.leftTrigger.ReadValue(),
+            -1f, 1f);
+    }
+
+    /// <summary>
+    /// Mouse wheel as zoom steps: +1 up (zoom in), -1 down (zoom out), 0 = no
+    /// wheel movement this frame. Gives the map the same zoom the triggers have
+    /// without inventing a second zoom concept for the mouse.
+    /// </summary>
+    public static float ZoomWheelSteps()
+    {
+        Mouse mouse = Mouse.current;
+        if (mouse == null)
+        {
+            return 0f;
+        }
+
+        float scroll = mouse.scroll.ReadValue().y;
+        if (Mathf.Abs(scroll) < 0.01f)
+        {
+            return 0f;
+        }
+
+        return Mathf.Sign(scroll);
+    }
+
+    /// <summary>
+    /// Tab direction from the shoulders: -1 = previous (LB / Q), +1 = next
+    /// (RB / Tab), 0 = nothing. Pages that have no tab group simply never ask.
+    /// </summary>
+    public static int TabDirection()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad != null)
+        {
+            if (pad.rightShoulder.wasPressedThisFrame)
+            {
+                return 1;
+            }
+
+            if (pad.leftShoulder.wasPressedThisFrame)
+            {
+                return -1;
+            }
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        if (keyboard != null)
+        {
+            if (keyboard.tabKey.wasPressedThisFrame)
+            {
+                return 1;
+            }
+
+            if (keyboard.qKey.wasPressedThisFrame)
+            {
+                return -1;
+            }
+        }
+
+        return 0;
     }
 
     /// <summary>

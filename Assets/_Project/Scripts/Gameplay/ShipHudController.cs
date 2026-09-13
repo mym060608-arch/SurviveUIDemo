@@ -41,6 +41,8 @@ public class ShipHudController : MonoBehaviour
     private Label _prompt;
     private VisualElement _crosshairDot;
     private VisualElement _crosshairRing;
+    private ControllerPromptBar _promptBar;
+    private ControllerPromptRow[] _promptRows;
 
     private static Font _cjkFont;
 
@@ -86,7 +88,45 @@ public class ShipHudController : MonoBehaviour
         _prompt = _root.Q<Label>("ShipPrompt");
         _crosshairDot = _root.Q<VisualElement>("ShipCrosshairDot");
         _crosshairRing = _root.Q<VisualElement>("ShipCrosshairRing");
+
+        // Phase 09B PASS 3: the SHARED controller prompt bar lives on the document
+        // ROOT (outside the exploration chrome that SetUiSuppressed hides), so the
+        // ship wrist terminal can show its own key rows exactly like the surface
+        // map does. It stays hidden until a page publishes rows.
+        _promptBar = ControllerPromptBar.Attach(_root, _cjkFont);
         _bound = true;
+    }
+
+    /// <summary>The shared prompt bar of this document (tests / probes).</summary>
+    public ControllerPromptBar PromptBar => _promptBar;
+
+    /// <summary>
+    /// Shows the prompt rows for the current page state, or hides the bar. The
+    /// rows are only rebuilt when the page really changed them (reference
+    /// compare), and the glyphs follow the device the player is holding.
+    /// </summary>
+    public void SetControllerPrompt(bool visible, ControllerPromptRow[] rows)
+    {
+        EnsureBound();
+        if (_promptBar == null)
+        {
+            return;
+        }
+
+        if (!visible)
+        {
+            _promptBar.SetVisible(false);
+            return;
+        }
+
+        if (rows != null && !ReferenceEquals(_promptRows, rows))
+        {
+            _promptRows = rows;
+            _promptBar.SetRows(rows);
+        }
+
+        _promptBar.Tick();
+        _promptBar.SetVisible(true);
     }
 
     /// <summary>

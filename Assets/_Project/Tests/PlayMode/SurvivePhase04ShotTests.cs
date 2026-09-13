@@ -17,7 +17,7 @@ using UnityEngine.UIElements;
 /// Captured states:
 /// - Overview: default GameSession state;
 /// - Preparation: all modules carried, loadout CONFIRMED;
-/// - Processing: batch 5 running at ~50% progress (deterministic advance).
+/// - Processing: a 5 mineral run at ~50% progress (deterministic advance).
 /// Run isolated via: -testFilter SurvivePhase04ShotTests
 /// </summary>
 public class SurvivePhase04ShotTests
@@ -87,8 +87,8 @@ public class SurvivePhase04ShotTests
 
         yield return CaptureScreen(app, panel, "processing", () =>
         {
-            // Ready state: batch 5 selected by default, storage 20, expected
-            // output visible, CTA 开始加工 enabled (deterministic, readable).
+            // Ready state: quantity 1 selected by default, storage 20, expected
+            // output visible, CTA 确认加工 enabled (deterministic, readable).
             GameSession.Instance.ResetSession();
             app.ShowScreen(AppScreen.Processing);
             return GeometryOk(app, "processing");
@@ -96,7 +96,7 @@ public class SurvivePhase04ShotTests
 
         yield return CaptureScreen(app, panel, "processing_complete", () =>
         {
-            // Settled state: batch 5 finished, 本次产出 +2/+1 highlighted.
+            // Settled state: a 5 mineral run finished, 本次产出 +5/+5 highlighted.
             GameSession session = GameSession.Instance;
             session.ResetSession();
             session.TryStartProcess(5);
@@ -248,17 +248,17 @@ public class SurvivePhase04ShotTests
 
         if (screen.StartsWith("processing"))
         {
-            VisualElement storage = root.Q<VisualElement>(ElementNames.ProcessingStoragePanel);
+            VisualElement recipes = root.Q<VisualElement>(ElementNames.ProcessingRecipePanel);
             VisualElement core = root.Q<VisualElement>(ElementNames.ProcessingCorePanel);
             VisualElement inventory = root.Q<VisualElement>(ElementNames.ProcessingInventoryPanel);
             VisualElement start = root.Q<Button>(ElementNames.ProcessingStartButton);
-            if (storage == null || core == null || inventory == null || start == null)
+            if (recipes == null || core == null || inventory == null || start == null)
             {
                 return false;
             }
 
             Rect startRect = Bounds(start);
-            return Bounds(core).xMin >= Bounds(storage).xMax - 1f
+            return Bounds(core).xMin >= Bounds(recipes).xMax - 1f
                    && Bounds(inventory).xMin >= Bounds(core).xMax - 1f
                    && startRect.xMin >= rootRect.xMin && startRect.xMax <= rootRect.xMax
                    && startRect.yMax <= navRect.yMin + 1f;

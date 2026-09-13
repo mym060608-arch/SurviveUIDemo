@@ -50,6 +50,23 @@ public static class ElementNames
     public const string ObjectiveCopy = "ObjectiveCopy";
     public const string MissionStatusBlock = "MissionStatusBlock";
 
+    // Overview (Phase 09B PASS 7: page title, planet name consistency,
+    // exploration read-out and the shared controller key line).
+    public const string OverviewTitle = "OverviewTitle";
+    public const string ObjectiveSurveyText = "ObjectiveSurveyText";
+    public const string ExplorationValue = "ExplorationValue";
+    public const string ExplorationBarFill = "ExplorationBarFill";
+    public const string OverviewPromptHost = "OverviewPromptHost";
+
+    // Landing Confirmation / 最终确认 (Phase 09B PASS 8): the two code-drawn cyan
+    // dot fields, the key glyph fused into each action card and the hold bar.
+    public const string LandingDotsLeft = "LandingDotsLeft";
+    public const string LandingDotsRight = "LandingDotsRight";
+    public const string LandingAdjustKey = "DeployAdjustKey";
+    public const string LandingConfirmKey = "DeployConfirmKey";
+    public const string LandingCancelKey = "DeployCancelKey";
+    public const string LandingHoldFill = "DeployHoldFill";
+
     // Preparation.
     public const string HarvesterRowButton = "HarvesterRowButton";
     public const string BatteryRowButton = "BatteryRowButton";
@@ -70,20 +87,33 @@ public static class ElementNames
     public const string ReadinessSurveyValue = "ReadinessSurveyValue";
     public const string ReadinessCargoValue = "ReadinessCargoValue";
 
-    // Processing (Phase 04 composition / runtime binding).
+    // Preparation controller hints (Phase 09B PASS 5 follow-up): the page's own
+    // bottom-right key line, rewritten for the device in hand.
+    public const string PrepHintDetails = "PrepHintDetails";
+    public const string PrepHintNavigate = "PrepHintNavigate";
+    public const string PrepHintBack = "PrepHintBack";
+    public const string PrepHintConfirm = "PrepHintConfirm";
+
+    // Processing (Phase 04 composition; restructured in Phase 09B PASS 5).
     public const string ProcessingMineralsValue = "ProcessingMineralsValue";
     public const string ProcessingFuelValue = "ProcessingFuelValue";
     public const string ProcessingAlloyValue = "ProcessingAlloyValue";
-    public const string ProcessingStoragePanel = "ProcessingStoragePanel";
-    public const string Batch5Button = "Batch5Button";
-    public const string Batch10Button = "Batch10Button";
-    public const string Batch15Button = "Batch15Button";
+    public const string ProcessingRecipePanel = "ProcessingRecipePanel";
+    public const string ProcessingRecipeList = "ProcessingRecipeList";
+    public const string ProcessingRecipeRow = "ProcessingRecipeRow";
+    public const string ProcessingRecipeName = "ProcessingRecipeName";
+    public const string ProcessingRecipeFlow = "ProcessingRecipeFlow";
+    public const string ProcessingQuantityRow = "ProcessingQuantityRow";
+    public const string ProcessingQuantityValue = "ProcessingQuantityValue";
+    public const string ProcessingQuantityDown = "ProcessingQuantityDown";
+    public const string ProcessingQuantityUp = "ProcessingQuantityUp";
+    public const string ProcessingQuantityHint = "ProcessingQuantityHint";
     public const string ProcessingCorePanel = "ProcessingCorePanel";
     public const string ProcessingOutputPanel = "ProcessingOutputPanel";
     public const string ProcessingOutputCaption = "ProcessingOutputCaption";
     public const string ProcessingFuelGainValue = "ProcessingFuelGainValue";
     public const string ProcessingAlloyGainValue = "ProcessingAlloyGainValue";
-    public const string ProcessingActiveBatch = "ProcessingActiveBatch";
+    public const string ProcessingCoreNote = "ProcessingCoreNote";
     public const string ProcessingProgressFill = "ProcessingProgressFill";
     public const string ProcessingProgressPercent = "ProcessingProgressPercent";
     public const string ProcessingStatusLabel = "ProcessingStatusLabel";
@@ -91,6 +121,7 @@ public static class ElementNames
     public const string ProcessingRefineryLevel = "ProcessingRefineryLevel";
     public const string ProcessingDurationValue = "ProcessingDurationValue";
     public const string ProcessingStartButton = "ProcessingStartButton";
+    public const string ProcessingPromptHost = "ProcessingPromptHost";
 
     // Outpost (Phase 05 composition / runtime binding).
     public const string HarvesterLevelValue = "HarvesterLevelValue";
@@ -118,6 +149,7 @@ public static class ElementNames
     public const string ModuleUpgradeCostValue = "ModuleUpgradeCostValue";
     public const string ModuleUpgradeRequirement = "ModuleUpgradeRequirement";
     public const string OutpostUpgradeButton = "OutpostUpgradeButton";
+    public const string OutpostPromptHost = "OutpostPromptHost";
 
     /// <summary>Every element the runtime binds; the validator checks each exists in MainApp.uxml.</summary>
     public static readonly string[] All = new[]
@@ -147,6 +179,11 @@ public static class ElementNames
         EnergyBarFill,
         FoodBarFill,
         PlanetDisc,
+        OverviewTitle,
+        ObjectiveSurveyText,
+        ExplorationValue,
+        ExplorationBarFill,
+        OverviewPromptHost,
         HarvesterRowButton,
         BatteryRowButton,
         DroneRowButton,
@@ -157,22 +194,33 @@ public static class ElementNames
         ReadinessPowerValue,
         ReadinessSurveyValue,
         ReadinessCargoValue,
+        PrepHintDetails,
+        PrepHintNavigate,
+        PrepHintBack,
+        PrepHintConfirm,
         ProcessingMineralsValue,
         ProcessingFuelValue,
         ProcessingAlloyValue,
-        Batch5Button,
-        Batch10Button,
-        Batch15Button,
+        ProcessingRecipeList,
+        ProcessingRecipeRow,
+        ProcessingRecipeName,
+        ProcessingRecipeFlow,
+        ProcessingQuantityRow,
+        ProcessingQuantityValue,
+        ProcessingQuantityDown,
+        ProcessingQuantityUp,
+        ProcessingQuantityHint,
         ProcessingOutputCaption,
         ProcessingFuelGainValue,
         ProcessingAlloyGainValue,
         ProcessingProgressFill,
         ProcessingProgressPercent,
         ProcessingStatusLabel,
-        ProcessingActiveBatch,
+        ProcessingCoreNote,
         ProcessingRefineryLevel,
         ProcessingDurationValue,
         ProcessingStartButton,
+        ProcessingPromptHost,
         HarvesterLevelValue,
         RefineryLevelValue,
         OutpostLevelValue,
@@ -205,14 +253,19 @@ public static class ElementNames
     {
         OverviewScreen,
         OverviewTopBar,
+        OverviewTitle,
         ShipStatusPanel,
         ShipSurvivalGroup,
         ShipResourceGroup,
         DestinationPanel,
         PlanetStage,
         PlanetDisc,
+        ExplorationValue,
+        ExplorationBarFill,
+        OverviewPromptHost,
         ObjectivePanel,
         ObjectiveCopy,
+        ObjectiveSurveyText,
         MissionStatusBlock,
         OpenPreparationButton,
         BottomNav,
@@ -251,28 +304,40 @@ public static class ElementNames
     };
 
     /// <summary>
-    /// Phase 04 Processing composition elements the structural validator must
-    /// find in MainApp.uxml (stable names, no pixel checks).
+    /// Processing composition elements the structural validator must find in
+    /// MainApp.uxml (stable names, no pixel checks). Phase 09B PASS 5 replaced
+    /// the fixed 5/10/15 batch buttons with the recipe list + quantity control.
     /// </summary>
     public static readonly string[] ProcessingStructure =
     {
         ProcessingScreen,
-        ProcessingStoragePanel,
+        ProcessingRecipePanel,
+        ProcessingRecipeList,
+        ProcessingRecipeRow,
+        ProcessingRecipeName,
+        ProcessingRecipeFlow,
+        ProcessingQuantityRow,
+        ProcessingQuantityValue,
+        ProcessingQuantityDown,
+        ProcessingQuantityUp,
+        ProcessingQuantityHint,
         ProcessingMineralsValue,
-        Batch5Button,
-        Batch10Button,
-        Batch15Button,
         ProcessingCorePanel,
         ProcessingOutputPanel,
+        ProcessingOutputCaption,
         ProcessingFuelGainValue,
         ProcessingAlloyGainValue,
         ProcessingProgressFill,
+        ProcessingProgressPercent,
         ProcessingStatusLabel,
+        ProcessingCoreNote,
         ProcessingInventoryPanel,
         ProcessingFuelValue,
         ProcessingAlloyValue,
         ProcessingRefineryLevel,
+        ProcessingDurationValue,
         ProcessingStartButton,
+        ProcessingPromptHost,
         BottomNav,
         NavOverview,
         NavPreparation,
@@ -302,10 +367,78 @@ public static class ElementNames
         ModuleUpgradeCostValue,
         ModuleUpgradeRequirement,
         OutpostUpgradeButton,
+        OutpostPromptHost,
         BottomNav,
         NavOverview,
         NavPreparation,
         NavProcessing,
         NavOutpost
+    };
+
+    /// <summary>
+    /// Landing Confirmation / 最终确认 composition the structural validator must
+    /// find in ShipDeployConfirm.uxml (Phase 09B PASS 8): the two code-drawn dot
+    /// fields, the key glyph fused into each action card, and the ONLY hold bar.
+    /// </summary>
+    public static readonly string[] LandingStructure =
+    {
+        "DeployOverlayRoot",
+        LandingDotsLeft,
+        LandingDotsRight,
+        "DeployPanel",
+        "DeployDestination",
+        "DeployHarvesterState",
+        "DeployBatteryState",
+        "DeployDroneState",
+        "DeployCargoValue",
+        "DeployAdjustGearButton",
+        "DeployConfirmButton",
+        "DeployCancelButton",
+        LandingAdjustKey,
+        LandingConfirmKey,
+        LandingCancelKey,
+        LandingHoldFill
+    };
+
+    // ---- Warehouse / 仓库 (Phase 09B PASS 9) ----
+    // The console 02 document (WarehouseConsole.uxml): title, two category tabs
+    // that carry the LB/RB hint, the item grid, the detail panel and the single
+    // Back key line. The item CELLS themselves are built in code from the real
+    // session data (WarehouseCatalog), so they are asserted in PlayMode.
+    public const string WarehouseScreen = "WarehouseScreen";
+    public const string WarehouseTitle = "WarehouseTitleLabel";
+    public const string WarehouseResourcesTab = "WarehouseResourcesTab";
+    public const string WarehouseEquipmentTab = "WarehouseEquipmentTab";
+    public const string WarehouseTabPrevHint = "WarehouseTabPrevHint";
+    public const string WarehouseTabNextHint = "WarehouseTabNextHint";
+    public const string WarehouseGrid = "WarehouseGrid";
+    public const string WarehouseDetailIconHost = "WarehouseDetailIconHost";
+    public const string WarehouseDetailName = "WarehouseDetailName";
+    public const string WarehouseDetailCount = "WarehouseDetailCount";
+    public const string WarehouseDetailState = "WarehouseDetailState";
+    public const string WarehouseDetailText = "WarehouseDetailText";
+    public const string WarehouseNoteLabel = "WarehouseNoteLabel";
+    public const string WarehousePromptHost = "WarehousePromptHost";
+
+    /// <summary>
+    /// Warehouse composition the structural validator must find in
+    /// WarehouseConsole.uxml (stable names, no pixel checks).
+    /// </summary>
+    public static readonly string[] WarehouseStructure =
+    {
+        WarehouseScreen,
+        WarehouseTitle,
+        WarehouseResourcesTab,
+        WarehouseEquipmentTab,
+        WarehouseTabPrevHint,
+        WarehouseTabNextHint,
+        WarehouseGrid,
+        WarehouseDetailIconHost,
+        WarehouseDetailName,
+        WarehouseDetailCount,
+        WarehouseDetailState,
+        WarehouseDetailText,
+        WarehouseNoteLabel,
+        WarehousePromptHost
     };
 }

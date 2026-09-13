@@ -566,6 +566,8 @@ public class StandaloneSmoke : MonoBehaviour
             yield return WaitFor(() => ship.Player.InputEnabled, 3f);
             log.Check("free first person is restored after the Escape exit",
                 ship.Player.InputEnabled);
+            log.Check("leaving a terminal never leaves a system cursor on screen",
+                !UnityEngine.Cursor.visible);
 
             // A -> console view.
             yield return PressGamepadButton(pad, GamepadButton.South);
@@ -982,13 +984,15 @@ public class StandaloneSmoke : MonoBehaviour
 
         bool started5 = session.TryStartProcess(5);
         session.AdvanceProcessing(session.RefineryProcessSeconds);
-        log.Check("batch5 complete -> minerals=25 fuel=10 alloy=6",
-            started5 && session.Minerals == 25 && session.Fuel == 10 && session.Alloy == 6);
+        // Phase 09B PASS 5 yield: 1 mineral -> 合金 +1 (primary) and 燃料 +1
+        // (byproduct), so a 5 mineral run pays 5 of each.
+        log.Check("run 5 complete -> minerals=25 fuel=13 alloy=10",
+            started5 && session.Minerals == 25 && session.Fuel == 13 && session.Alloy == 10);
 
         bool upgradeOk = session.TryUpgrade(GameSession.OutpostModule.Refinery)
                          == GameSession.UpgradeFailureReason.None;
-        log.Check("refinery upgrade -> alloy=3 level=2 duration=1.6",
-            upgradeOk && session.Alloy == 3 && session.RefineryLevel == 2
+        log.Check("refinery upgrade -> alloy=7 level=2 duration=1.6",
+            upgradeOk && session.Alloy == 7 && session.RefineryLevel == 2
             && Math.Abs(session.RefineryProcessSeconds - 1.6f) < 0.001f);
     }
 
@@ -1051,18 +1055,18 @@ public class StandaloneSmoke : MonoBehaviour
         app.ShowScreen(AppScreen.Overview);
         Label overviewMinerals = app.UiRoot?.Q<Label>(ElementNames.MineralsValue);
         Label overviewAlloy = app.UiRoot?.Q<Label>(ElementNames.AlloyValue);
-        log.Check("overview reflects shared state (minerals=25 alloy=3)",
+        log.Check("overview reflects shared state (minerals=25 alloy=7)",
             overviewMinerals != null && overviewMinerals.text == "25"
-            && overviewAlloy != null && overviewAlloy.text == "3");
+            && overviewAlloy != null && overviewAlloy.text == "7");
 
         bool blockedByCore = session.TryUpgrade(GameSession.OutpostModule.Refinery)
                              == GameSession.UpgradeFailureReason.CoreLevelRequired;
         log.Check("refinery LV3 blocked by core (alloy unchanged)",
-            blockedByCore && session.RefineryLevel == 2 && session.Alloy == 3);
+            blockedByCore && session.RefineryLevel == 2 && session.Alloy == 7);
         bool coreLack = session.TryUpgrade(GameSession.OutpostModule.Core)
                         == GameSession.UpgradeFailureReason.InsufficientAlloy;
         log.Check("core upgrade insufficient alloy",
-            coreLack && session.OutpostLevel == 1 && session.Alloy == 3);
+            coreLack && session.OutpostLevel == 1 && session.Alloy == 7);
     }
 
     /// <summary>
@@ -1085,17 +1089,17 @@ public class StandaloneSmoke : MonoBehaviour
             Label detailName = app.UiRoot?.Q<Label>(ElementNames.ModuleDetailName);
             Button outpostUpgrade = app.UiRoot?.Q<Button>(ElementNames.OutpostUpgradeButton);
             log.Check("outpost UI shows refinery LV.2 duration 1.6 CTA core-locked",
-                outpostAlloy != null && outpostAlloy.text == "3"
+                outpostAlloy != null && outpostAlloy.text == "7"
                 && refineryStatus != null && refineryStatus.text == "LV.2"
                 && detailName != null && detailName.text == "精炼模块"
                 && detailDuration != null && detailDuration.text == "1.6s"
-                && outpostUpgrade != null && outpostUpgrade.text == "需要核心升级"
+                && outpostUpgrade != null && outpostUpgrade.text == "升级"
                 && !outpostUpgrade.enabledSelf);
         }
         else
         {
             log.Check("outpost state derived values in the " + host + " host",
-                session.RefineryLevel == 2 && session.Alloy == 3
+                session.RefineryLevel == 2 && session.Alloy == 7
                 && session.SubsystemLevelCap == 2);
         }
 
@@ -1125,7 +1129,7 @@ public class StandaloneSmoke : MonoBehaviour
         }
 
         bool batch10 = session.TryStartProcess(10);
-        log.Check("start batch 10 -> minerals=15 state Running",
+        log.Check("start run 10 -> minerals=15 state Running",
             batch10 && session.Minerals == 15 && session.IsProcessing
             && (app == null || (mineralsLabel != null && mineralsLabel.text == "15"
                                 && processStart != null && processStart.text == "加工中"
@@ -1142,18 +1146,18 @@ public class StandaloneSmoke : MonoBehaviour
             session.IsProcessing && session.Minerals == 15);
 
         yield return WaitForProcessDone(session, 30f);
-        log.Check("batch10 complete -> fuel=14 alloy=5",
+        log.Check("run 10 complete -> fuel=23 alloy=17",
             session.ProcessState == GameSession.RefineryProcessState.Complete
-            && session.Fuel == 14 && session.Alloy == 5
-            && (app == null || (fuelLabel != null && fuelLabel.text == "14")));
+            && session.Fuel == 23 && session.Alloy == 17
+            && (app == null || (fuelLabel != null && fuelLabel.text == "23")));
 
         bool again = session.TryStartProcess(5);
-        log.Check("re-start batch 5 after complete -> minerals=10",
+        log.Check("re-start run 5 after complete -> minerals=10",
             again && session.Minerals == 10 && session.IsProcessing);
         yield return WaitForProcessDone(session, 30f);
-        log.Check("batch5 complete -> fuel=16 alloy=6 status 加工完成",
+        log.Check("run 5 complete -> fuel=28 alloy=22 status 加工完成",
             session.ProcessState == GameSession.RefineryProcessState.Complete
-            && session.Fuel == 16 && session.Alloy == 6
+            && session.Fuel == 28 && session.Alloy == 22
             && (app == null || (statusLabel != null && statusLabel.text == "加工完成")));
 
         // §73: a short cross-screen state regression after the menu transition.
@@ -1173,7 +1177,7 @@ public class StandaloneSmoke : MonoBehaviour
         else
         {
             log.Check("state regression: settled state is shared in the " + host + " host",
-                session.Minerals == 10 && session.Fuel == 16 && session.Alloy == 6
+                session.Minerals == 10 && session.Fuel == 28 && session.Alloy == 22
                 && session.ProcessState == GameSession.RefineryProcessState.Complete);
         }
     }
@@ -1422,7 +1426,7 @@ public class StandaloneSmoke : MonoBehaviour
             log.Check("the deployment prompt is back after the panel closes",
                 ReferenceEquals(ship.Interactor.CurrentTarget,
                     (IFirstPersonInteractable)ship.Airlock)
-                && ship.Interactor.ResolvePrompt().Contains("前往 NEREID-04 地表"));
+                && ship.Interactor.ResolvePrompt().Contains(PlanetIdentity.SurfacePrompt));
 
             // ---- Escape is this panel's Back key as well (no pause) ----
             yield return PressGamepadButton(pad, GamepadButton.South);

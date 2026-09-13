@@ -232,6 +232,13 @@ public class ShipGameController : MonoBehaviour, IWristContext, IArmsPresentatio
         return false;
     }
 
+    /// <summary>Phase 09B PASS 3: the ship interior has no surface navigation, so
+    /// the wrist's 当前导航 module is never an operable element here.</summary>
+    public bool TryClearNavigationTarget()
+    {
+        return false;
+    }
+
     // Custom-accessor events (interface contract; the wrist subscribes).
     private Action<bool> _wristOpenChanged;
     private Action _navigationChanged;
@@ -728,7 +735,45 @@ public class ShipGameController : MonoBehaviour, IWristContext, IArmsPresentatio
         {
             _wrist.Tick();
         }
+
+        // The prompt is presentation and refreshes AFTER the wrist has ticked, so
+        // the rows it shows belong to the mode the player is in THIS frame.
+        RefreshControllerPrompt();
     }
+
+    /// <summary>
+    /// Phase 09B PASS 3: the ship wrist uses the same shared prompt bar as the
+    /// surface map, with the same mode-dependent rows. It is withdrawn the moment
+    /// the terminal is not presented, so the ship HUD keeps its own bottom-centre
+    /// interaction prompt untouched.
+    /// </summary>
+    private void RefreshControllerPrompt()
+    {
+        if (_hud == null)
+        {
+            return;
+        }
+
+        // An empty operable set is a real state: the ship terminal is a read-only
+        // board (deck schematic + equipment list), so it advertises only Back.
+        _hud.SetControllerPrompt(_isWristOpen && IsWristTerminalRevealed,
+            _wrist != null && _wrist.FocusableCount > 0
+                ? WristFocusPromptRows
+                : ControllerPromptBar.BackOnlyRows());
+    }
+
+    /// <summary>
+    /// The ship wrist's key rows: walk the focus ring, confirm, back. The map rows
+    /// of the surface terminal are deliberately absent - the ship's centre is a
+    /// deck schematic with no selectable node and nothing to zoom, and the bar must
+    /// never advertise a key that does nothing.
+    /// </summary>
+    private static readonly ControllerPromptRow[] WristFocusPromptRows =
+    {
+        ControllerPromptRow.Key("选择", UiAction.Navigate),
+        ControllerPromptRow.Key("确认", UiAction.Confirm),
+        ControllerPromptRow.Key("返回", UiAction.Back)
+    };
 
     private void PollWristKeys()
     {

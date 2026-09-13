@@ -404,9 +404,11 @@ public class ShipB2ShotProbe : MonoBehaviour
         VisualElement root = surface.Document != null
             ? surface.Document.rootVisualElement
             : null;
-        Button batch5 = root != null ? root.Q<Button>(ElementNames.Batch5Button) : null;
-        Check("hover stage batch button resolved", batch5 != null);
-        if (batch5 == null)
+        Button hoverTarget = root != null
+            ? root.Q<Button>(ElementNames.ProcessingQuantityUp)
+            : null;
+        Check("hover stage processing control resolved", hoverTarget != null);
+        if (hoverTarget == null)
         {
             _focus.RequestExit();
             yield return WaitExplore();
@@ -414,7 +416,7 @@ public class ShipB2ShotProbe : MonoBehaviour
         }
 
         // Element centre (panel px) -> quad world point -> screen pixel.
-        Rect bounds = batch5.worldBound;
+        Rect bounds = hoverTarget.worldBound;
         float u = Mathf.Clamp01(bounds.center.x / WorldConsoleSurface.UiWidth);
         float vUp = 1f - Mathf.Clamp01(bounds.center.y / WorldConsoleSurface.UiHeight);
         Transform quad = surface.ScreenQuad;
@@ -424,13 +426,13 @@ public class ShipB2ShotProbe : MonoBehaviour
                         + quad.up * ((vUp - 0.5f) * scale.y);
         Vector3 screen = _eye.WorldToScreenPoint(world);
 
-        Color baseColor = batch5.resolvedStyle.backgroundColor;
+        Color baseColor = hoverTarget.resolvedStyle.backgroundColor;
         mouse.WarpCursorPosition(new Vector2(screen.x, screen.y));
         yield return WaitReal(0.4f);
         bool hoverApplied = false;
         for (int f = 0; f < 180 && !hoverApplied; f++)
         {
-            Color now = batch5.resolvedStyle.backgroundColor;
+            Color now = hoverTarget.resolvedStyle.backgroundColor;
             hoverApplied = now != baseColor;
             yield return null;
         }
@@ -466,7 +468,7 @@ public class ShipB2ShotProbe : MonoBehaviour
                 picked = panel.Pick(panelPos);
                 for (VisualElement walk = picked; walk != null; walk = walk.parent)
                 {
-                    if (walk == batch5)
+                    if (walk == hoverTarget)
                     {
                         pickerChainOk = true;
                         break;
@@ -475,7 +477,7 @@ public class ShipB2ShotProbe : MonoBehaviour
             }
         }
 
-        Check("real-mouse hover targets the interactive button through the "
+        Check("real-mouse hover targets the interactive control through the "
               + "device path (picked=" + (picked != null ? picked.name : "null")
               + " styleChanged=" + hoverApplied + ")",
             pickerChainOk);
@@ -561,13 +563,9 @@ public class ShipB2ShotProbe : MonoBehaviour
                     clicked && batteryOff && session.BatterySelected);
             }
 
-            // Close via the top-right 返回 button -> ShipExplore.
-            Button close = loadout.Root.Q<Button>(ShipLoadoutPage.CloseButtonName);
-            Check("loadout close button present", close != null);
-            if (close != null)
-            {
-                UiToolkitPointerSimulator.Click(close);
-            }
+            // Close via the overlay's Back route -> ShipExplore (the top-right
+            // 返回 button was removed on request).
+            UiInput.InjectEscapeForAutomation();
 
             yield return WaitReal(0.6f);
             Check("loadout closed back to ShipExplore",
@@ -626,13 +624,8 @@ public class ShipB2ShotProbe : MonoBehaviour
                     && _overlay.Mode == ShipOverlayUi.OverlayMode.Loadout
                     && _overlay.LoadoutPage != null && _overlay.LoadoutPage.IsVisible);
 
-                // Return to the confirmation (top-right 返回).
-                Button back = _overlay.LoadoutPage.Root
-                    .Q<Button>(ShipLoadoutPage.CloseButtonName);
-                if (back != null)
-                {
-                    UiToolkitPointerSimulator.Click(back);
-                }
+                // Return to the confirmation (Back / Esc, no top-right button).
+                UiInput.InjectEscapeForAutomation();
 
                 yield return WaitReal(0.7f);
                 Check("loadout returned to deployment confirmation",
@@ -640,21 +633,33 @@ public class ShipB2ShotProbe : MonoBehaviour
                     && _overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm);
             }
 
-            // 确认降临 -> real ShipInterior -> Surface routing.
+            // 确认降临 -> real ShipInterior -> Surface routing. Phase 09B PASS 8:
+            // the action is a HOLD, so the probe presses, holds past the authored
+            // duration and releases - a plain click must not deploy.
             int mineralsBefore = session.Minerals;
             Button confirm = deploy.Root.Q<Button>(ShipDeployConfirmPage.ConfirmButtonName);
             Check("deploy 确认降临 button present", confirm != null);
             if (confirm != null)
             {
-                UiToolkitPointerSimulator.Click(confirm);
+                UiToolkitPointerSimulator.PointerDown(confirm);
+                yield return WaitReal(ShipDeployConfirmPage.HoldSeconds + 0.45f);
+                // By now the hold may already have completed AND asked for the
+                // routing (which resets the bar), so the completion is proven by
+                // the progress OR the completed beat OR the recorded request.
+                Check("a completed hold really reached 100% (progress "
+                      + deploy.HoldProgress01.ToString("0.00") + ", requested "
+                      + deploy.ConfirmRequestCount + ")",
+                    deploy.HoldProgress01 >= 0.999f || deploy.IsHoldComplete
+                    || deploy.ConfirmRequestCount > 0);
+                UiToolkitPointerSimulator.PointerUp(confirm);
                 for (int t = 0; t < 1200
                      && ActiveSceneName() != GameSession.SurfaceSceneName; t++)
                 {
                     yield return null;
                 }
 
-                Check("确认降临 routed to the NEREID-04 surface (scene="
-                      + ActiveSceneName() + ")",
+                Check("确认降临 routed to the " + PlanetIdentity.DisplayName
+                      + " surface (scene=" + ActiveSceneName() + ")",
                     ActiveSceneName() == GameSession.SurfaceSceneName);
                 yield return WaitReal(1.0f);
                 SurfaceGameController surface =

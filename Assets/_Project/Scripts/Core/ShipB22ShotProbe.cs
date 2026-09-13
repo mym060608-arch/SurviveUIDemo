@@ -680,59 +680,62 @@ public class ShipB22ShotProbe : MonoBehaviour
         VisualElement root = surface.Document != null
             ? surface.Document.rootVisualElement
             : null;
-        Button batch5 = root != null ? root.Q<Button>(ElementNames.Batch5Button) : null;
-        Button batch10 = root != null ? root.Q<Button>(ElementNames.Batch10Button) : null;
+        Button quantityUp = root != null
+            ? root.Q<Button>(ElementNames.ProcessingQuantityUp)
+            : null;
+        Button quantityDown = root != null
+            ? root.Q<Button>(ElementNames.ProcessingQuantityDown)
+            : null;
+        Label quantityValue = root != null
+            ? root.Q<Label>(ElementNames.ProcessingQuantityValue)
+            : null;
         Button start = root != null
             ? root.Q<Button>(ElementNames.ProcessingStartButton)
             : null;
-        Check("processing batch/start buttons resolved",
-            batch5 != null && batch10 != null && start != null);
-        if (batch5 == null || batch10 == null || start == null)
+        Check("processing quantity/start controls resolved",
+            quantityUp != null && quantityDown != null
+            && quantityValue != null && start != null);
+        if (quantityUp == null || quantityDown == null
+            || quantityValue == null || start == null)
         {
             _focus.RequestExit();
             yield return WaitExplore();
             yield break;
         }
 
-        Info("initial selection: batch5=" + batch5.ClassListContains("batch-selected")
-             + " batch10=" + batch10.ClassListContains("batch-selected")
+        Info("initial selection: quantity=" + quantityValue.text
              + " startEnabled=" + start.enabledSelf);
 
         // The pointer chain must resolve the SAME panel cell the screen paints.
-        yield return VerifyVisualPointerAgreement(surface, batch5, "Batch 05");
+        yield return VerifyVisualPointerAgreement(surface, quantityUp, "Quantity +");
 
-        // Real device clicks through the real cursor. Batch 10 first so the
-        // selection change cannot be mistaken for a default selection, then the
-        // contract's Batch 05 click.
-        yield return WarpAndClick(batch10, surface, "Batch 10");
-        bool batch10Selected = batch10.ClassListContains("batch-selected");
-        Check("real mouse click on the VISIBLE Batch 10 selected Batch 10 and "
-              + "cleared Batch 05 (batch10=" + batch10Selected + " batch5="
-              + batch5.ClassListContains("batch-selected") + ")",
-            batch10Selected && !batch5.ClassListContains("batch-selected"));
+        // Real device clicks through the real cursor. Raise the run size first,
+        // then lower it again, so the change cannot be mistaken for a default.
+        yield return WarpAndClick(quantityUp, surface, "Quantity +");
+        bool raised = quantityValue.text == "02";
+        Check("real mouse click on the VISIBLE quantity arrow raised the run "
+              + "size to 02 (value=" + quantityValue.text + ")", raised);
 
-        yield return WarpAndClick(batch5, surface, "Batch 05");
-        bool batchSelected = batch5.ClassListContains("batch-selected");
-        Check("real mouse click on the VISIBLE Batch 05 selected Batch 05 "
-              + "(batch-selected=" + batchSelected + ")", batchSelected);
+        yield return WarpAndClick(quantityDown, surface, "Quantity -");
+        bool lowered = quantityValue.text == "01";
+        Check("real mouse click on the VISIBLE quantity arrow lowered it back "
+              + "(value=" + quantityValue.text + ")", lowered);
 
-        yield return WarpAndClick(start, surface, "Start");
+        yield return WarpAndClick(start, surface, "确认加工");
         for (int i = 0; i < 180 && !session.IsProcessing; i++)
         {
             yield return null;
         }
 
-        Info("session after the Start click: processing=" + session.IsProcessing
-             + " batch=" + session.ActiveBatchMinerals + " minerals="
+        Info("session after the 确认加工 click: processing=" + session.IsProcessing
+             + " quantity=" + session.ActiveBatchMinerals + " minerals="
              + session.Minerals + " state=" + session.ProcessState
-             + " | batch5 still selected="
-             + batch5.ClassListContains("batch-selected")
              + " | start button enabled=" + start.enabledSelf);
 
-        Check("real mouse click on the VISIBLE Start began the 5-mineral batch "
-              + "(processing=" + session.IsProcessing + " batch="
+        Check("real mouse click on the VISIBLE 确认加工 began the run "
+              + "(processing=" + session.IsProcessing + " quantity="
               + session.ActiveBatchMinerals + ")",
-            session.IsProcessing && session.ActiveBatchMinerals == 5);
+            session.IsProcessing && session.ActiveBatchMinerals == 1);
 
         Info("selected console kind: " + ConsoleKinds[index]);
 

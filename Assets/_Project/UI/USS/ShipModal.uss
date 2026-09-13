@@ -1,9 +1,15 @@
 /*
- * Survive UI Demo - Ship modal overlay chrome (Phase 07B.2).
- * Shared by the Deployment Confirmation page and the loadout page close bar.
- * Light panel over a dim world; restrained corners, hairline rules, teal
- * primary accent (#0E7F8C). Targets the 1920 x 1080 runtime overlay canvas.
+ * Survive UI Demo - Ship modal overlay chrome (Phase 07B.2; the Landing
+ * Confirmation panel was rebuilt against the approved reference in Phase 09B
+ * PASS 8).
+ *
+ * Language: a LIGHT panel over the dim hangar, one restrained cyan accent
+ * (#0E7F8C) plus hairline rules, and the cyan dot-matrix fields that flank the
+ * landing panel on the dark background. Targets the 1920 x 1080 runtime
+ * overlay canvas.
  */
+
+/* ---------- Shared overlay root ---------- */
 
 .modal-root {
     background-color: rgba(9, 13, 16, 0.56);
@@ -11,57 +17,141 @@
     justify-content: center;
 }
 
-.modal-panel {
-    width: 820px;
-    background-color: #EDEFF1;
+/* ---------- Landing Confirmation: panel + flanking dot fields ---------- */
+
+.landing-root {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Cyan dot matrix (drawn in code by LandingDotMatrix); one field per side. */
+.landing-dots {
+    width: 240px;
+    height: 560px;
+    flex-shrink: 0;
+}
+
+.landing-dots-left {
+    margin-right: 34px;
+}
+
+.landing-dots-right {
+    margin-left: 34px;
+}
+
+.landing-panel {
+    width: 960px;
+    flex-shrink: 0;
+    background-color: #F1F3F5;
     border-top-width: 3px;
     border-top-color: #0E7F8C;
-    padding-left: 56px;
-    padding-right: 56px;
-    padding-top: 44px;
-    padding-bottom: 36px;
+    padding-left: 52px;
+    padding-right: 52px;
+    padding-top: 34px;
+    padding-bottom: 34px;
 }
 
-.modal-head {
+.landing-top {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+.landing-destination {
     flex-direction: column;
     align-items: flex-start;
+    flex-grow: 1;
+    min-width: 0;
 }
 
-.modal-kicker {
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: #5A6570;
-    margin-bottom: 6px;
+.landing-kicker-row {
+    flex-direction: row;
+    align-items: center;
 }
 
-.modal-hero {
-    font-size: 44px;
-    -unity-font-style: medium;
+.landing-kicker {
+    font-size: 12px;
+    letter-spacing: 0px;
     color: #161B20;
 }
 
-.modal-sub {
-    font-size: 13px;
-    color: #4A525C;
-    margin-top: 6px;
+/* The short cyan rule the reference puts after every section label. */
+.landing-kicker-rule {
+    width: 34px;
+    height: 2px;
+    background-color: #0E7F8C;
+    margin-left: 12px;
 }
 
-.modal-rule {
-    height: 1px;
-    background-color: #C9CFD4;
+.landing-hero {
+    font-size: 54px;
+    -unity-font-style: medium;
+    letter-spacing: 2px;
+    color: #161B20;
+    margin-top: 10px;
+}
+
+.landing-sub {
+    font-size: 13px;
+    color: #7B858F;
+    margin-top: 8px;
+}
+
+.landing-final {
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+    padding-left: 24px;
+}
+
+.landing-final-title {
+    font-size: 30px;
+    -unity-font-style: bold;
+    letter-spacing: 2px;
+    color: #161B20;
+}
+
+.landing-final-sub {
+    font-size: 12px;
+    color: #0E7F8C;
+    margin-top: 8px;
+}
+
+/* Hairline with the three restrained slash marks from the reference. */
+.landing-divider {
+    flex-direction: row;
+    align-items: center;
     margin-top: 22px;
     margin-bottom: 20px;
 }
 
-.modal-group-title {
-    font-size: 12px;
-    letter-spacing: 2px;
-    color: #4A525C;
-    margin-bottom: 8px;
+.landing-divider-line {
+    flex-grow: 1;
+    height: 1px;
+    background-color: #C9CFD4;
 }
+
+.landing-divider-marks {
+    flex-direction: row;
+    align-items: center;
+    margin-left: 14px;
+    margin-right: 14px;
+}
+
+.landing-divider-mark {
+    width: 3px;
+    height: 12px;
+    background-color: #0E7F8C;
+    margin-left: 4px;
+    rotate: 20deg;
+}
+
+/* ---------- Equipment list (text only, no pictograms) ---------- */
 
 .modal-gear {
     flex-direction: column;
+    margin-top: 6px;
 }
 
 .modal-gear-row {
@@ -78,9 +168,9 @@
 
 .modal-gear-state {
     font-size: 13px;
-    color: #4A525C;
-    width: 84px;
-    -unity-text-align: middle-center;
+    color: #7B858F;
+    width: 96px;
+    -unity-text-align: middle-right;
 }
 
 .modal-state-required {
@@ -97,61 +187,128 @@
     background-color: #D8DDE1;
 }
 
-.modal-actions {
+/* ---------- The three action cards ARE the key line ---------- */
+
+.landing-actions {
     flex-direction: row;
-    justify-content: flex-end;
-    margin-top: 30px;
+    align-items: stretch;
+    margin-top: 26px;
 }
 
-.modal-btn {
-    height: 46px;
-    padding-left: 22px;
-    padding-right: 22px;
-    margin-left: 12px;
-    font-size: 16px;
-}
-
-.modal-btn-primary {
-    background-color: #0E7F8C;
-    color: #FFFFFF;
-    border-top-width: 0;
-    border-bottom-width: 0;
-    border-left-width: 0;
-    border-right-width: 0;
-}
-
-.modal-btn-primary:hover {
-    background-color: #0B6A76;
-}
-
-.modal-btn-ghost {
+.landing-card {
+    flex-grow: 1;
+    flex-basis: 0;
+    height: 76px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 16px;
+    padding-right: 16px;
+    margin-right: 12px;
     background-color: #FFFFFF;
-    color: #161B20;
-    border-top-width: 1px;
-    border-bottom-width: 1px;
-    border-left-width: 1px;
-    border-right-width: 1px;
+    border-width: 1px;
+    border-color: #C9CFD4;
+    transition-property: border-color, background-color;
+    transition-duration: 0.12s;
+}
+
+.landing-card:last-child {
+    margin-right: 0px;
+}
+
+.landing-card:hover {
     border-color: #0E7F8C;
 }
 
-.modal-btn-ghost:hover {
-    background-color: #E3F0F2;
+/* Focus: a light cyan frame, never a loud one. */
+.landing-card-focused {
+    border-color: #0E7F8C;
 }
 
-.modal-btn-plain {
-    background-color: rgba(0, 0, 0, 0);
-    color: #4A525C;
+.landing-card-key {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-width: 1px;
+    border-color: #9AA2AA;
+    border-radius: 17px;
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #161B20;
+    -unity-text-align: middle-center;
 }
 
-.modal-btn-plain:hover {
+.landing-card-copy {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    margin-left: 14px;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.landing-card-verb {
+    font-size: 17px;
+    -unity-font-style: bold;
     color: #161B20;
 }
 
-.modal-hint {
+.landing-card-sub {
     font-size: 11px;
     color: #7B858F;
-    margin-top: 18px;
-    -unity-text-align: middle-left;
+    margin-top: 3px;
+}
+
+/* ---- Primary CTA: 确认降临 (highest visual weight) ---- */
+
+.landing-card-primary {
+    background-color: #0E7F8C;
+    border-color: #0E7F8C;
+}
+
+.landing-card-primary:hover {
+    background-color: #0C7280;
+    border-color: #0C7280;
+}
+
+.landing-card-key-primary {
+    border-color: rgba(255, 255, 255, 0.85);
+    color: #FFFFFF;
+}
+
+.landing-card-verb-primary {
+    color: #FFFFFF;
+}
+
+.landing-card-sub-primary {
+    color: rgba(255, 255, 255, 0.78);
+}
+
+/* Holding: the frame brightens and the inner progress bar fills. */
+.landing-card-holding {
+    border-color: #7FE3EE;
+    background-color: #10818F;
+}
+
+/* Completed: one short confirmation beat before the real routing runs. */
+.landing-card-complete {
+    border-color: #B9F4FA;
+    background-color: #149AA9;
+}
+
+/* The ONLY hold progress bar, inside the A card. */
+.landing-hold-track {
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 9px;
+    height: 4px;
+    background-color: rgba(255, 255, 255, 0.24);
+}
+
+.landing-hold-fill {
+    height: 4px;
+    width: 0%;
+    background-color: #B9F4FA;
 }
 
 /* ---------- Loadout page close bar (appended over the shared prep page) ---------- */
@@ -192,4 +349,18 @@
 
 .loadout-scrim {
     background-color: rgba(9, 13, 16, 0.42);
+}
+
+/* =====================================================================
+ * Project cursor, document-wide (Phase 09B PASS 6 follow-up).
+ *
+ * UI Toolkit re-applies the hovered element's own cursor on every hover
+ * change. Every document (hub app, ship HUD, surface HUD / wrist, main menu,
+ * warehouse console, modal sheets) therefore carries the project's dot, so no
+ * element can ever resolve to the stock Windows arrow. Actionable elements
+ * override it with the dot+ring asset where a page defines them.
+ * ===================================================================== */
+
+* {
+    cursor: url("../Cursors/T_CursorDot.png") 16 16;
 }

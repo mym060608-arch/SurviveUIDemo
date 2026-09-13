@@ -1,13 +1,14 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
     <!--
-    Wrist terminal (Phase 06 Revision Round 9.2 parallel-cap architecture).
+    Wrist terminal (Phase 06 Revision Round 9.2 parallel-cap architecture,
+    Phase 09B PASS 3 industrial restyle).
 
     Radial geometry is NOT built from dozens of VisualElements: RadialWristElement
     (injected by C# into RadialGeometryHost) paints the full triangle-mesh
-    hologram - translucent local map, health/satiety status arcs (inner radius
-    248 == panel inner radius), and the four Parallel-Cap Annular Panels
-    (annulus 248..365 intersected with horizontal Y bands; top/bottom edges are
-    horizontal caps and therefore parallel).
+    hologram - the frosted local map, the health/satiety status arcs (inner radius
+    248 == panel inner radius), the navigation standby radar and the four
+    Parallel-Cap Annular Panels (annulus 248..365 intersected with horizontal Y
+    bands; top/bottom edges are horizontal caps and therefore parallel).
 
     This UXML only hosts the geometry plus content overlays:
     - map markers (absolute wrist pixels)
@@ -16,6 +17,12 @@
       row's left/top/width from the authoritative panel cross-section
       (RadialWristElement.GetPanelHorizontalRange) so the staircase follows the
       real geometry - no hand-added indentation, no rectangle-card containers.
+    - the navigation radar's "?" glyph (the radar RING is mesh geometry, the
+      symbol is text so it stays crisp).
+
+    Every element name here is part of the frozen wrist contract (Phase 06 /
+    07B validators and tests resolve them by name); PASS 3 restyles them and adds
+    NavRadarGlyph only.
 
     No rectangular cards, no tick rings, no white map disc, no custom cursor
     VisualElement (the wrist cursor is Cursor.SetCursor runtime texture).
@@ -36,9 +43,11 @@
             <ui:VisualElement name="MapSelectedRing" class="map-selected-ring" />
         </ui:VisualElement>
 
-        <!-- Status values (text sits near the health/satiety arcs). -->
-        <ui:Label name="HealthLabel" text="健康度 100" class="radial-value health-label" />
-        <ui:Label name="SatietyLabel" text="饱食度 82" class="radial-value satiety-label" />
+        <!-- Status values: small EMBEDDED chips near the arcs (PASS 3 removed
+             the big floating readout; the text stays identical so the Phase 06
+             label contract is untouched). -->
+        <ui:Label name="HealthLabel" text="100" class="radial-value health-label" />
+        <ui:Label name="SatietyLabel" text="82" class="radial-value satiety-label" />
 
         <!-- ============================================================
              Horizontal text slots (Round 9.2).
@@ -48,7 +57,10 @@
              stays inside its panel with the required padding.
              ============================================================ -->
 
-        <!-- Upper-left panel: Equipment (down-left staircase). -->
+        <!-- Upper-left panel: Equipment (down-left staircase). READ-ONLY: the
+             block lists exactly what the expedition carries (采集器 MK-I always,
+             备用电池 / 勘测无人机 only while equipped); an unequipped module is not
+             drawn and the listed rows are packed into the first slots. -->
         <ui:Label name="EquipHeading" text="当前装备" class="wrist-row row-heading" />
         <ui:Label name="EquipHarvester" text="采集器 MK-I" class="wrist-row row-equip" />
         <ui:Label name="EquipBattery" text="备用电池" class="wrist-row row-equip" />
@@ -65,6 +77,11 @@
         <ui:Label name="NavTarget" text="未设置" class="wrist-row row-value" />
         <ui:Label name="NavDistance" text="" class="wrist-row row-body" />
 
+        <!-- Navigation radar symbol: the ring + sweep are mesh geometry drawn
+             by RadialWristElement at RadarCenter; this label carries the "?"
+             standby glyph (empty once a navigation target is set). -->
+        <ui:Label name="NavRadarGlyph" text="?" class="nav-radar-glyph" />
+
         <!-- Lower-right panel: Harvest (down-left staircase).
              Row1 = node, Row2 = state, Row3 = progress (explicitly cleared
              outside Harvesting/Transmitting so no '%' residue can remain). -->
@@ -75,7 +92,7 @@
 
         <!-- Map footer / identity label: planet + mission context INSIDE the
              central Local Map, lower half (Round 9.2.2). -->
-        <ui:Label name="WristIdentity" text="NEREID-04 · 地表勘测" class="wrist-identity" />
+        <ui:Label name="WristIdentity" text="AURELIA-01 · 地表勘测" class="wrist-identity" />
 
     </ui:VisualElement>
 </ui:UXML>
