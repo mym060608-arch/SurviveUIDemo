@@ -1,163 +1,320 @@
 /*
- * Survive UI Demo - Console02 仓库总览 / CARGO // STORAGE (Phase 07B.2).
- * Follows the project visual language: off-white light canvas, restrained
- * ink text, single teal accent family, hairline rules, Swiss grid.
+ * Survive UI Demo - Console02 仓库 / Warehouse (Phase 09B PASS 9).
+ *
+ * Light canvas, restrained ink text, ONE cyan accent and hairlines. The layout
+ * is the approved reference: 仓库 title / category tabs carrying the LB-RB hint /
+ * 4 x 3 item grid / selected item detail / a single [B] 返回 key line.
  * Targets the 1920 x 1080 console RenderTexture.
  */
 
 .warehouse-root {
     background-color: #E9EBED;
+    flex-grow: 1;
     flex-direction: column;
-    padding-left: 84px;
-    padding-right: 84px;
-    padding-top: 40px;
-    padding-bottom: 36px;
+    padding-left: 76px;
+    padding-right: 76px;
+    padding-top: 34px;
+    padding-bottom: 22px;
 }
 
-/* ---------- Header ---------- */
+/* ---------- Title ---------- */
 
 .wh-header {
     flex-shrink: 0;
     flex-direction: row;
-    align-items: flex-start;
-    margin-bottom: 30px;
-}
-
-.wh-header-text {
-    flex-direction: column;
+    align-items: center;
+    margin-bottom: 18px;
 }
 
 .wh-title {
     font-size: 34px;
     -unity-font-style: medium;
+    letter-spacing: 0px;
     color: #161B20;
-}
-
-.wh-meta {
-    font-size: 11px;
-    letter-spacing: 3px;
-    color: #5A6570;
-    margin-top: 4px;
 }
 
 .wh-header-rule {
     flex-grow: 1;
     height: 1px;
     background-color: #C9CFD4;
-    margin-left: 36px;
+    margin-left: 30px;
     margin-right: 24px;
-    margin-top: 22px;
 }
 
 .wh-index {
-    font-size: 22px;
-    color: #0E7F8C;
-    margin-top: 4px;
+    font-size: 20px;
+    color: #7B858F;
 }
 
-/* ---------- Body grid ---------- */
+/* ---------- Category tabs (the LB / RB paging hint lives here) ---------- */
 
-.wh-body {
-    flex-grow: 1;
+.wh-tabs {
+    flex-shrink: 0;
     flex-direction: row;
+    align-items: flex-end;
+    height: 52px;
+    margin-bottom: 16px;
 }
 
-.wh-col {
-    flex-direction: column;
-}
-
-.wh-col-left {
-    width: 46%;
-    margin-right: 8%;
-}
-
-.wh-col-right {
-    width: 46%;
-}
-
-.wh-group-label {
-    font-size: 14px;
-    letter-spacing: 2px;
-    color: #4A525C;
-    margin-bottom: 14px;
-}
-
-.wh-panel {
-    flex-direction: column;
-    padding-top: 6px;
-    padding-bottom: 6px;
-}
-
-.store-row,
-.gear-row {
+.wh-tab {
+    height: 42px;
+    min-width: 132px;
     flex-direction: row;
     align-items: center;
-    height: 74px;
-    flex-shrink: 0;
+    justify-content: center;
+    margin-right: 10px;
+    padding-left: 24px;
+    padding-right: 24px;
+    background-color: #E1E4E7;
+    border-width: 1px;
+    border-color: #D3D8DC;
+    /* Idle tab sits slightly LOWER than the selected one. */
+    translate: 0 4px;
+    transition-property: translate, background-color, border-color;
+    transition-duration: 0.12s;
 }
 
-.store-name {
-    font-size: 21px;
-    color: #161B20;
-    width: 160px;
-    flex-shrink: 0;
+.wh-tab:hover {
+    border-color: #9FBFC4;
 }
 
-.store-value {
-    flex-grow: 1;
-    font-size: 30px;
-    color: #161B20;
-    -unity-text-align: middle-right;
-    margin-right: 8px;
-}
-
-.store-unit {
-    width: 60px;
-    font-size: 15px;
+.wh-tab-label {
+    font-size: 17px;
     color: #5A6570;
 }
 
-.row-rule {
-    height: 1px;
-    background-color: #D3D8DC;
-    flex-shrink: 0;
+/* Selected: raised, lighter, and framed in cyan - deliberate but restrained. */
+.wh-tab-active {
+    background-color: #FFFFFF;
+    border-width: 1px;
+    border-color: #0E7F8C;
+    translate: 0 -4px;
 }
 
-.gear-name {
+.wh-tab-active .wh-tab-label {
+    color: #161B20;
+    -unity-font-style: bold;
+}
+
+.wh-tab-spacer {
     flex-grow: 1;
-    font-size: 19px;
+}
+
+.wh-tab-key {
+    font-size: 14px;
+    -unity-font-style: bold;
+    letter-spacing: 1px;
+    color: #161B20;
+    margin-left: 14px;
+}
+
+.wh-tab-arrow {
+    font-size: 13px;
+    color: #0E7F8C;
+    margin-left: 10px;
+}
+
+/* ---------- Body: grid + detail ---------- */
+
+.wh-body {
+    flex-grow: 1;
+    min-height: 0;
+    flex-direction: row;
+    align-items: stretch;
+}
+
+.wh-grid-column {
+    width: 58%;
+    flex-shrink: 0;
+    padding-right: 30px;
+    border-right-width: 1px;
+    border-right-color: #DEE2E5;
+}
+
+.wh-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+}
+
+/* ---------- Item cell ---------- */
+
+.wh-cell {
+    width: 23.2%;
+    height: 172px;
+    margin-right: 2.4%;
+    margin-bottom: 14px;
+    align-items: center;
+    justify-content: center;
+    background-color: #F2F4F6;
+    border-width: 1px;
+    border-color: #DFE3E7;
+    transition-property: border-color, background-color;
+    transition-duration: 0.13s;
+}
+
+/* Every 4th cell closes a row (the grid is exactly 4 columns wide). */
+.wh-cell-rowend {
+    margin-right: 0px;
+}
+
+.wh-cell:hover {
+    border-color: #9FBFC4;
+    background-color: #F7F9FA;
+}
+
+/* Focus / selection: one cyan frame plus two light corner marks. */
+.wh-cell-focused {
+    border-color: #0E7F8C;
+    background-color: #F7FBFC;
+}
+
+.wh-cell-icon {
+    width: 62px;
+    height: 62px;
+}
+
+.wh-cell-value {
+    font-size: 15px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 6px;
+}
+
+.wh-cell-sub {
+    font-size: 12px;
+    color: #5A6570;
+    margin-top: 2px;
+}
+
+.wh-cell-corner {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    display: none;
+}
+
+.wh-cell-focused .wh-cell-corner {
+    display: flex;
+}
+
+.wh-corner-tl {
+    left: -1px;
+    top: -1px;
+    border-left-width: 2px;
+    border-left-color: #0E7F8C;
+    border-top-width: 2px;
+    border-top-color: #0E7F8C;
+}
+
+.wh-corner-br {
+    right: -1px;
+    bottom: -1px;
+    border-right-width: 2px;
+    border-right-color: #0E7F8C;
+    border-bottom-width: 2px;
+    border-bottom-color: #0E7F8C;
+}
+
+/* Empty slot: faint crosshair, never focusable, never clickable. */
+.wh-cell-empty {
+    background-color: #EFF1F3;
+    border-color: #E4E8EB;
+    align-items: center;
+    justify-content: center;
+}
+
+.wh-empty-mark {
+    font-size: 25px;
+    color: rgba(22, 27, 32, 0.10);
+}
+
+/* ---------- Detail panel ---------- */
+
+.wh-detail-column {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    padding-left: 40px;
+}
+
+.wh-detail-kicker {
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #7B858F;
+}
+
+.wh-detail-icon-host {
+    width: 168px;
+    height: 168px;
+    margin-top: 18px;
+    background-color: #F2F4F6;
+    border-width: 1px;
+    border-color: #DFE3E7;
+    align-items: center;
+    justify-content: center;
+}
+
+.wh-detail-icon {
+    width: 108px;
+    height: 108px;
+}
+
+.wh-detail-head {
+    flex-direction: row;
+    align-items: flex-end;
+    margin-top: 22px;
+}
+
+.wh-detail-name {
+    font-size: 28px;
+    -unity-font-style: bold;
     color: #161B20;
 }
 
-.gear-state {
+.wh-detail-count {
+    font-size: 22px;
+    color: #0E7F8C;
+    margin-left: 18px;
+}
+
+.wh-detail-state {
+    font-size: 14px;
+    color: #0E7F8C;
+    margin-top: 6px;
+}
+
+.wh-detail-text {
     font-size: 15px;
     color: #4A525C;
-    width: 110px;
-    -unity-text-align: middle-center;
-    border-left-width: 1px;
-    border-left-color: #C9CFD4;
-    margin-left: 18px;
-    padding-left: 18px;
+    white-space: normal;
+    margin-top: 14px;
+    width: 100%;
 }
 
-.gear-state-required {
-    color: #0E7F8C;
-}
-
-.gear-state-on {
-    color: #0E7F8C;
-}
-
-.gear-cargo {
-    font-size: 19px;
-    color: #0E7F8C;
-    margin-left: 18px;
+.wh-detail-rule {
+    height: 1px;
+    background-color: #DEE2E5;
+    width: 100%;
+    margin-top: 22px;
 }
 
 .wh-caption {
     font-size: 12px;
-    color: #7B858F;
+    color: #9AA2AA;
     margin-top: 12px;
+}
+
+/* ---------- Bottom key line ---------- */
+
+.wh-prompt-host {
+    flex-shrink: 0;
+    width: 100%;
+    height: 52px;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
 }
 
 /* =====================================================================

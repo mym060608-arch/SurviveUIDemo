@@ -245,9 +245,9 @@ public class SurvivePhase07B2Tests
                     ? surface.WarehouseHost.Root
                     : null;
                 Assert.IsNotNull(warehouseRoot, "console 2 warehouse root");
-                Assert.AreEqual("仓库总览",
+                Assert.AreEqual("仓库",
                     warehouseRoot.Q<Label>("WarehouseTitleLabel").text,
-                    "console 2 title 仓库总览");
+                    "console 2 title 仓库");
                 Assert.IsNotNull(
                     warehouseRoot.Q<Label>(ShipWarehouseScreenHost.MineralsValueName),
                     "console 2 minerals row");
@@ -803,8 +803,10 @@ public class SurvivePhase07B2Tests
         // Phase 09B PASS 8: 确认降临 is a HOLD - press, hold past the authored
         // duration, release. A plain click must never deploy any more.
         Assert.IsTrue(UiToolkitPointerSimulator.PointerDown(confirm), "确认降临 pressed");
-        yield return WaitSeconds(ShipDeployConfirmPage.HoldSeconds + 0.35f);
-        Assert.IsTrue(UiToolkitPointerSimulator.PointerUp(confirm), "确认降临 released");
+        yield return WaitSeconds(ShipDeployConfirmPage.HoldSeconds + 0.25f);
+        // The completed hold may already have routed to the surface (which
+        // unloads this document), so the release itself is best-effort.
+        UiToolkitPointerSimulator.PointerUp(confirm);
         yield return WaitUntil(() => ActiveSceneName() == GameSession.SurfaceSceneName);
         yield return WaitForSurface(_ => { });
         Assert.AreEqual(session.Minerals, mineralsBefore,

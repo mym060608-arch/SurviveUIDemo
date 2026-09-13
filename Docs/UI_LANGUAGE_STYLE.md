@@ -2202,3 +2202,56 @@ on a press that belongs to a higher one.
 
 
 
+
+---
+
+# 66. Warehouse Terms (Phase 09B PASS 9)
+
+Console02's 仓库 (Warehouse) page is a READ-ONLY tabbed inventory view. The
+approved reference defines the structure: `分类页签 + 网格背包 + 右侧详情`.
+
+## 66.1 Page copy
+
+```text
+仓库                                  02
+
+[资源] [装备]                    LB ◀ ▶ RB
+
+item cell:  code-drawn mark + 数量 (x10 / x12 / x7) or 装备状态 (必需 / 已装备 / 未选择)
+
+详情
+  <enlarged mark>
+  矿物        x20
+  常见的天然矿物资源。
+  可用于制作、建造和设备升级。
+  远征装备可在气闸装备柜调整
+
+                                    [B] 返回
+```
+
+Canonical item terms (the ONLY items the warehouse may show - all real):
+
+```text
+资源    矿物 / 燃料 / 合金
+装备    采集器 MK-I / 备用电池组 / 勘测无人机
+载荷    45 / 100 KG
+```
+
+States: `必需` / `已装备` / `未选择`. Amounts always read the authoritative
+GameSession; descriptions live in ONE place
+(`Assets/_Project/Scripts/UI/WarehouseCatalog.cs`), never in a controller.
+
+## 66.2 Controller / mouse contract
+
+```text
+LB / RB        PreviousTab / NextTab   -> 资源 / 装备 (exactly two pages)
+LS / D-Pad     Navigate                -> move the cell focus (empty slots are
+                                          never focusable and never a dead end)
+B / Escape     Back                    -> leave the terminal (never a pause)
+mouse          hover / click a cell or a tab -> the SAME focus authority
+```
+
+The page has NO item action (no use / drop / dismantle / sell / transfer /
+equip), so it never prints a Confirm key and A does nothing. The paging hint
+lives in the tab row (`LB ◀ ▶ RB`, device aware: `L1/R1`, `Q/Tab`), so the
+bottom key line only names `[B] 返回`.

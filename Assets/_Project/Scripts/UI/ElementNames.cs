@@ -399,4 +399,46 @@ public static class ElementNames
         LandingCancelKey,
         LandingHoldFill
     };
+
+    // ---- Warehouse / 仓库 (Phase 09B PASS 9) ----
+    // The console 02 document (WarehouseConsole.uxml): title, two category tabs
+    // that carry the LB/RB hint, the item grid, the detail panel and the single
+    // Back key line. The item CELLS themselves are built in code from the real
+    // session data (WarehouseCatalog), so they are asserted in PlayMode.
+    public const string WarehouseScreen = "WarehouseScreen";
+    public const string WarehouseTitle = "WarehouseTitleLabel";
+    public const string WarehouseResourcesTab = "WarehouseResourcesTab";
+    public const string WarehouseEquipmentTab = "WarehouseEquipmentTab";
+    public const string WarehouseTabPrevHint = "WarehouseTabPrevHint";
+    public const string WarehouseTabNextHint = "WarehouseTabNextHint";
+    public const string WarehouseGrid = "WarehouseGrid";
+    public const string WarehouseDetailIconHost = "WarehouseDetailIconHost";
+    public const string WarehouseDetailName = "WarehouseDetailName";
+    public const string WarehouseDetailCount = "WarehouseDetailCount";
+    public const string WarehouseDetailState = "WarehouseDetailState";
+    public const string WarehouseDetailText = "WarehouseDetailText";
+    public const string WarehouseNoteLabel = "WarehouseNoteLabel";
+    public const string WarehousePromptHost = "WarehousePromptHost";
+
+    /// <summary>
+    /// Warehouse composition the structural validator must find in
+    /// WarehouseConsole.uxml (stable names, no pixel checks).
+    /// </summary>
+    public static readonly string[] WarehouseStructure =
+    {
+        WarehouseScreen,
+        WarehouseTitle,
+        WarehouseResourcesTab,
+        WarehouseEquipmentTab,
+        WarehouseTabPrevHint,
+        WarehouseTabNextHint,
+        WarehouseGrid,
+        WarehouseDetailIconHost,
+        WarehouseDetailName,
+        WarehouseDetailCount,
+        WarehouseDetailState,
+        WarehouseDetailText,
+        WarehouseNoteLabel,
+        WarehousePromptHost
+    };
 }

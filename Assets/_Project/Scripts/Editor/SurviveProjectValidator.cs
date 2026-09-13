@@ -38,6 +38,8 @@ public static class SurviveProjectValidator
     private const string PauseUxmlPath = "Assets/_Project/Resources/ShipPauseMenu.uxml";
     private const string PauseUssPath = "Assets/_Project/Resources/ShipPauseMenu.uss";
     private const string DeployUxmlPath = "Assets/_Project/UI/UXML/ShipDeployConfirm.uxml";
+    private const string WarehouseUxmlPath = "Assets/_Project/UI/UXML/WarehouseConsole.uxml";
+    private const string WarehouseUssPath = "Assets/_Project/UI/USS/WarehouseConsole.uss";
     private const string UssPath = "Assets/_Project/UI/USS/AppTheme.uss";
     private const string OverviewUssPath = "Assets/_Project/UI/USS/OverviewScreen.uss";
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
@@ -359,6 +361,61 @@ public static class SurviveProjectValidator
         {
             Record(false, "airlock interactable exists: " + airlockPath);
         }
+
+        // ---- Phase 09B PASS 9: Console02 仓库 / Warehouse ----
+        // The page is a read-only tabbed grid: 仓库 title, exactly TWO category
+        // tabs carrying the LB/RB hint, the item grid, the detail panel and a
+        // single Back key line. It must never grow an item action (no Confirm
+        // row) or a second prompt bar, and the old copy is gone.
+        Record(File.Exists(Path.Combine(projectRoot, WarehouseUxmlPath)),
+            "warehouse uxml exists: " + WarehouseUxmlPath);
+        Record(File.Exists(Path.Combine(projectRoot, WarehouseUssPath)),
+            "warehouse uss exists: " + WarehouseUssPath);
+
+        var warehouseUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(WarehouseUxmlPath);
+        Record(warehouseUxml != null, "warehouse uxml imports: " + WarehouseUxmlPath);
+        if (warehouseUxml != null)
+        {
+            TemplateContainer warehouseTemplate = warehouseUxml.Instantiate();
+            HashSet<string> warehousePresent = new HashSet<string>();
+            warehouseTemplate.Query<VisualElement>().ForEach(element =>
+            {
+                if (!string.IsNullOrEmpty(element.name))
+                {
+                    warehousePresent.Add(element.name);
+                }
+            });
+
+            foreach (string expected in ElementNames.WarehouseStructure)
+            {
+                Record(warehousePresent.Contains(expected),
+                    "warehouse structure: " + expected);
+            }
+
+            int tabs = warehouseTemplate
+                .Query<Button>(className: "wh-tab").ToList().Count;
+            int grids = warehouseTemplate
+                .Query<VisualElement>(className: "wh-grid").ToList().Count;
+            int promptHosts = warehouseTemplate
+                .Query<VisualElement>(className: "wh-prompt-host").ToList().Count;
+            Record(tabs == 2, "仓库 has exactly two category tabs (found " + tabs + ")");
+            Record(grids == 1, "仓库 has exactly one item grid (found " + grids + ")");
+            Record(promptHosts == 1,
+                "仓库 has exactly one key-line host (found " + promptHosts + ")");
+
+            Label warehouseTitle = warehouseTemplate.Q<Label>(ElementNames.WarehouseTitle);
+            Record(warehouseTitle != null && warehouseTitle.text == "仓库",
+                "仓库 title is just 仓库 (actual: "
+                + (warehouseTitle != null ? warehouseTitle.text : "<missing>") + ")");
+
+            string warehouseCopy = File.ReadAllText(
+                Path.Combine(projectRoot, WarehouseUxmlPath));
+            Record(!warehouseCopy.Contains("CARGO") && !warehouseCopy.Contains("STORAGE"),
+                "仓库 carries no CARGO / STORAGE decoration any more");
+            Record(!warehouseCopy.Contains("仓库总览"),
+                "仓库 is not the old text summary any more");
+        }
+
 
         // ---- SurfaceHUD.uxml coverage (Phase 06 + Revision HUD structure) ----
         var surfaceUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SurfaceHudUxmlPath);
