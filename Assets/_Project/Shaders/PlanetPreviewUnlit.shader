@@ -1,6 +1,6 @@
 Shader "Survive/PlanetPreviewUnlit"
 {
-    // Overview planet preview surface (Phase 07B.2.4).
+    // Overview planet preview surface (Phase 07B.2.4; stylized in Phase 09B PASS 7).
     //
     // The preview planet is a REAL sphere mesh, but its shading is computed
     // ANALYTICALLY here instead of by scene lights. Two reasons:
@@ -11,30 +11,38 @@ Shader "Survive/PlanetPreviewUnlit"
     //   2. the surface pattern is evaluated from the OBJECT-SPACE position, so
     //      it is painted onto the mesh and rotates with it, while the
     //      terminator stays fixed relative to the camera - exactly the
-    //      "scanning a rotating sphere" read the overview needs.
+    //      "turning a stylized planet" read the overview needs.
     //
     // The dedicated PreviewKeyLight GameObject remains the single authority for
     // the light DIRECTION: its transform drives _LightDirection every frame.
     //
-    // Style: unknown frozen / resource-survey planet. Cool survey gray, charcoal
-    // dark side, faint latitudinal bands, restrained ice caps, very low teal
-    // rim. No continents, no clouds, no fantasy colors.
+    // Style (Phase 09B PASS 7): a SIMPLIFIED, graphic planet, not a NASA photo.
+    // Large flat colour fields with a hard-ish coastline, two soft terminator
+    // steps, no grain, no clouds, no crater detail. Palette borrowed from the
+    // user's colour reference (deep gray-blue / cool gray / low-saturation
+    // cyan, with a few very small warm brown-gray patches) - colours only, no
+    // figure, no silhouette, no character artwork of any kind.
     Properties
     {
-        _BaseColor ("Base (cool survey gray)", Color) = (0.52, 0.59, 0.64, 1)
-        _BrightColor ("Lit highlight", Color) = (0.78, 0.83, 0.86, 1)
-        _MareColor ("Dark basin / maria", Color) = (0.30, 0.35, 0.40, 1)
-        _DarkColor ("Dark side (charcoal)", Color) = (0.10, 0.12, 0.14, 1)
-        _IceColor ("Polar cap", Color) = (0.90, 0.93, 0.95, 1)
+        _BaseColor ("Light surface", Color) = (0.94, 0.96, 0.97, 1)
+        _MidColor ("Cool gray plains", Color) = (0.80, 0.85, 0.88, 1)
+        _LandColor ("Gray-blue landmass", Color) = (0.30, 0.37, 0.46, 1)
+        _LandDeepColor ("Landmass core", Color) = (0.19, 0.25, 0.32, 1)
+        _ShallowColor ("Coastal cyan", Color) = (0.50, 0.72, 0.76, 1)
+        _WarmColor ("Warm accent", Color) = (0.62, 0.54, 0.46, 1)
+        _IceColor ("Polar cap", Color) = (0.96, 0.98, 0.99, 1)
+        _NightColor ("Dark side", Color) = (0.34, 0.39, 0.45, 1)
+        _RimColor ("Atmospheric rim", Color) = (0.45, 0.78, 0.82, 1)
         _LightDirection ("Light direction (world, toward light)", Vector) = (-0.60, 0.34, 0.72, 0)
-        _FillStrength ("Dark-side fill floor", Range(0, 0.6)) = 0.18
-        _BandStrength ("Latitudinal bands", Range(0, 1)) = 0.45
-        _NoiseStrength ("Surface variation", Range(0, 1)) = 0.55
-        _MareStrength ("Dark basin coverage", Range(0, 1)) = 0.60
-        _NoiseScale ("Surface variation scale", Range(0.5, 8)) = 2.6
-        _RimColor ("Atmospheric rim", Color) = (0.55, 0.85, 0.88, 1)
-        _RimStrength ("Rim strength", Range(0, 1)) = 0.20
-        _RimPower ("Rim falloff", Range(1, 8)) = 3.4
+        _LandCoverage ("Land coverage threshold", Range(0.30, 0.70)) = 0.58
+        _LandSoftness ("Coastline softness", Range(0.01, 0.15)) = 0.040
+        _LandScale ("Landmass scale", Range(0.6, 4)) = 1.55
+        _BlockStrength ("Large-block variation", Range(0, 1)) = 0.45
+        _WarmCoverage ("Warm patch threshold", Range(0.60, 0.95)) = 0.88
+        _WarmStrength ("Warm patch strength", Range(0, 1)) = 0.40
+        _FillStrength ("Dark-side fill floor", Range(0, 0.6)) = 0.24
+        _RimStrength ("Rim strength", Range(0, 1)) = 0.16
+        _RimPower ("Rim falloff", Range(1, 8)) = 3.2
     }
 
     SubShader
@@ -67,24 +75,28 @@ Shader "Survive/PlanetPreviewUnlit"
             {
                 float4 pos : SV_POSITION;
                 float3 objectPos : TEXCOORD0;
-                float3 objectNormal : TEXCOORD1;
-                float3 worldNormal : TEXCOORD2;
-                float3 worldPos : TEXCOORD3;
+                float3 worldNormal : TEXCOORD1;
+                float3 worldPos : TEXCOORD2;
             };
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
-                float4 _BrightColor;
-                float4 _MareColor;
-                float4 _DarkColor;
+                float4 _MidColor;
+                float4 _LandColor;
+                float4 _LandDeepColor;
+                float4 _ShallowColor;
+                float4 _WarmColor;
                 float4 _IceColor;
-                float4 _LightDirection;
-                float _FillStrength;
-                float _BandStrength;
-                float _NoiseStrength;
-                float _MareStrength;
-                float _NoiseScale;
+                float4 _NightColor;
                 float4 _RimColor;
+                float4 _LightDirection;
+                float _LandCoverage;
+                float _LandSoftness;
+                float _LandScale;
+                float _BlockStrength;
+                float _WarmCoverage;
+                float _WarmStrength;
+                float _FillStrength;
                 float _RimStrength;
                 float _RimPower;
             CBUFFER_END
@@ -94,7 +106,6 @@ Shader "Survive/PlanetPreviewUnlit"
                 v2f o;
                 o.pos = TransformObjectToHClip(v.vertex.xyz);
                 o.objectPos = v.vertex.xyz;
-                o.objectNormal = v.normal;
                 o.worldNormal = TransformObjectToWorldNormal(v.normal);
                 o.worldPos = TransformObjectToWorld(v.vertex.xyz);
                 return o;
@@ -132,50 +143,62 @@ Shader "Survive/PlanetPreviewUnlit"
                 return lerp(nxy0, nxy1, f.z);
             }
 
-            float Fbm(float3 p)
+            // Two octaves only: broad continents, no fine terrain detail.
+            float Landmass(float3 p)
             {
-                return 0.60 * ValueNoise(p)
-                     + 0.28 * ValueNoise(p * 2.13 + 7.31)
-                     + 0.12 * ValueNoise(p * 4.37 + 13.77);
+                return 0.72 * ValueNoise(p) + 0.28 * ValueNoise(p * 2.07 + 5.13);
             }
 
             half4 frag (v2f i) : SV_Target
             {
-                float3 objectNormal = normalize(i.objectNormal);
                 float3 unitPos = normalize(i.objectPos);
 
-                // ---- surface pattern, painted in OBJECT space so it spins ----
-                // Two octaves at different scales: broad basins/maria that make
-                // the rotation unmistakable on the lit hemisphere, plus finer
-                // survey strata and grain. Restrained cool grays only.
-                float broad = Fbm(i.objectPos * _NoiseScale);
-                float detail = Fbm(i.objectPos * (_NoiseScale * 3.2) + 17.0);
-                float band = 0.5 + 0.5 * sin(unitPos.y * 6.4 + broad * 2.2);
-                float pattern = saturate(band * 0.55 + detail * 0.45);
+                // ---- large colour fields, painted in OBJECT space so they spin ----
+                float field = Landmass(unitPos * _LandScale);
 
-                float3 surface = lerp(_BaseColor.rgb, _BrightColor.rgb,
-                    pattern * _BandStrength + (detail - 0.5) * _NoiseStrength);
+                // Hard-ish coastline: the graphic edge a stylized planet needs.
+                float land = smoothstep(_LandCoverage,
+                    _LandCoverage + _LandSoftness, field);
+                float coast = smoothstep(_LandCoverage - _LandSoftness * 2.0,
+                    _LandCoverage, field) * (1.0 - land);
 
-                // Broad darker basins: the strongest readable surface feature,
-                // so a slow spin is visible without any texture animation.
-                float mare = smoothstep(0.47, 0.29, broad);
-                surface = lerp(surface, _MareColor.rgb, mare * _MareStrength);
+                // One very low frequency tone per side: big blocks, no grain.
+                float blockSea = ValueNoise(unitPos * (_LandScale * 0.55) + 3.7);
+                float blockLand = ValueNoise(unitPos * (_LandScale * 0.75) + 11.3);
 
-                // Polar caps: restrained ice at both ends of the spin axis.
-                float polar = smoothstep(0.80, 0.985, abs(unitPos.y));
-                surface = lerp(surface, _IceColor.rgb, polar * 0.85);
+                float3 sea = lerp(_BaseColor.rgb, _MidColor.rgb,
+                    smoothstep(0.42, 0.62, blockSea) * _BlockStrength);
+                float3 rock = lerp(_LandColor.rgb, _LandDeepColor.rgb,
+                    smoothstep(0.40, 0.64, blockLand));
 
-                // ---- terminator (world space, fixed relative to the camera) ----
+                float3 surface = lerp(sea, rock, land);
+
+                // A thin low-saturation cyan band where land meets water.
+                surface = lerp(surface, _ShallowColor.rgb, coast * 0.55);
+
+                // A few small warm brown-gray patches (colour reference only;
+                // never more than a small fraction of the surface).
+                float warm = smoothstep(_WarmCoverage, _WarmCoverage + 0.05,
+                    ValueNoise(unitPos * (_LandScale * 0.9) + 21.0));
+                surface = lerp(surface, _WarmColor.rgb, warm * _WarmStrength * land);
+
+                // Polar caps stay light: they read as the top / bottom of the
+                // spin axis while the planet turns.
+                float polar = smoothstep(0.80, 0.98, abs(unitPos.y));
+                surface = lerp(surface, _IceColor.rgb, polar);
+
+                // ---- two-step terminator (world space, fixed to the camera) ----
                 float3 lightDir = normalize(_LightDirection.xyz);
                 float3 worldNormal = normalize(i.worldNormal);
                 float lambert = saturate(dot(worldNormal, lightDir));
-                float shade = _FillStrength
-                              + (1.0 - _FillStrength) * pow(lambert, 0.85);
+                float toon = saturate(smoothstep(-0.02, 0.32, lambert) * 0.55
+                                      + smoothstep(0.32, 0.82, lambert) * 0.45);
+                float shade = _FillStrength + (1.0 - _FillStrength) * toon;
 
-                float3 lit = surface * (0.72 + 0.42 * shade);
-                float3 color = lerp(_DarkColor.rgb, lit, shade);
+                float3 lit = surface * (0.90 + 0.22 * shade);
+                float3 color = lerp(_NightColor.rgb, lit, shade);
 
-                // ---- very restrained atmospheric / scan rim ----
+                // ---- restrained cyan scan / atmosphere rim ----
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos);
                 float rim = pow(1.0 - saturate(dot(worldNormal, viewDir)), _RimPower);
                 rim *= _RimStrength * saturate(lambert * 0.75 + 0.25);

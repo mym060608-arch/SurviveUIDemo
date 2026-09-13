@@ -31,6 +31,13 @@ using UnityEngine.Rendering.Universal;
 /// turning even when the player is not looking at it. The spin angle is
 /// accumulated every frame and never reset, so console focus, wrist, scene
 /// routing and re-entry all leave the rotation continuous.
+///
+/// Phase 09B PASS 7 adds the player to the same authority: while an Overview
+/// page is interactive, the RIGHT STICK (or a mouse drag on the stage) rotates
+/// this one shared sphere - horizontal spin unlimited, latitude clamped to a
+/// look band, released stick decaying to a stop. The idle spin above owns the
+/// rotation until the player really moves the stick, so the passive bridge
+/// display keeps its Phase 07B.2.4 behaviour whenever nobody is interacting.
 /// </summary>
 public sealed class OverviewPlanetPreview : MonoBehaviour
 {
@@ -53,6 +60,49 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
 
     /// <summary>Preview RenderTexture edge length (square).</summary>
     public const int TextureSize = 512;
+
+    // ---- Player rotation (Phase 09B PASS 7) ----
+    //
+    // The user's sketch: the RIGHT STICK rotates the planet - left/right spins
+    // it horizontally, up/down only inspects a LIMITED latitude band. The idle
+    // spin above keeps running until the player really moves the stick, then the
+    // player owns the rotation for the rest of that viewing session and a
+    // released stick decays to a stop (no snap, no drift, no flip).
+
+    /// <summary>Horizontal speed at full stick deflection (degrees / second).</summary>
+    public const float PlayerYawDegreesPerSecond = 95f;
+
+    /// <summary>Latitude speed at full stick deflection (degrees / second).</summary>
+    public const float PlayerPitchDegreesPerSecond = 55f;
+
+    /// <summary>How fast the angular velocity follows the stick (1 / second).</summary>
+    public const float PlayerRotationResponse = 9f;
+
+    /// <summary>
+    /// Stick magnitude that hands the rotation from the authored idle spin to
+    /// the player. It is deliberately ABOVE the shared cursor dead zone
+    /// (<see cref="UiInput.CursorDeadzone"/> = 0.18): a worn stick that rests
+    /// slightly off-centre must not silently turn the bridge display, while a
+    /// real push still takes over on the first frame. Once the player owns the
+    /// rotation, every non-zero stick value drives it.
+    /// </summary>
+    public const float PlayerEngageMagnitude = 0.30f;
+
+    /// <summary>Latitude limit: the player may inspect a band, never pole-flip.</summary>
+    public const float MaxPitchDegrees = 26f;
+
+    /// <summary>Mouse drag sensitivity (degrees per screen pixel).</summary>
+    public const float DragDegreesPerPixel = 0.32f;
+
+    /// <summary>
+    /// Below this angular speed (degrees / second) a released stick is treated
+    /// as fully stopped: an exponential decay never reaches exactly zero, and
+    /// "松开摇杆后停止" must be a real stop, not an invisible creep.
+    /// </summary>
+    public const float PlayerStopVelocity = 1.0f;
+
+    /// <summary>Largest integration step the rig accepts (a hitch must not spin it).</summary>
+    private const float MaxDeltaTime = 0.05f;
 
     /// <summary>Distance below the world origin: beyond every scene far plane.</summary>
     public const float RigDepthBelowWorld = 3000f;
@@ -133,6 +183,30 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
     /// <summary>Accumulated spin angle in degrees (never reset).</summary>
     public float SpinAngleDegrees { get; private set; }
 
+    /// <summary>
+    /// Player-controlled latitude in degrees (Phase 09B PASS 7), clamped to
+    /// +/-<see cref="MaxPitchDegrees"/>. Positive looks down on the northern
+    /// hemisphere. Zero while the idle spin owns the rotation.
+    /// </summary>
+    public float PitchDegrees { get; private set; }
+
+    /// <summary>Current horizontal angular velocity (degrees / second).</summary>
+    public float YawVelocity { get; private set; }
+
+    /// <summary>Current latitude angular velocity (degrees / second).</summary>
+    public float PitchVelocity { get; private set; }
+
+    /// <summary>
+    /// True once the player moved the right stick (or dragged) in the current
+    /// viewing session: the idle spin then stops and the stick owns the planet
+    /// until <see cref="ResetPlayerControl"/> (page left / console unfocused).
+    /// </summary>
+    public bool IsPlayerControlled { get; private set; }
+
+    /// <summary>True while the planet is still coasting to a stop after a release.</summary>
+    public bool IsCoasting => Mathf.Abs(YawVelocity) > 0.01f
+                              || Mathf.Abs(PitchVelocity) > 0.01f;
+
     /// <summary>True while the preview camera renders into the RenderTexture.</summary>
     public bool IsRendering => _camera != null && _camera.enabled;
 
@@ -179,6 +253,7 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
 
         _viewers[owner] = viewed;
         PruneViewers();
+        ResetPlayerControlWhenUnwatched();
     }
 
     /// <summary>Drops an owner (its viewer flag goes with it).</summary>
@@ -190,6 +265,21 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
         }
 
         PruneViewers();
+        ResetPlayerControlWhenUnwatched();
+    }
+
+    /// <summary>
+    /// No Overview page is watching any more: the planet goes back to the
+    /// authored idle spin, so the NEXT viewer never inherits a player-driven
+    /// pose / ownership flag. (A host that keeps a permanent viewer - the ship's
+    /// always-on bridge screen - resets through its page's own Tick instead.)
+    /// </summary>
+    private void ResetPlayerControlWhenUnwatched()
+    {
+        if (ViewerCount == 0)
+        {
+            ResetPlayerControl();
+        }
     }
 
     private void PruneViewers()
@@ -222,16 +312,19 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
         // Continuous, never-reset rotation: focus transitions, wrist opens and
         // scene routing all leave the angle untouched. The Main Menu's motion
         // setting can pause it without disturbing the accumulated angle.
-        if (MotionEnabled)
+        //
+        // Phase 09B PASS 7: the idle spin yields to the player. As soon as the
+        // right stick moves, the page integrates the stick instead (see
+        // ApplyPlayerRotation) and the idle rotation stays off until the player
+        // leaves the page - so a released stick really stops the planet instead
+        // of blending back into the authored turntable.
+        if (MotionEnabled && !IsPlayerControlled)
         {
             SpinAngleDegrees = Mathf.Repeat(SpinAngleDegrees
                                             + SpinDegreesPerSecond * Time.deltaTime, 360f);
         }
 
-        if (_sphere != null)
-        {
-            _sphere.localRotation = Quaternion.Euler(0f, SpinAngleDegrees, 0f);
-        }
+        ApplyRotationToSphere();
 
         if (_material != null && _keyLight != null)
         {
@@ -243,6 +336,122 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
         if (_camera != null && _camera.enabled != shouldRender)
         {
             _camera.enabled = shouldRender;
+        }
+    }
+
+    // ---- Player rotation (Phase 09B PASS 7) ----
+
+    /// <summary>
+    /// Integrates one frame of PLAYER rotation. <paramref name="input"/> is the
+    /// dead-zoned right stick (x = horizontal, y = latitude, each -1..1); a
+    /// centred stick is simply zero and the planet coasts to a stop.
+    ///
+    /// Only the page that really owns the player's attention may call this, and
+    /// only while that page is interactive - a hidden page must never move the
+    /// planet. The very first frame with a non-zero stick hands the rotation to
+    /// the player (the idle spin stops); <see cref="ResetPlayerControl"/> gives
+    /// it back when the player leaves.
+    /// </summary>
+    public void ApplyPlayerRotation(Vector2 input, float deltaTime)
+    {
+        float dt = Mathf.Clamp(deltaTime, 0f, MaxDeltaTime);
+
+        if (!IsPlayerControlled)
+        {
+            // Only a real push takes the rotation over; a resting / drifting
+            // stick leaves the authored idle spin as the owner.
+            if (input.magnitude < PlayerEngageMagnitude)
+            {
+                return;
+            }
+
+            IsPlayerControlled = true;
+        }
+
+        if (dt <= 0f)
+        {
+            return;
+        }
+
+        float targetYaw = Mathf.Clamp(input.x, -1f, 1f) * PlayerYawDegreesPerSecond;
+        float targetPitch = Mathf.Clamp(input.y, -1f, 1f) * PlayerPitchDegreesPerSecond;
+
+        // Exponential approach: a stick that is pushed responds within a few
+        // frames, and a released stick decays to exactly zero - smooth in both
+        // directions, with no snap and no permanent drift.
+        float blend = 1f - Mathf.Exp(-PlayerRotationResponse * dt);
+        YawVelocity = Mathf.Lerp(YawVelocity, targetYaw, blend);
+        PitchVelocity = Mathf.Lerp(PitchVelocity, targetPitch, blend);
+
+        bool released = input.sqrMagnitude <= 0.0001f;
+        if (released && Mathf.Abs(YawVelocity) < PlayerStopVelocity)
+        {
+            YawVelocity = 0f;
+        }
+
+        if (released && Mathf.Abs(PitchVelocity) < PlayerStopVelocity)
+        {
+            PitchVelocity = 0f;
+        }
+
+        SpinAngleDegrees = Mathf.Repeat(SpinAngleDegrees + YawVelocity * dt, 360f);
+
+        float nextPitch = PitchDegrees + PitchVelocity * dt;
+        if (nextPitch > MaxPitchDegrees || nextPitch < -MaxPitchDegrees)
+        {
+            // Stop AT the limit instead of pushing against it: the latitude
+            // never flips over the pole and the stick never fights a stuck axis.
+            nextPitch = Mathf.Clamp(nextPitch, -MaxPitchDegrees, MaxPitchDegrees);
+            PitchVelocity = 0f;
+        }
+
+        PitchDegrees = nextPitch;
+        ApplyRotationToSphere();
+    }
+
+    /// <summary>
+    /// Direct (mouse) rotation: a drag turns the planet by an exact number of
+    /// degrees instead of by a rate, which is what direct manipulation means.
+    /// The drag also takes control away from the idle spin.
+    /// </summary>
+    public void RotateByDrag(Vector2 delta)
+    {
+        if (delta.sqrMagnitude <= 0f)
+        {
+            return;
+        }
+
+        IsPlayerControlled = true;
+        YawVelocity = 0f;
+        PitchVelocity = 0f;
+        SpinAngleDegrees = Mathf.Repeat(SpinAngleDegrees + delta.x * DragDegreesPerPixel,
+            360f);
+        PitchDegrees = Mathf.Clamp(PitchDegrees + delta.y * DragDegreesPerPixel,
+            -MaxPitchDegrees, MaxPitchDegrees);
+        ApplyRotationToSphere();
+    }
+
+    /// <summary>
+    /// Ends the player-driven session: the planet keeps the orientation the
+    /// player left it in and the authored idle spin resumes on the next frame.
+    /// Called when the page stops being interactive (page hidden, console
+    /// unfocused), never per frame.
+    /// </summary>
+    public void ResetPlayerControl()
+    {
+        IsPlayerControlled = false;
+        YawVelocity = 0f;
+        PitchVelocity = 0f;
+    }
+
+    private void ApplyRotationToSphere()
+    {
+        if (_sphere != null)
+        {
+            // Yaw = the authored spin axis; pitch = the limited latitude look.
+            // The pivot keeps the axial tilt, so the player can never flip the
+            // planet over.
+            _sphere.localRotation = Quaternion.Euler(PitchDegrees, SpinAngleDegrees, 0f);
         }
     }
 
@@ -426,7 +635,9 @@ public sealed class OverviewPlanetPreview : MonoBehaviour
           .Append(" pivot=").Append(_pivot != null)
           .Append(" camera=").Append(_camera != null)
           .Append(" light=").Append(_keyLight != null)
-          .Append(" angle=").Append(SpinAngleDegrees.ToString("0.0"));
+          .Append(" angle=").Append(SpinAngleDegrees.ToString("0.0"))
+          .Append(" pitch=").Append(PitchDegrees.ToString("0.0"))
+          .Append(" playerControlled=").Append(IsPlayerControlled);
 
         if (_renderTexture == null || !_renderTexture.IsCreated())
         {

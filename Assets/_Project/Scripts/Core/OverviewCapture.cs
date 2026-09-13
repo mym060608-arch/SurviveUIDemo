@@ -177,7 +177,7 @@ public class OverviewCapture : MonoBehaviour
             app.CurrentScreen == AppScreen.Overview && app.VisibleScreenCount == 1
             && LabelText(root, ElementNames.EnergyValue) == "74"
             && LabelText(root, ElementNames.MineralsValue) == "20"
-            && LabelText(root, ElementNames.DestinationValue) == "NEREID-04");
+            && LabelText(root, ElementNames.DestinationValue) == PlanetIdentity.DisplayName);
 
         if (ship != null && objective != null)
         {

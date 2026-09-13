@@ -50,6 +50,14 @@ public static class ElementNames
     public const string ObjectiveCopy = "ObjectiveCopy";
     public const string MissionStatusBlock = "MissionStatusBlock";
 
+    // Overview (Phase 09B PASS 7: page title, planet name consistency,
+    // exploration read-out and the shared controller key line).
+    public const string OverviewTitle = "OverviewTitle";
+    public const string ObjectiveSurveyText = "ObjectiveSurveyText";
+    public const string ExplorationValue = "ExplorationValue";
+    public const string ExplorationBarFill = "ExplorationBarFill";
+    public const string OverviewPromptHost = "OverviewPromptHost";
+
     // Preparation.
     public const string HarvesterRowButton = "HarvesterRowButton";
     public const string BatteryRowButton = "BatteryRowButton";
@@ -162,6 +170,11 @@ public static class ElementNames
         EnergyBarFill,
         FoodBarFill,
         PlanetDisc,
+        OverviewTitle,
+        ObjectiveSurveyText,
+        ExplorationValue,
+        ExplorationBarFill,
+        OverviewPromptHost,
         HarvesterRowButton,
         BatteryRowButton,
         DroneRowButton,
@@ -231,14 +244,19 @@ public static class ElementNames
     {
         OverviewScreen,
         OverviewTopBar,
+        OverviewTitle,
         ShipStatusPanel,
         ShipSurvivalGroup,
         ShipResourceGroup,
         DestinationPanel,
         PlanetStage,
         PlanetDisc,
+        ExplorationValue,
+        ExplorationBarFill,
+        OverviewPromptHost,
         ObjectivePanel,
         ObjectiveCopy,
+        ObjectiveSurveyText,
         MissionStatusBlock,
         OpenPreparationButton,
         BottomNav,

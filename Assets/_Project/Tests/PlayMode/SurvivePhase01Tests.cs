@@ -164,7 +164,9 @@ public class SurvivePhase01Tests
         Assert.AreEqual("20", LabelText(root, ElementNames.MineralsValue), "Overview Minerals text");
         Assert.AreEqual("8", LabelText(root, ElementNames.FuelValue), "Overview Fuel text");
         Assert.AreEqual("5", LabelText(root, ElementNames.AlloyValue), "Overview Alloy text");
-        Assert.AreEqual("NEREID-04", LabelText(root, ElementNames.DestinationValue), "Overview destination text");
+        // Phase 09B PASS 7: the displayed planet name has one source of truth.
+        Assert.AreEqual(PlanetIdentity.DisplayName,
+            LabelText(root, ElementNames.DestinationValue), "Overview destination text");
 
         // ---- Preparation screen: reachable, default cargo/status ----
         app.ShowScreen(AppScreen.Preparation);

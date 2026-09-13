@@ -359,11 +359,22 @@ English may remain as tiny supporting metadata only.
 
 # 9. Overview Canonical Copy
 
-Recommended primary copy:
+> Phase 09B PASS 7 (2026-09-13) rewrote this page against the user's confirmed
+> reference and sketch: the decorative system strip (`SURVIVE // DRIFT` /
+> `SHIP // ARK-07` / `CYCLE` / `SYSTEM ONLINE`) is gone, the planet display name
+> lives in ONE place (`PlanetIdentity.DisplayName`), and the page key line lists
+> only the keys that really work here. The copy below is the current contract.
+
+Page title (top-left, the only text in the strip):
+
+```text
+星球总览
+```
+
+Left column:
 
 ```text
 舰船状态
-SHIP STATUS
 
 生存指标
 
@@ -375,24 +386,30 @@ SHIP STATUS
 矿物
 燃料
 合金
+
+舰船系统 正常
 ```
 
 Center:
 
 ```text
 当前目的地
-CURRENT DESTINATION
 
-NEREID-04
+AURELIA-01
 
 未知地表 · 资源候选区
+
+类型    冰原行星
+地表    寒带 / 山脉
+
+探索度
+73%
 ```
 
 Mission:
 
 ```text
-当前任务
-CURRENT OBJECTIVE
+当前目标
 
 活下去
 
@@ -403,16 +420,43 @@ CURRENT OBJECTIVE
 Objective list:
 
 ```text
-01  勘测 NEREID-04        进行中
-02  获取原始资源           待处理
-03  恢复燃料储备           待处理
+01  勘测 AURELIA-01      进行中
+02  获取原始资源          未完成
+03  恢复燃料储备          未完成
 ```
 
-Primary CTA:
+Mission status:
+
+```text
+任务状态
+
+阶段    已锁定
+准备度  72%
+```
+
+Primary CTA (legacy Hub host only; the ship terminal hides it):
 
 ```text
 准备远征 »
 ```
+
+Controller key line (bottom of the page, device-aware):
+
+```text
+gamepad   [RS] 旋转星球   [B] 返回
+keyboard  [鼠标] 旋转星球 [Esc] 返回
+```
+
+The Hub host is the root of the four tabs and has no step back, so it prints the
+rotation row only - a key line never advertises a key that does nothing. The
+ship's physical Overview terminal prints both rows, because B really leaves that
+console view there.
+
+Planet display name: `AURELIA-01` is the CURRENT expedition target. It is
+presentation copy with a single source
+(`Assets/_Project/Scripts/UI/PlanetIdentity.cs`); other screens (Preparation,
+the airlock prompt, the wrist terminal, the surface HUD) keep their own authored
+copy and their internal NEREID IDs until a later pass renames them together.
 
 ---
 

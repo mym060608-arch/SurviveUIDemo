@@ -6,23 +6,12 @@
                  Layout: top system bar / three columns / planet stage / CTA
                  ============================================================ -->
             <ui:VisualElement name="OverviewScreen" class="screen overview-screen">
-                <!-- Top system bar -->
+                <!-- Page identity. Phase 09B PASS 7: the decorative system strip
+                     (brand wordmark / SHIP // ARK-07 / CYCLE / SYSTEM ONLINE) is
+                     gone - the page keeps ONE Chinese title and its hairline. -->
                 <ui:VisualElement name="OverviewTopBar" class="overview-topbar">
-                    <ui:VisualElement class="topbar-left">
-                        <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
-                        <ui:VisualElement class="topbar-divider-v" />
-                        <ui:Label class="topbar-role" text="远征控制" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="topbar-right">
-                        <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
-                        <ui:VisualElement class="topbar-cellsep" />
-                        <ui:Label class="topbar-cell" text="CYCLE 1842" />
-                        <ui:VisualElement class="topbar-cellsep" />
-                        <ui:VisualElement class="topbar-system">
-                            <ui:VisualElement class="status-dot" />
-                            <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
-                        </ui:VisualElement>
-                    </ui:VisualElement>
+                    <ui:Label name="OverviewTitle" class="overview-title" text="星球总览" />
+                    <ui:VisualElement class="overview-title-rule" />
                 </ui:VisualElement>
 
                 <!-- Main three-column body -->
@@ -79,14 +68,14 @@
 
                         <ui:VisualElement class="panel-footnote">
                             <ui:VisualElement class="footnote-tick" />
-                            <ui:Label class="footnote-label" text="舰船系统 // 正常" />
+                            <ui:Label class="footnote-label" text="舰船系统 正常" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
-                    <!-- CENTER: Destination main visual -->
+                    <!-- CENTER: Current planet (the page's first visual) -->
                     <ui:VisualElement name="DestinationPanel" class="overview-col-center">
                         <ui:Label class="eyebrow" text="当前目的地" />
-                        <ui:Label name="DestinationValue" class="hero-title" text="NEREID-04" />
+                        <ui:Label name="DestinationValue" class="hero-title" text="AURELIA-01" />
                         <ui:VisualElement class="hero-meta">
                             <ui:Label class="hero-meta-chip" text="未知地表" />
                             <ui:VisualElement class="chip-dot" />
@@ -94,6 +83,14 @@
                         </ui:VisualElement>
 
                         <ui:VisualElement name="PlanetStage" class="planet-stage">
+                            <ui:VisualElement class="planet-rail rail-left">
+                                <ui:Label class="rail-key" text="类型" />
+                                <ui:Label class="rail-value" text="冰原行星" />
+                                <ui:VisualElement class="rail-rule" />
+                                <ui:Label class="rail-key" text="地表" />
+                                <ui:Label class="rail-value" text="寒带 / 山脉" />
+                            </ui:VisualElement>
+
                             <ui:VisualElement class="planet-wrap">
                                 <ui:VisualElement class="orbit-ring-outer" />
                                 <ui:VisualElement class="orbit-ring" />
@@ -103,22 +100,23 @@
                                 <ui:VisualElement class="corner-bracket corner-tr" />
                                 <ui:VisualElement class="corner-bracket corner-bl" />
                                 <ui:VisualElement class="corner-bracket corner-br" />
+                                <ui:VisualElement class="axis-tick tick-n" />
+                                <ui:VisualElement class="axis-tick tick-s" />
+                                <ui:VisualElement class="axis-tick tick-w" />
+                                <ui:VisualElement class="axis-tick tick-e" />
                             </ui:VisualElement>
-                            <ui:VisualElement class="planet-rail rail-left">
-                                <ui:Label class="annotation-label" text="ORBITAL SURVEY" />
-                                <ui:VisualElement class="annotation-rule" />
-                                <ui:Label class="annotation-label" text="RESOURCE SIGNAL" />
-                                <ui:Label class="annotation-label annotation-dim" text="LOW" />
-                            </ui:VisualElement>
+
+                            <!-- Exploration read-out, right of the planet:
+                                 value + simple bar, clearly readable but never
+                                 louder than the planet itself. -->
                             <ui:VisualElement class="planet-rail rail-right">
-                                <ui:Label class="annotation-label" text="TARGET LOCK" />
-                                <ui:VisualElement class="lock-line" />
-                                <ui:VisualElement class="scan-meta">
-                                    <ui:Label class="annotation-label" text="SCAN" />
-                                    <ui:Label class="annotation-scan-value" text="73%" />
-                                </ui:VisualElement>
-                                <ui:VisualElement class="mini-track">
-                                    <ui:VisualElement class="mini-fill" style="width: 73%;" />
+                                <ui:Label class="rail-key" text="探索度" />
+                                <ui:Label name="ExplorationValue" class="exploration-value"
+                                          text="73%" />
+                                <ui:VisualElement class="exploration-track">
+                                    <ui:VisualElement name="ExplorationBarFill"
+                                                      class="exploration-fill"
+                                                      style="width: 73%;" />
                                 </ui:VisualElement>
                             </ui:VisualElement>
                         </ui:VisualElement>
@@ -127,12 +125,17 @@
                             <ui:VisualElement class="cta-mark" />
                             <ui:Label class="cta-label" text="准备远征 »" />
                         </ui:Button>
+
+                        <!-- Controller key line: the shared Phase 09B prompt bar
+                             mounts here (bottom-right of the page). Only keys
+                             that really work on this page are ever listed. -->
+                        <ui:VisualElement name="OverviewPromptHost" class="overview-prompt-host" />
                     </ui:VisualElement>
 
                     <!-- RIGHT: Current objective -->
                     <ui:VisualElement name="ObjectivePanel" class="overview-col-right">
                         <ui:VisualElement class="panel-header">
-                            <ui:Label class="panel-header-text" text="当前任务" />
+                            <ui:Label class="panel-header-text" text="当前目标" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
 
@@ -142,18 +145,19 @@
                         <ui:Label class="group-label" text="主要目标" />
                         <ui:VisualElement class="objective-row objective-active">
                             <ui:Label class="objective-index" text="01" />
-                            <ui:Label class="objective-text" text="勘测 NEREID-04" />
+                            <ui:Label name="ObjectiveSurveyText" class="objective-text"
+                                      text="勘测 AURELIA-01" />
                             <ui:Label class="objective-state" text="进行中" />
                         </ui:VisualElement>
                         <ui:VisualElement class="objective-row">
                             <ui:Label class="objective-index" text="02" />
                             <ui:Label class="objective-text" text="获取原始资源" />
-                            <ui:Label class="objective-state" text="待处理" />
+                            <ui:Label class="objective-state" text="未完成" />
                         </ui:VisualElement>
                         <ui:VisualElement class="objective-row">
                             <ui:Label class="objective-index" text="03" />
                             <ui:Label class="objective-text" text="恢复燃料储备" />
-                            <ui:Label class="objective-state" text="待处理" />
+                            <ui:Label class="objective-state" text="未完成" />
                         </ui:VisualElement>
 
                         <ui:VisualElement class="panel-rule" />
@@ -161,7 +165,7 @@
                         <ui:VisualElement name="MissionStatusBlock" class="mission-block">
                             <ui:Label class="group-label" text="任务状态" />
                             <ui:VisualElement class="mission-line">
-                                <ui:Label class="mission-key" text="目标" />
+                                <ui:Label class="mission-key" text="阶段" />
                                 <ui:Label class="mission-value" text="已锁定" />
                             </ui:VisualElement>
                             <ui:VisualElement class="mission-line">

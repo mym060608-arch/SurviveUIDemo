@@ -57,6 +57,10 @@ public class ShipConsoleScreenHost : MonoBehaviour
     /// Overview terminal (null on every other console).</summary>
     public OverviewPlanetPreview PlanetPreview => _planetPreview;
 
+    /// <summary>This terminal's Overview page controller (read-only access for
+    /// tests and probes; null before the console bound).</summary>
+    public OverviewScreen OverviewView => _overview;
+
     /// <summary>Screen this terminal must display (1..4 mapping).</summary>
     public AppScreen MappedScreen => _screen;
 
@@ -137,6 +141,15 @@ public class ShipConsoleScreenHost : MonoBehaviour
         {
             bool outpostConsole = _screen == AppScreen.Outpost;
             _outpost.Tick(outpostConsole, outpostConsole && IsConsoleFocused());
+        }
+
+        // Console 01 (总览) drives the shared planet preview with the right
+        // stick while the player is focused on it (Phase 09B PASS 7). An
+        // unfocused terminal never rotates the planet.
+        if (_overview != null)
+        {
+            bool overviewConsole = _screen == AppScreen.Overview;
+            _overview.Tick(overviewConsole, overviewConsole && IsConsoleFocused());
         }
     }
 
@@ -276,6 +289,12 @@ public class ShipConsoleScreenHost : MonoBehaviour
         // the same view WITH the CTA, driven by the host context flag.
         _overview.Bind(null, false,
             _planetPreview != null ? _planetPreview.Texture : null);
+
+        // Phase 09B PASS 7: the console view's Back stays with the console focus
+        // layer (the page never steals B), but B really does leave this page's
+        // context - so the page's key line lists [RS] 旋转星球   [B] 返回.
+        _overview.OwnsBack = false;
+        _overview.ShowBackRow = true;
         _preparation.Bind();
         _processing.Bind();
         _outpost.Bind();
