@@ -1,9 +1,11 @@
 /*
- * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision Round 9.2).
+ * Survive UI Demo - NEREID-04 wrist terminal (Phase 06 Revision Round 9.2,
+ * Phase 09B PASS 3 industrial restyle).
  * Rendered into a fixed 1280x800 RenderTexture and projected onto a tilted
- * world plane. Off-white / ink / teal / hairline language, no neon.
+ * world plane. Cool slate structure plates / light cyan hairlines / light ink
+ * text, no neon, no paper.
  *
- * Round 9.2 IMPORTANT:
+ * Round 9.2 IMPORTANT (unchanged):
  * 1. USS is ONLY responsible for text/marker placement & typography.
  *    It must NOT draw rings, arcs, panels or a white map disc: every annular
  *    shape comes from RadialWristElement triangle meshes.
@@ -14,6 +16,12 @@
  *    computes left/top/width of each row from the real panel cross-section at
  *    that row's Y (GetPanelHorizontalRange); USS only styles the text.
  *    left/top here are offscreen fallbacks until C# positions the row.
+ *
+ * PASS 3 restyle: the four plates are cool and dark inside the mesh now, so the
+ * text is LIGHT (the old near-black ink on a light wash was the "paper scrap"
+ * look). The health / satiety values became small embedded chips instead of the
+ * big floating readout. The focused row is lifted by .wrist-row-focus (applied
+ * by C# from the shared focus navigator).
  */
 
 .wrist-root {
@@ -50,36 +58,53 @@
 }
 
 /* ============================================================
-   Status arc value text.
+   Status arc value chips (small, embedded, near the arc apex).
+   The TEXT is unchanged ("健康度 100" / "饱食度 82") - only the
+   presentation shrank from a 17px floating headline to an
+   embedded instrument chip.
    ============================================================ */
 
 .radial-value {
     position: absolute;
 
-    color: rgb(22, 27, 32);
+    color: rgb(222, 234, 241);
 
-    font-size: 17px;
+    font-size: 20px;
     -unity-font-style: bold;
 
     -unity-text-align: middle-center;
+
+    background-color: rgba(0, 0, 0, 0);
+
+    border-radius: 0;
+
+    border-left-width: 0;
+    border-right-width: 0;
+    border-top-width: 0;
+    border-bottom-width: 0;
+
+    border-left-color: rgba(140, 202, 217, 0.36);
+    border-right-color: rgba(140, 202, 217, 0.36);
+    border-top-color: rgba(140, 202, 217, 0.36);
+    border-bottom-color: rgba(140, 202, 217, 0.36);
 }
 
-/* Health value: just above the upper status arc apex (arc band ~y138..152). */
+/* Health chip: just above the upper status arc apex (arc band ~y138..152). */
 .health-label {
-    left: 540px;
-    top: 94px;
+    left: 604px;
+    top: 119px;
 
-    width: 200px;
-    height: 32px;
+    width: 72px;
+    height: 30px;
 }
 
-/* Satiety value: just below the lower status arc apex (arc band ~y648..662). */
+/* Satiety chip: just below the lower status arc apex (arc band ~y648..662). */
 .satiety-label {
-    left: 540px;
-    top: 674px;
+    left: 604px;
+    top: 650px;
 
-    width: 200px;
-    height: 32px;
+    width: 72px;
+    height: 30px;
 }
 
 /* ============================================================
@@ -100,43 +125,86 @@
     white-space: nowrap;
     -unity-text-align: middle-center;
 
-    /* default body typography */
-    color: rgb(22, 27, 32);
+    /* default body typography: light text on the slate plate */
+    color: rgb(206, 220, 228);
     font-size: 12px;
 }
 
-/* Heading: 13px bold secondary ink. */
+/* Heading: 13px bold, muted cool gray - a label, never a headline. */
 .row-heading {
-    color: rgb(74, 82, 92);
-    font-size: 13px;
+    color: rgb(148, 176, 189);
+    font-size: 12px;
     -unity-font-style: bold;
 }
 
-/* Primary dynamic value: 14px bold accent (meaningful values only). */
+/* Primary dynamic value: 14px bold cyan (meaningful values only). */
 .row-value {
-    color: rgb(14, 127, 140);
+    color: rgb(126, 210, 226);
     font-size: 14px;
     -unity-font-style: bold;
 }
 
-/* Body copy: 12px ink. */
+/* Body copy: 12px light ink. */
 .row-body {
-    color: rgb(22, 27, 32);
+    color: rgb(206, 220, 228);
     font-size: 12px;
 }
 
-/* Equipment entries: body copy; unselected items are muted. */
+/* Equipment entries: body copy. The block is a READ-ONLY list of what the
+   expedition carries - an unequipped module is not drawn at all, so there is
+   deliberately no muted "not equipped" style any more. */
 .row-equip {
-    color: rgb(22, 27, 32);
+    color: rgb(206, 220, 228);
     font-size: 12px;
 }
 
-.row-equip.row-off {
-    color: rgb(126, 136, 144);
+/* Focused row (PASS 3): brighter text. The structural half of the focus
+   feedback is the module plate edge, drawn by RadialWristElement - the row
+   itself only lifts its ink, so no card can appear inside a panel. */
+.wrist-row-focus {
+    color: rgb(238, 250, 255);
+}
+
+.row-heading.wrist-row-focus {
+    color: rgb(196, 226, 237);
+}
+
+.row-value.wrist-row-focus,
+.row-equip.wrist-row-focus,
+.row-body.wrist-row-focus {
+    color: rgb(232, 248, 254);
 }
 
 /* ============================================================
-   Map markers (absolute wrist pixels).
+   Navigation radar standby glyph (the ring and the sweep are mesh
+   geometry at RadialWristElement.RadarCenter; this is the symbol).
+   ============================================================ */
+
+.nav-radar-glyph {
+    position: absolute;
+
+    left: 373px;
+    top: 560px;
+
+    width: 34px;
+    height: 24px;
+
+    color: rgb(200, 227, 235);
+
+    font-size: 15px;
+    -unity-font-style: bold;
+
+    -unity-text-align: middle-center;
+}
+
+.nav-radar-glyph.radar-active {
+    color: rgb(150, 226, 240);
+}
+
+/* ============================================================
+   Map markers (absolute wrist pixels). Unchanged Phase 06 language:
+   dark ink dots on the frosted disc. The map stays the brightest
+   layer of the hologram.
    ============================================================ */
 
 .map-node {
@@ -254,11 +322,10 @@
 }
 
 /* Map footer / identity label (Round 9.2.2): "NEREID-04 · 地表勘测" lives
-   INSIDE the central Local Map, lower half, below the map centre - it no
-   longer floats between the health arc and the map. Centred at x=640 with a
-   very light MapFill-like translucent backing so the vertical map crosshair
-   (x=640, y up to ~575) does not cut through the glyphs. Deliberately
-   restrained: no card, no border, no teal, no bold. */
+   INSIDE the central Local Map, lower half, below the map centre. PASS 3 gives
+   it the same cool embedded-chip language as the status values instead of the
+   old light wash, so it reads as part of the instrument rather than a paper
+   slip. Still deliberately restrained: no card, no bold. */
 .wrist-identity {
     position: absolute;
 
@@ -268,9 +335,11 @@
     width: 212px;
     height: 20px;
 
-    background-color: rgba(185, 198, 204, 0.13);
+    background-color: rgba(18, 29, 37, 0.34);
 
-    color: rgb(74, 82, 92);
+    border-radius: 10px;
+
+    color: rgb(178, 199, 209);
 
     font-size: 10px;
 

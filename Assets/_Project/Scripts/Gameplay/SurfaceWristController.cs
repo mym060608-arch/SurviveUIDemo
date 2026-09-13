@@ -6,6 +6,33 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
 /// <summary>
+/// How the gamepad drives the OPEN wrist terminal (Phase 09B PASS 3).
+///
+/// The wrist is one presentation with two honest interaction modes, and the mode
+/// is chosen by the CONTROL the player actually touches - never by a menu:
+///
+///   MapCursor   the shared pointer (right stick / mouse) owns the interaction:
+///               A is the map's left button, LT/RT zoom, B returns. This is the
+///               accepted PASS 2 behaviour and the mode the terminal opens in.
+///   ModuleFocus the D-Pad / left stick walks the focus ring over the elements
+///               that really DO something (equipment toggles, navigation clear,
+///               the central map), A confirms the focused element. Pure read-only
+///               modules can never take focus.
+///
+/// The map cursor keeps working in both modes (the cursor is the OS cursor the
+/// mouse also uses); only the A button is re-routed, so the frozen PASS 2 map
+/// contract cannot be disturbed by the new focus layer.
+/// </summary>
+public enum WristPadMode
+{
+    /// <summary>Right stick / mouse drives the shared map cursor (PASS 2).</summary>
+    MapCursor = 0,
+
+    /// <summary>D-Pad / left stick walks the module focus ring (PASS 3).</summary>
+    ModuleFocus = 1
+}
+
+/// <summary>
 /// Wrist terminal (Phase 06 Revision Round 9.2 parallel-cap architecture).
 ///
 /// The wrist UXML renders into a fixed 1280 x 800 RenderTexture shown on a
@@ -43,6 +70,23 @@ using UnityEngine.UIElements;
 /// Parallax: the hologram tilts around the WristProjectionPivot (localRotation
 /// on a captured base pose), clamped to yaw +-4 / pitch +-3 / roll +-0.5 deg,
 /// damped; it never translates around the screen.
+///
+/// Phase 09B PASS 3 (controller UX + presentation, still presentation-only):
+/// - the ordinary wrist UI gets controller FOCUS (D-Pad / left stick, A confirm,
+///   B back) through the shared <see cref="UiFocusNavigator"/>; only elements
+///   that really act can be focused - 当前导航 clears the target while one is set
+///   and the central map re-enters cursor mode. The 当前装备 block is a READ-ONLY
+///   list of what the expedition is carrying (an unequipped module is not listed
+///   at all), so headings, equipment, status readouts and the harvest readout are
+///   pure information and are never focusable;
+/// - the map keeps the accepted PASS 2 behaviour byte-for-byte (right stick
+///   cursor, A = left button, LT/RT zoom, B back) and is the mode the terminal
+///   opens in;
+/// - the Controller Prompt follows the ACTIVE mode: map rows in cursor mode,
+///   focus rows in module mode;
+/// - focus / pulse / breathing / data-flow animation is drawn by
+///   RadialWristElement and driven from <see cref="Tick"/> only while the
+///   terminal is really presented.
 /// </summary>
 public class SurfaceWristController : MonoBehaviour
 {
@@ -81,7 +125,22 @@ public class SurfaceWristController : MonoBehaviour
     {
         public readonly string ElementName;
         public readonly bool LeftSide;
+
+        /// <summary>The AUTHORED slot Y of this row in the frozen Round 9.2 row
+        /// table (see <see cref="RowTable"/>).</summary>
         public readonly float CenterY;
+
+        /// <summary>The Y this row is ACTUALLY laid out at. It equals
+        /// <see cref="CenterY"/> for every fixed row; the equipment block moves its
+        /// rows up so a read-only list of equipped items never leaves a hole where
+        /// an unequipped item used to be.</summary>
+        public float LayoutCenterY;
+
+        /// <summary>True while the row carries no content and is not drawn. A
+        /// hidden row keeps its authored slot so the frozen slot geometry stays
+        /// verifiable, but it is never part of the visible staircase.</summary>
+        public bool Hidden;
+
         public Label Label;
 
         public TextRow(string elementName, bool leftSide, float centerY)
@@ -89,6 +148,7 @@ public class SurfaceWristController : MonoBehaviour
             ElementName = elementName;
             LeftSide = leftSide;
             CenterY = centerY;
+            LayoutCenterY = centerY;
         }
     }
 
@@ -197,6 +257,41 @@ public class SurfaceWristController : MonoBehaviour
     /// <summary>Map content zoom (1 = the frozen Phase 06 mapping).</summary>
     private float _mapZoom = 1f;
     private int _lastSelectedByConfirmFrame = -1;
+
+    // ---- Phase 09B PASS 3: pad mode + ordinary-UI focus ----
+
+    /// <summary>Style class the shared focus navigator toggles on the focused row.</summary>
+    public const string FocusClass = "wrist-row-focus";
+
+    /// <summary>Element name of the invisible focus anchor over the central map.</summary>
+    public const string MapFocusAnchorName = "WristFocusMap";
+
+    private WristPadMode _padMode = WristPadMode.MapCursor;
+    private UiFocusNavigator _focus;
+    private VisualElement _focusRoot;
+    private bool _focusModelReady;
+    private VisualElement _mapFocusAnchor;
+    private Label _navRadarGlyph;
+    private bool _navRadarActive;
+    private string _focusSignature = string.Empty;
+    private string _lastActionStateText;
+    private string _lastRecoveredStateText;
+
+    /// <summary>Which control currently owns the open terminal (diagnostics/tests).</summary>
+    public WristPadMode PadMode => _padMode;
+
+    /// <summary>The shared focus navigator of the wrist document.</summary>
+    public UiFocusNavigator FocusNavigator => _focus;
+
+    /// <summary>Element name of the focused row ("" when nothing is focused).</summary>
+    public string FocusedRowName =>
+        _focus != null && _focus.Focused != null ? _focus.Focused.name : string.Empty;
+
+    /// <summary>Number of elements that can take focus right now.</summary>
+    public int FocusableCount => _focus != null ? _focus.Count : 0;
+
+    /// <summary>The radial mesh element (tests / probes read the PASS 3 state).</summary>
+    public RadialWristElement Radial => _radial;
 
     /// <summary>Current map content zoom (diagnostics / tests / probes).</summary>
     public float MapZoom => _mapZoom;
@@ -411,6 +506,7 @@ public class SurfaceWristController : MonoBehaviour
         _healthLabel = _root.Q<Label>("HealthLabel");
         _satietyLabel = _root.Q<Label>("SatietyLabel");
         _identityLabel = _root.Q<Label>("WristIdentity");
+        _navRadarGlyph = _root.Q<Label>("NavRadarGlyph");
 
         _rows.Clear();
         _rowByName.Clear();
@@ -442,7 +538,263 @@ public class SurfaceWristController : MonoBehaviour
         _harvestStateRow = Row("HarvestState");
         _harvestProgressRow = Row("HarvestProgress");
 
+        EnsureFocusModel();
+
         _bound = _geometryHost != null && _playerMarker != null && _rows.Count > 0;
+    }
+
+    // ====================================================================
+    // Phase 09B PASS 3 - ordinary wrist UI focus model
+    // ====================================================================
+
+    /// <summary>
+    /// Builds the SHARED focus navigator over the wrist document and registers
+    /// exactly the elements that really act:
+    ///
+    ///   WristFocusMap   the central map      -> re-enter map cursor mode
+    ///   NavTarget       当前导航 (only while a target is set) -> clear it
+    ///
+    /// The 当前装备 block is deliberately NOT registered: it is a read-only list of
+    /// what the expedition is carrying, and changing the loadout belongs to the
+    /// ship's loadout page, never to the wrist. Together with the headings, the
+    /// state read-out and the whole harvest block, it can never show a focus ring
+    /// (contract §2: "只有真正可操作的元素才能获得 Focus").
+    ///
+    /// The map anchor is an invisible element covering the disc: the navigator
+    /// moves by geometry, and the visible focus feedback is the module plate edge
+    /// drawn by RadialWristElement plus the focused row's ink.
+    /// </summary>
+    private void EnsureFocusModel()
+    {
+        if (_root == null)
+        {
+            return;
+        }
+
+        // Built ONCE per document root. It must never be rebuilt on a whim: the
+        // navigator owns the player's current focus, and a validator that ran on
+        // every wrist open would otherwise clear the ring the player was using.
+        if (_focusModelReady && _focusRoot == _root
+            && _mapFocusAnchor != null && _mapFocusAnchor.parent == _root)
+        {
+            return;
+        }
+
+        if (_mapFocusAnchor == null || _mapFocusAnchor.parent != _root)
+        {
+            if (_mapFocusAnchor != null)
+            {
+                _mapFocusAnchor.RemoveFromHierarchy();
+            }
+
+            _mapFocusAnchor = new VisualElement { name = MapFocusAnchorName };
+            _mapFocusAnchor.style.position = Position.Absolute;
+            _mapFocusAnchor.style.left = RadialWristElement.Center.x
+                                         - RadialWristElement.MapRadius;
+            _mapFocusAnchor.style.top = RadialWristElement.Center.y
+                                        - RadialWristElement.MapRadius;
+            _mapFocusAnchor.style.width = RadialWristElement.MapRadius * 2f;
+            _mapFocusAnchor.style.height = RadialWristElement.MapRadius * 2f;
+            _mapFocusAnchor.style.backgroundColor = Color.clear;
+            _root.Add(_mapFocusAnchor);
+        }
+
+        if (_focus == null)
+        {
+            _focus = new UiFocusNavigator(FocusClass)
+            {
+                Wrap = true,
+                Enabled = false
+            };
+        }
+
+        // The elements ARE the focus anchors: every row is already an
+        // absolutely-positioned slot whose rect the layout owns, so the navigator
+        // can move by real geometry without a second proxy tree.
+        _focus.Clear();
+        _focus.Register(_mapFocusAnchor, EnterMapCursorFromFocus);
+        if (NavTargetRow() != null)
+        {
+            _focus.Register(NavTargetRow().Label, ClearNavigationFromWrist);
+        }
+
+        _focusRoot = _root;
+        _focusModelReady = true;
+        RefreshFocusItems(force: true);
+    }
+
+    private TextRow NavTargetRow() => Row("NavTarget");
+
+    /// <summary>True while the navigation module has a live target, i.e. while its
+    /// row is an OPERABLE element ("已设置" state) instead of a standby read-out.</summary>
+    public bool NavigationFocusable =>
+        _controller != null && !IsShipMode && _controller.IsNavigationActive;
+
+    /// <summary>
+    /// Publishes the CURRENT operable set to the navigator. Cheap to call every
+    /// refresh: the membership is compared as a signature, so the navigator is
+    /// only rebuilt when the terminal's operable set really changed (a navigation
+    /// target appearing / disappearing).
+    /// </summary>
+    private void RefreshFocusItems(bool force = false)
+    {
+        if (_focus == null || _root == null)
+        {
+            return;
+        }
+
+        bool nav = NavigationFocusable;
+
+        // The central map is an OPERABLE element only where it is a live surface
+        // map; inside the ship it is a deck schematic with nothing to select, so
+        // it is not a focus stop there (the ship wrist is a pure ordinary UI).
+        bool map = !IsShipMode;
+        string signature = (map ? "map" : "ship-readonly")
+                           + (nav ? "|nav" : string.Empty);
+        if (!force && signature == _focusSignature)
+        {
+            return;
+        }
+
+        _focusSignature = signature;
+
+        var items = new List<VisualElement>();
+        if (map && _mapFocusAnchor != null)
+        {
+            items.Add(_mapFocusAnchor);
+        }
+
+        if (nav && NavTargetRow() != null)
+        {
+            items.Add(NavTargetRow().Label);
+        }
+
+        _focus.SetItems(items);
+    }
+
+    /// <summary>Module plate that mirrors one focusable element.</summary>
+    public WristModuleId ModuleOfFocusedElement()
+    {
+        string name = FocusedRowName;
+        if (string.IsNullOrEmpty(name))
+        {
+            return WristModuleId.None;
+        }
+
+        switch (name)
+        {
+            case MapFocusAnchorName:
+                return WristModuleId.Map;
+            case "NavTarget":
+                return WristModuleId.Navigation;
+            default:
+                return WristModuleId.None;
+        }
+    }
+
+    // ---- The focused elements' actions (all use EXISTING authorities) ----
+
+    /// <summary>A on the central map: hand the interaction back to the cursor.</summary>
+    private void EnterMapCursorFromFocus()
+    {
+        if (_radial != null)
+        {
+            _radial.Pulse(WristModuleId.Map);
+        }
+
+        SetPadMode(WristPadMode.MapCursor);
+    }
+
+    /// <summary>A on 当前导航 (available only while a target is set) clears the
+    /// navigation target through the owning controller - the wrist never edits
+    /// navigation state itself.</summary>
+    private void ClearNavigationFromWrist()
+    {
+        if (_controller == null)
+        {
+            return;
+        }
+
+        if (_controller.TryClearNavigationTarget())
+        {
+            _radial?.Pulse(WristModuleId.Navigation);
+        }
+
+        RefreshNavigation();
+    }
+
+    /// <summary>Switches the interaction mode and re-applies every presentation
+    /// that depends on it (focus ring, navigator enable, prompt rows).</summary>
+    public void SetPadMode(WristPadMode mode)
+    {
+        if (_padMode == mode)
+        {
+            ApplyPadMode();
+            return;
+        }
+
+        _padMode = mode;
+        ApplyPadMode();
+    }
+
+    private void ApplyPadMode()
+    {
+        bool moduleFocus = _padMode == WristPadMode.ModuleFocus;
+        if (_focus != null)
+        {
+            _focus.Enabled = moduleFocus;
+            if (moduleFocus)
+            {
+                // Opening / entering the focus mode always lands on a sensible
+                // element (contract §3: "打开界面时自动给出合理默认 Focus"),
+                // and a page that is reopened keeps the player's place.
+                _focus.FocusDefault();
+            }
+            else
+            {
+                // Map cursor mode deliberately shows NO focus box (contract §6):
+                // the cursor is the interaction there, not a focus ring.
+                _focus.SetFocus(null);
+            }
+        }
+
+        if (_radial != null)
+        {
+            _radial.SetFocusModule(moduleFocus ? ModuleOfFocusedElement() : WristModuleId.None);
+        }
+    }
+
+    /// <summary>
+    /// Chooses the mode from the control the player used this frame. The right
+    /// stick (and a real mouse move) hand the terminal back to the shared cursor;
+    /// the D-Pad / left stick take it into module focus.
+    /// </summary>
+    private void UpdatePadMode()
+    {
+        // The ship wrist has no map cursor to drive (its centre is a deck
+        // schematic): it is an ordinary UI and stays in module focus.
+        if (IsShipMode)
+        {
+            _padMode = WristPadMode.ModuleFocus;
+        }
+        else if (UiInput.MapCursorVector() != Vector2.zero)
+        {
+            _padMode = WristPadMode.MapCursor;
+        }
+        else if (UiInput.NavigationVector() != Vector2.zero)
+        {
+            _padMode = WristPadMode.ModuleFocus;
+        }
+        else if (InputDeviceTracker.MouseProducedRealInput())
+        {
+            _padMode = WristPadMode.MapCursor;
+        }
+
+        // Re-applied EVERY frame, not only when the mode flips: the module plate
+        // that carries the focus look always mirrors the navigator's CURRENT
+        // element, so a page (or a test) that moves the focus directly still gets
+        // the matching plate lift on the very next frame.
+        ApplyPadMode();
     }
 
     private TextRow Row(string name)
@@ -580,17 +932,21 @@ public class SurfaceWristController : MonoBehaviour
                 continue;
             }
 
+            // A hidden row keeps its AUTHORED slot (the frozen Round 9.2 row table
+            // stays verifiable); a visible row uses its effective Y, which only the
+            // read-only equipment block ever moves.
+            float y = row.Hidden ? row.CenterY : row.LayoutCenterY;
             if (!RadialWristElement.TryGetPanelRowCentre(
-                    row.LeftSide, row.CenterY, RowSlotPadding,
+                    row.LeftSide, y, RowSlotPadding,
                     out float centreX, out float minX, out float maxX))
             {
                 row.Label.style.display = DisplayStyle.None;
                 continue;
             }
 
-            row.Label.style.display = DisplayStyle.Flex;
+            row.Label.style.display = row.Hidden ? DisplayStyle.None : DisplayStyle.Flex;
             row.Label.style.left = minX;
-            row.Label.style.top = row.CenterY - RowHeight * 0.5f;
+            row.Label.style.top = y - RowHeight * 0.5f;
             row.Label.style.width = Mathf.Max(1f, maxX - minX);
             row.Label.style.height = RowHeight;
         }
@@ -692,7 +1048,8 @@ public class SurfaceWristController : MonoBehaviour
                 continue;
             }
 
-            bool slotOk = VerifyRowSlot(row.Label, row.LeftSide, row.CenterY,
+            bool slotOk = VerifyRowSlot(row.Label, row.LeftSide,
+                row.Hidden ? row.CenterY : row.LayoutCenterY,
                 out string rowInfo);
             lines.AppendLine((slotOk ? "PASS" : "FAIL") + " :: row " + row.ElementName
                              + " " + rowInfo);
@@ -937,6 +1294,172 @@ public class SurfaceWristController : MonoBehaviour
         return ok;
     }
 
+    // ====================================================================
+    // Phase 09B PASS 3 - focus model + layout verification
+    // ====================================================================
+
+    /// <summary>
+    /// Verifies the PASS 3 wrist contract that is checkable without a human:
+    ///
+    ///   1. the standby radar sits INSIDE the navigation panel's padded slot at
+    ///      its own Y (never over the map, never over the plate edge);
+    ///   2. the navigator only ever holds elements that really act - the map,
+    ///      the two equipment toggles and (only while a target is set) the
+    ///      navigation row;
+    ///   3. every pure INFORMATION row (headings, state read-out, harvest
+    ///      read-out, the always-equipped harvester) is absent from the
+    ///      navigator, so no read-out can ever show a focus ring;
+    ///   4. the status chips still sit near their arcs and never overlap the map
+    ///      footer.
+    /// </summary>
+    public bool VerifyWristFocusModel(out string report)
+    {
+        var lines = new StringBuilder();
+        bool ok = true;
+
+        void Check(bool pass, string label)
+        {
+            lines.AppendLine((pass ? "PASS" : "FAIL") + " :: " + label);
+            ok &= pass;
+        }
+
+        if (_root == null)
+        {
+            report = "FAIL :: wrist document root missing\n";
+            return false;
+        }
+
+        EnsureFocusModel();
+        RefreshFocusItems(force: true);
+        RefreshTextRowLayout();
+
+        // ---- 1. radar inside the navigation panel slot ----
+        bool radarInPanel = RadialWristElement.GetPanelHorizontalRange(
+            true, RadialWristElement.RadarCenter.y,
+            RadialWristElement.PanelInnerRadius, RadialWristElement.PanelOuterRadius,
+            0f, out float radarMinX, out float radarMaxX);
+        bool radarInside = radarInPanel
+                           && RadialWristElement.RadarCenter.x
+                           - RadialWristElement.RadarRadius >= radarMinX
+                           && RadialWristElement.RadarCenter.x
+                           + RadialWristElement.RadarRadius <= radarMaxX
+                           && RadialWristElement.RadarCenter.y
+                           + RadialWristElement.RadarRadius
+                           <= RadialWristElement.LowerPanelBottomY;
+        lines.AppendLine("INFO :: radar centre="
+                         + RadialWristElement.RadarCenter.x.ToString("0") + ","
+                         + RadialWristElement.RadarCenter.y.ToString("0")
+                         + " r=" + RadialWristElement.RadarRadius
+                         + " slot=" + (radarInPanel
+                             ? radarMinX.ToString("0") + ".." + radarMaxX.ToString("0")
+                             : "<none>"));
+        Check(radarInside,
+            "standby radar sits inside the navigation panel slot");
+
+        // ---- 2 + 3. the operable set, and nothing else ----
+        // Every read-out row is checked, including the whole read-only equipment
+        // block: changing the loadout belongs to the ship's loadout page.
+        string[] infoRows =
+        {
+            "EquipHeading", "EquipHarvester", "EquipBattery", "EquipDrone",
+            "StateHeading", "ActionState", "SignalState", "RecoveredState",
+            "NavHeading", "NavDistance",
+            "HarvestHeading", "HarvestNode", "HarvestState", "HarvestProgress"
+        };
+
+        var items = _focus != null ? _focus.ActiveGroup : null;
+        Check(items != null, "the wrist focus navigator is built");
+        Check(IsShipMode || items.Count > 0,
+            "the surface terminal always has at least the central map to focus");
+
+        bool infoExcluded = true;
+        foreach (string name in infoRows)
+        {
+            Label label = _root.Q<Label>(name);
+            if (label != null && items != null && items.Contains(label))
+            {
+                infoExcluded = false;
+                lines.AppendLine("FAIL :: information row is focusable: " + name);
+            }
+        }
+
+        Check(infoExcluded,
+            "no pure information row can take focus (" + infoRows.Length + " checked)");
+
+        bool everyItemFocusable = true;
+        bool everyItemOperable = true;
+        foreach (VisualElement item in items ?? new List<VisualElement>())
+        {
+            everyItemFocusable &= UiFocusNavigator.IsFocusable(item);
+            string itemName = item.name;
+            bool operable = itemName == MapFocusAnchorName
+                            || (itemName == "NavTarget" && NavigationFocusable);
+            if (!operable)
+            {
+                everyItemOperable = false;
+                lines.AppendLine("FAIL :: registered element is not operable: " + itemName);
+            }
+        }
+
+        Check(everyItemFocusable,
+            "every registered focus element is focusable (visible, enabled, laid out)");
+        Check(everyItemOperable,
+            "every registered focus element really acts (central map / navigation)");
+
+        // The equipment block is read-only: it lists exactly what is equipped and
+        // is never a focus stop, no matter what the loadout is.
+        bool equipmentExcluded = true;
+        foreach (TextRow row in new[] { _harvesterRow, _batteryRow, _droneRow })
+        {
+            if (row == null || row.Label == null)
+            {
+                continue;
+            }
+
+            if (items != null && items.Contains(row.Label))
+            {
+                equipmentExcluded = false;
+                lines.AppendLine("FAIL :: equipment row is focusable: " + row.ElementName);
+            }
+        }
+
+        lines.AppendLine("INFO :: equipment listed=["
+                         + string.Join(",", ListedEquipmentNames) + "] equipped b/d="
+                         + (_session != null && _session.BatterySelected) + "/"
+                         + (_session != null && _session.DroneSelected));
+        Check(equipmentExcluded,
+            "the read-only equipment block is never a focus stop");
+
+        // The navigation row is the ONLY conditional element.
+        bool navPresent = items != null && NavTargetRow() != null
+                          && items.Contains(NavTargetRow().Label);
+        lines.AppendLine("INFO :: focus items=" + (items != null ? items.Count : 0)
+                         + " navigationActive=" + NavigationFocusable
+                         + " navRowFocusable=" + navPresent);
+        Check(navPresent == NavigationFocusable,
+            "the navigation row is focusable exactly while a target is set");
+
+        // ---- 4. status chips stay embedded and clear of the map footer ----
+        Rect health = ResolvedRectOf(_healthLabel);
+        Rect satiety = ResolvedRectOf(_satietyLabel);
+        Rect identity = ResolvedRectOf(_identityLabel);
+        lines.AppendLine("INFO :: chips health=" + health.x.ToString("0") + ","
+                         + health.y.ToString("0") + " " + health.width.ToString("0")
+                         + "x" + health.height.ToString("0")
+                         + " satiety=" + satiety.x.ToString("0") + ","
+                         + satiety.y.ToString("0") + " " + satiety.width.ToString("0")
+                         + "x" + satiety.height.ToString("0"));
+        Check(health.height <= 24f && satiety.height <= 24f,
+            "health / satiety read-outs are small embedded chips (<= 24 px tall)");
+        Check(health.top < 160f, "health chip sits at the upper arc");
+        Check(satiety.top > 600f, "satiety chip sits at the lower arc");
+        Check(!RectsOverlap(health, identity) && !RectsOverlap(satiety, identity),
+            "the status chips never overlap the map footer");
+
+        report = lines.ToString();
+        return ok;
+    }
+
     /// <summary>Resolved layout rect of a wrist element (falls back to the
     /// inline style values when the RT panel has not laid out yet).</summary>
     public static Rect ResolvedRectOf(VisualElement element)
@@ -1036,11 +1559,18 @@ public class SurfaceWristController : MonoBehaviour
                 _animator = StartCoroutine(AnimateOpen());
             }
 
+            // PASS 3: the surface opens in the accepted PASS 2 cursor mode with no
+            // focus ring (the map is the first thing the player can use); the ship
+            // terminal is an ordinary UI and opens straight into module focus.
+            _focus?.SetFocus(null);
+            _padMode = IsShipMode ? WristPadMode.ModuleFocus : WristPadMode.MapCursor;
+            RefreshFocusItems();
             RefreshSessionData();
             RefreshNavigation();
             RefreshMapGeometry();
             RefreshActiveProgress();
             RefreshTextRowLayout();
+            ApplyPadMode();
             StartCoroutine(LogVisibilityAfterOpen());
         }
         else
@@ -1070,6 +1600,10 @@ public class SurfaceWristController : MonoBehaviour
             UiPointerState.ClearBounds();
             ResetMapZoom();
             _hoverNodeId = -1;
+
+            // PASS 3: a closed terminal holds no focus ring either.
+            _focus?.SetFocus(null);
+            _radial?.SetFocusModule(WristModuleId.None);
         }
     }
 
@@ -1153,6 +1687,19 @@ public class SurfaceWristController : MonoBehaviour
         {
             Debug.LogError("[WristIdentity] FAIL\n" + identityReport);
         }
+
+        // PASS 3: focus model + embedded status chips, printed on every wrist open
+        // so the Release screenshot log carries the checkable half of the
+        // controller-UX contract.
+        bool focusOk = VerifyWristFocusModel(out string focusReport);
+        if (focusOk)
+        {
+            Debug.Log("[WristFocus] OK\n" + focusReport);
+        }
+        else
+        {
+            Debug.LogError("[WristFocus] FAIL\n" + focusReport);
+        }
     }
 
     private string SampleAlphaReport()
@@ -1186,6 +1733,50 @@ public class SurfaceWristController : MonoBehaviour
     private bool IsWristOpenState()
     {
         return _document != null && _document.enabled;
+    }
+
+    /// <summary>
+    /// Reads one wrist-pixel of the terminal's own RenderTexture (3x3 average, so
+    /// the map's dot lattice cannot flip a sample). This is the objective half of
+    /// the PASS 3 visual contract: it lets a probe measure that the four plates
+    /// really are darker than the central map and that the status arcs carry the
+    /// right colour families, without a human squinting at a screenshot.
+    /// </summary>
+    public bool TrySampleWristPixel(Vector2 wristPixel, out Color color)
+    {
+        color = Color.clear;
+        if (_renderTexture == null || !_renderTexture.IsCreated())
+        {
+            return false;
+        }
+
+        int cx = Mathf.Clamp(Mathf.RoundToInt(wristPixel.x), 1, (int)UiWidth - 2);
+
+        // ReadPixels reads from the BOTTOM-left corner of the render texture, while
+        // wrist pixels are top-down: the Y is converted exactly once here, so a probe
+        // sampling the upper health arc can never be handed the lower satiety arc.
+        int cy = Mathf.Clamp((int)UiHeight - 1 - Mathf.RoundToInt(wristPixel.y),
+            1, (int)UiHeight - 2);
+
+        RenderTexture previous = RenderTexture.active;
+        RenderTexture.active = _renderTexture;
+        var readback = new Texture2D(3, 3, TextureFormat.ARGB32, false);
+        readback.ReadPixels(new Rect(cx - 1, cy - 1, 3, 3), 0, 0, false);
+        readback.Apply();
+
+        Color sum = Color.clear;
+        for (int y = 0; y < 3; y++)
+        {
+            for (int x = 0; x < 3; x++)
+            {
+                sum += readback.GetPixel(x, y);
+            }
+        }
+
+        RenderTexture.active = previous;
+        Object.Destroy(readback);
+        color = sum / 9f;
+        return true;
     }
 
     /// <summary>Checks every link of the wrist world-space display chain.</summary>
@@ -1612,11 +2203,83 @@ public class SurfaceWristController : MonoBehaviour
         RefreshPointerBounds();
         RefreshZoom(Time.unscaledDeltaTime);
 
+        // PASS 3: the mode follows the control the player used, then that mode
+        // owns the A button for this frame - the shared focus navigator reads
+        // Confirm only while it is enabled, so one press can never both confirm a
+        // focused element and select a map node.
+        UpdatePadMode();
+        RefreshFocusItems();
+        _focus?.Tick();
+
         EnsureStyleSheets();
         RefreshMapGeometry();
         RefreshActiveProgress();
+        RefreshRadar();
         UpdateParallax();
         ProcessPointer();
+
+        // Light-weight presentation animation (breathing arcs, state plate,
+        // radar sweep, harvest data flow, focus/pulse smoothing).
+        _radial?.Animate(Time.unscaledDeltaTime);
+    }
+
+    /// <summary>
+    /// Navigation radar state: standby sweep while NO target is set, a live
+    /// bearing line pointing at the target's direction on the map once one is
+    /// ("未设置 → ? / 雷达待机; 已设置 → 有效导航状态").
+    /// </summary>
+    private void RefreshRadar()
+    {
+        if (_radial == null)
+        {
+            return;
+        }
+
+        bool active = false;
+        float bearing = 0f;
+        if (NavigationFocusable)
+        {
+            SurfaceResourceNode target = _controller.GetNodeById(
+                _controller.NavigationTargetNodeId);
+            if (target != null)
+            {
+                active = true;
+                bearing = RadialWristElement.WristAngleDeg(
+                    WristMapCoordinates.WorldToWristMap(target.transform.position, _mapZoom));
+            }
+        }
+
+        _radial.SetRadar(active, bearing);
+
+        if (_navRadarGlyph == null)
+        {
+            return;
+        }
+
+        // The radar exists only where the surface map is drawn: inside the ship the
+        // centre is a deck schematic, so its standby symbol is withdrawn.
+        _navRadarGlyph.style.display = IsShipMode
+            ? DisplayStyle.None
+            : DisplayStyle.Flex;
+
+        if (IsShipMode)
+        {
+            return;
+        }
+
+        if (active != _navRadarActive)
+        {
+            _navRadarActive = active;
+            _navRadarGlyph.text = active ? string.Empty : "?";
+            if (active)
+            {
+                _navRadarGlyph.AddToClassList("radar-active");
+            }
+            else
+            {
+                _navRadarGlyph.RemoveFromClassList("radar-active");
+            }
+        }
     }
 
     /// <summary>
@@ -1765,7 +2428,11 @@ public class SurfaceWristController : MonoBehaviour
 
         Mouse mouse = Mouse.current;
         bool clicked = mouse != null && mouse.leftButton.wasPressedThisFrame;
-        bool confirmed = UiInput.ConfirmPressed();
+
+        // Confirm is the map's left button ONLY in cursor mode. In module focus
+        // mode the shared focus navigator owns the press (it is enabled exactly
+        // then), so A can never do two things at once.
+        bool confirmed = _padMode == WristPadMode.MapCursor && UiInput.ConfirmPressed();
 
         // Confirm is read once per frame: the surface interactor cannot act while
         // the wrist is open (exploration input is frozen), so the same press can
@@ -1889,41 +2556,48 @@ public class SurfaceWristController : MonoBehaviour
 
         if (_healthLabel != null)
         {
-            _healthLabel.text = "健康度 " + _session.PlayerHealth;
+            _healthLabel.text = _session.PlayerHealth.ToString();
         }
 
         if (_satietyLabel != null)
         {
-            _satietyLabel.text = "饱食度 " + _session.PlayerSatiety;
+            _satietyLabel.text = _session.PlayerSatiety.ToString();
         }
 
-        if (_harvesterRow != null)
-        {
-            SetEquipState(_harvesterRow, "采集器 MK-I", false);
-        }
-
-        if (_batteryRow != null)
-        {
-            SetEquipState(_batteryRow, "备用电池", !_session.BatterySelected);
-        }
-
-        if (_droneRow != null)
-        {
-            SetEquipState(_droneRow, "勘测无人机", !_session.DroneSelected);
-        }
+        RefreshEquipmentRows();
 
         SurfaceResourceNode active = _controller != null ? _controller.ActiveNode : null;
         if (_actionRow != null)
         {
-            _actionRow.Label.text = active != null
+            string actionState = active != null
                 ? (active.State == SurfaceResourceNode.NodeState.Harvesting ? "采集中" : "无线传输")
                 : (ReturnMode == WristReturnMode.ShipExplore ? "舰内" : "勘测中");
+
+            // PASS 3: a real state CHANGE flashes the 当前状态 plate edge briefly
+            // (contract §5 "状态变化时短暂强化"); the steady state only breathes.
+            if (_lastActionStateText != null && _lastActionStateText != actionState)
+            {
+                _radial?.Pulse(WristModuleId.State);
+            }
+
+            _lastActionStateText = actionState;
+            _actionRow.Label.text = actionState;
         }
 
         if (_recoveredRow != null)
         {
-            _recoveredRow.Label.text = "回收 " + _session.HarvestedNodeCount
-                                       + "/" + GameSession.SurfaceNodeCount;
+            string recovered = "回收 " + _session.HarvestedNodeCount
+                               + "/" + GameSession.SurfaceNodeCount;
+
+            // The recovery counter IS the state module's live value: when it
+            // moves, the plate flashes once (contract §5 "状态变化时短暂强化").
+            if (_lastRecoveredStateText != null && _lastRecoveredStateText != recovered)
+            {
+                _radial?.Pulse(WristModuleId.State);
+            }
+
+            _lastRecoveredStateText = recovered;
+            _recoveredRow.Label.text = recovered;
         }
 
         if (ReturnMode == WristReturnMode.ShipExplore)
@@ -2049,21 +2723,98 @@ public class SurfaceWristController : MonoBehaviour
         }
     }
 
-    private static void SetEquipState(TextRow row, string name, bool off)
+    /// <summary>
+    /// The 当前装备 block is a READ-ONLY read-out of what the expedition is
+    /// actually carrying (Phase 09B PASS 3 revision):
+    ///
+    ///   * 采集器 MK-I is mission-required and always listed;
+    ///   * 备用电池 / 勘测无人机 are listed ONLY while they are really equipped;
+    ///   * an unequipped module is not drawn at all - there is no muted "not
+    ///     equipped" line, no fake inventory and nothing to toggle here (the
+    ///     loadout authority is the ship's loadout page, not the wrist);
+    ///   * the listed rows are packed into the panel's first slots, so a shorter
+    ///     loadout can never leave a hole where a module used to be.
+    /// </summary>
+    private void RefreshEquipmentRows()
     {
-        if (row == null || row.Label == null)
+        var equipped = new List<TextRow>();
+        if (_session != null && _session.HarvesterSelected && _harvesterRow != null)
         {
-            return;
+            equipped.Add(_harvesterRow);
         }
 
-        row.Label.text = name;
-        if (off)
+        if (_session != null && _session.BatterySelected && _batteryRow != null)
         {
-            row.Label.AddToClassList("row-off");
+            equipped.Add(_batteryRow);
         }
-        else
+
+        if (_session != null && _session.DroneSelected && _droneRow != null)
         {
-            row.Label.RemoveFromClassList("row-off");
+            equipped.Add(_droneRow);
+        }
+
+        var all = new[] { _harvesterRow, _batteryRow, _droneRow };
+        for (int i = 0; i < all.Length; i++)
+        {
+            if (all[i] == null)
+            {
+                continue;
+            }
+
+            int slot = equipped.IndexOf(all[i]);
+            bool listed = slot >= 0;
+            all[i].Hidden = !listed;
+            all[i].Label.text = listed ? EquipmentName(all[i]) : string.Empty;
+            if (listed)
+            {
+                // Packed into the block's own slots (268 / 296 / 322).
+                all[i].LayoutCenterY = EquipmentSlotY(slot);
+            }
+        }
+
+        // The packing changes where the listed rows sit, so the slot layout is
+        // re-applied immediately (a shortened list must never keep a stale hole).
+        RefreshTextRowLayout();
+    }
+
+    /// <summary>Authored Y of equipment slot 0..2 in the upper-left panel band.</summary>
+    public static float EquipmentSlotY(int slot)
+    {
+        return slot <= 0 ? 268f : (slot == 1 ? 296f : 322f);
+    }
+
+    private static string EquipmentName(TextRow row)
+    {
+        switch (row.ElementName)
+        {
+            case "EquipHarvester":
+                return "采集器 MK-I";
+            case "EquipBattery":
+                return "备用电池";
+            case "EquipDrone":
+                return "勘测无人机";
+            default:
+                return row.ElementName;
+        }
+    }
+
+    /// <summary>Element names of the equipment rows the terminal is listing right
+    /// now (in panel order). Diagnostics / tests / evidence.</summary>
+    public string[] ListedEquipmentNames
+    {
+        get
+        {
+            var names = new List<string>();
+            var all = new[] { _harvesterRow, _batteryRow, _droneRow };
+            foreach (TextRow row in all)
+            {
+                if (row != null && !row.Hidden)
+                {
+                    names.Add(row.ElementName);
+                }
+            }
+
+            return names.ToArray();
         }
     }
 
@@ -2190,6 +2941,8 @@ public class SurfaceWristController : MonoBehaviour
     {
         if (ReturnMode == WristReturnMode.ShipExplore)
         {
+            // No player is physically harvesting inside the ship: the line is static.
+            _radial?.SetHarvestFlowing(false);
             RefreshShipContent();
             return;
         }
@@ -2203,6 +2956,10 @@ public class SurfaceWristController : MonoBehaviour
         SurfaceResourceNode active = _controller.ActiveNode;
         bool showCompletion = active == null && _completedNode != null
                               && Time.time - _completedAt < CompletionHoldSeconds;
+
+        // PASS 3: thin dashes slide along the harvest plate's rail ONLY while
+        // data is really moving (harvesting / transmitting); idle = static line.
+        _radial?.SetHarvestFlowing(active != null);
 
         if (active != null)
         {
@@ -2271,6 +3028,13 @@ public class SurfaceWristController : MonoBehaviour
                 ? DisplayStyle.Flex
                 : DisplayStyle.None;
         }
+
+        // PASS 3: the navigation module only becomes an OPERABLE element while a
+        // target is set (unset = a standby radar read-out, never a focus stop),
+        // and the radar switches from sweep to live bearing.
+        RefreshFocusItems();
+        RefreshRadar();
+        ApplyPadMode();
     }
 
     private IEnumerator AnimateOpen()
