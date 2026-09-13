@@ -132,8 +132,26 @@ public class SurvivePhase09BWarehouseTests
         Assert.AreEqual("x" + session.Minerals, page.DetailCountText, "default detail count");
         StringAssert.Contains("常见的天然矿物资源", page.DetailDescriptionText,
             "the description comes from the catalog");
+        // The marks are the SAME code-drawn vocabulary the other pages use:
+        // the three materials come from the Processing sketch set.
+        VisualElement grid = root.Q<VisualElement>(ElementNames.WarehouseGrid);
+        Assert.IsNotNull(grid, "grid");
+        Assert.AreEqual(3, grid.Query<VisualElement>(className: "process-sketch").ToList().Count,
+            "the three resource CELL marks are the shared Processing sketches");
         Assert.IsNotNull(root.Q<VisualElement>(ElementNames.WarehouseDetailIconHost)
-            .Q<WarehouseItemIcon>(null), "the enlarged icon is code-drawn");
+            .Q<VisualElement>(className: "process-sketch"),
+            "the enlarged detail mark is the same code-drawn sketch");
+
+        // The focus ring really RENDERS: one cyan frame on the focused cell.
+        VisualElement focusedCell = page.Focus.Focused;
+        Assert.IsNotNull(focusedCell, "a cell is focused");
+        Assert.IsTrue(focusedCell.ClassListContains(ShipWarehouseScreenHost.FocusClass),
+            "the shared focus class is on the focused cell");
+        Color border = focusedCell.resolvedStyle.borderTopColor;
+        Assert.Greater(border.b, border.r + 0.2f,
+            "the focused cell draws the cyan focus frame (actual " + border + ")");
+        Assert.Greater(border.g, border.r + 0.2f,
+            "the focused cell draws the cyan focus frame (actual " + border + ")");
 
         // ---- the key line names Back only (device aware) ----
         InputDeviceTracker.NotifyGamepad();
@@ -313,6 +331,15 @@ public class SurvivePhase09BWarehouseTests
         Assert.IsNotNull(root.Q<VisualElement>("WarehouseCell_harvester"), "harvester cell");
         Assert.IsNotNull(root.Q<VisualElement>("WarehouseCell_battery"), "battery cell");
         Assert.IsNotNull(root.Q<VisualElement>("WarehouseCell_drone"), "drone cell");
+
+        // The equipment marks are the shared Preparation sketches (one item,
+        // one icon across screens); the payload crate keeps its own mark.
+        VisualElement grid = root.Q<VisualElement>(ElementNames.WarehouseGrid);
+        Assert.IsNotNull(grid, "grid");
+        Assert.AreEqual(3, grid.Query<VisualElement>(className: "prep-sketch").ToList().Count,
+            "the three equipment CELL marks are the shared Preparation sketches");
+        Assert.AreEqual(1, grid.Query<VisualElement>(className: "warehouse-icon").ToList().Count,
+            "the payload crate keeps its own code-drawn mark");
         Assert.IsNotNull(root.Q<VisualElement>("WarehouseCell_cargo"), "cargo cell");
         Assert.AreEqual("必需", LabelText(root, ShipWarehouseScreenHost.HarvesterStateName),
             "the harvester is required");

@@ -170,8 +170,15 @@
 }
 
 .wh-cell-icon {
-    width: 62px;
-    height: 62px;
+    width: 86px;
+    height: 86px;
+}
+
+/* The shared item marks (Processing / Preparation sketches) fill their host. */
+.warehouse-root .process-sketch,
+.warehouse-root .prep-sketch,
+.warehouse-root .warehouse-icon {
+    flex-grow: 1;
 }
 
 .wh-cell-value {
@@ -257,8 +264,8 @@
 }
 
 .wh-detail-icon {
-    width: 108px;
-    height: 108px;
+    width: 120px;
+    height: 120px;
 }
 
 .wh-detail-head {

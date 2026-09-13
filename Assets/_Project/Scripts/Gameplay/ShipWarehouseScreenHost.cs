@@ -67,7 +67,7 @@ public class ShipWarehouseScreenHost : MonoBehaviour
     public const int GridSlots = GridColumns * GridRows;
 
     /// <summary>Style class the shared focus navigator paints.</summary>
-    public const string FocusClass = "warehouse-cell-focused";
+    public const string FocusClass = "wh-cell-focused";
 
     /// <summary>Class of one real item cell (and of an empty slot).</summary>
     public const string CellClass = "wh-cell";
@@ -97,7 +97,7 @@ public class ShipWarehouseScreenHost : MonoBehaviour
 
     private UiFocusNavigator _focus;
     private ControllerPromptBar _promptBar;
-    private WarehouseItemIcon _detailIcon;
+    private string _detailIconItemId;
 
     private string _activeTab = WarehouseCatalog.ResourcesTab;
     private readonly List<WarehouseItem> _items = new List<WarehouseItem>();
@@ -435,9 +435,10 @@ public class ShipWarehouseScreenHost : MonoBehaviour
             cell.AddToClassList("wh-cell-rowend");
         }
 
-        var icon = new WarehouseItemIcon(item.Icon);
-        icon.AddToClassList("wh-cell-icon");
-        cell.Add(icon);
+        var iconHost = new VisualElement { pickingMode = PickingMode.Ignore };
+        iconHost.AddToClassList("wh-cell-icon");
+        iconHost.Add(CreateMark(item.Icon));
+        cell.Add(iconHost);
 
         string value = !string.IsNullOrEmpty(item.ValueText)
             ? item.ValueText
@@ -572,25 +573,57 @@ public class ShipWarehouseScreenHost : MonoBehaviour
             : item.AmountText);
         SetText(_detailState, item.State);
         SetText(_detailText, item.Description);
-        SetIcon(item.Icon);
+        SetIcon(item);
     }
 
-    private void SetIcon(WarehouseItemKind kind)
+    private void SetIcon(WarehouseItem item)
     {
-        if (_detailIconHost == null)
+        if (_detailIconHost == null || item == null)
         {
             return;
         }
 
-        if (_detailIcon != null && _detailIcon.Kind == kind)
+        if (_detailIconItemId == item.Id && _detailIconHost.childCount > 0)
         {
             return;
         }
 
+        _detailIconItemId = item.Id;
         _detailIconHost.Clear();
-        _detailIcon = new WarehouseItemIcon(kind);
-        _detailIcon.AddToClassList("wh-detail-icon");
-        _detailIconHost.Add(_detailIcon);
+
+        // Inset box so the enlarged mark keeps the reference framing.
+        var box = new VisualElement { pickingMode = PickingMode.Ignore };
+        box.AddToClassList("wh-detail-icon");
+        box.Add(CreateMark(item.Icon));
+        _detailIconHost.Add(box);
+    }
+
+    /// <summary>
+    /// The mark of one item, drawn with the SAME code-drawn vocabulary the
+    /// rest of the project already uses: the three materials come from the
+    /// Processing page0027s sketch set and the equipment from the Preparation
+    /// page0027s, so one item never shows two different icons across screens.
+    /// (The payload crate has no counterpart elsewhere, so it keeps its own mark.)
+    /// </summary>
+    private static VisualElement CreateMark(WarehouseItemKind kind)
+    {
+        switch (kind)
+        {
+            case WarehouseItemKind.Mineral:
+                return new ProcessingSketchIcon(ProcessingSketchIcon.Kind.Ore, true);
+            case WarehouseItemKind.Fuel:
+                return new ProcessingSketchIcon(ProcessingSketchIcon.Kind.Fuel, true);
+            case WarehouseItemKind.Alloy:
+                return new ProcessingSketchIcon(ProcessingSketchIcon.Kind.Alloy, true);
+            case WarehouseItemKind.Harvester:
+                return new PreparationSketchIcon(PreparationSketchIcon.Kind.Harvester);
+            case WarehouseItemKind.Battery:
+                return new PreparationSketchIcon(PreparationSketchIcon.Kind.Battery);
+            case WarehouseItemKind.Drone:
+                return new PreparationSketchIcon(PreparationSketchIcon.Kind.Drone);
+            default:
+                return new WarehouseItemIcon();
+        }
     }
 
     // ---- tabs / presentation ----
