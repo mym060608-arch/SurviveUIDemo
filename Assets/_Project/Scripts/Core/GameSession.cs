@@ -25,11 +25,15 @@ public class GameSession : MonoBehaviour
     public const int DefaultRefineryLevel = 1;
     public const int DefaultOutpostLevel = 1;
 
-    // Refinery processing batches (Phase 04). One batch base = 5 minerals:
-    // +2 Fuel and +1 Alloy per base batch. See ProcessingScreen for the flow.
-    public const int ProcessBatchBase = 5;
-    public const int ProcessFuelReward = 2;
-    public const int ProcessAlloyReward = 1;
+    // Refinery processing (Phase 04; yield revised in Phase 09B PASS 5).
+    // One mineral refines into one Alloy (primary product) plus one Fuel
+    // (byproduct). A single run processes ProcessBatchMin..ProcessBatchMax
+    // minerals and can never exceed the real stock, so the old fixed
+    // 5/10/15 batch buttons are gone - the player picks any quantity.
+    public const int ProcessBatchMin = 1;
+    public const int ProcessBatchMax = 15;
+    public const int ProcessAlloyPerMineral = 1;
+    public const int ProcessFuelPerMineral = 1;
 
     // Outpost module progression (Phase 05). Demo tier range LV.1..LV.3.
     public const int MaxModuleLevel = 3;
@@ -348,32 +352,49 @@ public class GameSession : MonoBehaviour
         }
     }
 
-    /// <summary>Expected Fuel output for a batch size (deterministic).</summary>
-    public static int FuelGainFor(int batchMinerals)
-    {
-        return batchMinerals / ProcessBatchBase * ProcessFuelReward;
-    }
-
     /// <summary>Expected Alloy output for a batch size (deterministic).</summary>
     public static int AlloyGainFor(int batchMinerals)
     {
-        return batchMinerals / ProcessBatchBase * ProcessAlloyReward;
+        return batchMinerals * ProcessAlloyPerMineral;
     }
+
+    /// <summary>Expected Fuel output for a batch size (deterministic).</summary>
+    public static int FuelGainFor(int batchMinerals)
+    {
+        return batchMinerals * ProcessFuelPerMineral;
+    }
+
+    /// <summary>True when the quantity is a legal refinery run size, i.e. inside
+    /// the module's ProcessBatchMin..ProcessBatchMax range.</summary>
+    public static bool IsValidBatch(int batchMinerals)
+    {
+        return batchMinerals >= ProcessBatchMin && batchMinerals <= ProcessBatchMax;
+    }
+
+    /// <summary>Largest run size the current stock allows (0 = nothing to
+    /// refine). The quantity control clamps to this, so an impossible amount can
+    /// never be selected, let alone started.</summary>
+    public int MaxStartableBatch => Mathf.Clamp(Minerals, 0, ProcessBatchMax);
+
+    /// <summary>Largest run size the stock allows, never below the legal
+    /// minimum (the control still shows a usable value at 0 stock, while
+    /// <see cref="CanStartBatch"/> stays false).</summary>
+    public int MaxSelectableBatch => Mathf.Max(ProcessBatchMin, MaxStartableBatch);
 
     /// <summary>True when <paramref name="batch"/> may be started right now:
     /// not already processing and enough minerals available.</summary>
     public bool CanStartBatch(int batchMinerals)
     {
         return !IsProcessing
-               && (batchMinerals == 5 || batchMinerals == 10 || batchMinerals == 15)
+               && IsValidBatch(batchMinerals)
                && Minerals >= batchMinerals;
     }
 
     /// <summary>
-    /// Starts a refinery batch: deducts minerals immediately and moves to
+    /// Starts a refinery run: deducts minerals immediately and moves to
     /// Running. Returns false (state untouched) when already processing,
-    /// the batch is unsupported, or minerals are insufficient. Completion
-    /// (via timer or AdvanceProcessing) settles the pending outputs.
+    /// the quantity is outside the module range, or minerals are insufficient.
+    /// Completion (via timer or AdvanceProcessing) settles the pending outputs.
     /// </summary>
     public bool TryStartProcess(int batchMinerals)
     {
@@ -382,7 +403,7 @@ public class GameSession : MonoBehaviour
             return false;
         }
 
-        if (batchMinerals != 5 && batchMinerals != 10 && batchMinerals != 15)
+        if (!IsValidBatch(batchMinerals))
         {
             return false;
         }

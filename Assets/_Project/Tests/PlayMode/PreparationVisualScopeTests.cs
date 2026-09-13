@@ -90,8 +90,6 @@ public class PreparationVisualScopeTests
         Assert.AreEqual(1, root.Q<VisualElement>("HarvesterSketch").childCount, "harvester sketch drawn once");
         Assert.AreEqual(1, root.Q<VisualElement>("BatterySketch").childCount, "battery sketch drawn once");
         Assert.AreEqual(1, root.Q<VisualElement>("DroneSketch").childCount, "drone sketch drawn once");
-        Assert.AreEqual(1, root.Q<VisualElement>("MissionResourceIcon").childCount,
-            "mission resource mark drawn once");
 
         // The controller bar still advertises the four existing operations.
         Assert.AreEqual(4, root.Query<Label>(className: "prep-key-hint").ToList().Count, "four prompt keys");
@@ -212,7 +210,79 @@ public class PreparationVisualScopeTests
         InputSystem.RemoveDevice(pad);
     }
 
+    /// <summary>
+    /// The page's own controller contract (Phase 09B PASS 5 follow-up): the D-pad
+    /// walks the slots and A equips without a single mouse event, B leaves the
+    /// page, and the bottom-right key line names the device in hand - including
+    /// the "&lt; &gt;" D-pad wording the pages share.
+    /// </summary>
+    [UnityTest]
+    public IEnumerator Preparation_Controller_FocusAndEquip_WithoutMouse()
+    {
+        yield return LoadPreparation();
+        AppController app = _app;
+        VisualElement root = app.UiRoot.Q<VisualElement>(ElementNames.PreparationScreen);
+        PreparationScreen page = app.PreparationView;
+        Assert.IsNotNull(page, "preparation page controller");
+        Assert.IsNotNull(page.Focus, "the page owns a focus ring");
+
+        Gamepad pad = InputSystem.AddDevice<Gamepad>();
+        for (int i = 0; i < 6; i++) yield return null;
+
+        // No pointer event has happened: the page must already own a focus ring.
+        Assert.IsNotNull(page.Focus.Focused, "the page gives itself a default focus");
+        Assert.AreSame(root.Q<Button>(ElementNames.HarvesterRowButton), page.Focus.Focused,
+            "the first equipment slot owns the default focus");
+
+        // D-pad down -> the battery slot (and the pad becomes the tracked device).
+        yield return PadPress(pad, GamepadButton.DpadDown);
+        Assert.AreSame(root.Q<Button>(ElementNames.BatteryRowButton), page.Focus.Focused,
+            "D-Pad down moves the ring to the battery slot");
+
+        // The key line follows the device in hand.
+        Assert.AreEqual("[< >] 选择", root.Q<Label>(ElementNames.PrepHintNavigate).text,
+            "the D-pad is printed as the shared < > arrows");
+        Assert.AreEqual("[B] 返回", root.Q<Label>(ElementNames.PrepHintBack).text,
+            "the Back hint names the pad's B");
+
+        yield return PadPress(pad, GamepadButton.South);
+        Assert.IsTrue(GameSession.Instance.BatterySelected, "A equipped the focused slot");
+        Assert.AreEqual("70 / 100", root.Q<Label>(ElementNames.CargoValue).text,
+            "the payload followed the pad-driven equip");
+
+        // A again unequips it.
+        yield return PadPress(pad, GamepadButton.South);
+        Assert.IsFalse(GameSession.Instance.BatterySelected, "A unequipped it again");
+        Assert.AreEqual("45 / 100", root.Q<Label>(ElementNames.CargoValue).text, "payload restored");
+
+        // The keyboard re-glyphs the same line without changing the rows.
+        InputDeviceTracker.NotifyKeyboardMouse();
+        for (int i = 0; i < 3; i++) yield return null;
+        Assert.AreEqual("[← →] 选择", root.Q<Label>(ElementNames.PrepHintNavigate).text,
+            "the key line re-glyphs for the keyboard");
+        Assert.AreEqual("[Esc] 返回", root.Q<Label>(ElementNames.PrepHintBack).text,
+            "the Back hint follows the keyboard too");
+        InputDeviceTracker.NotifyGamepad();
+        for (int i = 0; i < 3; i++) yield return null;
+
+        // B leaves the page (the hub steps back to the screen it came from).
+        yield return PadPress(pad, GamepadButton.East);
+        Assert.AreNotEqual(AppScreen.Preparation, app.CurrentScreen, "B left the page");
+        Assert.AreEqual(1, app.VisibleScreenCount, "exactly one screen stays visible");
+        InputSystem.RemoveDevice(pad);
+    }
+
     // ---------- helpers ----------
+    /// <summary>One real pad press: queue the button, let the page tick, release,
+    /// and let the release settle so a held direction cannot repeat.</summary>
+    private static IEnumerator PadPress(Gamepad pad, GamepadButton button)
+    {
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(button));
+        for (int i = 0; i < 3; i++) yield return null;
+
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        for (int i = 0; i < 3; i++) yield return null;
+    }
 
     /// <summary>Hub -> Preparation, waiting for the hub app to finish binding.</summary>
     private IEnumerator LoadPreparation()

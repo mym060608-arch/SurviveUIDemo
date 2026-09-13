@@ -563,9 +563,11 @@ public class SurvivePhase07BTests
         int fuelBefore = session.Fuel;
         int alloyBefore = session.Alloy;
 
-        // Select batch 05, then click Start through the world pointer.
-        yield return ClickElement(router, surface, FindButton(surface, ElementNames.Batch5Button));
-        yield return ClickElement(router, surface, FindButton(surface, ElementNames.ProcessingStartButton));
+        // Raise the run size, then confirm through the world pointer.
+        yield return ClickElement(router, surface,
+            FindButton(surface, ElementNames.ProcessingQuantityUp));
+        yield return ClickElement(router, surface,
+            FindButton(surface, ElementNames.ProcessingStartButton));
         Assert.IsTrue(session.IsProcessing, "real click started the process");
 
         // Walk away: process continues under the persistent session.
@@ -574,9 +576,11 @@ public class SurvivePhase07BTests
         yield return WaitSeconds(3f); // refinery LV.1 takes 2.0 s
         Assert.AreEqual(GameSession.RefineryProcessState.Complete, session.ProcessState,
             "processing completed while the player walked away");
-        Assert.AreEqual(fuelBefore + GameSession.ProcessFuelReward, session.Fuel,
+        // Phase 09B PASS 5 yield: one mineral pays one Alloy + one Fuel, and the
+        // click above raised the run size to 2.
+        Assert.AreEqual(fuelBefore + 2 * GameSession.ProcessFuelPerMineral, session.Fuel,
             "fuel settled by authority");
-        Assert.AreEqual(alloyBefore + GameSession.ProcessAlloyReward, session.Alloy,
+        Assert.AreEqual(alloyBefore + 2 * GameSession.ProcessAlloyPerMineral, session.Alloy,
             "alloy settled by authority");
 
         // Re-entering the console reflects the actual current state.
@@ -715,11 +719,11 @@ public class SurvivePhase07BTests
         yield return WaitFocused(focus);
         surface = controller.Consoles[2].GetComponent<WorldConsoleSurface>();
         yield return WaitConsoleUi(surface);
-        Button batch5 = FindButton(surface, ElementNames.Batch5Button);
-        Assert.IsNotNull(batch5, "batch 05 button present");
+        Button quantityUp = FindButton(surface, ElementNames.ProcessingQuantityUp);
+        Assert.IsNotNull(quantityUp, "quantity control present");
         Vector2 viewport;
-        Assert.IsTrue(TryElementViewport(surface, eye, batch5, out viewport),
-            "batch element maps into the viewport");
+        Assert.IsTrue(TryElementViewport(surface, eye, quantityUp, out viewport),
+            "quantity control maps into the viewport");
         Assert.IsTrue(router.TryHoverViewportPoint(viewport), "hover lands on the screen");
         yield return null;
         yield return null;
@@ -737,7 +741,7 @@ public class SurvivePhase07BTests
         bool chainToButton = false;
         for (VisualElement walk = picked; walk != null; walk = walk.parent)
         {
-            if (walk == batch5)
+            if (walk == quantityUp)
             {
                 chainToButton = true;
                 break;
@@ -745,7 +749,7 @@ public class SurvivePhase07BTests
         }
 
         Assert.IsTrue(chainToButton,
-            "hover targeting resolves to the batch button through the "
+            "hover targeting resolves to the processing control through the "
             + "dispatcher picker (" + (picked != null ? picked.name : "null") + ")");
 
         focus.RequestExit();

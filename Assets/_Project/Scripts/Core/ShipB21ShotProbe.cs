@@ -463,22 +463,29 @@ public class ShipB21ShotProbe : MonoBehaviour
         VisualElement root = surface.Document != null
             ? surface.Document.rootVisualElement
             : null;
-        Button batch5 = root != null ? root.Q<Button>(ElementNames.Batch5Button) : null;
+        Button quantityUp = root != null
+            ? root.Q<Button>(ElementNames.ProcessingQuantityUp)
+            : null;
+        Label quantityValue = root != null
+            ? root.Q<Label>(ElementNames.ProcessingQuantityValue)
+            : null;
         Button start = root != null
             ? root.Q<Button>(ElementNames.ProcessingStartButton)
             : null;
-        Check("processing batch/start buttons resolved",
-            batch5 != null && start != null);
-        if (batch5 == null || start == null)
+        Check("processing quantity/start controls resolved",
+            quantityUp != null && quantityValue != null && start != null);
+        if (quantityUp == null || quantityValue == null || start == null)
         {
             _focus.RequestExit();
             yield return WaitExplore();
             yield break;
         }
 
-        yield return WarpAndClick(batch5, surface, "Batch 05");
-        bool batchSelected = batch5.ClassListContains("batch-selected");
-        if (!batchSelected)
+        // Phase 09B PASS 5: the fixed 5/10/15 batch buttons are gone; the run
+        // size is the page's < n > control. One click raises it to 2 minerals.
+        yield return WarpAndClick(quantityUp, surface, "Quantity +");
+        bool quantityRaised = quantityValue.text == "02";
+        if (!quantityRaised)
         {
             // Fallback: the same world-pointer pipeline the router uses for
             // real hardware (mouse -> ray -> collider -> UV -> panel -> UI
@@ -487,18 +494,51 @@ public class ShipB21ShotProbe : MonoBehaviour
                 Object.FindAnyObjectByType<WorldUiPointerRouter>();
             Vector2 viewport;
             if (router != null
-                && TryElementViewport(surface, _eye, batch5, out viewport))
+                && TryElementViewport(surface, _eye, quantityUp, out viewport))
             {
                 router.TryClickViewportPoint(viewport);
                 yield return WaitReal(0.3f);
-                batchSelected = batch5.ClassListContains("batch-selected");
-                Info("Batch 05 selected through the world-pointer fallback: "
-                     + batchSelected);
+                quantityRaised = quantityValue.text == "02";
+                Info("Quantity + through the world-pointer fallback: "
+                     + quantityRaised);
             }
         }
 
-        Check("real mouse click selected Batch 05 (batch-selected="
-              + batchSelected + ")", batchSelected);
+        Check("real mouse click raised the run size to 02 (value="
+              + quantityValue.text + ")", quantityRaised);
+
+        // ---- Phase 09B PASS 5 hotfix: the PAD must drive the focused console ----
+        // The user-reported bug was "握住手柄按加工界面没有反应": the console page
+        // only accepts pad input while its own surface is the focused one, and
+        // that gate used to ask a sibling component for the console surface and
+        // always answered "not focused". This section drives the real Input
+        // System gamepad route on the focused terminal.
+        Gamepad pad = InputSystem.AddDevice<Gamepad>();
+        yield return WaitReal(0.3f);
+        yield return PressPad(pad, GamepadButton.DpadRight);
+        bool padRaised = quantityValue.text == "03";
+        Check("gamepad D-Pad right raised the run size on the focused console "
+              + "(value=" + quantityValue.text + ")", padRaised);
+
+        yield return PressPad(pad, GamepadButton.DpadLeft);
+        Check("gamepad D-Pad left lowered it again (value=" + quantityValue.text + ")",
+            quantityValue.text == "02");
+
+        ControllerPromptBar bar = root != null
+            ? root.Q<ControllerPromptBar>(ControllerPromptBar.ElementName)
+            : null;
+        Check("the focused console shows its controller prompt ("
+              + (bar != null ? bar.PromptText : "<none>") + ")",
+            bar != null && bar.IsShown && bar.PromptText.Contains("数量"));
+        Check("the prompt names the available keys, not a dead one",
+            bar != null && bar.PromptText.Contains("确认加工")
+            && bar.PromptText.Contains("返回"));
+
+        if (pad != null && pad.added)
+        {
+            InputSystem.RemoveDevice(pad);
+            yield return WaitReal(0.2f);
+        }
 
         yield return WarpAndClick(start, surface, "Start");
 
@@ -520,15 +560,15 @@ public class ShipB21ShotProbe : MonoBehaviour
             }
         }
 
-        Check("real mouse click on Start began the 5-mineral batch "
-              + "(processing=" + session.IsProcessing + " batch="
+        Check("real mouse click on 确认加工 began the run "
+              + "(processing=" + session.IsProcessing + " quantity="
               + session.ActiveBatchMinerals + ")",
-            session.IsProcessing && session.ActiveBatchMinerals == 5);
+            session.IsProcessing && session.ActiveBatchMinerals == 2);
 
         _focus.RequestExit();
         yield return WaitExplore();
         yield return WaitReal(2.4f);
-        Check("batch completed under the persistent session",
+        Check("run completed under the persistent session",
             session.ProcessState == GameSession.RefineryProcessState.Complete);
     }
 
@@ -914,6 +954,23 @@ public class ShipB21ShotProbe : MonoBehaviour
     {
         float deadline = Time.realtimeSinceStartup + seconds;
         while (Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+        }
+    }
+
+    /// <summary>One real pad press through the Input System queue: press, let
+    /// the focused console tick, release, let the release settle.</summary>
+    private static IEnumerator PressPad(Gamepad pad, GamepadButton button)
+    {
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(button));
+        for (int i = 0; i < 4; i++)
+        {
+            yield return null;
+        }
+
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        for (int i = 0; i < 4; i++)
         {
             yield return null;
         }

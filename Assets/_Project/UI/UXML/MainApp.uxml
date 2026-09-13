@@ -180,34 +180,15 @@
 
             <!-- Screen 02: Preparation / Expedition Preparation (Phase 03) -->
             <ui:VisualElement name="PreparationScreen" class="screen preparation-screen">
-                <!-- System strip: page identity + terminal status -->
-                <ui:VisualElement class="prep-topbar">
-                    <ui:VisualElement class="topbar-left">
-                        <ui:Label class="prep-brand" text="SURVIVE // DRIFT" />
-                        <ui:VisualElement class="prep-brand-rule" />
-                        <ui:Label class="topbar-role" text="远征控制" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="topbar-right">
-                        <ui:Label class="prep-top-note" text="行星勘测任务" />
-                        <ui:VisualElement class="prep-top-sep" />
-                        <ui:VisualElement class="prep-online">
-                            <ui:VisualElement class="prep-online-dot" />
-                            <ui:Label class="prep-online-text" text="系统在线" />
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-                </ui:VisualElement>
+                <!-- No system brand strip (removed on request): the page opens on
+                     its own identity (出发准备) and keeps the light canvas. -->
 
-                <!-- Mission / target summary -->
+                <!-- Mission / target summary (the 资源 label + mineral disc were
+                     removed on request: the page name carries the strip) -->
                 <ui:VisualElement name="MissionSummary" class="mission-summary">
                     <ui:VisualElement class="mission-head">
                         <ui:Label name="PreparationDestination" class="mission-planet" text="出发准备" />
                         <ui:Label class="prep-subtitle" text="选择装备，配置出发方案" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="mission-data">
-                        <ui:Label class="mission-resource-label" text="资源" />
-                        <ui:VisualElement class="mission-resource-disc">
-                            <ui:VisualElement name="MissionResourceIcon" class="mission-resource-icon" />
-                        </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
 
@@ -421,35 +402,19 @@
                 <ui:VisualElement class="prep-actionbar">
                     <ui:Label class="actionbar-context" text="NEREID-04 · 出发准备" />
                     <ui:VisualElement class="prep-hints">
-                        <ui:Label class="prep-key-hint" text="[X] 详情" />
-                        <ui:Label class="prep-key-hint" text="[LS] 选择" />
-                        <ui:Label class="prep-key-hint" text="[B] 返回" />
-                        <ui:Label class="prep-key-hint prep-key-primary" text="[A] 装备 / 卸下" />
+                        <ui:Label name="PrepHintDetails" class="prep-key-hint" text="[X] 详情" />
+                        <ui:Label name="PrepHintNavigate" class="prep-key-hint" text="[&lt; &gt;] 选择" />
+                        <ui:Label name="PrepHintBack" class="prep-key-hint" text="[B] 返回" />
+                        <ui:Label name="PrepHintConfirm" class="prep-key-hint prep-key-primary" text="[A] 装备 / 卸下" />
                     </ui:VisualElement>
                     <ui:Button name="ConfirmLoadoutButton" class="confirm-action" text="确认配置" />
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <!-- Screen 03: Processing / Resource Processing (Phase 04) -->
+            <!-- Screen 03: Processing / Resource Processing (Phase 04; PASS 5 restructure) -->
             <ui:VisualElement name="ProcessingScreen" class="screen processing-screen">
-                <!-- Top system bar (Phase 02 language) -->
-                <ui:VisualElement class="process-topbar">
-                    <ui:VisualElement class="topbar-left">
-                        <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
-                        <ui:VisualElement class="topbar-divider-v" />
-                        <ui:Label class="topbar-role" text="远征控制" />
-                    </ui:VisualElement>
-                    <ui:VisualElement class="topbar-right">
-                        <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
-                        <ui:VisualElement class="topbar-cellsep" />
-                        <ui:Label class="topbar-cell" text="CYCLE 1842" />
-                        <ui:VisualElement class="topbar-cellsep" />
-                        <ui:VisualElement class="topbar-system">
-                            <ui:VisualElement class="status-dot" />
-                            <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
-                        </ui:VisualElement>
-                    </ui:VisualElement>
-                </ui:VisualElement>
+                <!-- No system brand strip (removed on request): the page opens on
+                     its own identity (资源加工) and gives the work area the frame. -->
 
                 <!-- Screen identity strip -->
                 <ui:VisualElement class="process-head">
@@ -463,41 +428,66 @@
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <!-- Main body: storage+batch / process core / inventory -->
+                <!-- Main body: recipe list / refinery flow / inventory -->
                 <ui:VisualElement class="processing-body">
-                    <!-- LEFT: raw storage + batch -->
-                    <ui:VisualElement name="ProcessingStoragePanel" class="process-col-left">
+                    <!-- LEFT: 加工列表 + 当前配方 + 加工数量 -->
+                    <ui:VisualElement name="ProcessingRecipePanel" class="process-col-left">
                         <ui:VisualElement class="panel-header">
-                            <ui:Label class="panel-header-text" text="原料库存" />
+                            <ui:Label class="panel-header-text" text="加工列表" />
                             <ui:VisualElement class="panel-header-rule" />
+                            <ui:Label class="panel-header-tag" text="RECIPES" />
                         </ui:VisualElement>
-                        <ui:VisualElement class="storage-line">
-                            <ui:Label class="storage-caption" text="矿物 // RAW MINERALS" />
-                            <ui:Label name="ProcessingMineralsValue" class="storage-value" text="20" />
+
+                        <ui:VisualElement name="ProcessingRecipeList" class="recipe-list">
+                            <ui:Button name="ProcessingRecipeRow" class="recipe-row recipe-selected">
+                                <ui:VisualElement name="ProcessingRecipeIcon" class="recipe-icon" />
+                                <ui:VisualElement class="recipe-text">
+                                    <ui:Label name="ProcessingRecipeName" class="recipe-name" text="合金" />
+                                    <ui:Label name="ProcessingRecipeFlow" class="recipe-sub" text="矿物 → 合金" />
+                                </ui:VisualElement>
+                                <ui:Label class="recipe-chevron" text="›" />
+                            </ui:Button>
+                        </ui:VisualElement>
+                        <ui:Label class="recipe-note" text="精炼单元当前只有 1 条配方" />
+
+                        <ui:VisualElement class="panel-rule" />
+
+                        <ui:Label class="group-label" text="当前配方" />
+                        <ui:VisualElement class="recipe-current">
+                            <ui:VisualElement name="ProcessingCurrentRecipeIcon" class="recipe-current-icon" />
+                            <ui:VisualElement class="recipe-current-text">
+                                <ui:Label name="ProcessingCurrentRecipeName" class="recipe-current-name" text="合金" />
+                                <ui:Label name="ProcessingCurrentRecipeFlow" class="recipe-current-flow" text="矿物 ×1 → 合金 +1 · 燃料 +1" />
+                            </ui:VisualElement>
                         </ui:VisualElement>
 
                         <ui:VisualElement class="panel-rule" />
 
-                        <ui:Label class="group-label" text="加工批次" />
-                        <ui:VisualElement class="batch-row">
-                            <ui:Button name="Batch5Button" class="batch-button batch-selected" text="05" />
-                            <ui:Button name="Batch10Button" class="batch-button" text="10" />
-                            <ui:Button name="Batch15Button" class="batch-button batch-last" text="15" />
+                        <ui:Label class="group-label" text="加工数量" />
+                        <ui:VisualElement name="ProcessingQuantityRow" class="quantity-row">
+                            <ui:Button name="ProcessingQuantityDown" class="quantity-arrow" text="‹" />
+                            <ui:VisualElement class="quantity-box">
+                                <ui:Label name="ProcessingQuantityValue" class="quantity-value" text="1" />
+                                <ui:Label class="quantity-unit" text="矿物" />
+                            </ui:VisualElement>
+                            <ui:Button name="ProcessingQuantityUp" class="quantity-arrow quantity-arrow-up" text="›" />
                         </ui:VisualElement>
-                        <ui:Label class="batch-unit" text="单位：矿物 // 5 矿物 = 燃料+2 / 合金+1" />
+                        <ui:Label name="ProcessingQuantityHint" class="quantity-hint" text="上限 15 · 库存 20" />
                     </ui:VisualElement>
 
-                    <!-- CENTER: process core / output / progress -->
+                    <!-- CENTER: refinery flow (first visual anchor) -->
                     <ui:VisualElement name="ProcessingCorePanel" class="process-col-center">
                         <ui:VisualElement class="panel-header">
-                            <ui:Label class="panel-header-text" text="精炼流程" />
+                            <ui:Label class="panel-header-text" text="加工进度" />
                             <ui:VisualElement class="panel-header-rule" />
                             <ui:VisualElement class="core-sys-dot" />
                             <ui:Label class="core-sys-label" text="精炼单元 · 在线" />
                         </ui:VisualElement>
 
+                        <ui:VisualElement name="ProcessingActivityStrip" class="core-strip" />
+
                         <ui:VisualElement class="core-panel">
-                            <!-- Main status + live progress readout -->
+                            <!-- Main state + live progress readout -->
                             <ui:VisualElement class="core-status-row">
                                 <ui:Label name="ProcessingStatusLabel" class="core-status" text="准备就绪" />
                                 <ui:VisualElement class="core-progress-readout">
@@ -506,49 +496,55 @@
                                 </ui:VisualElement>
                             </ui:VisualElement>
 
-                            <!-- Refinery flow: minerals -> module -> fuel/alloy -->
+                            <!-- Refinery flow: 矿物 -> 精炼炉 -> 燃料 / 合金 -->
                             <ui:VisualElement class="core-flow">
-                                <ui:VisualElement class="flow-node">
+                                <ui:VisualElement class="flow-node flow-node-input">
+                                    <ui:VisualElement name="FlowOreIcon" class="flow-icon" />
                                     <ui:Label class="flow-node-text" text="矿物" />
                                     <ui:Label class="flow-node-sub" text="原料输入" />
                                 </ui:VisualElement>
-                                <ui:VisualElement class="flow-conn">
-                                    <ui:VisualElement class="flow-line" />
-                                    <ui:Label class="flow-arrow" text="»" />
+
+                                <ui:VisualElement name="FlowLineIn" class="flow-conn" />
+
+                                <ui:VisualElement class="flow-core">
+                                    <ui:VisualElement name="RefineryCoreHost" class="refinery-core" />
+                                    <ui:Label class="flow-core-text" text="精炼炉" />
+                                    <ui:Label name="ProcessingCoreNote" class="flow-node-sub core-batch-note" text="待机" />
                                 </ui:VisualElement>
-                                <ui:VisualElement class="flow-node flow-node-core">
-                                    <ui:Label class="flow-node-text" text="精炼模块" />
-                                    <ui:Label name="ProcessingActiveBatch" class="flow-node-sub core-batch-note" text="批次 05" />
-                                </ui:VisualElement>
-                                <ui:VisualElement class="flow-conn">
-                                    <ui:VisualElement class="flow-line" />
-                                    <ui:Label class="flow-arrow" text="»" />
-                                </ui:VisualElement>
+
+                                <ui:VisualElement name="FlowLineOut" class="flow-conn flow-conn-out" />
+
                                 <ui:VisualElement class="flow-output">
                                     <ui:VisualElement class="flow-node flow-node-output">
-                                        <ui:Label class="flow-node-text" text="燃料" />
-                                        <ui:Label class="flow-node-sub" text="产物 A" />
+                                        <ui:VisualElement name="FlowFuelIcon" class="flow-icon" />
+                                        <ui:VisualElement class="flow-output-text">
+                                            <ui:Label class="flow-node-text" text="燃料" />
+                                            <ui:Label class="flow-node-sub" text="副产物" />
+                                        </ui:VisualElement>
                                     </ui:VisualElement>
                                     <ui:VisualElement class="flow-split-rule" />
                                     <ui:VisualElement class="flow-node flow-node-output">
-                                        <ui:Label class="flow-node-text" text="合金" />
-                                        <ui:Label class="flow-node-sub" text="产物 B" />
+                                        <ui:VisualElement name="FlowAlloyIcon" class="flow-icon" />
+                                        <ui:VisualElement class="flow-output-text">
+                                            <ui:Label class="flow-node-text" text="合金" />
+                                            <ui:Label class="flow-node-sub" text="主产物" />
+                                        </ui:VisualElement>
                                     </ui:VisualElement>
                                 </ui:VisualElement>
                             </ui:VisualElement>
 
-                            <!-- Expected / settled output of the selected batch -->
+                            <!-- Expected / settled output of the selected quantity -->
                             <ui:VisualElement name="ProcessingOutputPanel" class="result-panel">
                                 <ui:VisualElement class="result-mark" />
                                 <ui:Label name="ProcessingOutputCaption" class="result-caption" text="预计产出" />
                                 <ui:Label class="output-key" text="燃料" />
-                                <ui:Label name="ProcessingFuelGainValue" class="result-value" text="+2" />
+                                <ui:Label name="ProcessingFuelGainValue" class="result-value" text="+1" />
                                 <ui:Label class="result-sep" text="·" />
                                 <ui:Label class="output-key" text="合金" />
                                 <ui:Label name="ProcessingAlloyGainValue" class="result-value" text="+1" />
                             </ui:VisualElement>
 
-                            <!-- Capacity progress rule -->
+                            <!-- Run progress rule -->
                             <ui:VisualElement class="core-track-row">
                                 <ui:VisualElement class="progress-track">
                                     <ui:VisualElement name="ProcessingProgressFill" class="progress-fill" />
@@ -557,43 +553,58 @@
                         </ui:VisualElement>
                     </ui:VisualElement>
 
-                    <!-- RIGHT: current inventory + refinery meta -->
+                    <!-- RIGHT: 当前库存 + 加工效率 -->
                     <ui:VisualElement name="ProcessingInventoryPanel" class="process-col-right">
                         <ui:VisualElement class="panel-header">
                             <ui:Label class="panel-header-text" text="当前库存" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
+                        <ui:VisualElement class="inventory-line inventory-line-raw">
+                            <ui:VisualElement name="InventoryOreIcon" class="inventory-icon" />
+                            <ui:Label class="inventory-key" text="矿物" />
+                            <ui:Label name="ProcessingMineralsValue" class="inventory-value" text="20" />
+                        </ui:VisualElement>
                         <ui:VisualElement class="inventory-line">
+                            <ui:VisualElement name="InventoryFuelIcon" class="inventory-icon" />
                             <ui:Label class="inventory-key" text="燃料" />
                             <ui:Label name="ProcessingFuelValue" class="inventory-value" text="8" />
                         </ui:VisualElement>
                         <ui:VisualElement class="inventory-line">
+                            <ui:VisualElement name="InventoryAlloyIcon" class="inventory-icon" />
                             <ui:Label class="inventory-key" text="合金" />
                             <ui:Label name="ProcessingAlloyValue" class="inventory-value" text="5" />
                         </ui:VisualElement>
 
                         <ui:VisualElement class="panel-rule" />
 
-                        <ui:Label class="group-label" text="精炼单元" />
+                        <ui:Label class="group-label" text="加工效率" />
                         <ui:VisualElement class="meta-line">
-                            <ui:Label class="meta-key" text="精炼模块" />
+                            <ui:Label class="meta-key" text="模块等级" />
                             <ui:Label name="ProcessingRefineryLevel" class="meta-value" text="LV.1" />
                         </ui:VisualElement>
                         <ui:VisualElement class="meta-line">
-                            <ui:Label class="meta-key" text="加工周期" />
+                            <ui:Label class="meta-key" text="加工时间" />
                             <ui:Label name="ProcessingDurationValue" class="meta-value" text="2.0s" />
+                        </ui:VisualElement>
+                        <ui:VisualElement class="meta-line">
+                            <ui:Label class="meta-key" text="产物配比" />
+                            <ui:Label class="meta-value" text="1 : 1 : 1" />
                         </ui:VisualElement>
                         <ui:VisualElement class="panel-footnote">
                             <ui:VisualElement class="footnote-tick" />
-                            <ui:Label class="footnote-label" text="精炼单元 // 在线" />
+                            <ui:Label class="footnote-label" text="1 矿物 = 合金 +1 · 燃料 +1" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
 
-                <!-- Bottom action strip -->
+                <!-- Bottom action strip: B 返回 / A 确认加工 -->
                 <ui:VisualElement class="process-actionbar">
-                    <ui:Label class="actionbar-context" text="REFINERY // BATCH OPERATION" />
-                    <ui:Button name="ProcessingStartButton" class="process-action" text="开始加工" />
+                    <ui:VisualElement class="actionbar-context">
+                        <ui:Label class="actionbar-label" text="REFINERY // BATCH OPERATION" />
+                        <ui:Label class="actionbar-note" text="加工期间无法修改配方与数量" />
+                    </ui:VisualElement>
+                    <ui:VisualElement name="ProcessingPromptHost" class="process-prompt-host" />
+                    <ui:Button name="ProcessingStartButton" class="process-action" text="确认加工" />
                 </ui:VisualElement>
             </ui:VisualElement>
 

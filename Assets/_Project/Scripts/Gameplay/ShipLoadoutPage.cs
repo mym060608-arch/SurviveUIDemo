@@ -22,14 +22,6 @@ using UnityEngine.UIElements;
 /// </summary>
 public class ShipLoadoutPage : MonoBehaviour
 {
-    public const string CloseButtonName = "LoadoutCloseButton";
-    public const string CloseHintName = "LoadoutCloseHint";
-
-    /// <summary>The panel's own copy of the Back verb (the device glyph is added
-    /// by InputDeviceTracker, so it reads "[B] 返回" on a controller and
-    /// "[Esc] 返回" on the keyboard).</summary>
-    public const string BackHintVerb = "返回";
-
     [SerializeField]
     public StyleSheet themeStyleSheet;
 
@@ -49,7 +41,6 @@ public class ShipLoadoutPage : MonoBehaviour
     private VisualElement _root;
     private GameSession _session;
     private PreparationScreen _preparation;
-    private Label _backHint;
     private bool _bound;
     private bool _visible;
     private int _shownFrame = -1000;
@@ -65,9 +56,12 @@ public class ShipLoadoutPage : MonoBehaviour
 
     public bool IsVisible => _visible;
 
-    /// <summary>The device-aware Back hint the panel really shows
-    /// ("[B] 返回" on a controller, "[Esc] 返回" on the keyboard).</summary>
-    public string BackHintText => _backHint != null ? _backHint.text : string.Empty;
+    /// <summary>
+    /// The device-aware Back hint the panel really shows. The top-right strip no
+    /// longer repeats it (the page's own bottom-right key line already carries
+    /// every key), so this reads the preparation page's own Back hint.
+    /// </summary>
+    public string BackHintText => _preparation != null ? _preparation.BackHintText : string.Empty;
 
     private void Awake()
     {
@@ -86,13 +80,20 @@ public class ShipLoadoutPage : MonoBehaviour
             EnsureBound();
         }
 
-        // The Back hint names the device the player is actually holding, so it
-        // is refreshed while the panel is on screen (gamepad <-> keyboard).
-        if (_bound && _visible)
+        if (!_bound)
+        {
+            return;
+        }
+
+        // The page's own bottom-right key line names the device in hand, and its
+        // focus ring only listens while the overlay is really on screen. Back is
+        // NOT taken here: the ship overlay layer owns B and closes the panel.
+        if (_visible)
         {
             InputDeviceTracker.Poll();
-            RefreshBackHint();
         }
+
+        _preparation?.Tick(_visible, _visible);
     }
 
     private void OnDestroy()
@@ -161,8 +162,9 @@ public class ShipLoadoutPage : MonoBehaviour
         _preparation.Refresh();
         _session.OnStateChanged += HandleSessionChanged;
 
-        BuildCloseBar();
-        RefreshBackHint();
+        // No top-right close strip any more (removed on request): the page's own
+        // bottom-right key line already names the Back binding, and Back is the
+        // overlay's documented exit (B / Esc -> ShipOverlayUi.HandleBack).
         _bound = true;
         _root.style.display = _visible ? DisplayStyle.Flex : DisplayStyle.None;
     }
@@ -175,52 +177,6 @@ public class ShipLoadoutPage : MonoBehaviour
     {
         return Time.frameCount <= _shownFrame + 1
                && UiInput.GamepadConfirmPressedThisFrame();
-    }
-
-    /// <summary>Rewrites the panel's Back hint for the current device.</summary>
-    private void RefreshBackHint()
-    {
-        if (_backHint == null)
-        {
-            return;
-        }
-
-        string text = InputDeviceTracker.FormatPrompt(UiAction.Back, BackHintVerb);
-        if (_backHint.text != text)
-        {
-            _backHint.text = text;
-        }
-    }
-
-    private void BuildCloseBar()
-    {
-        // Top-right close control (appended to the document instance only;
-        // MainApp.uxml itself is never modified).
-        var bar = new VisualElement();
-        bar.name = "LoadoutCloseBar";
-        bar.pickingMode = PickingMode.Ignore;
-        bar.AddToClassList("loadout-close-bar");
-        bar.style.position = Position.Absolute;
-        bar.style.top = 20f;
-        bar.style.right = 26f;
-        bar.style.flexDirection = FlexDirection.Row;
-        bar.style.alignItems = Align.Center;
-
-        // The hint names the Back control of the device in hand - the same
-        // "[B] 返回" / "[Esc] 返回" wording the rest of the ship uses.
-        _backHint = new Label { name = CloseHintName };
-        _backHint.AddToClassList("loadout-close-hint");
-        bar.Add(_backHint);
-
-        var closeButton = new Button(() => CloseRequested?.Invoke())
-        {
-            name = CloseButtonName,
-            text = "返回"
-        };
-        closeButton.AddToClassList("loadout-close-btn");
-        bar.Add(closeButton);
-
-        _root.Add(bar);
     }
 
     private void HandleSessionChanged()
@@ -274,7 +230,6 @@ public class ShipLoadoutPage : MonoBehaviour
         if (visible)
         {
             _shownFrame = Time.frameCount;
-            RefreshBackHint();
         }
         else
         {

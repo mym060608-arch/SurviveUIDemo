@@ -317,7 +317,9 @@ public class ShipB23ShotProbe : MonoBehaviour
         Check("REAL CLICK on 勘测无人机 changed GameSession.DroneSelected",
             session.DroneSelected);
 
-        yield return RealClick(root.Q<Button>(ShipLoadoutPage.CloseButtonName), "返回");
+        // No top-right 返回 button any more (removed on request): the overlay's
+        // own Back route closes it, exactly like B / Esc in the real flow.
+        UiInput.InjectEscapeForAutomation();
         for (int f = 0; f < 300 && _overlay.IsOpen; f++)
         {
             yield return null;
@@ -369,8 +371,7 @@ public class ShipB23ShotProbe : MonoBehaviour
             _overlay.LoadoutReturn
             == ShipOverlayUi.LoadoutReturnTarget.DeploymentConfirm);
 
-        yield return RealClick(_overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName), "返回");
+        UiInput.InjectEscapeForAutomation();
         for (int f = 0; f < 300
              && _overlay.Mode != ShipOverlayUi.OverlayMode.DeploymentConfirm; f++)
         {

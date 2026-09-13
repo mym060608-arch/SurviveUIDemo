@@ -14,7 +14,7 @@ public sealed class PreparationSketchIcon : VisualElement
     public const string SketchClass = "prep-sketch";
 
     /// <summary>Flat tint of the crystal facet that faces the light.</summary>
-    private static readonly Color FacetTint = new Color(0.72f, 0.80f, 0.86f, 0.14f);
+    private static readonly Color FacetTint = new Color(0.42f, 0.52f, 0.60f, 0.18f);
 
     private readonly Kind _kind;
 
@@ -115,19 +115,19 @@ public sealed class PreparationSketchIcon : VisualElement
         }
     }
 
-    /// <summary>Line colour on the dark terminal panel: cool grey ink for a
-    /// known reading, restrained amber for the one real caution, and a dim grey
-    /// for the reading that is still unknown.</summary>
+    /// <summary>Line colour on the light canvas: dark industrial ink for a known
+    /// reading, restrained amber for the one real caution, and a dim grey for
+    /// the reading that is still unknown.</summary>
     private static Color StrokeColor(Kind kind)
     {
         switch (kind)
         {
             case Kind.Radiation:
-                return new Color(0.80f, 0.60f, 0.36f, 0.95f);
+                return new Color(0.78f, 0.45f, 0.11f, 0.95f);
             case Kind.Surface:
-                return new Color(0.47f, 0.55f, 0.62f, 0.85f);
+                return new Color(0.55f, 0.60f, 0.66f, 0.95f);
             default:
-                return new Color(0.72f, 0.80f, 0.86f, 0.90f);
+                return new Color(0.28f, 0.35f, 0.41f, 0.92f);
         }
     }
 

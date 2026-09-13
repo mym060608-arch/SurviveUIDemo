@@ -74,11 +74,24 @@ public class AppController : MonoBehaviour
     /// <summary>Overview presentation controller (read-only access for tests).</summary>
     public OverviewScreen OverviewView => _overview;
 
+    /// <summary>Processing presentation controller (read-only access for tests;
+    /// state stays in GameSession).</summary>
+    public ProcessingScreen ProcessingView => _processing;
+
+    /// <summary>Preparation presentation controller (read-only access for tests).</summary>
+    public PreparationScreen PreparationView => _preparation;
+
     /// <summary>The shared rotating 3D planet preview driving the Overview
     /// central visual (Phase 07B.2.4).</summary>
     public OverviewPlanetPreview PlanetPreview => _planetPreview;
 
     public AppScreen CurrentScreen { get; private set; } = AppScreen.Overview;
+
+    /// <summary>Screen shown before the current one (Back target of the
+    /// Processing page, Phase 09B PASS 5).</summary>
+    public AppScreen PreviousScreen => _previousScreen;
+
+    private AppScreen _previousScreen = AppScreen.Overview;
 
     /// <summary>True once Start() finished binding and showing the first screen.
     /// Tests and the standalone probe wait for this before acting.</summary>
@@ -213,10 +226,23 @@ public class AppController : MonoBehaviour
         }
 
         // Only live progress rendering while the Processing screen is visible;
-        // the authoritative timer itself advances in GameSession.Update.
+        // the authoritative timer itself advances in GameSession.Update. Phase
+        // 09B PASS 5 also drives the page's controller focus and refinery
+        // animation from the same tick, but only while that page owns the
+        // screen (a hidden page never answers a pad press).
         if (_processing != null)
         {
-            _processing.TickProgressIfVisible(CurrentScreen == AppScreen.Processing);
+            bool processingVisible = CurrentScreen == AppScreen.Processing;
+            _processing.Tick(processingVisible, processingVisible);
+        }
+
+        // Preparation keeps the same contract: its focus ring, its device-aware
+        // key line and its Back step only live while that page owns the screen
+        // (Phase 09B PASS 5 follow-up).
+        if (_preparation != null)
+        {
+            bool preparationVisible = CurrentScreen == AppScreen.Preparation;
+            _preparation.Tick(preparationVisible, preparationVisible);
         }
     }
 
@@ -343,6 +369,29 @@ public class AppController : MonoBehaviour
         _preparation.Bind();
         _processing.Bind();
         _outpost.Bind();
+
+        // Phase 09B PASS 5: the Processing page owns Back while it is the
+        // visible screen, and "返回上一层" means the screen the player came
+        // from (Overview when Processing is the first screen of the session).
+        _processing.OwnsBack = true;
+        _processing.BackRequested += HandlePageBack;
+
+        // The Preparation page uses the exact same rule (follow-up round).
+        _preparation.OwnsBack = true;
+        _preparation.BackRequested += HandlePageBack;
+    }
+
+    /// <summary>
+    /// Back out of a hub page: return to the screen the player arrived from.
+    /// The hub keeps its four tabs, so Back is a step back in the visit order,
+    /// never a hidden fifth page.
+    /// </summary>
+    private void HandlePageBack()
+    {
+        AppScreen target = _previousScreen == CurrentScreen
+            ? AppScreen.Overview
+            : _previousScreen;
+        ShowScreen(target);
     }
 
     /// <summary>Central navigation authority: shows exactly one major screen.</summary>
@@ -352,6 +401,13 @@ public class AppController : MonoBehaviour
         bool preparation = screen == AppScreen.Preparation;
         bool processing = screen == AppScreen.Processing;
         bool outpost = screen == AppScreen.Outpost;
+
+        // Visit order: remembering where the player came from is what gives the
+        // Processing page a real "返回上一层" (Phase 09B PASS 5).
+        if (screen != CurrentScreen)
+        {
+            _previousScreen = CurrentScreen;
+        }
 
         SetScreenVisibility(_overviewContainer, overview);
         SetScreenVisibility(_preparationContainer, preparation);

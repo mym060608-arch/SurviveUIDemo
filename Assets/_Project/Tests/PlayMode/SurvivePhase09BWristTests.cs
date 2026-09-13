@@ -381,7 +381,7 @@ public class SurvivePhase09BWristTests
 
         yield return PushDPad(GamepadButton.DpadRight);
         Assert.AreEqual(WristPadMode.ModuleFocus, wrist.PadMode, "the D-Pad switched the mode");
-        Assert.AreEqual("[D-Pad] 选择   [A] 确认   [RS] 光标   [LT/RT] 缩放   [B] 返回",
+        Assert.AreEqual("[< >] 选择   [A] 确认   [RS] 光标   [LT/RT] 缩放   [B] 返回",
             bar.PromptText,
             "focus mode advertises the focus keys and drops the map's 选择 wording");
         Assert.IsFalse(bar.PromptText.Contains("LB") || bar.PromptText.Contains("RB"),
@@ -395,14 +395,14 @@ public class SurvivePhase09BWristTests
         yield return null;
         Assert.AreEqual(InputDeviceTracker.Device.KeyboardMouse, InputDeviceTracker.LastDevice,
             "a real key press switches the last device");
-        Assert.IsTrue(bar.PromptText.Contains("[方向键] 选择") && bar.PromptText.Contains("[E] 确认"),
+        Assert.IsTrue(bar.PromptText.Contains("[← →] 选择") && bar.PromptText.Contains("[E] 确认"),
             "focus mode re-glyphs for mouse + keyboard (" + bar.PromptText + ")");
 
         InputSystem.QueueStateEvent(_keyboard, new KeyboardState());
         InputDeviceTracker.NotifyGamepad();
         yield return null;
         yield return null;
-        Assert.IsTrue(bar.PromptText.Contains("[D-Pad] 选择"),
+        Assert.IsTrue(bar.PromptText.Contains("[< >] 选择"),
             "and back to the pad without changing the rows");
     }
 

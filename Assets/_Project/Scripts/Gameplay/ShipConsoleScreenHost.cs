@@ -47,6 +47,8 @@ public class ShipConsoleScreenHost : MonoBehaviour
     private AppScreen _screen;
     private bool _bound;
     private OverviewPlanetPreview _planetPreview;
+    private ShipConsoleFocusController _focusController;
+    private int _nextFocusSearchFrame;
 
     /// <summary>True once this console's UI subtree bound successfully.</summary>
     public bool IsBound => _bound;
@@ -110,11 +112,50 @@ public class ShipConsoleScreenHost : MonoBehaviour
     {
         // Live progress on the Processing console even while unfocused:
         // authoritative timing stays in GameSession.Update; only the rendered
-        // fill/percent needs per-frame refresh while a batch is running.
+        // fill/percent, the refinery animation and the pad focus need a
+        // per-frame refresh. Phase 09B PASS 5: the page only listens to the pad
+        // while THIS terminal is the focused one, so an unfocused console can
+        // never answer a press meant for the player.
         if (_processing != null)
         {
-            _processing.TickProgressIfVisible(true);
+            bool processingConsole = _screen == AppScreen.Processing;
+            _processing.Tick(processingConsole, processingConsole && IsConsoleFocused());
         }
+
+        // The Preparation page carries the same contract. No console maps to it
+        // today (console 02 hosts the dedicated warehouse tree), but the page is
+        // built for every console, so its tick stays wired and inert.
+        if (_preparation != null)
+        {
+            bool preparationConsole = _screen == AppScreen.Preparation;
+            _preparation.Tick(preparationConsole, preparationConsole && IsConsoleFocused());
+        }
+    }
+
+    /// <summary>True while the player is focused on this physical terminal.
+    /// Its Back step (leaving the console view) stays with the console focus
+    /// controller, so the page never steals B here.
+    ///
+    /// The comparison goes through the focus controller's OWN active surface
+    /// (and that surface's screen host): this component lives on the console's
+    /// child "ConsoleUI" object, so asking for a sibling WorldConsoleSurface
+    /// with GetComponent would always answer null and silently disable every
+    /// pad-driven control on the page.</summary>
+    private bool IsConsoleFocused()
+    {
+        if (_focusController == null && Time.frameCount >= _nextFocusSearchFrame)
+        {
+            _focusController = Object.FindAnyObjectByType<ShipConsoleFocusController>();
+            _nextFocusSearchFrame = Time.frameCount + 30;
+        }
+
+        WorldConsoleSurface active = _focusController != null
+            ? _focusController.ActiveSurface
+            : null;
+
+        return _focusController != null && _focusController.FocusActive
+               && active != null
+               && ReferenceEquals(active.ScreenHost, this);
     }
 
     private void OnDestroy()

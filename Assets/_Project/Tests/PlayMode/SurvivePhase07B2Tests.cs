@@ -254,8 +254,8 @@ public class SurvivePhase07B2Tests
             }
             else if (c == 2)
             {
-                Assert.IsNotNull(root.Q<Button>(ElementNames.Batch5Button),
-                    "console 3 shows Processing batch controls");
+                Assert.IsNotNull(root.Q<Button>(ElementNames.ProcessingQuantityUp),
+                    "console 3 shows the Processing quantity control");
             }
             else
             {
@@ -687,11 +687,10 @@ public class SurvivePhase07B2Tests
         Assert.IsTrue(session.BatterySelected,
             "GameSession battery changed by the real click");
 
-        // 返回 closes back to ShipExplore (locker return context).
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsNotNull(back, "loadout 返回 button present");
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        // 返回 closes back to ShipExplore (locker return context). The overlay
+        // has no top-right button any more: Back (Esc / B) is the exit.
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => !overlay.IsOpen && controller.Player.InputEnabled);
         GameSession.Ensure().ResetSession();
     }
@@ -762,11 +761,9 @@ public class SurvivePhase07B2Tests
         Assert.IsTrue(session.DroneSelected,
             "drone changed through GameSession (same authority as the locker)");
 
-        // 返回 -> back to the deployment confirmation.
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsNotNull(back, "loadout 返回 button present");
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        // 返回 -> back to the deployment confirmation (Back / Esc owns it now).
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => overlay.IsOpen
             && overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm);
 

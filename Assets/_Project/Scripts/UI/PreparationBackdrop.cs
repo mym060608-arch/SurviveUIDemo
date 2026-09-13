@@ -2,13 +2,13 @@ using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Preparation-only terminal backdrop: one very weak engineering grid, painted
-/// with Painter2D so the page needs no texture asset.
+/// Preparation-only backdrop: one very weak engineering grid, painted with
+/// Painter2D so the page needs no texture asset.
 ///
-/// It exists to give the dark canvas a material reading ("a panel behind the
+/// It exists to give the light canvas a material reading ("a panel behind the
 /// glass") instead of a flat fill. It is deliberately inert:
 ///
-///   * alpha 0.028 - visible only when the player looks for it,
+///   * alpha 0.05 - visible only when the player looks for it,
 ///   * painted once per geometry change, never per frame,
 ///   * pickingMode Ignore, so it can never eat a click meant for a slot,
 ///   * absolutely positioned, so it never takes part in layout.
@@ -21,7 +21,7 @@ public sealed class PreparationBackdrop : VisualElement
     /// <summary>Grid pitch in panel pixels.</summary>
     private const float Pitch = 96f;
 
-    private static readonly Color LineColor = new Color(0.886f, 0.918f, 0.941f, 0.028f);
+    private static readonly Color LineColor = new Color(0.09f, 0.11f, 0.13f, 0.05f);
 
     public PreparationBackdrop()
     {

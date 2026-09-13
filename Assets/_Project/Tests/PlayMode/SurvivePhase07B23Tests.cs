@@ -260,9 +260,10 @@ public class SurvivePhase07B23Tests
             ElementNames.BatteryRowButton, "loadout battery row");
 
         // ---- Deployment confirmation ----
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "loadout 返回 clicked");
+        // The loadout has no top-right 返回 button any more: Back (Esc / B) is
+        // the documented exit and the overlay's own handler is the same one.
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => !overlay.IsOpen && controller.Player.InputEnabled);
         Assert.AreEqual(ShipGameController.ShipPointerOwner.None,
             controller.PointerOwner, "ShipExplore owns nothing but the camera");
@@ -388,9 +389,8 @@ public class SurvivePhase07B23Tests
         Assert.IsTrue(session.BatterySelected && session.DroneSelected,
             "loadout ready state reflects both optional items");
 
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => !overlay.IsOpen && controller.Player.InputEnabled);
         Assert.AreEqual(GameSession.ShipInteriorSceneName, ActiveSceneName(),
             "locker-sourced loadout returns to ShipExplore");
@@ -436,9 +436,8 @@ public class SurvivePhase07B23Tests
         yield return null;
         Assert.IsTrue(session.BatterySelected, "loadout edited from the deploy route");
 
-        Button back = overlay.LoadoutPage.Root
-            .Q<Button>(ShipLoadoutPage.CloseButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(back), "返回 clicked");
+        UiInput.InjectEscapeForAutomation();
+        yield return null;
         yield return WaitUntil(() => overlay.Mode
             == ShipOverlayUi.OverlayMode.DeploymentConfirm);
         Assert.AreEqual(GameSession.ShipInteriorSceneName, ActiveSceneName(),

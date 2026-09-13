@@ -422,11 +422,11 @@ public class ShipShotProbe : MonoBehaviour
         B1SampleAndCheck(processingSurface,
             "processing FOCUS screen content before click", true);
 
-        Button batch5 = FindConsoleButton(processingSurface, ElementNames.Batch5Button);
-        B1Check("batch 05 button resolved", batch5 != null);
-        if (batch5 != null)
+        Button quantityUp = FindConsoleButton(processingSurface, ElementNames.ProcessingQuantityUp);
+        B1Check("quantity control resolved", quantityUp != null);
+        if (quantityUp != null)
         {
-            yield return ClickWorldButton(player, processingSurface, batch5);
+            yield return ClickWorldButton(player, processingSurface, quantityUp);
         }
 
         Button start = FindConsoleButton(processingSurface, ElementNames.ProcessingStartButton);
@@ -447,10 +447,12 @@ public class ShipShotProbe : MonoBehaviour
         }
 
         yield return WaitReal(2.6f);
+        // Phase 09B PASS 5: 1 mineral -> 合金 +1 (primary) + 燃料 +1 (byproduct).
+        // The real click raised the run size to 2, so the run pays 2 of each.
         B1Check("processing completed under the persistent session",
             session.ProcessState == GameSession.RefineryProcessState.Complete
-            && session.Fuel == fuelBefore + GameSession.ProcessFuelReward
-            && session.Alloy == alloyBefore + GameSession.ProcessAlloyReward);
+            && session.Fuel == fuelBefore + 2 * GameSession.ProcessFuelPerMineral
+            && session.Alloy == alloyBefore + 2 * GameSession.ProcessAlloyPerMineral);
         B1Log("pointer-click after fuel=" + session.Fuel
               + " alloy=" + session.Alloy
               + " (GameSession mutated by the real click)");

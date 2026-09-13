@@ -1,8 +1,10 @@
+using System;
 using UnityEngine;
 using UnityEngine.UIElements;
 
 /// <summary>
-/// Screen 02 - Preparation / Expedition Preparation (Phase 03).
+/// Screen 02 - Preparation / Expedition Preparation (Phase 03; controller focus
+/// added in the Phase 09B PASS 5 follow-up).
 ///
 /// All loadout state lives in GameSession (single authority); this class only
 /// renders it and forwards user intent. Cargo, readiness and confirmation UI
@@ -15,13 +17,17 @@ using UnityEngine.UIElements;
 /// - CONFIRM LOADOUT locks the package (GameSession.TryConfirmLoadout);
 /// - any equipment change after confirmation clears it (state-side rule).
 ///
-/// Presentation pass 01 (Deep Space Industrial Terminal) keeps every value
-/// authority where it was: the payload text and bar are written from the
-/// session in the SAME refresh that reports the change, because the frozen
-/// Phase 03 suite and the standalone smoke read both one frame later. What the
-/// pass adds is presentation only - a state lamp, a carried/focus marker, a
-/// short brightness acknowledgement on a payload change, and one very slow
-/// telemetry pulse for the still-unknown surface reading.
+/// Controller contract (Phase 09B): the page owns a real focus ring - the D-pad
+/// / left stick (arrow keys) walk the equipment slots, the mission-details
+/// button and the confirm action, A activates what the ring is on, X toggles the
+/// mission details, B leaves the page (raised as <see cref="BackRequested"/> so
+/// each host decides: the hub steps back a screen, the ship keeps B for its own
+/// overlay). Nothing here needs a mouse first.
+///
+/// Presentation pass 01 keeps every value authority where it was: the payload
+/// text and bar are written from the session in the SAME refresh that reports
+/// the change, because the frozen Phase 03 suite and the standalone smoke read
+/// both one frame later.
 /// </summary>
 public class PreparationScreen
 {
@@ -55,10 +61,34 @@ public class PreparationScreen
     private Label _detailPower;
     private Label _detailSurvey;
 
+    private Label _hintDetails;
+    private Label _hintNavigate;
+    private Label _hintBack;
+    private Label _hintConfirm;
+
+    private UiFocusNavigator _focus;
+    private bool _controllerWasEnabled;
+    private int _inputReadyFrame;
+
     private int _lastCargo = -1;
     private float _cargoPulseUntil;
     private int _lastContextFrame = -1;
     private bool _detailsOpen;
+
+    /// <summary>Raised when the player presses Back on this page. The host
+    /// decides the meaning (hub: leave the screen; ship overlay: its own Back
+    /// layer already owns B, so it never enables Back here).</summary>
+    public event Action BackRequested;
+
+    /// <summary>True while this page consumes Back (set by the host).</summary>
+    public bool OwnsBack { get; set; }
+
+    /// <summary>The shared focus ring (probes / tests).</summary>
+    public UiFocusNavigator Focus => _focus;
+
+    /// <summary>The device-aware Back hint the page really shows
+    /// ("[B] 返回" on a controller, "[Esc] 返回" on the keyboard).</summary>
+    public string BackHintText => _hintBack != null ? _hintBack.text : string.Empty;
 
     public PreparationScreen(VisualElement root, GameSession session)
     {
@@ -90,6 +120,11 @@ public class PreparationScreen
         _surfaceState = _root.Q<VisualElement>("EnvSurfaceState");
         _surfaceRisk = _root.Q<Label>(null, "env-risk-unknown");
 
+        _hintDetails = BindLabel(ElementNames.PrepHintDetails);
+        _hintNavigate = BindLabel(ElementNames.PrepHintNavigate);
+        _hintBack = BindLabel(ElementNames.PrepHintBack);
+        _hintConfirm = BindLabel(ElementNames.PrepHintConfirm);
+
         BindBackdrop();
         AddSketch("EnvTempIcon", PreparationSketchIcon.Kind.Temperature);
         AddSketch("EnvGravityIcon", PreparationSketchIcon.Kind.Gravity);
@@ -99,7 +134,8 @@ public class PreparationScreen
         AddSketch("HarvesterSketch", PreparationSketchIcon.Kind.Harvester);
         AddSketch("BatterySketch", PreparationSketchIcon.Kind.Battery);
         AddSketch("DroneSketch", PreparationSketchIcon.Kind.Drone);
-        AddSketch("MissionResourceIcon", PreparationSketchIcon.Kind.Resource);
+
+        BindController();
 
         _root.schedule.Execute(TickPresentation).Every(1);
 
@@ -107,6 +143,104 @@ public class PreparationScreen
         if (_readinessSub == null)
         {
             LogMissing("readiness-sub");
+        }
+    }
+
+    /// <summary>
+    /// The page's operable set, in reading order: the three equipment slots, the
+    /// mission-details button and the confirm action. The harvester slot is
+    /// required, so it stays focusable (the player can read it) but its Confirm
+    /// is a no-op - exactly like its mouse click.
+    /// </summary>
+    private void BindController()
+    {
+        _focus = new UiFocusNavigator();
+        _focus.SetItems(new VisualElement[]
+        {
+            _harvesterRow, _batteryRow, _droneRow, _missionDetailsButton, _confirmButton
+        });
+        _focus.Register(_harvesterRow);
+        _focus.Register(_batteryRow,
+            () => _session.TrySetBatterySelected(!_session.BatterySelected));
+        _focus.Register(_droneRow,
+            () => _session.TrySetDroneSelected(!_session.DroneSelected));
+        _focus.Register(_missionDetailsButton, ToggleMissionDetails);
+        _focus.Register(_confirmButton, OnPrimaryAction);
+
+        RefreshHints();
+    }
+
+    /// <summary>
+    /// Per-frame controller input. The host calls it only while the page is on
+    /// screen; <paramref name="controllerEnabled"/> is false for an overlay that
+    /// is closed, so a hidden page can never answer a press.
+    /// </summary>
+    public void Tick(bool visible, bool controllerEnabled)
+    {
+        if (_focus != null)
+        {
+            // The navigator is inert until its page opens it (shared contract).
+            _focus.Enabled = visible && controllerEnabled;
+        }
+
+        if (!visible || !controllerEnabled)
+        {
+            _controllerWasEnabled = false;
+            return;
+        }
+
+        if (!_controllerWasEnabled)
+        {
+            // Input just became ours: the press that opened this page can reach
+            // the same frame, so the first two frames only observe.
+            _controllerWasEnabled = true;
+            _inputReadyFrame = Time.frameCount + 2;
+        }
+
+        if (Time.frameCount < _inputReadyFrame)
+        {
+            return;
+        }
+
+        InputDeviceTracker.Poll();
+        RefreshHints();
+
+        if (_focus != null && _focus.Focused == null)
+        {
+            _focus.FocusDefault();
+        }
+
+        _focus?.Tick();
+
+        if (OwnsBack && UiInput.BackPressed())
+        {
+            UiInput.ConsumeBackForFrame();
+            BackRequested?.Invoke();
+        }
+    }
+
+    /// <summary>The page's key line names the device in hand and never prints a
+    /// control twice: the D-pad reads as "&lt; &gt;" arrows, the rest through the
+    /// shared prompt formatter.</summary>
+    private void RefreshHints()
+    {
+        SetHint(_hintDetails, UiAction.ContextAction, "详情");
+        SetHint(_hintNavigate, UiAction.Navigate, "选择");
+        SetHint(_hintBack, UiAction.Back, "返回");
+        SetHint(_hintConfirm, UiAction.Confirm, "装备 / 卸下");
+    }
+
+    private static void SetHint(Label label, UiAction action, string verb)
+    {
+        if (label == null)
+        {
+            return;
+        }
+
+        string text = InputDeviceTracker.FormatPrompt(action, verb);
+        if (label.text != text)
+        {
+            label.text = text;
         }
     }
 

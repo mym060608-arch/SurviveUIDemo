@@ -133,6 +133,10 @@ public static class InputDeviceTracker
             case UiAction.Map:
             case UiAction.ContextAction:
                 return GamepadActive ? "X" : "M";
+            case UiAction.Navigate:
+                // The D-pad / arrow keys: one arrow style for both devices, so a
+                // page's own key line matches the shared prompt bar glyphs.
+                return PromptGlyph(UiAction.Navigate);
             default:
                 return string.Empty;
         }
@@ -235,9 +239,11 @@ public static class InputDeviceTracker
                 case UiAction.ZoomOut:
                     return "滚轮";
                 case UiAction.Navigate:
-                    // Phase 09B PASS 3: the wrist's ordinary UI moves its focus
-                    // with the arrows on a keyboard.
-                    return "方向键";
+                    // Phase 09B PASS 3 / PASS 5 follow-up: the ordinary UI moves
+                    // its focus with the arrow keys on a keyboard - the same
+                    // arrow style the pad's D-pad glyph uses, so one control is
+                    // never printed two different ways.
+                    return "← →";
                 default:
                     return string.Empty;
             }
@@ -271,7 +277,7 @@ public static class InputDeviceTracker
                     case UiAction.ZoomOut:
                         return "L2";
                     case UiAction.Navigate:
-                        return "D-Pad";
+                        return "< >";
                     default:
                         return string.Empty;
                 }
@@ -302,7 +308,7 @@ public static class InputDeviceTracker
                     case UiAction.ZoomOut:
                         return "LT";
                     case UiAction.Navigate:
-                        return "D-Pad";
+                        return "< >";
                     default:
                         return string.Empty;
                 }
@@ -317,9 +323,11 @@ public static class InputDeviceTracker
 
     /// <summary>
     /// The pause menu's navigation hint: the device's own wording, never a
-    /// physical control name leaking into another device's presentation.
+    /// physical control name leaking into another device's presentation. The
+    /// pad prints its D-pad as the "&lt; &gt;" arrows the pages already use for
+    /// their own left / right controls (Phase 09B PASS 5 follow-up).
     /// </summary>
-    public static string NavigationLabel => GamepadActive ? "[LS / D-Pad]" : "[↑/↓]";
+    public static string NavigationLabel => GamepadActive ? "[< >]" : "[↑/↓]";
 
     /// <summary>Confirm glyph for the pause hint line.</summary>
     public static string ConfirmLabel => GamepadActive ? "[A]" : "[Enter]";

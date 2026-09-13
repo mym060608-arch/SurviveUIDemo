@@ -64,9 +64,9 @@ public class SurvivePhase01Tests
         session.AddMinerals(10);
         Assert.AreEqual(30, session.Minerals, "Minerals after +10");
 
-        // Batch 5: minerals deducted on start, outputs settle on completion.
-        Assert.IsTrue(session.TryStartProcess(5), "start batch 5");
-        Assert.AreEqual(25, session.Minerals, "Minerals after starting batch 5");
+        // A 5 mineral run: minerals deducted on start, outputs settle on completion.
+        Assert.IsTrue(session.TryStartProcess(5), "start a 5 mineral run");
+        Assert.AreEqual(25, session.Minerals, "Minerals after starting the run");
         Assert.AreEqual(GameSession.RefineryProcessState.Running, session.ProcessState, "state Running");
         Assert.IsFalse(session.TryStartProcess(5), "double start rejected");
         Assert.AreEqual(25, session.Minerals, "no double cost on rejected start");
@@ -74,13 +74,13 @@ public class SurvivePhase01Tests
         session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(GameSession.RefineryProcessState.Complete, session.ProcessState, "state Complete");
         Assert.AreEqual(25, session.Minerals, "Minerals unchanged by completion");
-        Assert.AreEqual(10, session.Fuel, "Fuel after batch 5 (+2)");
-        Assert.AreEqual(6, session.Alloy, "Alloy after batch 5 (+1)");
+        Assert.AreEqual(13, session.Fuel, "Fuel after a 5 mineral run (8 + 5)");
+        Assert.AreEqual(10, session.Alloy, "Alloy after a 5 mineral run (5 + 5)");
 
         // Refinery LV.1 -> LV.2 costs 3 Alloy.
         Assert.AreEqual(GameSession.UpgradeFailureReason.None, session.TryUpgrade(GameSession.OutpostModule.Refinery),
             "refinery upgrade succeeds");
-        Assert.AreEqual(3, session.Alloy, "Alloy after refinery upgrade");
+        Assert.AreEqual(7, session.Alloy, "Alloy after refinery upgrade");
         Assert.AreEqual(2, session.RefineryLevel, "RefineryLevel after upgrade");
 
         // LV.2 -> LV.3 is blocked by Core LV.1 (cap LV.2); state untouched.
@@ -88,22 +88,25 @@ public class SurvivePhase01Tests
             session.CanUpgrade(GameSession.OutpostModule.Refinery), "LV.3 needs Core LV.2");
         Assert.AreEqual(GameSession.UpgradeFailureReason.CoreLevelRequired,
             session.TryUpgrade(GameSession.OutpostModule.Refinery), "blocked upgrade returns reason");
-        Assert.AreEqual(3, session.Alloy, "no Alloy deducted on blocked upgrade");
+        Assert.AreEqual(7, session.Alloy, "no Alloy deducted on blocked upgrade");
         Assert.AreEqual(2, session.RefineryLevel, "level unchanged on blocked upgrade");
 
-        // Core upgrade needs 5 Alloy -> insufficient here, still 3.
-        Assert.AreEqual(GameSession.UpgradeFailureReason.InsufficientAlloy,
-            session.CanUpgrade(GameSession.OutpostModule.Core), "core cost 5 > alloy 3");
-        Assert.AreEqual(3, session.Alloy, "Alloy unchanged by rejected core upgrade");
+        // Core LV.1 -> LV.2 costs 5 Alloy: affordable after the new yield.
+        Assert.AreEqual(GameSession.UpgradeFailureReason.None,
+            session.CanUpgrade(GameSession.OutpostModule.Core), "core cost 5 <= alloy 7");
+        Assert.AreEqual(GameSession.UpgradeFailureReason.None,
+            session.TryUpgrade(GameSession.OutpostModule.Core), "core upgrade succeeds");
+        Assert.AreEqual(2, session.Alloy, "Alloy after the core upgrade (7 - 5)");
+        Assert.AreEqual(2, session.OutpostLevel, "OutpostLevel after the core upgrade");
 
-        // Drain Minerals 25 -> 0 with supported batches; failing start keeps 0.
-        Assert.IsTrue(session.TryStartProcess(15), "drain batch 15");
+        // Drain Minerals 25 -> 0 with legal run sizes; a failing start keeps 0.
+        Assert.IsTrue(session.TryStartProcess(15), "drain with the module maximum");
         session.AdvanceProcessing(session.RefineryProcessSeconds);
-        Assert.AreEqual(10, session.Minerals, "Minerals after 15 batch");
-        Assert.IsTrue(session.TryStartProcess(10), "drain batch 10");
+        Assert.AreEqual(10, session.Minerals, "Minerals after the 15 run");
+        Assert.IsTrue(session.TryStartProcess(10), "drain with the remaining 10");
         session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(0, session.Minerals, "Minerals after drain to 0");
-        Assert.IsFalse(session.TryStartProcess(5), "start must fail with Minerals < 5");
+        Assert.IsFalse(session.TryStartProcess(1), "start must fail at 0 minerals");
         Assert.AreEqual(0, session.Minerals, "Minerals unchanged on failed start");
 
         // Reset restores defaults and clears the process state.
@@ -180,11 +183,11 @@ public class SurvivePhase01Tests
 
         Button startButton = root.Q<Button>(ElementNames.ProcessingStartButton);
         Assert.IsNotNull(startButton, "start button exists");
-        Assert.IsTrue(startButton.enabledSelf, "start enabled while Minerals >= selected batch (5)");
-        Assert.AreEqual("开始加工", startButton.text, "start label before running");
+        Assert.IsTrue(startButton.enabledSelf, "start enabled while the quantity is covered by stock");
+        Assert.AreEqual("确认加工", startButton.text, "start label before running");
 
-        Assert.IsTrue(session.TryStartProcess(5), "start batch 5 with 20 Minerals");
-        Assert.AreEqual(15, session.Minerals, "session Minerals after starting batch 5");
+        Assert.IsTrue(session.TryStartProcess(5), "start a 5 mineral run with 20 Minerals");
+        Assert.AreEqual(15, session.Minerals, "session Minerals after starting the run");
         Assert.AreEqual(GameSession.RefineryProcessState.Running, session.ProcessState, "state Running");
         Assert.AreEqual("加工中", startButton.text, "start button label while processing");
         Assert.IsFalse(startButton.enabledSelf, "start disabled while processing");
@@ -192,8 +195,8 @@ public class SurvivePhase01Tests
         session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(GameSession.RefineryProcessState.Complete, session.ProcessState, "state Complete");
         Assert.AreEqual("15", LabelText(root, ElementNames.ProcessingMineralsValue), "Processing minerals after");
-        Assert.AreEqual("10", LabelText(root, ElementNames.ProcessingFuelValue), "Processing fuel after");
-        Assert.AreEqual("6", LabelText(root, ElementNames.ProcessingAlloyValue), "Processing alloy after");
+        Assert.AreEqual("13", LabelText(root, ElementNames.ProcessingFuelValue), "Processing fuel after");
+        Assert.AreEqual("10", LabelText(root, ElementNames.ProcessingAlloyValue), "Processing alloy after");
         Assert.AreEqual("加工完成", LabelText(root, ElementNames.ProcessingStatusLabel), "status Complete");
 
         // ---- Overview reflects the processing result ----
@@ -202,8 +205,8 @@ public class SurvivePhase01Tests
         Assert.AreEqual(AppScreen.Overview, app.CurrentScreen, "Overview reachable again");
         Assert.AreEqual(1, app.VisibleScreenCount, "one visible screen back on Overview");
         Assert.AreEqual("15", LabelText(root, ElementNames.MineralsValue), "Overview Minerals cross-screen");
-        Assert.AreEqual("10", LabelText(root, ElementNames.FuelValue), "Overview Fuel cross-screen");
-        Assert.AreEqual("6", LabelText(root, ElementNames.AlloyValue), "Overview Alloy cross-screen");
+        Assert.AreEqual("13", LabelText(root, ElementNames.FuelValue), "Overview Fuel cross-screen");
+        Assert.AreEqual("10", LabelText(root, ElementNames.AlloyValue), "Overview Alloy cross-screen");
 
         // ---- Outpost: module topology + refinery upgrade economy ----
         app.ShowScreen(AppScreen.Outpost);
@@ -211,7 +214,7 @@ public class SurvivePhase01Tests
         yield return null;
         Assert.AreEqual(AppScreen.Outpost, app.CurrentScreen, "Outpost reachable");
         Assert.AreEqual(1, app.VisibleScreenCount, "one visible screen on Outpost");
-        Assert.AreEqual("6", LabelText(root, ElementNames.OutpostAlloyValue), "Outpost Alloy before upgrade");
+        Assert.AreEqual("10", LabelText(root, ElementNames.OutpostAlloyValue), "Outpost Alloy before upgrade");
 
         // Default selection is Refinery, detail visible and ready.
         Button refineryNode = root.Q<Button>(ElementNames.RefineryModuleNode);
@@ -226,14 +229,14 @@ public class SurvivePhase01Tests
         Button upgradeButton = root.Q<Button>(ElementNames.OutpostUpgradeButton);
         Assert.IsNotNull(upgradeButton, "upgrade button exists");
         Assert.AreEqual("LV.1", LabelText(root, ElementNames.RefineryLevelValue), "Outpost refinery level before");
-        Assert.IsTrue(upgradeButton.enabledSelf, "upgrade enabled (alloy 6 >= cost 3)");
+        Assert.IsTrue(upgradeButton.enabledSelf, "upgrade enabled (alloy 10 >= cost 3)");
 
         Assert.AreEqual(GameSession.UpgradeFailureReason.None, session.TryUpgrade(GameSession.OutpostModule.Refinery),
             "refinery upgrade succeeds");
         yield return null;
-        Assert.AreEqual(3, session.Alloy, "session Alloy after refinery upgrade");
+        Assert.AreEqual(7, session.Alloy, "session Alloy after refinery upgrade");
         Assert.AreEqual(2, session.RefineryLevel, "session RefineryLevel after upgrade");
-        Assert.AreEqual("3", LabelText(root, ElementNames.OutpostAlloyValue), "Outpost Alloy after upgrade");
+        Assert.AreEqual("7", LabelText(root, ElementNames.OutpostAlloyValue), "Outpost Alloy after upgrade");
         Assert.AreEqual("LV.2", LabelText(root, ElementNames.RefineryLevelValue), "Outpost refinery level after");
         Assert.AreEqual("1.6s", LabelText(root, ElementNames.ModuleCurrentEffectValue), "detail duration updated");
 
@@ -243,28 +246,28 @@ public class SurvivePhase01Tests
         Assert.AreEqual("需要核心升级", upgradeButton.text, "CTA shows core requirement");
         Assert.IsFalse(upgradeButton.enabledSelf, "CTA disabled when core-locked");
 
-        // ---- Overview still consistent (alloy 3, refinery LV.2) ----
+        // ---- Overview still consistent (alloy 7, refinery LV.2) ----
         app.ShowScreen(AppScreen.Overview);
         yield return null;
-        Assert.AreEqual("3", LabelText(root, ElementNames.AlloyValue), "Overview Alloy after upgrades");
+        Assert.AreEqual("7", LabelText(root, ElementNames.AlloyValue), "Overview Alloy after upgrades");
 
         // ---- Insufficient Minerals: drain to 0, start disables ----
-        // Minerals 15: batch 10 -> 5, then batch 5 -> 0; a further start fails.
-        Assert.IsTrue(session.TryStartProcess(10), "drain batch 10");
+        // Minerals 15: a 10 run -> 5, then a 5 run -> 0; a further run fails.
+        Assert.IsTrue(session.TryStartProcess(10), "drain with a 10 run");
         session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(5, session.Minerals, "Minerals after drain to 5");
-        Assert.IsTrue(session.CanStartBatch(5), "batch 5 startable at Minerals == 5");
+        Assert.IsTrue(session.CanStartBatch(5), "the remaining 5 is startable");
 
         app.ShowScreen(AppScreen.Processing);
         yield return null;
-        Assert.IsTrue(startButton.enabledSelf, "start enabled at Minerals == 5 (batch 5)");
+        Assert.IsTrue(startButton.enabledSelf, "start enabled at Minerals == 5");
 
-        Assert.IsTrue(session.TryStartProcess(5), "batch 5 at Minerals == 5 succeeds");
+        Assert.IsTrue(session.TryStartProcess(5), "the remaining 5 succeeds");
         session.AdvanceProcessing(session.RefineryProcessSeconds);
         Assert.AreEqual(0, session.Minerals, "Minerals after drain to 0");
         Assert.AreEqual("原料不足", startButton.text, "start label when insufficient");
-        Assert.IsFalse(startButton.enabledSelf, "start disabled at Minerals < 5");
-        Assert.IsFalse(session.TryStartProcess(5), "start fails safely when Minerals < 5");
+        Assert.IsFalse(startButton.enabledSelf, "start disabled at 0 minerals");
+        Assert.IsFalse(session.TryStartProcess(1), "start fails safely at 0 minerals");
         Assert.AreEqual(0, session.Minerals, "Minerals unchanged on failed start");
 
         // ---- Reset restores defaults and refreshes every screen ----

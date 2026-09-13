@@ -184,7 +184,7 @@ public class Ship09BWristProbe : MonoBehaviour
         {
             Info("focus-mode prompt: " + bar.PromptText);
             Check("focus mode advertises the focus keys",
-                bar.PromptText.Contains("[D-Pad] 选择") && bar.PromptText.Contains("[A] 确认"));
+                bar.PromptText.Contains("[< >] 选择") && bar.PromptText.Contains("[A] 确认"));
             Check("focus mode never advertises a dead key (no LB/RB/LS)",
                 !bar.PromptText.Contains("LB") && !bar.PromptText.Contains("RB")
                 && !bar.PromptText.Contains("LS"));

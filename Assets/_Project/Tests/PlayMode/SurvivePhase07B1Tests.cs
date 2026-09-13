@@ -437,9 +437,11 @@ public class SurvivePhase07B1Tests
         yield return WaitSeconds(0.4f);
 
         Assert.IsFalse(GameSession.Instance.IsProcessing, "processing starts off");
-        Button batch = FindButton(surface, ElementNames.Batch5Button);
-        Assert.IsNotNull(batch, "batch 05 row button present");
-        yield return ClickElement(router, surface, batch);
+        // Phase 09B PASS 5: the run size is the page quantity control; one
+        // click raises it to 2 minerals before the confirm click.
+        Button quantityUp = FindButton(surface, ElementNames.ProcessingQuantityUp);
+        Assert.IsNotNull(quantityUp, "quantity control present");
+        yield return ClickElement(router, surface, quantityUp);
         Button start = FindButton(surface, ElementNames.ProcessingStartButton);
         Assert.IsNotNull(start, "start button present");
         yield return ClickElement(router, surface, start);
