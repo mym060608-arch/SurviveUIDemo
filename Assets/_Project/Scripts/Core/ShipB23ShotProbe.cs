@@ -395,7 +395,19 @@ public class ShipB23ShotProbe : MonoBehaviour
         }
 
         int mineralsBefore = GameSession.Instance.Minerals;
-        yield return RealClick(confirm, "确认降临");
+        // Phase 09B PASS 8: 确认降临 is a HOLD (the probe drives the real mouse
+        // down, waits past the authored duration, then releases). The progress is
+        // asserted BEFORE the release, while the ship scene still exists.
+        yield return RealPress(confirm, "确认降临");
+        yield return WaitReal(ShipDeployConfirmPage.HoldSeconds + 0.45f);
+        ShipDeployConfirmPage landingPage = _overlay.DeployPage;
+        Check("the hold reached 100% before the release (progress "
+              + landingPage.HoldProgress01.ToString("0.00") + ", requested "
+              + landingPage.ConfirmRequestCount + ")",
+            landingPage.HoldProgress01 >= 0.999f
+            || landingPage.IsHoldComplete
+            || landingPage.ConfirmRequestCount > 0);
+        yield return RealRelease("确认降临");
 
         for (int f = 0; f < 1800; f++)
         {
@@ -502,6 +514,27 @@ public class ShipB23ShotProbe : MonoBehaviour
     /// </summary>
     private IEnumerator RealClick(VisualElement element, string label)
     {
+        yield return RealPress(element, label);
+        yield return WaitReal(0.2f);
+        yield return RealRelease(label);
+    }
+
+    /// <summary>
+    /// A REAL press-and-HOLD (Phase 09B PASS 8): the same pointer path as
+    /// <see cref="RealClick"/>, but the button stays down for
+    /// <paramref name="seconds"/>, so the landing confirmation's hold-to-deploy
+    /// really reaches 100% before the release.
+    /// </summary>
+    private IEnumerator RealHold(VisualElement element, string label, float seconds)
+    {
+        yield return RealPress(element, label);
+        yield return WaitReal(seconds);
+        yield return RealRelease(label);
+    }
+
+    /// <summary>Moves the real cursor onto the element and presses the button.</summary>
+    private IEnumerator RealPress(VisualElement element, string label)
+    {
         if (element == null || _mouse == null)
         {
             Check("real click target for " + label, false);
@@ -570,6 +603,17 @@ public class ShipB23ShotProbe : MonoBehaviour
         }
 
         yield return WaitReal(0.2f);
+        Info("REAL PRESS " + label + " target=" + target.ToString("0")
+             + " cursor=" + readBack.ToString("0") + " via=" + path);
+    }
+
+    /// <summary>Releases the real mouse button (the second half of a gesture).</summary>
+    private IEnumerator RealRelease(string label)
+    {
+        if (_mouse == null)
+        {
+            yield break;
+        }
 
         using (StateEvent.From(_mouse, out var up))
         {
@@ -578,8 +622,7 @@ public class ShipB23ShotProbe : MonoBehaviour
         }
 
         yield return WaitReal(0.35f);
-        Info("REAL CLICK " + label + " target=" + target.ToString("0")
-             + " cursor=" + readBack.ToString("0") + " via=" + path);
+        Info("REAL RELEASE " + label);
     }
 
     // ====================================================================

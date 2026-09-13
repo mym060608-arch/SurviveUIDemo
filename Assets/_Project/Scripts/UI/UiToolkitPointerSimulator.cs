@@ -92,6 +92,39 @@ public static class UiToolkitPointerSimulator
         return true;
     }
 
+    /// <summary>
+    /// Presses the left button on the element and KEEPS it pressed (Phase 09B
+    /// PASS 8 hold-to-deploy). The caller releases it later with
+    /// <see cref="PointerUp"/>, across as many frames as the gesture needs -
+    /// a hold is a level, so it cannot be expressed as one Click().
+    /// </summary>
+    public static bool PointerDown(VisualElement element)
+    {
+        VisualElement root = RootOf(element);
+        if (root == null)
+        {
+            return false;
+        }
+
+        Vector2 position = CentreOf(element);
+        DispatchPointer<PointerMoveEvent>(root, position, -1, 0, 0);
+        DispatchPointer<PointerDownEvent>(root, position, ButtonLeft, 1 << ButtonLeft, 1);
+        return true;
+    }
+
+    /// <summary>Releases the left button at the element centre.</summary>
+    public static bool PointerUp(VisualElement element)
+    {
+        VisualElement root = RootOf(element);
+        if (root == null)
+        {
+            return false;
+        }
+
+        DispatchPointer<PointerUpEvent>(root, CentreOf(element), ButtonLeft, 0, 1);
+        return true;
+    }
+
     private static VisualElement RootOf(VisualElement element)
     {
         IPanel panel = element.panel;

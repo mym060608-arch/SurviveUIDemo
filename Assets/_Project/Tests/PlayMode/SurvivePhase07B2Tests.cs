@@ -799,7 +799,12 @@ public class SurvivePhase07B2Tests
         Button confirm = overlay.DeployPage.Root
             .Q<Button>(ShipDeployConfirmPage.ConfirmButtonName);
         Assert.IsNotNull(confirm, "确认降临 button present");
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(confirm), "确认降临 clicked");
+
+        // Phase 09B PASS 8: 确认降临 is a HOLD - press, hold past the authored
+        // duration, release. A plain click must never deploy any more.
+        Assert.IsTrue(UiToolkitPointerSimulator.PointerDown(confirm), "确认降临 pressed");
+        yield return WaitSeconds(ShipDeployConfirmPage.HoldSeconds + 0.35f);
+        Assert.IsTrue(UiToolkitPointerSimulator.PointerUp(confirm), "确认降临 released");
         yield return WaitUntil(() => ActiveSceneName() == GameSession.SurfaceSceneName);
         yield return WaitForSurface(_ => { });
         Assert.AreEqual(session.Minerals, mineralsBefore,

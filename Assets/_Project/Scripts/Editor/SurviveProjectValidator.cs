@@ -501,24 +501,61 @@ public static class SurviveProjectValidator
                 "03_ShipInterior authors no pause menu (runtime-created, found "
                 + CountInScene<ShipPauseMenu>() + ")");
 
-            // ---- Phase 08 §14: the two Airlock device panels ----
-            // 出征前准备 must show its real Back binding ("[B] 返回" on a
-            // controller / "[Esc] 返回" on the keyboard), rewritten at runtime by
-            // ShipDeployConfirmPage for the device in hand.
+            // ---- Phase 08 §14 / PASS 8: the Airlock landing confirmation ----
+            // The key glyphs live INSIDE the three action cards (the device-aware
+            // presentation is refreshed at runtime by ShipDeployConfirmPage), and
+            // the page must NOT grow a second prompt row.
             var deployUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(DeployUxmlPath);
-            Record(deployUxml != null, "deployment panel uxml imports: " + DeployUxmlPath);
+            Record(deployUxml != null, "landing panel uxml imports: " + DeployUxmlPath);
             if (deployUxml != null)
             {
                 TemplateContainer deployTemplate = deployUxml.Instantiate();
-                Label deployHint = deployTemplate.Q<Label>(ShipDeployConfirmPage.BackHintName);
-                Record(deployHint != null,
-                    "出征前准备 carries its Back hint line (element "
-                    + ShipDeployConfirmPage.BackHintName + ")");
-                Record(deployHint != null && deployHint.text.Contains("返回"),
-                    "the 出征前准备 Back hint really reads 返回 (actual: "
-                    + (deployHint != null ? deployHint.text : "<missing>") + ")");
+
+                Record(deployTemplate.Q<Label>(ShipDeployConfirmPage.AdjustKeyName) != null
+                       && deployTemplate.Q<Label>(ShipDeployConfirmPage.ConfirmKeyName) != null
+                       && deployTemplate.Q<Label>(ShipDeployConfirmPage.CancelKeyName) != null,
+                    "最终确认 fuses the X / A / B glyphs into the action cards");
+
+                Record(deployTemplate.Q<VisualElement>(ShipDeployConfirmPage.HoldFillName) != null,
+                    "最终确认 carries the hold progress bar inside the confirm card");
+
+                int holdTracks = deployTemplate
+                    .Query<VisualElement>(className: "landing-hold-track").ToList().Count;
+                int cards = deployTemplate
+                    .Query<Button>(className: "landing-card").ToList().Count;
+                int promptBars = deployTemplate
+                    .Query<VisualElement>(className: "prompt-bar").ToList().Count;
+                Record(holdTracks == 1,
+                    "最终确认 has exactly one hold bar (found " + holdTracks + ")");
+                Record(cards == 3,
+                    "最终确认 has exactly three action cards (found " + cards + ")");
+                Record(promptBars == 0,
+                    "最终确认 adds no second prompt bar (found " + promptBars + ")");
+
+                string landingCopy = File.ReadAllText(Path.Combine(projectRoot, DeployUxmlPath));
+                Record(!landingCopy.Contains("BackHint"),
+                    "最终确认 has no separate Back hint row any more");
+                Record(!landingCopy.Contains("Icon"),
+                    "最终确认 equipment list carries no pictogram host");
+
                 Record(deployTemplate.Q<Button>(ShipDeployConfirmPage.CancelButtonName) != null,
-                    "出征前准备 keeps its 取消 button (the same Back action)");
+                    "最终确认 keeps its 返回 card (the same Back action)");
+
+                // Stable structure of the rebuilt page (names only).
+                HashSet<string> landingPresent = new HashSet<string>();
+                deployTemplate.Query<VisualElement>().ForEach(element =>
+                {
+                    if (!string.IsNullOrEmpty(element.name))
+                    {
+                        landingPresent.Add(element.name);
+                    }
+                });
+
+                foreach (string expected in ElementNames.LandingStructure)
+                {
+                    Record(landingPresent.Contains(expected),
+                        "最终确认 structure: " + expected);
+                }
             }
 
             // Revision 2: the title screen carries 活下去 and exactly four

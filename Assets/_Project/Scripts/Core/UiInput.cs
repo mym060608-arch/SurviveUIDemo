@@ -354,6 +354,30 @@ public static class UiInput
     }
 
     /// <summary>
+    /// True while the logical Confirm action is HELD (not an edge).
+    ///
+    /// <see cref="ConfirmPressed"/> answers "was pressed this frame"; the
+    /// landing confirmation's hold-to-deploy accumulates progress and needs the
+    /// LEVEL, so it reads THIS. The physical controls are still named only here
+    /// (south face control / E / Enter / Space) - no page logic ever names one.
+    /// </summary>
+    public static bool ConfirmHeld()
+    {
+        Gamepad pad = Gamepad.current;
+        if (pad != null && pad.buttonSouth.isPressed)
+        {
+            return true;
+        }
+
+        Keyboard keyboard = Keyboard.current;
+        return keyboard != null
+               && (keyboard.eKey.isPressed
+                   || keyboard.enterKey.isPressed
+                   || keyboard.numpadEnterKey.isPressed
+                   || keyboard.spaceKey.isPressed);
+    }
+
+    /// <summary>
     /// True when the Back action was pressed this frame (menu / modal layers:
     /// Xbox B or Escape). A modal layer that is open consumes it - the ship's
     /// device panels close through this, and it must not fall through to the

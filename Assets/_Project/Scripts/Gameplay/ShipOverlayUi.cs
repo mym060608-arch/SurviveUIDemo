@@ -175,7 +175,19 @@ public class ShipOverlayUi : MonoBehaviour
 
         if (!IsOpen)
         {
+            // A closed page must never keep accumulating a hold (PASS 8).
+            _deployPage?.CancelHold();
             return;
+        }
+
+        // Phase 09B PASS 8: while the landing confirmation is the open page it
+        // owns its own card actions - the held Confirm (long-press to deploy)
+        // and the ContextAction (X / □ / M -> 出发准备). It runs BEFORE the pause
+        // gate so a paused game freezes the hold instead of keeping progress:
+        // resuming must require a fresh press. Back stays here, below.
+        if (_mode == OverlayMode.DeploymentConfirm && _deployPage != null)
+        {
+            _deployPage.TickLandingInput(_ship == null || !_ship.IsPaused);
         }
 
         // Dispatch priority, step 1: the pause menu is the TOP layer and it owns

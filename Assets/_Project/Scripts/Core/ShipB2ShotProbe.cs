@@ -633,13 +633,25 @@ public class ShipB2ShotProbe : MonoBehaviour
                     && _overlay.Mode == ShipOverlayUi.OverlayMode.DeploymentConfirm);
             }
 
-            // 确认降临 -> real ShipInterior -> Surface routing.
+            // 确认降临 -> real ShipInterior -> Surface routing. Phase 09B PASS 8:
+            // the action is a HOLD, so the probe presses, holds past the authored
+            // duration and releases - a plain click must not deploy.
             int mineralsBefore = session.Minerals;
             Button confirm = deploy.Root.Q<Button>(ShipDeployConfirmPage.ConfirmButtonName);
             Check("deploy 确认降临 button present", confirm != null);
             if (confirm != null)
             {
-                UiToolkitPointerSimulator.Click(confirm);
+                UiToolkitPointerSimulator.PointerDown(confirm);
+                yield return WaitReal(ShipDeployConfirmPage.HoldSeconds + 0.45f);
+                // By now the hold may already have completed AND asked for the
+                // routing (which resets the bar), so the completion is proven by
+                // the progress OR the completed beat OR the recorded request.
+                Check("a completed hold really reached 100% (progress "
+                      + deploy.HoldProgress01.ToString("0.00") + ", requested "
+                      + deploy.ConfirmRequestCount + ")",
+                    deploy.HoldProgress01 >= 0.999f || deploy.IsHoldComplete
+                    || deploy.ConfirmRequestCount > 0);
+                UiToolkitPointerSimulator.PointerUp(confirm);
                 for (int t = 0; t < 1200
                      && ActiveSceneName() != GameSession.SurfaceSceneName; t++)
                 {

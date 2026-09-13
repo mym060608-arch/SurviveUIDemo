@@ -1,18 +1,45 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements">
-    <!-- Phase 07B.2 Deployment Confirmation (shown by the Airlock
+    <!-- Phase 09B PASS 8 Landing Confirmation / 最终确认 (shown by the Airlock
          deployment station before any ShipInterior -> Surface routing).
-         Chinese-first, project light-panel language over a dim world. -->
-    <ui:VisualElement name="DeployOverlayRoot" class="modal-root">
-        <ui:VisualElement name="DeployPanel" class="modal-panel">
-            <ui:VisualElement class="modal-head">
-                <ui:Label class="modal-kicker" text="CURRENT DESTINATION" />
-                <ui:Label name="DeployDestination" class="modal-hero" text="AURELIA-01" />
-                <ui:Label class="modal-sub" text="未知地表 · 资源候选区" />
+         Approved reference: light panel over the dark hangar, cyan dot-matrix
+         fields on both sides, one hairline accent, and THREE action cards whose
+         key glyphs live INSIDE the cards - there is no second prompt row. -->
+    <ui:VisualElement name="DeployOverlayRoot" class="modal-root landing-root">
+        <ui:VisualElement name="LandingDotsLeft" class="landing-dots landing-dots-left" />
+
+        <ui:VisualElement name="DeployPanel" class="modal-panel landing-panel">
+            <ui:VisualElement class="landing-top">
+                <ui:VisualElement class="landing-destination">
+                    <ui:VisualElement class="landing-kicker-row">
+                        <ui:Label class="landing-kicker" text="目的地" />
+                        <ui:VisualElement class="landing-kicker-rule" />
+                    </ui:VisualElement>
+                    <ui:Label name="DeployDestination" class="landing-hero" text="AURELIA-01" />
+                    <ui:Label class="landing-sub" text="微光之地 · 资源探测区" />
+                </ui:VisualElement>
+
+                <ui:VisualElement class="landing-final">
+                    <ui:Label class="landing-final-title" text="最终确认" />
+                    <ui:Label class="landing-final-sub" text="长按确认降临" />
+                </ui:VisualElement>
             </ui:VisualElement>
 
-            <ui:VisualElement class="modal-rule" />
+            <ui:VisualElement class="landing-divider">
+                <ui:VisualElement class="landing-divider-line" />
+                <ui:VisualElement class="landing-divider-marks">
+                    <ui:VisualElement class="landing-divider-mark" />
+                    <ui:VisualElement class="landing-divider-mark" />
+                    <ui:VisualElement class="landing-divider-mark" />
+                </ui:VisualElement>
+                <ui:VisualElement class="landing-divider-line" />
+            </ui:VisualElement>
 
-            <ui:Label class="modal-group-title" text="当前远征装备" />
+            <ui:VisualElement class="landing-kicker-row">
+                <ui:Label class="landing-kicker" text="当前装备" />
+                <ui:VisualElement class="landing-kicker-rule" />
+            </ui:VisualElement>
+
+            <!-- Text-only equipment list: no pictograms on this page. -->
             <ui:VisualElement class="modal-gear">
                 <ui:VisualElement class="modal-gear-row">
                     <ui:Label class="modal-gear-name" text="采集器 MK-I" />
@@ -35,16 +62,39 @@
                 </ui:VisualElement>
             </ui:VisualElement>
 
-            <ui:VisualElement class="modal-actions">
-                <ui:Button name="DeployAdjustGearButton" class="modal-btn modal-btn-ghost" text="调整装备" />
-                <ui:Button name="DeployConfirmButton" class="modal-btn modal-btn-primary" text="确认降临" />
-                <ui:Button name="DeployCancelButton" class="modal-btn modal-btn-plain" text="取消" />
-            </ui:VisualElement>
+            <!-- The three actions ARE the key line: [X] / [A] / [B] glyphs are
+                 filled in by the page for the device in hand. -->
+            <ui:VisualElement class="landing-actions">
+                <ui:Button name="DeployAdjustGearButton" class="landing-card">
+                    <ui:Label name="DeployAdjustKey" class="landing-card-key" text="X" />
+                    <ui:VisualElement class="landing-card-copy">
+                        <ui:Label class="landing-card-verb" text="出发准备" />
+                        <ui:Label class="landing-card-sub" text="调整装备" />
+                    </ui:VisualElement>
+                </ui:Button>
 
-            <!-- Back = Xbox B / Escape (UiInput.BackPressed). The runtime
-                 rewrites this line for the device in hand: "[B] 返回" on a
-                 controller, "[Esc] 返回" on the keyboard. -->
-            <ui:Label name="DeployBackHint" class="modal-hint" text="[Esc] 返回" />
+                <ui:Button name="DeployConfirmButton" class="landing-card landing-card-primary">
+                    <ui:Label name="DeployConfirmKey" class="landing-card-key landing-card-key-primary" text="A" />
+                    <ui:VisualElement class="landing-card-copy">
+                        <ui:Label class="landing-card-verb landing-card-verb-primary" text="确认降临" />
+                        <ui:Label class="landing-card-sub landing-card-sub-primary" text="长按确认" />
+                    </ui:VisualElement>
+                    <!-- Hold progress lives INSIDE the card, nowhere else. -->
+                    <ui:VisualElement class="landing-hold-track">
+                        <ui:VisualElement name="DeployHoldFill" class="landing-hold-fill" />
+                    </ui:VisualElement>
+                </ui:Button>
+
+                <ui:Button name="DeployCancelButton" class="landing-card">
+                    <ui:Label name="DeployCancelKey" class="landing-card-key" text="B" />
+                    <ui:VisualElement class="landing-card-copy">
+                        <ui:Label class="landing-card-verb" text="返回" />
+                        <ui:Label class="landing-card-sub" text="取消操作" />
+                    </ui:VisualElement>
+                </ui:Button>
+            </ui:VisualElement>
         </ui:VisualElement>
+
+        <ui:VisualElement name="LandingDotsRight" class="landing-dots landing-dots-right" />
     </ui:VisualElement>
 </ui:UXML>

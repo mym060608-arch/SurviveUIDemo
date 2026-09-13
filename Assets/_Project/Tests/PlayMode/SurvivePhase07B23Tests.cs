@@ -46,6 +46,16 @@ public class SurvivePhase07B23Tests
 
     // ---- helpers ----
 
+    /// <summary>Waits in real time: the landing hold is measured in seconds.</summary>
+    private static IEnumerator WaitSeconds(float seconds)
+    {
+        float deadline = Time.realtimeSinceStartup + seconds;
+        while (Time.realtimeSinceStartup < deadline)
+        {
+            yield return null;
+        }
+    }
+
     private static IEnumerator WaitUntil(System.Func<bool> condition,
         int maxFrames = MaxWaitFrames)
     {
@@ -461,7 +471,13 @@ public class SurvivePhase07B23Tests
         int mineralsBefore = session.Minerals;
         Button confirm = overlay.DeployPage.Root
             .Q<Button>(ShipDeployConfirmPage.ConfirmButtonName);
-        Assert.IsTrue(UiToolkitPointerSimulator.Click(confirm), "确认降临 clicked");
+
+        // Phase 09B PASS 8: a click is NOT enough any more - 确认降临 is a HELD
+        // action, so the gesture is a real press, a real hold past the authored
+        // duration, and a release.
+        Assert.IsTrue(UiToolkitPointerSimulator.PointerDown(confirm), "确认降临 pressed");
+        yield return WaitSeconds(ShipDeployConfirmPage.HoldSeconds + 0.35f);
+        Assert.IsTrue(UiToolkitPointerSimulator.PointerUp(confirm), "确认降临 released");
         yield return WaitUntil(() => ActiveSceneName() == GameSession.SurfaceSceneName);
         yield return WaitForSurface(_ => { });
 

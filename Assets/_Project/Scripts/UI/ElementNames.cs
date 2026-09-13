@@ -58,6 +58,15 @@ public static class ElementNames
     public const string ExplorationBarFill = "ExplorationBarFill";
     public const string OverviewPromptHost = "OverviewPromptHost";
 
+    // Landing Confirmation / 最终确认 (Phase 09B PASS 8): the two code-drawn cyan
+    // dot fields, the key glyph fused into each action card and the hold bar.
+    public const string LandingDotsLeft = "LandingDotsLeft";
+    public const string LandingDotsRight = "LandingDotsRight";
+    public const string LandingAdjustKey = "DeployAdjustKey";
+    public const string LandingConfirmKey = "DeployConfirmKey";
+    public const string LandingCancelKey = "DeployCancelKey";
+    public const string LandingHoldFill = "DeployHoldFill";
+
     // Preparation.
     public const string HarvesterRowButton = "HarvesterRowButton";
     public const string BatteryRowButton = "BatteryRowButton";
@@ -364,5 +373,30 @@ public static class ElementNames
         NavPreparation,
         NavProcessing,
         NavOutpost
+    };
+
+    /// <summary>
+    /// Landing Confirmation / 最终确认 composition the structural validator must
+    /// find in ShipDeployConfirm.uxml (Phase 09B PASS 8): the two code-drawn dot
+    /// fields, the key glyph fused into each action card, and the ONLY hold bar.
+    /// </summary>
+    public static readonly string[] LandingStructure =
+    {
+        "DeployOverlayRoot",
+        LandingDotsLeft,
+        LandingDotsRight,
+        "DeployPanel",
+        "DeployDestination",
+        "DeployHarvesterState",
+        "DeployBatteryState",
+        "DeployDroneState",
+        "DeployCargoValue",
+        "DeployAdjustGearButton",
+        "DeployConfirmButton",
+        "DeployCancelButton",
+        LandingAdjustKey,
+        LandingConfirmKey,
+        LandingCancelKey,
+        LandingHoldFill
     };
 }

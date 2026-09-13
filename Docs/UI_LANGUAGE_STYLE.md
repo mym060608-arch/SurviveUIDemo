@@ -2120,7 +2120,7 @@ input system exists:
 ```text
 装备整理    EquipmentLockerInteractable -> ShipOverlayUi.OpenLoadoutFromLocker
             -> ShipLoadoutPage (the shared loadout view, GameSession authority)
-出征前准备  ShipAirlockInteractable     -> ShipOverlayUi.OpenDeploymentConfirm
+最终确认    ShipAirlockInteractable     -> ShipOverlayUi.OpenDeploymentConfirm
             -> ShipDeployConfirmPage    (no scene load until 确认降临)
 ```
 
@@ -2128,13 +2128,30 @@ input system exists:
 
 ```text
 装备整理 (ShipLoadoutPage)     top-right: [B] 返回   +  返回 button
-出征前准备 (ShipDeployConfirm) bottom:    [B] 返回   (device line)
+最终确认 (ShipDeployConfirm)    three action cards, each carrying its own glyph:
+    [X] 出发准备 / 调整装备      (ContextAction -> the shared loadout)
+    [A] 确认降临 / 长按确认      (Confirm, HELD -> the real surface routing)
+    [B] 返回   / 取消操作        (Back -> ShipExplore)
 ```
 
-The hint is device-aware (`InputDeviceTracker.FormatPrompt(UiAction.Back, "返回")`):
-`[B] 返回` on a controller, `[Esc] 返回` on the keyboard. `[A] 确认` is NOT shown -
-the panels have no focus navigation yet (Phase 09), so the copy must not promise
-it.
+Phase 09B PASS 8 rebuilt the landing confirmation: the page title is 最终确认
+with 长按确认降临 under it, the destination block reads 目的地 / AURELIA-01 /
+微光之地 · 资源探测区, the equipment list (采集器 MK-I / 备用电池组 / 勘测无人机 /
+载荷, states 必需 / 已装备 / 未选择, cargo `45 / 100 KG`) is TEXT ONLY - no
+pictograms - and there is NO separate prompt row: the three action cards ARE the
+key line. The glyph is presentation only (`InputDeviceTracker.PromptGlyph`):
+`X / A / B` on an Xbox pad, `□ / ✕ / ○` on a PlayStation-compatible pad,
+`M / E / Esc` on mouse+keyboard. Logic only ever names `ContextAction` /
+`Confirm` / `Back`.
+
+Hold Confirm: a tap never lands. Holding the logical Confirm action (or the mouse
+on the A card) fills the bar INSIDE that card from 0% to 100% in
+`ShipDeployConfirmPage.HoldSeconds` (the single authored duration); releasing
+early rolls it back to 0% and stays on the page. The press that opened the page
+cannot start a hold - a fresh press is required.
+
+The 装备整理 hint stays device-aware (`[B] 返回` on a controller, `[Esc] 返回` on
+the keyboard). Neither panel promises a key it does not have.
 
 ## 65.2 Back contract
 
@@ -2144,8 +2161,11 @@ open panel + B / Escape
        no scene change, GameSession untouched
     -> movement, look, world interaction, the gaze prompt and the cursor are
        exactly what they were before the panel opened
-出征前准备 --调整装备--> 装备整理 + B
-    -> one step back to 出征前准备 (not straight out)
+最终确认 --出发准备 (X)--> 装备整理;  B there steps back to 最终确认
+    -> one step back to the landing confirmation (not straight out)
+最终确认 + a COMPLETED Hold Confirm (A)
+    -> the existing ShipInterior -> Surface routing runs; a tap, or a hold
+       released before 100%, changes nothing and resets the bar
 open panel + Menu/Start
     -> 暂停 opens ABOVE the panel: Time.timeScale = 0, the panel stays as the
        frozen underlying state
