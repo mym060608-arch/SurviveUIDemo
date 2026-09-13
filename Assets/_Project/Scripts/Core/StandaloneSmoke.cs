@@ -566,6 +566,8 @@ public class StandaloneSmoke : MonoBehaviour
             yield return WaitFor(() => ship.Player.InputEnabled, 3f);
             log.Check("free first person is restored after the Escape exit",
                 ship.Player.InputEnabled);
+            log.Check("leaving a terminal never leaves a system cursor on screen",
+                !UnityEngine.Cursor.visible);
 
             // A -> console view.
             yield return PressGamepadButton(pad, GamepadButton.South);
@@ -1091,7 +1093,7 @@ public class StandaloneSmoke : MonoBehaviour
                 && refineryStatus != null && refineryStatus.text == "LV.2"
                 && detailName != null && detailName.text == "精炼模块"
                 && detailDuration != null && detailDuration.text == "1.6s"
-                && outpostUpgrade != null && outpostUpgrade.text == "需要核心升级"
+                && outpostUpgrade != null && outpostUpgrade.text == "升级"
                 && !outpostUpgrade.enabledSelf);
         }
         else

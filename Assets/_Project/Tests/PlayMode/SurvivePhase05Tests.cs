@@ -76,8 +76,9 @@ public class SurvivePhase05Tests
             session.TryUpgrade(GameSession.OutpostModule.Refinery), "refinery upgrade");
         Assert.AreEqual(2, session.RefineryLevel, "refinery LV.2");
         AssertNearly(1.6f, session.RefineryProcessSeconds, "duration 1.6 at LV.2");
-        Assert.AreEqual(GameSession.FuelGainFor(10), 4, "fuel ratio unchanged");
-        Assert.AreEqual(GameSession.AlloyGainFor(10), 2, "alloy ratio unchanged");
+        // Phase 09B PASS 5 yield: 1 mineral -> 合金 +1 (primary) + 燃料 +1 (byproduct).
+        Assert.AreEqual(GameSession.FuelGainFor(10), 10, "fuel ratio unchanged");
+        Assert.AreEqual(GameSession.AlloyGainFor(10), 10, "alloy ratio unchanged");
 
         // Core upgrade raises subsystem cap.
         session.ResetSession();
@@ -191,13 +192,13 @@ public class SurvivePhase05Tests
 
         // Detail panel mirrors the selected refinery module.
         Assert.AreEqual("精炼模块", LabelText(root, ElementNames.ModuleDetailName), "detail name refinery");
-        Assert.AreEqual("LV.1 → LV.2", LabelText(root, ElementNames.ModuleDetailLevels), "detail levels");
-        Assert.AreEqual("加工周期", LabelText(root, ElementNames.ModuleDetailEffectTitle), "detail effect title");
+        Assert.AreEqual("LV.1 ▶ LV.2", LabelText(root, ElementNames.ModuleDetailLevels), "detail levels");
+        Assert.AreEqual("加工时间", LabelText(root, ElementNames.ModuleDetailEffectTitle), "detail effect key");
         Assert.AreEqual("2.0s", LabelText(root, ElementNames.ModuleCurrentEffectValue), "detail current duration");
         Assert.AreEqual("1.6s", LabelText(root, ElementNames.ModuleNextEffectValue), "detail next duration");
         Assert.AreEqual("3 合金", LabelText(root, ElementNames.ModuleUpgradeCostValue), "detail cost");
         Button upgrade = root.Q<Button>(ElementNames.OutpostUpgradeButton);
-        Assert.AreEqual("升级模块", upgrade.text, "CTA default");
+        Assert.AreEqual("升级", upgrade.text, "CTA reads 升级 (never 升级模块)");
         Assert.IsTrue(upgrade.enabledSelf, "CTA enabled at default");
 
         // ---- Node selection updates the detail panel (presentation only) ----
@@ -211,7 +212,7 @@ public class SurvivePhase05Tests
 
         app.OutpostView.SelectModule(GameSession.OutpostModule.Core);
         Assert.AreEqual("核心模块", LabelText(root, ElementNames.ModuleDetailName), "detail name core");
-        Assert.AreEqual("模块等级上限", LabelText(root, ElementNames.ModuleDetailEffectTitle), "core effect title");
+        Assert.AreEqual("模块上限", LabelText(root, ElementNames.ModuleDetailEffectTitle), "core effect key");
         Assert.AreEqual("LV.2", LabelText(root, ElementNames.ModuleCurrentEffectValue), "core current cap");
         Assert.AreEqual("LV.3", LabelText(root, ElementNames.ModuleNextEffectValue), "core next cap");
 
@@ -224,8 +225,10 @@ public class SurvivePhase05Tests
         Assert.AreEqual("LV.2", LabelText(root, ElementNames.RefineryLevelValue), "status refinery LV.2");
         Assert.AreEqual("精炼模块", LabelText(root, ElementNames.ModuleDetailName), "detail remains refinery");
         Assert.AreEqual("1.6s", LabelText(root, ElementNames.ModuleCurrentEffectValue), "detail duration after LV.2");
-        Assert.AreEqual("需要核心升级", upgrade.text, "CTA shows core requirement at LV.2->LV.3");
+        Assert.AreEqual("升级", upgrade.text, "CTA keeps its single label when blocked");
         Assert.IsFalse(upgrade.enabledSelf, "CTA disabled by core lock");
+        Assert.AreEqual("需要核心模块 LV.2", LabelText(root, ElementNames.ModuleUpgradeRequirement),
+            "the 条件 row carries the blocking reason");
         AssertNearly(1.6f, session.RefineryProcessSeconds, "authoritative duration 1.6");
 
         // Cross-screen: Processing reports LV.2 and the faster duration.
@@ -245,10 +248,11 @@ public class SurvivePhase05Tests
         // Alloy gained from processing shows on Outpost immediately.
         app.ShowScreen(AppScreen.Overview);
         yield return null;
-        Assert.AreEqual("3", LabelText(root, ElementNames.AlloyValue), "overview alloy after processing");
+        // alloy 5 - refinery upgrade 3 = 2, then +5 from the 5 mineral run.
+        Assert.AreEqual("7", LabelText(root, ElementNames.AlloyValue), "overview alloy after processing");
         app.ShowScreen(AppScreen.Outpost);
         yield return null;
-        Assert.AreEqual("3", LabelText(root, ElementNames.OutpostAlloyValue), "outpost alloy after processing");
+        Assert.AreEqual("7", LabelText(root, ElementNames.OutpostAlloyValue), "outpost alloy after processing");
 
         // ---- Reset restores the whole economy and UI ----
         session.ResetSession();
@@ -257,7 +261,7 @@ public class SurvivePhase05Tests
         Assert.AreEqual("LV.1", LabelText(root, ElementNames.RefineryLevelValue), "outpost refinery reset");
         Assert.AreEqual("LV.2", LabelText(root, ElementNames.OutpostCapValue), "cap back to LV.2");
         Assert.AreEqual("2.0s", LabelText(root, ElementNames.ModuleCurrentEffectValue), "detail duration reset");
-        Assert.AreEqual("升级模块", upgrade.text, "CTA back to default");
+        Assert.AreEqual("升级", upgrade.text, "CTA back to default");
         Assert.IsTrue(upgrade.enabledSelf, "CTA enabled after reset");
         Assert.AreEqual(1, session.OutpostLevel, "core level reset");
         Assert.AreEqual(1, session.HarvesterLevel, "harvester level reset");

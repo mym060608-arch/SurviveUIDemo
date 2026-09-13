@@ -746,3 +746,17 @@
     border-color: #A9AFB5;
     color: #EDEFF1;
 }
+
+/* =====================================================================
+ * Project cursor, document-wide (Phase 09B PASS 6 follow-up).
+ *
+ * UI Toolkit re-applies the hovered element's own cursor on every hover
+ * change. Every document (hub app, ship HUD, surface HUD / wrist, main menu,
+ * warehouse console, modal sheets) therefore carries the project's dot, so no
+ * element can ever resolve to the stock Windows arrow. Actionable elements
+ * override it with the dot+ring asset where a page defines them.
+ * ===================================================================== */
+
+* {
+    cursor: url("../Cursors/T_CursorDot.png") 16 16;
+}

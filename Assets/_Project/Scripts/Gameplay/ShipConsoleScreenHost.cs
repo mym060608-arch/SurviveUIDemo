@@ -130,6 +130,14 @@ public class ShipConsoleScreenHost : MonoBehaviour
             bool preparationConsole = _screen == AppScreen.Preparation;
             _preparation.Tick(preparationConsole, preparationConsole && IsConsoleFocused());
         }
+
+        // Console 04 (据点) drives the shared pointer with the right stick while
+        // the player is actually focused on it (Phase 09B PASS 6).
+        if (_outpost != null)
+        {
+            bool outpostConsole = _screen == AppScreen.Outpost;
+            _outpost.Tick(outpostConsole, outpostConsole && IsConsoleFocused());
+        }
     }
 
     /// <summary>True while the player is focused on this physical terminal.

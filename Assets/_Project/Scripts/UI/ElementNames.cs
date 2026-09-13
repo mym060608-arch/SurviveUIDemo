@@ -132,6 +132,7 @@ public static class ElementNames
     public const string ModuleUpgradeCostValue = "ModuleUpgradeCostValue";
     public const string ModuleUpgradeRequirement = "ModuleUpgradeRequirement";
     public const string OutpostUpgradeButton = "OutpostUpgradeButton";
+    public const string OutpostPromptHost = "OutpostPromptHost";
 
     /// <summary>Every element the runtime binds; the validator checks each exists in MainApp.uxml.</summary>
     public static readonly string[] All = new[]
@@ -339,6 +340,7 @@ public static class ElementNames
         ModuleUpgradeCostValue,
         ModuleUpgradeRequirement,
         OutpostUpgradeButton,
+        OutpostPromptHost,
         BottomNav,
         NavOverview,
         NavPreparation,

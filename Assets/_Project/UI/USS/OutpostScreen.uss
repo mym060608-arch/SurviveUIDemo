@@ -379,3 +379,152 @@
     margin-top: 14px;
     -unity-text-align: middle-center;
 }
+
+/* =====================================================================
+ * Phase 09B PASS 6 - controller pass over the same page.
+ *
+ * The module cards become rows (code-drawn module mark + name/level/status
+ * stack), the card under the SHARED cursor gets its own frame, and the shared
+ * Phase 09B prompt bar mounts at the bottom-right of the page. Palette, panel
+ * geometry and the upgrade economy are unchanged.
+ * ===================================================================== */
+
+.outpost-node {
+    flex-direction: row;
+    align-items: center;
+}
+
+.node-icon {
+    width: 84px;
+    height: 62px;
+    flex-shrink: 0;
+    margin-right: 18px;
+}
+
+.outpost-sketch {
+    flex-grow: 1;
+}
+
+.node-copy {
+    flex-grow: 1;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.outpost-node .node-title {
+    margin-right: 0;
+}
+
+.outpost-node .node-status {
+    margin-left: 0;
+}
+
+/* The card under the shared cursor (right stick / mouse): the same emphasis
+   language as the selected card, plus the cyan frame the player aims with. */
+.outpost-node.node-cursor {
+    background-color: #F2F9FA;
+    border-color: #0E7F8C;
+}
+
+.outpost-node.node-cursor.node-selected {
+    background-color: #F2F9FA;
+    border-color: #0E7F8C;
+    border-left-color: #0E7F8C;
+}
+
+/* Shared Phase 09B prompt bar host: bottom-right of the page. */
+.outpost-prompt-host {
+    flex-shrink: 0;
+    height: 34px;
+    margin-left: 64px;
+    margin-right: 34px;
+    margin-bottom: 12px;
+}
+
+/* =====================================================================
+ * PASS 6 visual pass against the approved reference: the module marks are
+ * chunky graphite blocks, the detail column reads as an "升级后效果" block with
+ * before ▶ after rows, and the controller hints sit in a real bottom bar.
+ * ===================================================================== */
+
+.node-hint {
+    font-size: 11px;
+    color: #9AA2AA;
+    margin-top: 2px;
+}
+
+/* 升级后效果: group label + one row per authoritative effect. */
+.detail-effect-title {
+    font-size: 12px;
+    -unity-font-style: bold;
+    color: #161B20;
+    margin-top: 10px;
+    margin-bottom: 4px;
+}
+
+.effect-arrow {
+    font-size: 12px;
+    color: #0E7F8C;
+    margin-left: 12px;
+    margin-right: 12px;
+}
+
+.effect-value.effect-next {
+    color: #0A616C;
+}
+
+/* The controller key line: a bottom bar with the page's own hairline, hints
+   right-aligned (the reference puts them on the right edge). */
+.outpost-prompt-host {
+    flex-shrink: 0;
+    height: 58px;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    padding-right: 34px;
+    border-top-width: 1px;
+    border-top-color: #DEE2E5;
+    margin-left: 0px;
+    margin-right: 0px;
+    margin-bottom: 0px;
+}
+
+/* Card head: name on the left, level on the right (reference layout). */
+.node-title-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.node-title-row .node-level {
+    margin-top: 0px;
+    margin-left: 14px;
+}
+
+/* =====================================================================
+ * Transparent SYSTEM cursor while this page owns the pointer.
+ *
+ * Windowed Windows players re-show a hardware cursor when UI Toolkit applies
+ * one on a hover change, so hiding the OS cursor is not enough: the page makes
+ * it TRANSPARENT instead - here for every element UI Toolkit may hover, and in
+ * OutpostScreen.cs through Cursor.SetCursor for everything else. The only
+ * pointer the player sees is the dot / dot+ring the page paints itself.
+ * ===================================================================== */
+
+.cursor-blank {
+    cursor: url("../Cursors/T_CursorBlank.png") 16 16;
+}
+
+/* =====================================================================
+ * Project cursor, document-wide (Phase 09B PASS 6 follow-up).
+ *
+ * UI Toolkit re-applies the hovered element's own cursor on every hover
+ * change. Every document (hub app, ship HUD, surface HUD / wrist, main menu,
+ * warehouse console, modal sheets) therefore carries the project's dot, so no
+ * element can ever resolve to the stock Windows arrow. Actionable elements
+ * override it with the dot+ring asset where a page defines them.
+ * ===================================================================== */
+
+* {
+    cursor: url("../Cursors/T_CursorDot.png") 16 16;
+}

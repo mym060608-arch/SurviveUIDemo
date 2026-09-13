@@ -243,7 +243,7 @@ public class SurvivePhase01Tests
         // LV.2 -> LV.3 blocked by Core LV.1: CTA disabled with clear copy.
         Assert.AreEqual(GameSession.UpgradeFailureReason.CoreLevelRequired,
             session.CanUpgrade(GameSession.OutpostModule.Refinery), "LV.3 blocked by core");
-        Assert.AreEqual("需要核心升级", upgradeButton.text, "CTA shows core requirement");
+        Assert.AreEqual("升级", upgradeButton.text, "CTA keeps its single 升级 label");
         Assert.IsFalse(upgradeButton.enabledSelf, "CTA disabled when core-locked");
 
         // ---- Overview still consistent (alloy 7, refinery LV.2) ----

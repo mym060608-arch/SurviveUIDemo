@@ -59,6 +59,26 @@ public static class UiToolkitPointerSimulator
         return true;
     }
 
+    /// <summary>
+    /// Full click delivered STRAIGHT to the element, without the panel's
+    /// hit-test. Needed by pages that suspend UI Toolkit picking (the Outpost
+    /// page does, so the runtime has no hover to apply a system cursor for) and
+    /// still want hub chrome such as the bottom tabs to answer a mouse click.
+    /// </summary>
+    public static bool ClickDirect(VisualElement element)
+    {
+        if (element == null || element.panel == null)
+        {
+            return false;
+        }
+
+        Vector2 position = CentreOf(element);
+        SendPointer<PointerMoveEvent>(element, position, -1, 0, 0);
+        SendPointer<PointerDownEvent>(element, position, ButtonLeft, 1 << ButtonLeft, 1);
+        SendPointer<PointerUpEvent>(element, position, ButtonLeft, 1 << ButtonLeft, 1);
+        return true;
+    }
+
     /// <summary>Real hover (move only) at the element centre.</summary>
     public static bool Hover(VisualElement element)
     {
@@ -96,6 +116,27 @@ public static class UiToolkitPointerSimulator
             Set(evt, "clickCount", clickCount);
             Set(evt, "modifiers", EventModifiers.None);
             root.SendEvent(evt);
+        }
+    }
+
+    /// <summary>Same event content as <see cref="DispatchPointer"/>, but sent
+    /// directly to one element (its own callbacks run, picking is bypassed).</summary>
+    private static void SendPointer<T>(VisualElement target,
+        Vector2 position, int button, int pressedButtons, int clickCount)
+        where T : PointerEventBase<T>, new()
+    {
+        using (T evt = EventBase<T>.GetPooled())
+        {
+            Set(evt, "pointerId", MousePointerId);
+            Set(evt, "pointerType", PointerTypeMouse);
+            Set(evt, "isPrimary", true);
+            Set(evt, "position", new Vector3(position.x, position.y, 0f));
+            Set(evt, "deltaPosition", Vector3.zero);
+            Set(evt, "button", button);
+            Set(evt, "pressedButtons", pressedButtons);
+            Set(evt, "clickCount", clickCount);
+            Set(evt, "modifiers", EventModifiers.None);
+            target.SendEvent(evt);
         }
     }
 

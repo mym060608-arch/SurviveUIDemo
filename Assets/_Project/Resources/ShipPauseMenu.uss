@@ -100,3 +100,12 @@
     font-size: 15px;
     letter-spacing: 1px;
 }
+
+/* Project cursor, document-wide (Phase 09B PASS 6 follow-up): UI Toolkit
+   re-applies the hovered element's cursor on every hover change, so this
+   document carries the project's dot too and never falls back to the stock
+   Windows arrow. */
+
+* {
+    cursor: url("../UI/Cursors/T_CursorDot.png") 16 16;
+}

@@ -43,6 +43,9 @@ public static class SurviveProjectValidator
     private const string PreparationUssPath = "Assets/_Project/UI/USS/PreparationScreen.uss";
     private const string ProcessingUssPath = "Assets/_Project/UI/USS/ProcessingScreen.uss";
     private const string OutpostUssPath = "Assets/_Project/UI/USS/OutpostScreen.uss";
+    private const string CursorDotPath = "Assets/_Project/UI/Cursors/T_CursorDot.png";
+    private const string CursorRingPath = "Assets/_Project/UI/Cursors/T_CursorRing.png";
+    private const string CursorBlankPath = "Assets/_Project/UI/Cursors/T_CursorBlank.png";
     private const string SurfaceHudUxmlPath = "Assets/_Project/UI/UXML/SurfaceHUD.uxml";
     private const string SurfaceHudUssPath = "Assets/_Project/UI/USS/SurfaceHUD.uss";
     private const string SurfaceWristUxmlPath = "Assets/_Project/UI/UXML/SurfaceWrist.uxml";
@@ -154,6 +157,31 @@ public static class SurviveProjectValidator
         Record(File.Exists(PreparationUssPath), "preparation uss exists: " + PreparationUssPath);
         Record(File.Exists(ProcessingUssPath), "processing uss exists: " + ProcessingUssPath);
         Record(File.Exists(OutpostUssPath), "outpost uss exists: " + OutpostUssPath);
+
+        // ---- Phase 09B PASS 6: the UI cursor assets ----
+        // UI Toolkit applies these as the OS cursor on hover. A cursor texture
+        // that is not CPU readable (or is compressed) makes SetCursor fail and
+        // silently brings the stock Windows arrow back - which is exactly the
+        // bug this pass spent several rounds chasing, so it is pinned here.
+        foreach (string cursorPath in new[] { CursorDotPath, CursorRingPath, CursorBlankPath })
+        {
+            var importer = AssetImporter.GetAtPath(cursorPath) as TextureImporter;
+            Record(importer != null, "cursor texture imports: " + cursorPath);
+            Record(importer != null && importer.isReadable,
+                "cursor texture is CPU readable (SetCursor would fall back to the arrow): " + cursorPath);
+            Record(importer != null
+                   && importer.textureCompression == TextureImporterCompression.Uncompressed,
+                "cursor texture is uncompressed: " + cursorPath);
+        }
+
+        var themeDeps = new System.Collections.Generic.List<string>(
+            AssetDatabase.GetDependencies(UssPath, true));
+        var outpostDeps = new System.Collections.Generic.List<string>(
+            AssetDatabase.GetDependencies(OutpostUssPath, true));
+        Record(themeDeps.Contains(CursorDotPath) && themeDeps.Contains(CursorRingPath),
+            "AppTheme.uss really references the dot / ring cursor assets");
+        Record(outpostDeps.Contains(CursorBlankPath),
+            "OutpostScreen.uss really references the blank cursor asset");
         Record(File.Exists(SurfaceHudUxmlPath), "surface HUD uxml exists: " + SurfaceHudUxmlPath);
         Record(File.Exists(SurfaceHudUssPath), "surface HUD uss exists: " + SurfaceHudUssPath);
         Record(File.Exists(SurfaceWristUxmlPath), "surface wrist uxml exists: " + SurfaceWristUxmlPath);

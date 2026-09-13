@@ -432,6 +432,15 @@ public class ProcessingScreen
 
     private void ConfirmStart()
     {
+        // A click that only exists because of the press that opened this console
+        // (UI Toolkit turns a pad confirm into a synthetic pointer click) lands on
+        // the page before the player ever sees it, and the run must not start by
+        // itself: the same opening-press grace the pad path uses.
+        if (Time.frameCount < _inputReadyFrame)
+        {
+            return;
+        }
+
         if (!_session.CanStartBatch(_quantity))
         {
             return;

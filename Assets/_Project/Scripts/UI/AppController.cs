@@ -244,6 +244,15 @@ public class AppController : MonoBehaviour
             bool preparationVisible = CurrentScreen == AppScreen.Preparation;
             _preparation.Tick(preparationVisible, preparationVisible);
         }
+
+        // Outpost (PASS 6) drives the shared pointer with the right stick while
+        // it is the visible page, so a hidden page never moves the cursor or
+        // answers X / A / B.
+        if (_outpost != null)
+        {
+            bool outpostVisible = CurrentScreen == AppScreen.Outpost;
+            _outpost.Tick(outpostVisible, outpostVisible);
+        }
     }
 
     private void OnDestroy()
@@ -379,6 +388,12 @@ public class AppController : MonoBehaviour
         // The Preparation page uses the exact same rule (follow-up round).
         _preparation.OwnsBack = true;
         _preparation.BackRequested += HandlePageBack;
+
+        // Outpost joins the same contract (PASS 6). The hub owns the plain 2D
+        // cursor, so the page may restore it when the player leaves the page.
+        _outpost.OwnsBack = true;
+        _outpost.RestoreSystemCursorOnExit = true;
+        _outpost.BackRequested += HandlePageBack;
     }
 
     /// <summary>
