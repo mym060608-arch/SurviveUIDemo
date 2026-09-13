@@ -198,12 +198,32 @@ public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresenta
         }
 
         bool mapPresented = _isWristOpen && IsWristTerminalRevealed;
-        _hud.SetControllerPrompt(mapPresented, MapPromptRows);
+
+        // PASS 3: the SAME bar re-glyphs for the mode the wrist is really in. The
+        // map rows are the accepted PASS 2 set; the focus rows appear the moment
+        // the player uses the D-Pad / left stick.
+        bool moduleFocus = mapPresented && _wrist != null
+                           && _wrist.PadMode == WristPadMode.ModuleFocus;
+        if (!moduleFocus)
+        {
+            _hud.SetControllerPrompt(mapPresented, MapPromptRows);
+            return;
+        }
+
+        // Focus mode only advertises the focus keys while something can actually
+        // be focused; a terminal with nothing operable shows Back alone.
+        _hud.SetControllerPrompt(true, _wrist.FocusableCount > 0
+            ? WristFocusPromptRows
+            : ControllerPromptBar.BackOnlyRows());
     }
 
     /// <summary>The surface map's prompt rows (built once, device-independent).</summary>
     private static readonly ControllerPromptRow[] MapPromptRows =
         ControllerPromptBar.SurfaceMapRows();
+
+    /// <summary>The wrist's ordinary-UI focus prompt rows (PASS 3).</summary>
+    private static readonly ControllerPromptRow[] WristFocusPromptRows =
+        ControllerPromptBar.WristModuleRows();
 
     /// <summary>
     /// The surface's ONE wrist / map authority.
@@ -466,6 +486,22 @@ public class SurfaceGameController : MonoBehaviour, IWristContext, IArmsPresenta
 
         _navigationTargetNodeId = -1;
         NavigationChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// Phase 09B PASS 3: the wrist terminal's 当前导航 module asks the OWNER to
+    /// clear the target, so the wrist never edits navigation state itself.
+    /// Returns false when no target was set (nothing changed).
+    /// </summary>
+    public bool TryClearNavigationTarget()
+    {
+        if (_navigationTargetNodeId < 0)
+        {
+            return false;
+        }
+
+        ClearNavigationTarget();
+        return true;
     }
 
     public SurfaceResourceNode GetNodeById(int nodeId)

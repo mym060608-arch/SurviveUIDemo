@@ -86,6 +86,9 @@ public static class SurviveProjectValidator
         "EquipHeading", "EquipHarvester", "EquipBattery", "EquipDrone",
         "StateHeading", "ActionState", "SignalState", "RecoveredState",
         "NavHeading", "NavTarget", "NavDistance",
+        // Phase 09B PASS 3: the navigation radar's standby "?" symbol (the radar
+        // ring and its sweep are RadialWristElement mesh geometry).
+        "NavRadarGlyph",
         "HarvestHeading", "HarvestNode", "HarvestState", "HarvestProgress",
         "WristIdentity"
     };

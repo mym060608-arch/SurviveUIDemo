@@ -337,4 +337,39 @@ public sealed class ControllerPromptBar : VisualElement
             ControllerPromptRow.Key("返回", UiAction.Back)
         };
     }
+
+    /// <summary>
+    /// The row set for a page that is displaying INFORMATION only: with nothing
+    /// operable in reach, only Back is advertised ("没有对应功能时不要显示该按键").
+    /// The ship terminal is exactly this - its centre is a static deck schematic
+    /// and its equipment list is read-only.
+    /// </summary>
+    public static ControllerPromptRow[] BackOnlyRows()
+    {
+        return new[]
+        {
+            ControllerPromptRow.Key("返回", UiAction.Back)
+        };
+    }
+
+    /// <summary>
+    /// The wrist's ORDINARY UI row set (Phase 09B PASS 3): walk the focus ring,
+    /// confirm the focused element, go back, and - while the map is on screen -
+    /// hand the interaction back to the cursor. It deliberately shares the zoom
+    /// row with the map set because the triggers really do zoom in both modes.
+    ///
+    /// Rows whose function does not exist are NOT listed: the wrist has no tabs
+    /// (no LB/RB) and no pan (no LS).
+    /// </summary>
+    public static ControllerPromptRow[] WristModuleRows()
+    {
+        return new[]
+        {
+            ControllerPromptRow.Key("选择", UiAction.Navigate),
+            ControllerPromptRow.Key("确认", UiAction.Confirm),
+            ControllerPromptRow.Key("光标", UiAction.MapCursor),
+            ControllerPromptRow.Key("缩放", UiAction.ZoomOut, UiAction.ZoomIn),
+            ControllerPromptRow.Key("返回", UiAction.Back)
+        };
+    }
 }

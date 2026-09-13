@@ -84,7 +84,16 @@ public enum UiAction
     ZoomIn,
 
     /// <summary>Zoom out (LT / L2 / wheel down).</summary>
-    ZoomOut
+    ZoomOut,
+
+    /// <summary>
+    /// Focus navigation (D-Pad / left stick / arrow keys). This action has always
+    /// existed as the "Navigate=" row of <see cref="UiInput.BindingTable"/>; Phase
+    /// 09B PASS 3 gives it an enum identity so a page can put it in a PROMPT row
+    /// ("[D-Pad] 选择") instead of hard-coding a control name. Appended last, so
+    /// every previously frozen enum value keeps its index.
+    /// </summary>
+    Navigate
 }
 
 /// <summary>

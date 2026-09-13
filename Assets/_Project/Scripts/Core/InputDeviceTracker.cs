@@ -234,6 +234,10 @@ public static class InputDeviceTracker
                 case UiAction.ZoomIn:
                 case UiAction.ZoomOut:
                     return "滚轮";
+                case UiAction.Navigate:
+                    // Phase 09B PASS 3: the wrist's ordinary UI moves its focus
+                    // with the arrows on a keyboard.
+                    return "方向键";
                 default:
                     return string.Empty;
             }
@@ -266,6 +270,8 @@ public static class InputDeviceTracker
                         return "R2";
                     case UiAction.ZoomOut:
                         return "L2";
+                    case UiAction.Navigate:
+                        return "D-Pad";
                     default:
                         return string.Empty;
                 }
@@ -295,6 +301,8 @@ public static class InputDeviceTracker
                         return "RT";
                     case UiAction.ZoomOut:
                         return "LT";
+                    case UiAction.Navigate:
+                        return "D-Pad";
                     default:
                         return string.Empty;
                 }

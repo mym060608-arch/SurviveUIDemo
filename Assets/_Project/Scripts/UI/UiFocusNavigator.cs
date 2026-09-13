@@ -107,6 +107,9 @@ public sealed class UiFocusNavigator
 
         if (_focused != null && !_items.Contains(_focused))
         {
+            // A dropped item must not keep the focus ring painted on screen: the
+            // element leaves the operable set, so it leaves the focus look too.
+            _focused.RemoveFromClassList(FocusClass);
             _focused = null;
         }
     }
@@ -138,7 +141,11 @@ public sealed class UiFocusNavigator
         _tabs.Clear();
         _tabOrder.Clear();
         _activeTab = null;
-        _focused = null;
+        if (_focused != null)
+        {
+            _focused.RemoveFromClassList(FocusClass);
+            _focused = null;
+        }
     }
 
     /// <summary>
@@ -270,7 +277,7 @@ public sealed class UiFocusNavigator
     /// </summary>
     public bool FocusDefault()
     {
-        if (IsFocusable(_focused))
+        if (IsFocusable(_focused) && ActiveGroup.Contains(_focused))
         {
             return SetFocus(_focused);
         }
@@ -288,10 +295,17 @@ public sealed class UiFocusNavigator
         return false;
     }
 
-    /// <summary>Moves the focus to a specific element (no-op when it cannot focus).</summary>
+    /// <summary>
+    /// Moves the focus to a specific element (no-op when it cannot focus).
+    ///
+    /// The element must belong to the CURRENTLY operable group: "only elements that
+    /// really act can take focus" is a property of the navigator, not a property of
+    /// whoever calls it, so a page can never park the focus on a read-out by asking
+    /// for it directly.
+    /// </summary>
     public bool SetFocus(VisualElement element)
     {
-        if (element != null && !IsFocusable(element))
+        if (element != null && (!IsFocusable(element) || !ActiveGroup.Contains(element)))
         {
             return false;
         }

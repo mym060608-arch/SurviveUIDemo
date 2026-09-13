@@ -19,6 +19,7 @@ public static class SurvivePhase09BSetup
 {
     private const string BootScenePath = "Assets/_Project/Scenes/00_Boot.unity";
     private const string ProbeObjectName = "Ship09BControllerProbe";
+    private const string WristProbeObjectName = "Ship09BWristProbe";
 
     [MenuItem("Tools/SurviveUI/Phase 09B/Attach Evidence Probe To Boot Scene")]
     public static void AttachProbeFromMenu()
@@ -68,6 +69,26 @@ public static class SurvivePhase09BSetup
             changed = true;
         }
 
+        // Phase 09B PASS 3 adds the wrist probe next to it, with the same
+        // one-inert-object pattern (it does nothing without -ship09BWristShot).
+        bool wristAttached = false;
+        foreach (Ship09BWristProbe existing in UnityEngine.Object
+                     .FindObjectsByType<Ship09BWristProbe>(FindObjectsInactive.Include))
+        {
+            if (existing.gameObject.scene == scene)
+            {
+                wristAttached = true;
+            }
+        }
+
+        if (!wristAttached)
+        {
+            var wristGo = new GameObject(WristProbeObjectName);
+            SceneManager.MoveGameObjectToScene(wristGo, scene);
+            wristGo.AddComponent<Ship09BWristProbe>();
+            changed = true;
+        }
+
         if (!changed)
         {
             EditorSceneManager.CloseScene(scene, true);
@@ -77,6 +98,6 @@ public static class SurvivePhase09BSetup
         bool saved = EditorSceneManager.SaveScene(scene, BootScenePath);
         EditorSceneManager.CloseScene(scene, true);
         return (saved ? "updated " : "FAILED to update ") + ProbeObjectName
-               + " in " + BootScenePath;
+               + " + " + WristProbeObjectName + " in " + BootScenePath;
     }
 }

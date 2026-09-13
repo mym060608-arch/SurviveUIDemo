@@ -1,0 +1,43 @@
+BUILD SUCCESS
+path: D:/dsh_gpt_unity_blender/project/SurviveUIDemo/WristCodexEvidence/build/SurviveUIDemo.exe
+mode: Release
+result: Succeeded
+sizeBytes: 108776385
+warnings: 3
+errors: 0
+step: Build player (00:00:14.4254184s)
+step: Preprocess Player (00:00:00.5260643s)
+step: Prepare For Build (00:00:00.0066241s)
+step: ProducePlayerScriptAssemblies (00:00:04.6816216s)
+step: Prebuild Cleanup and Recompile (00:00:02.9360576s)
+step: Compile scripts (00:00:02.8016742s)
+step: Generate and validate platform script types (00:00:00.0291453s)
+step: Verify Build setup (00:00:00.1760894s)
+step: GetUnityAssemblies (00:00:00.0015162s)
+step: GetPlayerAssemblies (00:00:00.0060795s)
+step: Check old data build (00:00:00.1487117s)
+step: Prepare assets for target platform (00:00:00.0040813s)
+step: Prepare splash screen (00:00:00.0022158s)
+step: Build scripts DLLs (00:00:00.0115891s)
+step: GetSystemAssemblies (00:00:00.0010477s)
+step: Building scenes (00:00:01.6534407s)
+step: Building scene Assets/_Project/Scenes/00_Boot.unity (00:00:00.3298644s)
+step: Building scene Assets/_Project/Scenes/01_Hub.unity (00:00:00.4115532s)
+step: Building scene Assets/_Project/Scenes/02_NereidSurface.unity (00:00:00.2809302s)
+step: Building scene Assets/_Project/Scenes/03_ShipInterior.unity (00:00:00.3622032s)
+step: Building scene Assets/_Project/Scenes/04_MainMenu.unity (00:00:00.2687613s)
+step: Build GlobalGameManagers file (00:00:00.2144794s)
+step: Writing asset files (00:00:00.9487101s)
+step: Packaging assets - globalgamemanagers.assets (00:00:00.6550444s)
+step: Packaging assets - resources.assets (00:00:00.0801910s)
+step: Packaging assets - sharedassets0.assets = additional assets for scene 0: Assets/_Project/Scenes/00_Boot.unity (00:00:00.0041009s)
+step: Packaging assets - sharedassets1.assets = additional assets for scene 1: Assets/_Project/Scenes/01_Hub.unity (00:00:00.1193983s)
+step: Packaging assets - sharedassets2.assets = additional assets for scene 2: Assets/_Project/Scenes/02_NereidSurface.unity (00:00:00.0271516s)
+step: Packaging assets - sharedassets3.assets = additional assets for scene 3: Assets/_Project/Scenes/03_ShipInterior.unity (00:00:00.0319809s)
+step: Packaging assets - sharedassets4.assets = additional assets for scene 4: Assets/_Project/Scenes/04_MainMenu.unity (00:00:00.0186117s)
+step: Building Resources/unity_builtin_extra (00:00:00.0878707s)
+step: Write data build dirty tracking information (00:00:00.0687505s)
+step: Postprocess built player (00:00:05.5764770s)
+step: Setup incremental player build (00:00:00.0508792s)
+step: Incremental player build (00:00:05.3077373s)
+step: Report output files (00:00:00.0196249s)

@@ -1,0 +1,249 @@
+Mono path[0] = 'D:/dsh_gpt_unity_blender/project/SurviveUIDemo/WristCodexEvidence/build/SurviveUIDemo_Data/Managed'
+Mono config path = 'D:/dsh_gpt_unity_blender/project/SurviveUIDemo/WristCodexEvidence/build/MonoBleedingEdge/etc'
+CodeReloadManager initialized
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+Initialize engine version: 6000.5.7f1 (017862109af0)
+[Subsystems] Discovering subsystems at path D:/dsh_gpt_unity_blender/project/SurviveUIDemo/WristCodexEvidence/build/SurviveUIDemo_Data/UnitySubsystems
+[D3D12 Device Filter] Vendor Name: NVIDIA
+[D3D12 Device Filter] Device Name: NVIDIA GeForce RTX 5060 Laptop GPU
+[D3D12 Device Filter] Driver Version: 32.0.16.1074
+[D3D12 Device Filter] Feature Level: 12.2
+[D3D12 Device Filter] Graphics Memory: 7899 MB
+[D3D12 Device Filter] Processor Count: 32
+[D3D12 Device Filter] Device Type: Discrete
+GfxDevice: creating device client; kGfxThreadingModeSplitJobs
+d3d12: failed to query info queue interface (0x80004002).
+Direct3D:
+    Version:         Direct3D 12 [level 12.2]
+    Renderer:        NVIDIA GeForce RTX 5060 Laptop GPU (ID=0x2d19)
+    Vendor:          NVIDIA
+    VRAM:            7899 MB
+    App VRAM Budget: 7131 MB
+    Driver:          32.0.16.1074
+Begin MonoManager ReloadAssembly
+- Finished resetting the current domain, in  0.026 seconds
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+<RI> Initializing input.
+Using Windows.Gaming.Input
+UnloadTime: 0.951800 ms
+[SceneRouting] EnterMainMenu -> 04_MainMenu
+Unloading 7 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 0.330400 ms
+Unloading 5 unused Assets to reduce memory usage. Loaded Objects now: 2783.
+Total: 1.885800 ms (FindLiveObjects: 0.118200 ms CreateObjectMapping: 0.183100 ms MarkObjects: 1.545500 ms  DeleteObjects: 0.039000 ms)
+
+[MainMenuController] title screen ready: items=4 continue=False cinematic=True
+[MainMenuShipHero] hero ready renderers=46 nozzles=2 aft=(0.000, 0.050, -0.999) bounds=(24.42, 6.21, 16.82)
+[MainMenuStarfield] backdrop built layers=3 stars=2690
+[SceneRouting] EnterSurface -> 02_NereidSurface
+Unloading 6 Unused Serialized files (Serialized files now loaded: 0)
+UnloadTime: 5.902600 ms
+Unloading 61 unused Assets to reduce memory usage. Loaded Objects now: 2898.
+Total: 2.936000 ms (FindLiveObjects: 0.118600 ms CreateObjectMapping: 0.201300 ms MarkObjects: 2.276200 ms  DeleteObjects: 0.339600 ms)
+
+[BlockArms] first-person block arms mounted under Player layer=FirstPersonArms renderers=12
+[SurfaceGameController] first-person block arms ready renderers=12 wristBridge=True
+[WristVisibility] tilt yaw=-4 pitch=8 roll=0 aspect=1.58
+[WristVisibility] FAIL
+PASS :: RenderTexture created at 1280x800
+PASS :: RenderTexture format carries alpha (actual: ARGB32)
+PASS :: wrist UIDocument enabled
+PASS :: PanelSettings.targetTexture bound to wrist RenderTexture
+PASS :: WristDisplayAnchor present
+PASS :: wrist renderer enabled
+PASS :: wrist material references the wrist RenderTexture (name: M_WristDisplay (Instance))
+PASS :: wrist material uses transparent unlit (queue=3000)
+PASS :: WristProjectionPivot present above the display
+PASS :: display in front of camera within clip (dist=0.81m)
+PASS :: display front normal faces the camera at the wrist (dot=0.98)
+INFO :: pose pivotViewport=(0.346, 0.153, 0.690) centreViewport=(0.441, 0.435, 0.939) frontDotCentre=0.84 frontDotPivot=0.98 centreAbovePivot=True centreRightOfPivot=True
+FAIL :: raised-wrist base pose not camera-facing (hologram centre front dot 0.84, target 0.88..0.93)
+PASS :: hologram centre inside viewport (v=(0.441, 0.435, 0.939)
+PASS :: hologram centre raised above the wrist pivot
+PASS :: hologram centre right of the wrist pivot
+PASS :: wrist pivot inside camera viewport (v=(0.346, 0.153, 0.690)
+PASS :: at least one projected display corner in view
+INFO :: projectedBounds fractionW=100% fractionH=100% px=2337x1164 (Round 9.2: meaningful geometry must fit the screen; transparent RT edges may extend beyond)
+PASS :: projected display width not degenerate (actual 100%)
+PASS :: projected display height not degenerate (actual 100%)
+PASS :: projected aspect not edge-on (px 2337x1164 aspect 2.01)
+PASS :: display local scale keeps 1280:800 aspect (x/y ratio 1.60)
+INFO :: radialGraphic centre=(0.382, 0.318) size=941x892 px (Round 9.2 target @1920: centre x 44..46%, top-y 53..56%, width 960..1020, height 820..900)
+ALPHA :: clear-region=0.00 (expect ~0) map-center=0.82 (expect >0)
+[WristLayout] OK
+INFO :: visualTreeAsset=SurfaceWrist styles=[SurfaceWrist.uss attached]
+PASS :: SurfaceWrist.uss bound on the wrist document root
+INFO :: root children=2 resolved=1280x800
+PASS :: RadialGeometryHost element resolved
+PASS :: RadialWristElement present in geometry host
+INFO :: radial mapR=235 panelR=248..365 statusR=248..262x14 health=100% satiety=82% (center 640,400)
+PASS :: Health arc fraction driven
+PASS :: Satiety arc fraction driven
+PASS :: MapMarkerLayer element resolved
+PASS :: MapPlayer marker resolved
+PASS :: MapLanding marker resolved
+PASS :: MapNode0 marker resolved
+PASS :: MapNode1 marker resolved
+PASS :: MapNode2 marker resolved
+PASS :: MapSelectedRing marker resolved
+PASS :: health label near upper status arc
+PASS :: satiety label near lower status arc
+PASS :: status inner radius == panel inner radius (248)
+PASS :: status thickness consistent (14)
+PASS :: row EquipHeading y=238 box=327..438 slot=323..442 band=True horiz=True vert=True
+PASS :: row EquipHarvester y=268 box=314..416 slot=310..420 band=True horiz=True vert=True
+PASS :: row EquipBattery y=296 box=304..401 slot=300..405 band=True horiz=True vert=True
+PASS :: row EquipDrone y=322 box=297..391 slot=293..395 band=True horiz=True vert=True
+PASS :: row StateHeading y=238 box=842..953 slot=838..957 band=True horiz=True vert=True
+PASS :: row ActionState y=268 box=864..966 slot=860..970 band=True horiz=True vert=True
+PASS :: row SignalState y=296 box=879..976 slot=875..980 band=True horiz=True vert=True
+PASS :: row RecoveredState y=322 box=889..983 slot=885..987 band=True horiz=True vert=True
+PASS :: row NavHeading y=478 box=297..391 slot=293..395 band=True horiz=True vert=True
+PASS :: row NavTarget y=510 box=306..404 slot=302..408 band=True horiz=True vert=True
+PASS :: row NavDistance y=540 box=317..421 slot=313..425 band=True horiz=True vert=True
+PASS :: row HarvestHeading y=478 box=889..983 slot=885..987 band=True horiz=True vert=True
+PASS :: row HarvestNode y=508 box=877..975 slot=873..979 band=True horiz=True vert=True
+PASS :: row HarvestState y=536 box=861..965 slot=857..969 band=True horiz=True vert=True
+PASS :: row HarvestProgress y=562 box=842..953 slot=838..957 band=True horiz=True vert=True
+PASS :: all text rows inside their parallel-cap panel slots
+[WristIdentity] OK
+PASS :: WristIdentity element resolved
+PASS :: HealthLabel element resolved
+PASS :: SatietyLabel element resolved
+INFO :: identity rect=536,564 212x20 (expected ~534,560 212x20) health rect=606,123 72x30 satiety rect=606,654 72x30
+PASS :: identity resolved rect is valid
+PASS :: identity rect fully inside the 1280x800 RenderTexture
+PASS :: identity does not overlap HealthLabel bounds
+PASS :: identity does not overlap SatietyLabel bounds
+INFO :: identity corner distance to map centre=213.4 (map radius 235 minus safe padding 12 = 223.0)
+PASS :: all four identity corners INSIDE the map disc with >=12px padding
+PASS :: identity stays clear of the status tracks (radius < 248)
+PASS :: identity centre Y is below the map centre (lower half, centreY=574.0 vs 400)
+INFO :: identity projected viewport x=0.378..0.524 y=0.204..0.258 screen=726..1006x220..279 @ 1920x1080
+PASS :: all four identity corners inside the viewport
+[WristFocus] FAIL
+INFO :: radar centre=390,572 r=17 slot=318..461
+PASS :: standby radar sits inside the navigation panel slot
+PASS :: the wrist focus navigator is built
+PASS :: the surface terminal always has at least the central map to focus
+PASS :: no pure information row can take focus (14 checked)
+PASS :: every registered focus element is focusable (visible, enabled, laid out)
+PASS :: every registered focus element really acts (central map / navigation)
+INFO :: equipment listed=[EquipHarvester,EquipBattery] equipped b/d=True/False
+PASS :: the read-only equipment block is never a focus stop
+INFO :: focus items=1 navigationActive=False navRowFocusable=False
+PASS :: the navigation row is focusable exactly while a target is set
+INFO :: chips health=606,123 72x30 satiety=606,654 72x30
+FAIL :: health / satiety read-outs are small embedded chips (<= 24 px tall)
+PASS :: health chip sits at the upper arc
+PASS :: satiety chip sits at the lower arc
+PASS :: the status chips never overlap the map footer
+[WristVisibility] tilt yaw=-4 pitch=8 roll=0 aspect=1.58
+[WristVisibility] OK
+PASS :: RenderTexture created at 1280x800
+PASS :: RenderTexture format carries alpha (actual: ARGB32)
+PASS :: wrist UIDocument enabled
+PASS :: PanelSettings.targetTexture bound to wrist RenderTexture
+PASS :: WristDisplayAnchor present
+PASS :: wrist renderer enabled
+PASS :: wrist material references the wrist RenderTexture (name: M_WristDisplay (Instance))
+PASS :: wrist material uses transparent unlit (queue=3000)
+PASS :: WristProjectionPivot present above the display
+PASS :: display in front of camera within clip (dist=0.81m)
+PASS :: display front normal faces the camera at the wrist (dot=0.99)
+INFO :: pose pivotViewport=(0.346, 0.153, 0.690) centreViewport=(0.441, 0.438, 0.933) frontDotCentre=0.85 frontDotPivot=0.99 centreAbovePivot=True centreRightOfPivot=True
+PASS :: raised-wrist base pose not camera-facing (hologram centre front dot 0.85, target 0.88..0.93)
+PASS :: hologram centre inside viewport (v=(0.441, 0.438, 0.933)
+PASS :: hologram centre raised above the wrist pivot
+PASS :: hologram centre right of the wrist pivot
+PASS :: wrist pivot inside camera viewport (v=(0.346, 0.153, 0.690)
+PASS :: at least one projected display corner in view
+INFO :: projectedBounds fractionW=100% fractionH=100% px=2314x1101 (Round 9.2: meaningful geometry must fit the screen; transparent RT edges may extend beyond)
+PASS :: projected display width not degenerate (actual 100%)
+PASS :: projected display height not degenerate (actual 100%)
+PASS :: projected aspect not edge-on (px 2314x1101 aspect 2.10)
+PASS :: display local scale keeps 1280:800 aspect (x/y ratio 1.60)
+INFO :: radialGraphic centre=(0.387, 0.318) size=954x889 px (Round 9.2 target @1920: centre x 44..46%, top-y 53..56%, width 960..1020, height 820..900)
+ALPHA :: clear-region=0.00 (expect ~0) map-center=0.98 (expect >0)
+[WristLayout] OK
+INFO :: visualTreeAsset=SurfaceWrist styles=[SurfaceWrist.uss attached]
+PASS :: SurfaceWrist.uss bound on the wrist document root
+INFO :: root children=2 resolved=1280x800
+PASS :: RadialGeometryHost element resolved
+PASS :: RadialWristElement present in geometry host
+INFO :: radial mapR=235 panelR=248..365 statusR=248..262x14 health=100% satiety=82% (center 640,400)
+PASS :: Health arc fraction driven
+PASS :: Satiety arc fraction driven
+PASS :: MapMarkerLayer element resolved
+PASS :: MapPlayer marker resolved
+PASS :: MapLanding marker resolved
+PASS :: MapNode0 marker resolved
+PASS :: MapNode1 marker resolved
+PASS :: MapNode2 marker resolved
+PASS :: MapSelectedRing marker resolved
+PASS :: health label near upper status arc
+PASS :: satiety label near lower status arc
+PASS :: status inner radius == panel inner radius (248)
+PASS :: status thickness consistent (14)
+PASS :: row EquipHeading y=238 box=327..438 slot=323..442 band=True horiz=True vert=True
+PASS :: row EquipHarvester y=268 box=314..416 slot=310..420 band=True horiz=True vert=True
+PASS :: row EquipBattery y=296 box=304..401 slot=300..405 band=True horiz=True vert=True
+PASS :: row EquipDrone y=322 box=297..391 slot=293..395 band=True horiz=True vert=True
+PASS :: row StateHeading y=238 box=842..953 slot=838..957 band=True horiz=True vert=True
+PASS :: row ActionState y=268 box=864..966 slot=860..970 band=True horiz=True vert=True
+PASS :: row SignalState y=296 box=879..976 slot=875..980 band=True horiz=True vert=True
+PASS :: row RecoveredState y=322 box=889..983 slot=885..987 band=True horiz=True vert=True
+PASS :: row NavHeading y=478 box=297..391 slot=293..395 band=True horiz=True vert=True
+PASS :: row NavTarget y=510 box=306..404 slot=302..408 band=True horiz=True vert=True
+PASS :: row NavDistance y=540 box=317..421 slot=313..425 band=True horiz=True vert=True
+PASS :: row HarvestHeading y=478 box=889..983 slot=885..987 band=True horiz=True vert=True
+PASS :: row HarvestNode y=508 box=877..975 slot=873..979 band=True horiz=True vert=True
+PASS :: row HarvestState y=536 box=861..965 slot=857..969 band=True horiz=True vert=True
+PASS :: row HarvestProgress y=562 box=842..953 slot=838..957 band=True horiz=True vert=True
+PASS :: all text rows inside their parallel-cap panel slots
+[WristIdentity] OK
+PASS :: WristIdentity element resolved
+PASS :: HealthLabel element resolved
+PASS :: SatietyLabel element resolved
+INFO :: identity rect=536,564 212x20 (expected ~534,560 212x20) health rect=606,123 72x30 satiety rect=606,654 72x30
+PASS :: identity resolved rect is valid
+PASS :: identity rect fully inside the 1280x800 RenderTexture
+PASS :: identity does not overlap HealthLabel bounds
+PASS :: identity does not overlap SatietyLabel bounds
+INFO :: identity corner distance to map centre=213.4 (map radius 235 minus safe padding 12 = 223.0)
+PASS :: all four identity corners INSIDE the map disc with >=12px padding
+PASS :: identity stays clear of the status tracks (radius < 248)
+PASS :: identity centre Y is below the map centre (lower half, centreY=574.0 vs 400)
+INFO :: identity projected viewport x=0.378..0.528 y=0.205..0.264 screen=726..1013x221..286 @ 1920x1080
+PASS :: all four identity corners inside the viewport
+[WristFocus] FAIL
+INFO :: radar centre=390,572 r=17 slot=318..461
+PASS :: standby radar sits inside the navigation panel slot
+PASS :: the wrist focus navigator is built
+PASS :: the surface terminal always has at least the central map to focus
+PASS :: no pure information row can take focus (14 checked)
+PASS :: every registered focus element is focusable (visible, enabled, laid out)
+PASS :: every registered focus element really acts (central map / navigation)
+INFO :: equipment listed=[EquipHarvester,EquipBattery] equipped b/d=True/False
+PASS :: the read-only equipment block is never a focus stop
+INFO :: focus items=2 navigationActive=True navRowFocusable=True
+PASS :: the navigation row is focusable exactly while a target is set
+INFO :: chips health=606,123 72x30 satiety=606,654 72x30
+FAIL :: health / satiety read-outs are small embedded chips (<= 24 px tall)
+PASS :: health chip sits at the upper arc
+PASS :: satiety chip sits at the lower arc
+PASS :: the status chips never overlap the map footer
+[Ship09BWristProbe] result ALL PASS -> D:\dsh_gpt_unity_blender\project\SurviveUIDemo\WristCodexEvidence\shots\phase09b_wrist_result.txt
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input Polling Thread exited.
+Input System module state changed to: Shutdown.
+CodeReloadManager destroyed
