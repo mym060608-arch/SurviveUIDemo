@@ -155,14 +155,52 @@ public class SurvivePhase09BOverviewTests
         Assert.IsTrue(view.IsPlanetInteractive, "the page is interactive while it is on screen");
         StringAssert.Contains(OverviewScreen.RotatePromptLabel, view.PromptBar.PromptText,
             "the key line offers the planet rotation");
+        StringAssert.Contains("返回", view.PromptBar.PromptText,
+            "the Hub page prints the Back row too (B is the Hub's page step)");
+        Assert.IsTrue(view.OwnsBack, "the Hub page owns the Back press");
         foreach (string dead in new[] { "[A]", "[X]", "[Y]", "[LB]", "[RB]" })
         {
             StringAssert.DoesNotContain(dead, view.PromptBar.PromptText,
                 "the key line never advertises a key this page does not have");
         }
 
+        // ---- one planet name across every player-facing surface ----
+        AssertPlayerFacingCopyUsesCurrentPlanet();
+
         Directory.CreateDirectory(Output);
         yield return CapturePage(app, Path.Combine(Output, "overview_default.png"));
+    }
+
+    // ====================================================================
+    // 1b. Hub Back: B is the Hub's page step, and it really leaves the page
+    // ====================================================================
+
+    [UnityTest]
+    public IEnumerator Overview_HubBackRow_ReturnsToPreviousScreen()
+    {
+        yield return LoadHubOverview();
+        AppController app = _app;
+
+        // On the very first screen there is no earlier tab: Back stays on
+        // Overview (the four tabs are the Hub's navigation; Back never invents a
+        // fifth page).
+        Assert.AreEqual(AppScreen.Overview, app.CurrentScreen, "the Hub opens on Overview");
+        yield return Press(_pad, GamepadButton.East);
+        Assert.AreEqual(AppScreen.Overview, app.CurrentScreen,
+            "Back on the root page never leaves the Hub");
+        Assert.AreEqual(1, app.VisibleScreenCount, "still exactly one visible screen");
+
+        // Arrive at Overview from 据点: Back must return there.
+        app.ShowScreen(AppScreen.Outpost);
+        yield return WaitFrames(3);
+        app.ShowScreen(AppScreen.Overview);
+        yield return WaitFrames(4);
+        Assert.AreEqual(AppScreen.Overview, app.CurrentScreen, "outpost is the previous screen");
+
+        yield return Press(_pad, GamepadButton.East);
+        Assert.AreEqual(AppScreen.Outpost, app.CurrentScreen,
+            "B on the Hub Overview returns to the screen the player came from");
+        Assert.AreEqual(1, app.VisibleScreenCount, "exactly one screen stays visible");
     }
 
     // ====================================================================
@@ -486,8 +524,59 @@ public class SurvivePhase09BOverviewTests
         _app = app;
     }
 
-    private static VisualElement ScreenRoot(AppController app)
+    /// <summary>
+    /// Phase 09B PASS 7 follow-up: the planet display name is ONE name across
+    /// every player-facing surface. The internal IDs (the surface scene, the
+    /// routing, the GameSession fields) keep their NEREID names on purpose.
+    /// </summary>
+    private static void AssertPlayerFacingCopyUsesCurrentPlanet()
     {
+        string root = Path.Combine(Application.dataPath, "..");
+        string[] sources =
+        {
+            "Assets/_Project/UI/UXML/MainApp.uxml",
+            "Assets/_Project/UI/UXML/ShipDeployConfirm.uxml",
+            "Assets/_Project/UI/UXML/SurfaceHUD.uxml",
+            "Assets/_Project/UI/UXML/SurfaceWrist.uxml",
+            "Assets/_Project/UI/UXML/ShipHUD.uxml",
+            "Assets/_Project/UI/UXML/MainMenu.uxml"
+        };
+
+        foreach (string source in sources)
+        {
+            string path = Path.Combine(root, source);
+            Assert.IsTrue(File.Exists(path), "player-facing source exists: " + source);
+            string copy = File.ReadAllText(path);
+            StringAssert.DoesNotContain("NEREID-04", copy,
+                "no stale planet name in " + source);
+        }
+
+        string mainApp = File.ReadAllText(Path.Combine(root, sources[0]));
+        StringAssert.Contains("勘测 " + PlanetIdentity.DisplayName, mainApp,
+            "the mission objective names the current planet");
+        StringAssert.Contains(PlanetIdentity.ExpeditionContext, mainApp,
+            "the preparation context names the current planet");
+
+        StringAssert.Contains("text=\"" + PlanetIdentity.DisplayName + "\"",
+            File.ReadAllText(Path.Combine(root, sources[1])),
+            "the deployment sheet names the current planet");
+        StringAssert.Contains("text=\"" + PlanetIdentity.DisplayName + "\"",
+            File.ReadAllText(Path.Combine(root, sources[2])),
+            "the surface HUD names the current planet");
+        StringAssert.Contains(PlanetIdentity.SurfaceIdentity,
+            File.ReadAllText(Path.Combine(root, sources[3])),
+            "the wrist identity names the current planet");
+
+        // The airlock prompt reads the shared source instead of a hardcoded name.
+        string airlock = File.ReadAllText(
+            Path.Combine(root, "Assets/_Project/Scripts/Gameplay/ShipAirlockInteractable.cs"));
+        StringAssert.Contains("PlanetIdentity.SurfacePrompt", airlock,
+            "the airlock prompt reads the shared planet name");
+        StringAssert.DoesNotContain("NEREID-04", airlock,
+            "the airlock prompt carries no stale planet name");
+    }
+
+    private static VisualElement ScreenRoot(AppController app)    {
         VisualElement root = app.UiRoot.Q<VisualElement>(ElementNames.OverviewScreen);
         Assert.IsNotNull(root, "overview screen root");
         return root;
@@ -582,6 +671,16 @@ public class SurvivePhase09BOverviewTests
     private static float ForwardDelta(float before, float after)
     {
         return Mathf.Repeat(after - before, 360f);
+    }
+
+    /// <summary>One real pad press: queue the button, let the page tick, release.</summary>
+    private static IEnumerator Press(Gamepad pad, GamepadButton button)
+    {
+        InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(button));
+        yield return WaitFrames(3);
+
+        InputSystem.QueueStateEvent(pad, new GamepadState());
+        yield return WaitFrames(3);
     }
 
     /// <summary>Holds the RIGHT stick for a real interval, then releases it.</summary>

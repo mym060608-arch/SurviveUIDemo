@@ -232,7 +232,8 @@ public class SurvivePhase07RoutingTests
         yield return WaitShipController(value => ship = value);
         ShipAirlockInteractable airlock = ship.Airlock;
         Assert.IsNotNull(airlock, "airlock interactable present");
-        Assert.AreEqual("E  前往 NEREID-04 地表", airlock.PromptText, "airlock prompt");
+        Assert.AreEqual("E  " + PlanetIdentity.SurfacePrompt, airlock.PromptText,
+            "airlock prompt");
 
         // Stand in the airlock facing the deployment station and press E.
         ship.Player.TeleportTo(new Vector3(0f, 0f, -11.4f));
@@ -244,7 +245,7 @@ public class SurvivePhase07RoutingTests
             () => ReferenceEquals(ship.Interactor.CurrentTarget, airlock));
         Assert.IsTrue(ReferenceEquals(ship.Interactor.CurrentTarget, airlock)
                       && ship.Interactor.HasValidTarget, "gaze resolves the airlock");
-        Assert.AreEqual("E  前往 NEREID-04 地表", ship.Interactor.ResolvePrompt(),
+        Assert.AreEqual("E  " + PlanetIdentity.SurfacePrompt, ship.Interactor.ResolvePrompt(),
             "airlock prompt at gaze");
         Assert.IsTrue(ship.Interactor.TryInteract(), "E on the airlock accepted");
 

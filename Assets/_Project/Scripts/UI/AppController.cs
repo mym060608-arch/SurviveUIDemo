@@ -255,9 +255,8 @@ public class AppController : MonoBehaviour
         }
 
         // Overview (PASS 7) drives the shared planet preview with the right
-        // stick while it is the visible page. The Hub's Overview is the root
-        // page of the four tabs: it has no step back, so it neither owns Back
-        // nor prints a Back row - the key line only lists what really works.
+        // stick while it is the visible page, and owns the Hub's normal page
+        // Back step (return to the screen the player came from).
         if (_overview != null)
         {
             bool overviewVisible = CurrentScreen == AppScreen.Overview;
@@ -386,10 +385,14 @@ public class AppController : MonoBehaviour
         _overview.Bind(() => ShowScreen(AppScreen.Preparation), true,
             _planetPreview != null ? _planetPreview.Texture : null);
 
-        // Phase 09B PASS 7: the Hub's Overview is the root of the four tabs, so
-        // Back has no target here and the page must not advertise one.
-        _overview.OwnsBack = false;
-        _overview.ShowBackRow = false;
+        // Phase 09B PASS 7 (follow-up): the Hub's Overview shows the same
+        // [RS] 旋转星球   [B] 返回 key line as the ship terminal. Back is the
+        // Hub's normal page step - it returns to the screen the player arrived
+        // from (the four tabs are the Hub's navigation, so from the very first
+        // screen it simply stays on Overview) - which is exactly the contract
+        // Preparation / Processing / Outpost already use.
+        _overview.OwnsBack = true;
+        _overview.ShowBackRow = true;
         _overview.BackRequested += HandlePageBack;
         _preparation.Bind();
         _processing.Bind();

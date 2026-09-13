@@ -1426,7 +1426,7 @@ public class StandaloneSmoke : MonoBehaviour
             log.Check("the deployment prompt is back after the panel closes",
                 ReferenceEquals(ship.Interactor.CurrentTarget,
                     (IFirstPersonInteractable)ship.Airlock)
-                && ship.Interactor.ResolvePrompt().Contains("前往 NEREID-04 地表"));
+                && ship.Interactor.ResolvePrompt().Contains(PlanetIdentity.SurfacePrompt));
 
             // ---- Escape is this panel's Back key as well (no pause) ----
             yield return PressGamepadButton(pad, GamepadButton.South);

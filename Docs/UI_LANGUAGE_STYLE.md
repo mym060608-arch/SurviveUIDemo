@@ -100,7 +100,7 @@ SURVIVE // DRIFT
 ### 世界观编号
 
 ```text
-NEREID-04
+AURELIA-01
 ARK-07
 UNIT-01
 MK-I
@@ -225,7 +225,7 @@ ARK-07
 Destination:
 
 ```text
-NEREID-04
+AURELIA-01
 ```
 
 ---
@@ -447,16 +447,22 @@ gamepad   [RS] 旋转星球   [B] 返回
 keyboard  [鼠标] 旋转星球 [Esc] 返回
 ```
 
-The Hub host is the root of the four tabs and has no step back, so it prints the
-rotation row only - a key line never advertises a key that does nothing. The
-ship's physical Overview terminal prints both rows, because B really leaves that
-console view there.
+Both hosts print the same two rows: `[RS] 旋转星球   [B] 返回` on a controller,
+`[鼠标] 旋转星球 [Esc] 返回` on mouse+keyboard. The Hub's Back is its normal page
+step (return to the screen the player arrived from; from the very first screen it
+stays on Overview - the four tabs are the Hub's navigation, and Back never
+invents a fifth page). The ship's physical terminal leaves its console view with
+B, which the console focus layer owns.
 
-Planet display name: `AURELIA-01` is the CURRENT expedition target. It is
-presentation copy with a single source
-(`Assets/_Project/Scripts/UI/PlanetIdentity.cs`); other screens (Preparation,
-the airlock prompt, the wrist terminal, the surface HUD) keep their own authored
-copy and their internal NEREID IDs until a later pass renames them together.
+Planet display name (follow-up round): `AURELIA-01` is the CURRENT expedition
+target on EVERY player-facing surface - the Overview hero + objective, the
+Preparation action bar, the deployment sheet, the surface HUD, the wrist
+identity and the airlock prompt. The single source is
+`Assets/_Project/Scripts/UI/PlanetIdentity.cs`; the authored UXML carries the
+same literal and the structural validator fails if `NEREID-04` reappears in any
+player-facing document. Internal IDs keep their names on purpose: the scene is
+still `02_NereidSurface`, and the routing / builder / GameSession fields keep
+their NEREID names.
 
 ---
 
@@ -1539,7 +1545,7 @@ Example:
 当前目的地
 CURRENT DESTINATION
 
-NEREID-04
+AURELIA-01
 
 未知地表 · 资源候选区
 ```
@@ -1682,7 +1688,7 @@ Accumulate, do not request yet:
 ```text
 正式中文字库
 Logo / Wordmark
-NEREID-04 行星表面
+AURELIA-01 行星表面（内部场景仍为 02_NereidSurface）
 资源图标
 装备 pictogram
 任务图标
@@ -1800,7 +1806,7 @@ across different screens unless each has a clearly different meaning.
 SURVIVE // DRIFT
 EXPEDITION CONTROL
 SHIP // ARK-07
-NEREID-04
+AURELIA-01
 MK-I
 UNIT-01
 SHIP STATUS

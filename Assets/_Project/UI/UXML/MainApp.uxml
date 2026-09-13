@@ -404,7 +404,7 @@
 
                 <!-- Bottom action strip -->
                 <ui:VisualElement class="prep-actionbar">
-                    <ui:Label class="actionbar-context" text="NEREID-04 · 出发准备" />
+                    <ui:Label class="actionbar-context" text="AURELIA-01 · 出发准备" />
                     <ui:VisualElement class="prep-hints">
                         <ui:Label name="PrepHintDetails" class="prep-key-hint" text="[X] 详情" />
                         <ui:Label name="PrepHintNavigate" class="prep-key-hint" text="[&lt; &gt;] 选择" />

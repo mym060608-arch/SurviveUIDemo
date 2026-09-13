@@ -6,7 +6,7 @@
         <ui:VisualElement name="DeployPanel" class="modal-panel">
             <ui:VisualElement class="modal-head">
                 <ui:Label class="modal-kicker" text="CURRENT DESTINATION" />
-                <ui:Label name="DeployDestination" class="modal-hero" text="NEREID-04" />
+                <ui:Label name="DeployDestination" class="modal-hero" text="AURELIA-01" />
                 <ui:Label class="modal-sub" text="未知地表 · 资源候选区" />
             </ui:VisualElement>
 

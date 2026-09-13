@@ -646,8 +646,8 @@ public class ShipB2ShotProbe : MonoBehaviour
                     yield return null;
                 }
 
-                Check("确认降临 routed to the NEREID-04 surface (scene="
-                      + ActiveSceneName() + ")",
+                Check("确认降临 routed to the " + PlanetIdentity.DisplayName
+                      + " surface (scene=" + ActiveSceneName() + ")",
                     ActiveSceneName() == GameSession.SurfaceSceneName);
                 yield return WaitReal(1.0f);
                 SurfaceGameController surface =

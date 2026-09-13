@@ -170,7 +170,7 @@ public class SurvivePhase08DevicePanelTests
             "the session is neither reset nor replaced");
 
         yield return FaceTarget(ship, ship.Airlock);
-        StringAssert.Contains("前往 NEREID-04 地表", ship.Interactor.ResolvePrompt(),
+        StringAssert.Contains(PlanetIdentity.SurfacePrompt, ship.Interactor.ResolvePrompt(),
             "the deployment prompt is back after the panel closes");
     }
 

@@ -111,7 +111,8 @@ public class SurvivePhase07Tests
 
         // Airlock station exists with the Chinese-first deployment prompt.
         Assert.IsNotNull(controller.Airlock, "airlock interactable exists");
-        StringAssert.Contains("前往 NEREID-04", controller.Airlock.PromptText, "airlock prompt");
+        StringAssert.Contains(PlanetIdentity.SurfacePrompt, controller.Airlock.PromptText,
+            "airlock prompt");
         StringAssert.Contains("E", controller.Airlock.PromptText, "airlock prompt key");
 
         // Spawn markers are deterministic and present.

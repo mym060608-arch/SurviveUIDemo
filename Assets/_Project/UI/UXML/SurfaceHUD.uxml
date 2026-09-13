@@ -5,7 +5,7 @@
             <!-- Mission context + real resource readouts (top-left) -->
             <ui:VisualElement class="hud-card hud-context">
                 <ui:VisualElement class="hud-context-line">
-                    <ui:Label class="hud-title" text="NEREID-04" />
+                    <ui:Label class="hud-title" text="AURELIA-01" />
                     <ui:Label class="hud-subtitle" text="地表勘测" />
                 </ui:VisualElement>
                 <ui:VisualElement class="hud-rule" />

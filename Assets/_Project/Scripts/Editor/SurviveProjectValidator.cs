@@ -296,6 +296,70 @@ public static class SurviveProjectValidator
             }
         }
 
+        // ---- Phase 09B PASS 7 follow-up: ONE planet display name ----
+        // Every player-facing surface names the CURRENT planet, and the old
+        // display name must not survive anywhere the player can read it. The
+        // internal IDs (scene 02_NereidSurface, the surface builder, the routing
+        // and the GameSession fields) deliberately keep their NEREID names.
+        string[] planetCopySources =
+        {
+            UxmlPath,
+            DeployUxmlPath,
+            SurfaceHudUxmlPath,
+            SurfaceWristUxmlPath,
+            ShipHudUxmlPath,
+            MainMenuUxmlPath
+        };
+
+        foreach (string path in planetCopySources)
+        {
+            string fullPath = Path.Combine(Application.dataPath, "..", path);
+            if (!File.Exists(fullPath))
+            {
+                Record(false, "planet copy source exists: " + path);
+                continue;
+            }
+
+            string copy = File.ReadAllText(fullPath);
+            Record(!copy.Contains("NEREID-04"),
+                "player-facing copy has no stale planet name: " + path);
+        }
+
+        string projectRoot = Path.Combine(Application.dataPath, "..");
+        string mainAppCopy = File.ReadAllText(Path.Combine(projectRoot, UxmlPath));
+        Record(mainAppCopy.Contains("勘测 " + PlanetIdentity.DisplayName),
+            "MainApp.uxml objective names the current planet");
+        Record(mainAppCopy.Contains(PlanetIdentity.ExpeditionContext),
+            "MainApp.uxml preparation context names the current planet");
+
+        string deployCopy = File.ReadAllText(Path.Combine(projectRoot, DeployUxmlPath));
+        Record(deployCopy.Contains("text=\"" + PlanetIdentity.DisplayName + "\""),
+            "deployment sheet names the current planet: " + PlanetIdentity.DisplayName);
+
+        string surfaceHudCopy = File.ReadAllText(Path.Combine(projectRoot, SurfaceHudUxmlPath));
+        Record(surfaceHudCopy.Contains("text=\"" + PlanetIdentity.DisplayName + "\""),
+            "surface HUD names the current planet: " + PlanetIdentity.DisplayName);
+
+        string wristCopy = File.ReadAllText(Path.Combine(projectRoot, SurfaceWristUxmlPath));
+        Record(wristCopy.Contains(PlanetIdentity.SurfaceIdentity),
+            "wrist identity names the current planet: " + PlanetIdentity.SurfaceIdentity);
+
+        // The airlock prompt reads the same source instead of hardcoding a name.
+        string airlockPath = Path.Combine(Application.dataPath,
+            "..", "Assets/_Project/Scripts/Gameplay/ShipAirlockInteractable.cs");
+        if (File.Exists(airlockPath))
+        {
+            string airlock = File.ReadAllText(airlockPath);
+            Record(airlock.Contains("PlanetIdentity.SurfacePrompt"),
+                "airlock prompt reads the shared planet name");
+            Record(!airlock.Contains("NEREID-04"),
+                "airlock prompt carries no stale planet name");
+        }
+        else
+        {
+            Record(false, "airlock interactable exists: " + airlockPath);
+        }
+
         // ---- SurfaceHUD.uxml coverage (Phase 06 + Revision HUD structure) ----
         var surfaceUxml = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(SurfaceHudUxmlPath);
         Record(surfaceUxml != null, "SurfaceHUD.uxml imports as VisualTreeAsset");
