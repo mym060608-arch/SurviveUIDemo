@@ -124,17 +124,25 @@ public class SurvivePhase03ShotTests
             Assert.IsTrue(saved.LoadImage(File.ReadAllBytes(pngPath)), "saved png loads " + label);
             Assert.Greater(new FileInfo(pngPath).Length, 50000, "saved png has real content " + label);
 
-            // Watermark probes only: the very bottom edge of the UI is clear
-            // of glyphs (navigation label text ends ~34px above the bottom),
-            // while engine watermarks sit against that edge. Texture2D row 0
-            // is the screen bottom.
-            int bottomStripDark = CountDarkPixels(saved, 0, size.x, 0, 22);
-            int rightBottomDark = CountDarkPixels(saved, (int)(size.x * 0.62f), size.x, 0, 12);
+            // Watermark probes only: the very bottom edge of the UI is a
+            // uniform strip, while engine watermarks paint glyphs against that
+            // edge. Two assumptions of the original probe had to become
+            // explicit for the dark Preparation terminal:
+            //   * it measures pixels that STAND OUT from the strip's own
+            //     background instead of "dark pixels" - on a dark page a fixed
+            //     dark threshold reports the page's own background as a mark;
+            //   * the strip is 12px, the same band the bottom-right probe
+            //     always used. The 22px band reached ABOVE the tab label
+            //     baseline at 1280x720, so the page's own navigation text was
+            //     reported as a watermark at that one scale.
+            // Texture2D row 0 is the screen bottom.
+            int bottomStripMarks = CountStandoutPixels(saved, 0, size.x, 0, 12);
+            int rightBottomMarks = CountStandoutPixels(saved, (int)(size.x * 0.62f), size.x, 0, 12);
 
             Check(report, ref failures, label + " no watermark bottom strip",
-                bottomStripDark == 0);
+                bottomStripMarks == 0);
             Check(report, ref failures, label + " no watermark bottom-right",
-                rightBottomDark == 0);
+                rightBottomMarks == 0);
 
             // Geometric sanity: three columns do not overlap, mission head and
             // confirm action sit inside the root, confirm above bottom nav.
@@ -222,24 +230,47 @@ public class SurvivePhase03ShotTests
         }
     }
 
-    private static int CountDarkPixels(Texture2D texture, int x0, int x1, int y0, int y1)
+    /// <summary>
+    /// Pixels of a UI strip that are NOT the strip's own background - the
+    /// theme-independent form of the old "dark pixel" watermark probe. The
+    /// reference luminance is the strip's median, so the same check works on
+    /// the light pages and on the dark Preparation terminal.
+    /// </summary>
+    private static int CountStandoutPixels(Texture2D texture, int x0, int x1, int y0, int y1)
     {
         if (y1 > texture.height)
         {
             y1 = texture.height;
         }
 
-        int count = 0;
-        for (int y = Mathf.Max(0, y0); y < y1; y++)
+        x0 = Mathf.Max(0, x0);
+        x1 = Mathf.Min(texture.width, x1);
+        y0 = Mathf.Max(0, y0);
+
+        var luminance = new System.Collections.Generic.List<float>();
+        for (int y = y0; y < y1; y++)
         {
-            for (int x = Mathf.Max(0, x0); x < Mathf.Min(texture.width, x1); x++)
+            for (int x = x0; x < x1; x++)
             {
                 Color c = texture.GetPixel(x, y);
-                float lum = 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
-                if (lum < 0.45f)
-                {
-                    count++;
-                }
+                luminance.Add(0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b);
+            }
+        }
+
+        if (luminance.Count == 0)
+        {
+            return 0;
+        }
+
+        luminance.Sort();
+        float background = luminance[luminance.Count / 2];
+
+        int count = 0;
+        foreach (float value in luminance)
+        {
+            if (Mathf.Abs(value - background) > 0.12f)
+            {
+                count++;
             }
         }
 

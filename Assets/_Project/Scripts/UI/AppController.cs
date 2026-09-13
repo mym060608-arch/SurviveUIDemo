@@ -47,6 +47,7 @@ public class AppController : MonoBehaviour
     private VisualElement _outpostContainer;
     private VisualElement _debugPanel;
     private VisualElement _debugContent;
+    private VisualElement _bottomNav;
 
     private OverviewScreen _overview;
     private PreparationScreen _preparation;
@@ -238,6 +239,7 @@ public class AppController : MonoBehaviour
         _preparationContainer = _root.Q<VisualElement>(ElementNames.PreparationScreen);
         _processingContainer = _root.Q<VisualElement>(ElementNames.ProcessingScreen);
         _outpostContainer = _root.Q<VisualElement>(ElementNames.OutpostScreen);
+        _bottomNav = _root.Q<VisualElement>(ElementNames.BottomNav);
 
         _screenContainers[0] = _overviewContainer;
         _screenContainers[1] = _preparationContainer;
@@ -360,6 +362,7 @@ public class AppController : MonoBehaviour
         SetTabActive(_navButtons[1], preparation);
         SetTabActive(_navButtons[2], processing);
         SetTabActive(_navButtons[3], outpost);
+        SetNavTerminal(preparation);
 
         CurrentScreen = screen;
 
@@ -378,6 +381,23 @@ public class AppController : MonoBehaviour
         }
 
         container.style.display = visible ? DisplayStyle.Flex : DisplayStyle.None;
+    }
+
+    /// <summary>
+    /// The hub keeps ONE bottom tab strip for all four screens, so a page that
+    /// adopts the darker terminal language marks the strip while it owns the
+    /// screen instead of restyling it globally. Only the class toggle lives
+    /// here; the colors stay with the page's own style sheet
+    /// (PreparationScreen.uss), and the other three screens are untouched.
+    /// </summary>
+    private void SetNavTerminal(bool terminal)
+    {
+        if (_bottomNav == null)
+        {
+            return;
+        }
+
+        _bottomNav.EnableInClassList("nav-terminal", terminal);
     }
 
     private static void SetTabActive(Button tab, bool active)

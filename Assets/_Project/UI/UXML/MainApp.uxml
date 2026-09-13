@@ -180,21 +180,19 @@
 
             <!-- Screen 02: Preparation / Expedition Preparation (Phase 03) -->
             <ui:VisualElement name="PreparationScreen" class="screen preparation-screen">
-                <!-- Top system bar (Phase 02 language) -->
+                <!-- System strip: page identity + terminal status -->
                 <ui:VisualElement class="prep-topbar">
                     <ui:VisualElement class="topbar-left">
-                        <ui:Label class="topbar-brand" text="SURVIVE // DRIFT" />
-                        <ui:VisualElement class="topbar-divider-v" />
+                        <ui:Label class="prep-brand" text="SURVIVE // DRIFT" />
+                        <ui:VisualElement class="prep-brand-rule" />
                         <ui:Label class="topbar-role" text="远征控制" />
                     </ui:VisualElement>
                     <ui:VisualElement class="topbar-right">
-                        <ui:Label class="topbar-cell" text="SHIP // ARK-07" />
-                        <ui:VisualElement class="topbar-cellsep" />
-                        <ui:Label class="topbar-cell" text="CYCLE 1842" />
-                        <ui:VisualElement class="topbar-cellsep" />
-                        <ui:VisualElement class="topbar-system">
-                            <ui:VisualElement class="status-dot" />
-                            <ui:Label class="topbar-cell" text="SYSTEM ONLINE" />
+                        <ui:Label class="prep-top-note" text="行星勘测任务" />
+                        <ui:VisualElement class="prep-top-sep" />
+                        <ui:VisualElement class="prep-online">
+                            <ui:VisualElement class="prep-online-dot" />
+                            <ui:Label class="prep-online-text" text="系统在线" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -202,25 +200,13 @@
                 <!-- Mission / target summary -->
                 <ui:VisualElement name="MissionSummary" class="mission-summary">
                     <ui:VisualElement class="mission-head">
-                        <ui:Label class="eyebrow" text="任务" />
-                        <ui:Label name="PreparationDestination" class="mission-planet" text="NEREID-04" />
+                        <ui:Label name="PreparationDestination" class="mission-planet" text="出发准备" />
+                        <ui:Label class="prep-subtitle" text="选择装备，配置出发方案" />
                     </ui:VisualElement>
                     <ui:VisualElement class="mission-data">
-                        <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="目标类型" />
-                            <ui:Label class="mission-cell-value" text="未知地表" />
-                        </ui:VisualElement>
-                        <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="距离" />
-                            <ui:Label class="mission-cell-value" text="2.47 AU" />
-                        </ui:VisualElement>
-                        <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="任务类型" />
-                            <ui:Label class="mission-cell-value" text="资源勘测" />
-                        </ui:VisualElement>
-                        <ui:VisualElement class="mission-cell">
-                            <ui:Label class="mission-cell-key" text="信号" />
-                            <ui:Label class="mission-cell-value" text="稳定" />
+                        <ui:Label class="mission-resource-label" text="资源" />
+                        <ui:VisualElement class="mission-resource-disc">
+                            <ui:VisualElement name="MissionResourceIcon" class="mission-resource-icon" />
                         </ui:VisualElement>
                     </ui:VisualElement>
                 </ui:VisualElement>
@@ -231,36 +217,62 @@
                     <ui:VisualElement name="EnvironmentPanel" class="prep-col-left">
                         <ui:VisualElement class="panel-header">
                             <ui:Label class="panel-header-text" text="环境数据" />
+                            <ui:Label class="panel-header-code" text="ENVIRONMENT" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="温度" />
+                            <ui:VisualElement class="env-state" />
+                            <ui:VisualElement name="EnvTempIcon" class="env-icon" />
+                            <ui:VisualElement class="env-copy">
+                                <ui:Label class="env-name" text="温度" />
+                                <ui:Label class="env-code" text="TEMP" />
+                            </ui:VisualElement>
                             <ui:Label class="env-value" text="-37 °C" />
                             <ui:Label class="env-risk" text="低温" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="重力" />
+                            <ui:VisualElement class="env-state" />
+                            <ui:VisualElement name="EnvGravityIcon" class="env-icon" />
+                            <ui:VisualElement class="env-copy">
+                                <ui:Label class="env-name" text="重力" />
+                                <ui:Label class="env-code" text="GRAV" />
+                            </ui:VisualElement>
                             <ui:Label class="env-value" text="0.72 G" />
                             <ui:Label class="env-risk" text="稳定" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="辐射" />
+                            <ui:VisualElement class="env-state env-state-caution" />
+                            <ui:VisualElement name="EnvRadiationIcon" class="env-icon" />
+                            <ui:VisualElement class="env-copy">
+                                <ui:Label class="env-name" text="辐射" />
+                                <ui:Label class="env-code" text="RAD" />
+                            </ui:VisualElement>
                             <ui:Label class="env-value" text="中等" />
                             <ui:Label class="env-risk env-risk-caution" text="注意" />
                         </ui:VisualElement>
                         <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="大气" />
+                            <ui:VisualElement class="env-state env-state-dim" />
+                            <ui:VisualElement name="EnvAtmosphereIcon" class="env-icon" />
+                            <ui:VisualElement class="env-copy">
+                                <ui:Label class="env-name" text="大气" />
+                                <ui:Label class="env-code" text="ATMO" />
+                            </ui:VisualElement>
                             <ui:Label class="env-value" text="稀薄" />
-                            <ui:Label class="env-risk" text="—" />
+                            <ui:Label class="env-risk env-risk-dim" text="—" />
                         </ui:VisualElement>
-                        <ui:VisualElement class="env-row">
-                            <ui:Label class="env-name" text="地表" />
+                        <ui:VisualElement class="env-row env-row-unknown">
+                            <ui:VisualElement name="EnvSurfaceState" class="env-state env-state-unknown" />
+                            <ui:VisualElement name="EnvSurfaceIcon" class="env-icon" />
+                            <ui:VisualElement class="env-copy">
+                                <ui:Label class="env-name" text="地表" />
+                                <ui:Label class="env-code" text="SURF" />
+                            </ui:VisualElement>
                             <ui:Label class="env-value" text="未知" />
-                            <ui:Label class="env-risk env-risk-na" text="—" />
+                            <ui:Label class="env-risk env-risk-unknown" text="扫描中" />
                         </ui:VisualElement>
                         <ui:VisualElement class="panel-footnote">
                             <ui:VisualElement class="footnote-tick" />
-                            <ui:Label class="footnote-label" text="勘测数据 // 临时" />
+                            <ui:Label class="footnote-label" text="陌生的世界，从准备开始。" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
@@ -268,55 +280,74 @@
                     <ui:VisualElement name="EquipmentPanel" class="prep-col-center">
                         <ui:VisualElement class="panel-header">
                             <ui:Label class="panel-header-text" text="装备配置" />
+                            <ui:Label class="panel-header-code" text="LOADOUT" />
                             <ui:VisualElement class="panel-header-rule" />
                         </ui:VisualElement>
 
                         <ui:Button name="HarvesterRowButton" class="equipment-row row-required">
+                            <ui:VisualElement class="equipment-bar" />
                             <ui:Label class="equipment-index" text="01" />
+                            <ui:VisualElement name="HarvesterSketch" class="equipment-sketch" />
                             <ui:VisualElement class="equipment-copy">
                                 <ui:Label class="equipment-name" text="采集器 MK-I" />
                                 <ui:Label class="equipment-purpose" text="可部署矿物采集模块" />
                             </ui:VisualElement>
                             <ui:VisualElement class="equipment-trailing">
-                                <ui:Label class="equipment-weight" text="45 KG" />
+                                <ui:VisualElement class="equipment-weight-line">
+                                    <ui:Label class="equipment-weight" text="45" />
+                                    <ui:Label class="equipment-weight-unit" text="KG" />
+                                </ui:VisualElement>
                                 <ui:Label class="equipment-chip" text="必需" />
+                                <ui:Label class="equipment-equipped" text="已选择" />
                             </ui:VisualElement>
                         </ui:Button>
 
                         <ui:Button name="BatteryRowButton" class="equipment-row">
+                            <ui:VisualElement class="equipment-bar" />
                             <ui:Label class="equipment-index" text="02" />
+                            <ui:VisualElement name="BatterySketch" class="equipment-sketch" />
                             <ui:VisualElement class="equipment-copy">
                                 <ui:Label class="equipment-name" text="备用电池组" />
                                 <ui:Label class="equipment-purpose" text="为远程设备提供辅助能源" />
                             </ui:VisualElement>
                             <ui:VisualElement class="equipment-trailing">
-                                <ui:Label class="equipment-weight" text="25 KG" />
+                                <ui:VisualElement class="equipment-weight-line">
+                                    <ui:Label class="equipment-weight" text="25" />
+                                    <ui:Label class="equipment-weight-unit" text="KG" />
+                                </ui:VisualElement>
                                 <ui:Label class="equipment-chip" text="可选" />
                             </ui:VisualElement>
                         </ui:Button>
 
                         <ui:Button name="DroneRowButton" class="equipment-row">
+                            <ui:VisualElement class="equipment-bar" />
                             <ui:Label class="equipment-index" text="03" />
+                            <ui:VisualElement name="DroneSketch" class="equipment-sketch" />
                             <ui:VisualElement class="equipment-copy">
                                 <ui:Label class="equipment-name" text="勘测无人机" />
                                 <ui:Label class="equipment-purpose" text="近距离地形与资源扫描" />
                             </ui:VisualElement>
                             <ui:VisualElement class="equipment-trailing">
-                                <ui:Label class="equipment-weight" text="20 KG" />
+                                <ui:VisualElement class="equipment-weight-line">
+                                    <ui:Label class="equipment-weight" text="20" />
+                                    <ui:Label class="equipment-weight-unit" text="KG" />
+                                </ui:VisualElement>
                                 <ui:Label class="equipment-chip" text="可选" />
                             </ui:VisualElement>
                         </ui:Button>
 
                         <ui:VisualElement class="loadout-hint">
-                            <ui:Label class="loadout-hint-text" text="必需模块优先显示 // 确认后锁定配置" />
+                            <ui:VisualElement class="loadout-hint-rule" />
+                            <ui:Label class="loadout-hint-text" text="采集器为必需装备；确认后锁定配置。" />
                         </ui:VisualElement>
                     </ui:VisualElement>
 
                     <!-- RIGHT: cargo / readiness -->
                     <ui:VisualElement class="prep-col-right">
-                        <ui:VisualElement name="CargoPanel" class="panel-block">
+                        <ui:VisualElement name="CargoPanel" class="panel-block cargo-block">
                             <ui:VisualElement class="panel-header">
                                 <ui:Label class="panel-header-text" text="载荷" />
+                                <ui:Label class="panel-header-code" text="PAYLOAD" />
                                 <ui:VisualElement class="panel-header-rule" />
                             </ui:VisualElement>
                             <ui:VisualElement class="cargo-line">
@@ -325,35 +356,62 @@
                             </ui:VisualElement>
                             <ui:VisualElement class="cargo-track">
                                 <ui:VisualElement name="CargoBarFill" class="cargo-fill" />
+                                <ui:VisualElement class="cargo-tick cargo-tick-a" />
+                                <ui:VisualElement class="cargo-tick cargo-tick-b" />
+                                <ui:VisualElement class="cargo-tick cargo-tick-c" />
+                                <ui:VisualElement class="cargo-tick cargo-tick-d" />
                             </ui:VisualElement>
                         </ui:VisualElement>
 
                         <ui:VisualElement name="ReadinessPanel" class="panel-block readiness-block">
                             <ui:VisualElement class="panel-header">
                                 <ui:Label class="panel-header-text" text="任务准备度" />
+                                <ui:Label class="panel-header-code" text="READINESS" />
                                 <ui:VisualElement class="panel-header-rule" />
                             </ui:VisualElement>
-                            <ui:Label name="LoadoutStateLabel" class="readiness-status" text="就绪" />
+                            <ui:VisualElement name="ReadinessState" class="readiness-state">
+                                <ui:VisualElement class="readiness-state-dot" />
+                                <ui:Label name="LoadoutStateLabel" class="readiness-status" text="就绪" />
+                            </ui:VisualElement>
                             <ui:Label class="readiness-sub" text="配置有效 // 等待确认" />
-                            <ui:VisualElement class="readiness-row">
+                            <ui:VisualElement class="readiness-row row-active">
+                                <ui:VisualElement class="readiness-dot" />
                                 <ui:Label class="readiness-key" text="目标数据" />
-                                <ui:Label class="readiness-value" text="就绪" />
+                                <ui:Label class="readiness-value readiness-active" text="就绪" />
                             </ui:VisualElement>
-                            <ui:VisualElement class="readiness-row">
+                            <ui:VisualElement class="readiness-row row-active">
+                                <ui:VisualElement class="readiness-dot" />
                                 <ui:Label class="readiness-key" text="采集器" />
-                                <ui:Label class="readiness-value" text="就绪" />
+                                <ui:Label class="readiness-value readiness-active" text="就绪" />
                             </ui:VisualElement>
                             <ui:VisualElement class="readiness-row">
+                                <ui:VisualElement class="readiness-dot" />
                                 <ui:Label class="readiness-key" text="能源模块" />
                                 <ui:Label name="ReadinessPowerValue" class="readiness-value" text="可选" />
                             </ui:VisualElement>
                             <ui:VisualElement class="readiness-row">
+                                <ui:VisualElement class="readiness-dot" />
                                 <ui:Label class="readiness-key" text="勘测系统" />
                                 <ui:Label name="ReadinessSurveyValue" class="readiness-value" text="可选" />
                             </ui:VisualElement>
-                            <ui:VisualElement class="readiness-row">
+                            <ui:VisualElement class="readiness-row row-active">
+                                <ui:VisualElement class="readiness-dot" />
                                 <ui:Label class="readiness-key" text="载荷" />
-                                <ui:Label name="ReadinessCargoValue" class="readiness-value" text="45 / 100" />
+                                <ui:Label name="ReadinessCargoValue" class="readiness-value readiness-active" text="45 / 100" />
+                            </ui:VisualElement>
+                        </ui:VisualElement>
+                        <ui:VisualElement name="PrepMissionPanel" class="panel-block prep-mission-block">
+                            <ui:VisualElement class="panel-header">
+                                <ui:Label class="panel-header-text" text="任务清单" />
+                                <ui:Button name="PrepMissionDetailsButton" class="prep-details-button" text="查看详情 ›" />
+                            </ui:VisualElement>
+                            <ui:Label class="prep-objective" text="□ 部署采集机   0 / 3" />
+                            <ui:Label class="prep-objective" text="□ 收集矿物     0 / 20" />
+                            <ui:VisualElement name="PrepMissionDetails" class="prep-mission-details">
+                                <ui:Label class="prep-detail-row" text="目标数据      就绪" />
+                                <ui:Label class="prep-detail-row" text="采集器        就绪" />
+                                <ui:Label name="PrepDetailPower" class="prep-detail-row" text="能源模块      可选" />
+                                <ui:Label name="PrepDetailSurvey" class="prep-detail-row" text="勘测系统      可选" />
                             </ui:VisualElement>
                         </ui:VisualElement>
                     </ui:VisualElement>
@@ -361,7 +419,13 @@
 
                 <!-- Bottom action strip -->
                 <ui:VisualElement class="prep-actionbar">
-                    <ui:Label class="actionbar-context" text="远征配置" />
+                    <ui:Label class="actionbar-context" text="NEREID-04 · 出发准备" />
+                    <ui:VisualElement class="prep-hints">
+                        <ui:Label class="prep-key-hint" text="[X] 详情" />
+                        <ui:Label class="prep-key-hint" text="[LS] 选择" />
+                        <ui:Label class="prep-key-hint" text="[B] 返回" />
+                        <ui:Label class="prep-key-hint prep-key-primary" text="[A] 装备 / 卸下" />
+                    </ui:VisualElement>
                     <ui:Button name="ConfirmLoadoutButton" class="confirm-action" text="确认配置" />
                 </ui:VisualElement>
             </ui:VisualElement>
